@@ -5,7 +5,7 @@
   "description": "Production-grade e-commerce platform (storefront + admin) - BDT / COD / Steadfast / Meta CAPI ready",
   "scripts": {
     "dev": "next dev -H 0.0.0.0 -p 3000",
-    "build": "prisma generate && next build",
+    "build": "prisma generate --schema prisma/schema.prod.prisma && next build",
     "start": "next start -H 0.0.0.0 -p 3000",
     "lint": "next lint",
     "db:push": "prisma db push",
@@ -14,7 +14,9 @@
     "db:studio": "prisma studio",
     "wa": "node scripts/whatsapp-bridge.js",
     "postinstall": "prisma generate",
-    "test": "node scripts/smoke.js"
+    "test": "node scripts/smoke.js",
+    "db:push:prod": "prisma db push --schema prisma/schema.prod.prisma",
+    "db:seed:prod": "prisma generate --schema prisma/schema.prod.prisma && node prisma/seed.js"
   },
   "dependencies": {
     "@prisma/client": "5.22.0",

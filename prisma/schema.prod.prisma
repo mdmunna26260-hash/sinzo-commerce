@@ -1,0 +1,266 @@
+// PRODUCTION schema (PostgreSQL) — used by Vercel builds + prod db push.
+// Local dev keeps using prisma/schema.prisma (SQLite).
+// Usage:
+//   npx prisma db push --schema prisma/schema.prod.prisma
+//   npx prisma generate --schema prisma/schema.prod.prisma
+// Requires DATABASE_URL (PostgreSQL connection string) in the environment.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        Int      @id @default(autoincrement())
+  email     String   @unique
+  password  String
+  name      String
+  role      String   @default("ADMIN") // SUPER_ADMIN | ADMIN | ORDER_MANAGER | PRODUCT_MANAGER | MARKETING | SUPPORT
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+}
+
+model Setting {
+  key   String @id
+  value String // JSON string
+}
+
+model Category {
+  id          Int       @id @default(autoincrement())
+  name        String
+  slug        String    @unique
+  description String?
+  sizeChart   String?   // HTML table for size guide
+  image       String?
+  products    Product[]
+}
+
+model Collection {
+  id        Int                 @id @default(autoincrement())
+  title     String
+  slug      String              @unique
+  subtitle  String?
+  image     String?
+  products  CollectionProduct[]
+  createdAt DateTime            @default(now())
+}
+
+model CollectionProduct {
+  collectionId Int
+  productId    Int
+  collection   Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  product      Product    @relation(fields: [productId], references: [id], onDelete: Cascade)
+  @@id([collectionId, productId])
+}
+
+model Product {
+  id          Int                @id @default(autoincrement())
+  title       String
+  slug        String             @unique
+  shortDesc   String?
+  description String?
+  sku         String?
+  barcode     String?
+  price       Float
+  comparePrice Float?
+  cost        Float?
+  stock       Int                @default(0)
+  lowStock    Int                @default(5)
+  status      String             @default("ACTIVE") // ACTIVE | DRAFT | ARCHIVED
+  featured    Boolean            @default(false)
+  tags        String?
+  images      ProductImage[]
+  variants    ProductVariant[]
+  category    Category?          @relation(fields: [categoryId], references: [id])
+  categoryId  Int?
+  collections CollectionProduct[]
+  reviews     Review[]
+  orderItems  OrderItem[]
+  movements   InventoryMovement[]
+  views       Int                @default(0)
+  position    Int                @default(0) // admin drag&drop order -> homepage/listing
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+}
+
+model Notification {
+  id        Int      @id @default(autoincrement())
+  type      String   // order.placed | order.confirmed | order.cancelled | order.shipped | order.delivered | test
+  title     String
+  body      String
+  ref       String?
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model ProductImage {
+  id        Int     @id @default(autoincrement())
+  url       String
+  alt       String?
+  position  Int     @default(0)
+  productId Int
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+}
+
+model ProductVariant {
+  id        Int     @id @default(autoincrement())
+  size      String?
+  color     String?
+  sku       String?
+  price     Float?
+  stock     Int     @default(0)
+  barcode   String?
+  productId Int
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+}
+
+model Customer {
+  id        Int     @id @default(autoincrement())
+  phone     String  @unique
+  name      String?
+  email     String?
+  address   String?
+  area      String?
+  note      String?
+  tags      String?
+  password  String? // set = registered account (phone = login id)
+  orders    Order[]
+  createdAt DateTime @default(now())
+}
+
+model Order {
+  id            Int         @id @default(autoincrement())
+  code          String      @unique // ORD-1001 style, set in code
+  name          String
+  phone         String
+  email         String?
+  address       String
+  area          String      // INSIDE_DHAKA | OUTSIDE_DHAKA
+  notes         String?
+  subtotal      Float
+  discount      Float       @default(0)
+  deliveryFee   Float       @default(0)
+  total         Float
+  couponCode    String?
+  paymentMethod String      @default("COD")
+  paymentStatus String      @default("PENDING") // PENDING | PAID | FAILED | REFUNDED
+  status        String      @default("PENDING") // PENDING | CONFIRMED | PROCESSING | PACKED | SHIPPED | DELIVERED | CANCELLED | RETURNED | ON_HOLD
+  riskLevel     String      @default("LOW") // LOW | MEDIUM | HIGH | CRITICAL
+  riskFlags     String?
+  source        String?     // Facebook | Instagram | Google | Direct | Organic | Referral | Unknown
+  attribution   String?     // JSON: utm*, fbclid, fbp, fbc
+  ip            String?
+  adminNote     String?
+  courierName     String?
+  courierConsignmentId String?
+  courierStatus      String?
+  courierTracking    String?
+  customerId   Int?
+  customer     Customer?    @relation(fields: [customerId], references: [id])
+  items        OrderItem[]
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+}
+
+model OrderItem {
+  id        Int     @id @default(autoincrement())
+  orderId   Int
+  order     Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId Int?
+  product   Product? @relation(fields: [productId], references: [id])
+  title     String
+  variant   String?
+  image     String?
+  price     Float
+  qty       Int
+}
+
+model Coupon {
+  id             Int      @id @default(autoincrement())
+  code           String   @unique
+  type           String   // percent | fixed | freeship
+  value          Float    @default(0)
+  minOrder       Float?
+  maxDiscount    Float?
+  usageLimit     Int?
+  usedCount      Int      @default(0)
+  perCustomer    Int?
+  firstOrderOnly Boolean  @default(false)
+  startsAt       DateTime?
+  endsAt         DateTime?
+  active         Boolean  @default(true)
+  createdAt      DateTime @default(now())
+}
+
+model Review {
+  id        Int      @id @default(autoincrement())
+  productId Int
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  name      String
+  phone     String?
+  rating    Int
+  text      String
+  status    String   @default("PENDING") // PENDING | APPROVED | REJECTED
+  verified  Boolean  @default(false)
+  featured  Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model TrackingEvent {
+  id        Int      @id @default(autoincrement())
+  name      String
+  eventId   String?
+  source    String?  // browser | server | capi
+  payload   String?
+  ok        Boolean  @default(true)
+  error     String?
+  createdAt DateTime @default(now())
+}
+
+model AbandonedCheckout {
+  id        Int      @id @default(autoincrement())
+  phone     String?
+  name      String?
+  cartJson  String
+  total     Float
+  recovered Boolean  @default(false)
+  updatedAt DateTime @default(now())
+  createdAt DateTime @default(now())
+}
+
+model Subscriber {
+  id        Int      @id @default(autoincrement())
+  email     String   @unique
+  createdAt DateTime @default(now())
+}
+
+model AuditLog {
+  id        Int      @id @default(autoincrement())
+  userEmail String
+  action    String
+  detail    String?
+  ip        String?
+  createdAt DateTime @default(now())
+}
+
+model InventoryMovement {
+  id        Int      @id @default(autoincrement())
+  productId Int
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  delta     Int
+  reason    String   // ORDER | RESTOCK | MANUAL | RETURN | CANCEL
+  ref       String?
+  createdAt DateTime @default(now())
+}
+
+model Blacklist {
+  id        Int      @id @default(autoincrement())
+  type      String // PHONE | ADDRESS | IP
+  value     String
+  note      String?
+  createdAt DateTime @default(now())
+}
