@@ -8,7 +8,7 @@ import Link from "next/link";
 
 export const dynamic = "force-dynamic";
 
-type SP = { q?: string; category?: string; min?: string; max?: string; size?: string; avail?: string; sort?: string; onsale?: string };
+type SP = { q?: string; category?: string; min?: string; max?: string; size?: string; avail?: string; sort?: string; onsale?: string; page?: string };
 
 export const metadata = { title: "Shop All" };
 
@@ -44,12 +44,24 @@ export default async function ProductsPage({ searchParams }: { searchParams: SP 
     searchParams.sort === "new" ? { createdAt: "desc" } :
     [{ position: "asc" }, { id: "desc" }]; // default = admin drag&drop order
 
-  let products = await db.product.findMany({
+  const PAGE = 12;
+  const page = Math.max(1, parseInt(searchParams.page || "1", 10) || 1);
+  const totalMatching = await db.product.count({ where });
+  const products = await db.product.findMany({
     where, orderBy, include: { images: true, category: true, variants: true },
+    take: PAGE, skip: (page - 1) * PAGE,
   });
+  let shown = products;
   if (searchParams.size) {
-    products = products.filter((p) => p.variants.some((v) => v.size === searchParams.size && v.stock > 0));
+    shown = products.filter((p) => p.variants.some((v) => v.size === searchParams.size && v.stock > 0));
   }
+  const hasMore = page * PAGE < totalMatching;
+  const pageQs = (n: number) => {
+    const params = new URLSearchParams();
+    for (const [k, v] of Object.entries(searchParams)) if (v && k !== "page") params.set(k, String(v));
+    params.set("page", String(n));
+    return "/products?" + params.toString();
+  };
 
   const activeCat = cats.find((c) => c.slug === searchParams.category);
   const activeChips: { label: string; patch: Record<string, string | undefined> }[] = [];
@@ -77,7 +89,7 @@ export default async function ProductsPage({ searchParams }: { searchParams: SP 
         </h1>
 
         {/* toolbar: mobile shows Filter button; desktop shows count + sort right */}
-        <ProductsToolbar count={products.length} cats={cats.map((c) => ({ name: c.name, slug: c.slug }))} />
+        <ProductsToolbar count={totalMatching} cats={cats.map((c) => ({ name: c.name, slug: c.slug }))} />
 
         {/* active filter chips */}
         {activeChips.length > 0 && (
@@ -93,7 +105,7 @@ export default async function ProductsPage({ searchParams }: { searchParams: SP 
         <div className="shop-layout">
           <Filters cats={cats.map((c) => ({ name: c.name, slug: c.slug }))} />
           <main>
-            {products.length === 0 ? (
+            {shown.length === 0 ? (
               <div className="empty">
                 <h3>Nothing here yet</h3>
                 <p>Try different filters or browse all products.</p>
@@ -101,13 +113,18 @@ export default async function ProductsPage({ searchParams }: { searchParams: SP 
               </div>
             ) : (
               <div className="shop-grid">
-                {products.map((p) => (
+                {shown.map((p) => (
                   <ProductCard key={p.id} p={{
                     id: p.id, title: p.title, slug: p.slug, price: p.price, comparePrice: p.comparePrice,
                     image: p.images?.[0]?.url, categoryName: p.category?.name, stock: p.stock,
                     isNew: p.isNew, isBestSeller: p.isBestSeller,
                   }} />
                 ))}
+              </div>
+            )}
+            {hasMore && (
+              <div style={{ display: "flex", justifyContent: "center", padding: "34px 0 6px" }}>
+                <Link className="btn btn-outline" href={pageQs(page + 1)} scroll={false}>Load More</Link>
               </div>
             )}
           </main>

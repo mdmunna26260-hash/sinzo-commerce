@@ -45,6 +45,7 @@ export default function Sidebar({ pending, lowStock }: { pending: number; lowSto
   if (!t) { try { t = localStorage.getItem("sz_admin_token") || ""; } catch {} }
   const link = (href: string) => (t ? href + "?t=" + encodeURIComponent(t) : href);
   const user = decodeToken(t);
+  const [menuOpen, setMenuOpen] = useState(false);
   const logout = async () => {
     try { await afetch("/api/admin/logout", { method: "POST" }); } catch {}
     try { localStorage.removeItem("sz_admin_token"); } catch {}
@@ -67,8 +68,23 @@ export default function Sidebar({ pending, lowStock }: { pending: number; lowSto
   const clearAll = async () => { await afetch("/api/admin/notifications", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "clear" }) }); loadNotifs(); };
 
   return (
-    <aside className="admin-side">
-      <Link href={link("/admin/dashboard")} className="logo">{user?.name ? user.name.split(" ")[0].toUpperCase() : "ADMIN"}<span style={{ fontSize: 10, display: "block", color: "#6c7280", letterSpacing: ".2em" }}>COMMERCE PANEL</span></Link>
+    <>
+      {/* mobile topbar */}
+      <div className="admin-topbar">
+        <button aria-label="Open menu" onClick={() => setMenuOpen(true)}>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+        </button>
+        <span className="logo">COMMERCE PANEL</span>
+        <Link href="/" target="_blank" aria-label="View website" style={{ display: "flex", padding: 8 }}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14 21 3"/></svg>
+        </Link>
+      </div>
+      {menuOpen && <div className="admin-scrim" onClick={() => setMenuOpen(false)} />}
+    <aside className={"admin-side" + (menuOpen ? " open" : "")}>
+      <div style={{ display: "flex", justifyContent: "flex-end", padding: "0 14px" }}>
+        <button className="abtn sm" style={{ background: "transparent", borderColor: "rgba(255,255,255,.15)", color: "#fff", display: "none" }} aria-hidden>×</button>
+      </div>
+      <Link href={link("/admin/dashboard")} className="logo" onClick={() => setMenuOpen(false)}>{user?.name ? user.name.split(" ")[0].toUpperCase() : "ADMIN"}<span style={{ fontSize: 10, display: "block", color: "#6c7280", letterSpacing: ".2em" }}>COMMERCE PANEL</span></Link>
 
       <div className="bell-wrap">
         <button className="bell-btn" onClick={() => { setNotifOpen(!notifOpen); loadNotifs(); }}>
@@ -104,7 +120,7 @@ export default function Sidebar({ pending, lowStock }: { pending: number; lowSto
           {g.items.map((it) => {
             const badge = it.badge === "pending" ? pending : it.badge === "stock" ? lowStock : 0;
             return (
-              <Link key={it.href} href={link(it.href)} className={path.startsWith(it.href) ? "active" : ""}>
+              <Link key={it.href} href={link(it.href)} onClick={() => setMenuOpen(false)} className={path.startsWith(it.href) ? "active" : ""}>
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path d={it.icon} /></svg>
                 <span style={{ flex: 1 }}>{it.label}</span>
                 {badge > 0 && <span style={{ background: "#9a7b4f", color: "#fff", fontSize: 10, borderRadius: 99, padding: "1px 7px" }}>{badge}</span>}
@@ -118,5 +134,6 @@ export default function Sidebar({ pending, lowStock }: { pending: number; lowSto
       <Link href="/" target="_blank" style={{ marginTop: 6 }}>↗ View Storefront</Link>
       <a href="#" onClick={(e) => { e.preventDefault(); logout(); }}>⎋ Sign out</a>
     </aside>
+    </>
   );
 }

@@ -27,6 +27,8 @@ export default function OrdersClient({ initial }: { initial: O[] }) {
     (!q || [o.code, o.name, o.phone, o.courierConsignmentId || ""].join(" ").toLowerCase().includes(q.toLowerCase()))
   ), [initial, q, status, payment]);
 
+  const openOrder = (id: number) => router.push(withToken("/admin/orders/" + id));
+
   const copyPhone = async (e: React.MouseEvent, phone: string) => {
     e.preventDefault(); e.stopPropagation();
     const ok = await copyText(phone);
@@ -89,9 +91,9 @@ export default function OrdersClient({ initial }: { initial: O[] }) {
             <tbody>
               {list.length === 0 && <tr><td colSpan={12} style={{ color: "var(--muted)", padding: 30 }}>No orders match.</td></tr>}
               {list.map((o) => (
-                <tr key={o.id}>
-                  <td><input type="checkbox" checked={sel.has(o.id)} onChange={() => toggle(o.id)} /></td>
-                  <td><Link href={withToken("/admin/orders/" + o.id)}><b>{o.code}</b></Link></td>
+                <tr key={o.id} style={{ cursor: "pointer" }} onClick={() => openOrder(o.id)}>
+                  <td onClick={(e) => e.stopPropagation()}><input type="checkbox" checked={sel.has(o.id)} onChange={() => toggle(o.id)} /></td>
+                  <td><Link href={withToken("/admin/orders/" + o.id)} onClick={(e) => e.stopPropagation()}><b>{o.code}</b></Link></td>
                   <td>{o.name}<br />
                     <span style={{ color: "var(--muted)", fontSize: 12, display: "inline-flex", alignItems: "center", gap: 4 }}>
                       {o.phone}
@@ -103,7 +105,7 @@ export default function OrdersClient({ initial }: { initial: O[] }) {
                   <td><b>৳{Math.round(o.total).toLocaleString("en-IN")}</b></td>
                   <td><span className={"pill " + o.paymentStatus}>{o.paymentMethod === "COD" ? "COD" : "ONLINE"} · {o.paymentStatus}</span></td>
                   <td><span className={"pill " + o.status}>{o.status}</span></td>
-                  <td style={{ fontSize: 12 }}>{o.courierName ? <>{o.courierName}<br /><span style={{ color: "var(--muted)" }}>{o.courierStatus || o.courierConsignmentId}</span></> : <span style={{ color: "var(--muted)" }}>—</span>}</td>
+                  <td style={{ fontSize: 12 }} onClick={(e) => e.stopPropagation()}>{o.courierName ? <>{o.courierName}<br /><span style={{ color: "var(--muted)" }}>{o.courierStatus || o.courierConsignmentId}</span></> : <span style={{ color: "var(--muted)" }}>—</span>}</td>
                   <td><span className={"risk-badge risk-" + o.riskLevel}>{o.riskLevel}</span></td>
                   <td style={{ fontSize: 12 }}>{o.source || "Direct"}</td>
                   <td style={{ fontSize: 12 }}><FmtDate iso={o.createdAt} /></td>

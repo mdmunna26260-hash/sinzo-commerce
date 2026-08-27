@@ -12,6 +12,7 @@ export default async function ThermalReceipt({ params, searchParams }: { params:
   if (!order) notFound();
   const s = await getSettings();
   const store = s.store || {};
+  const merchantId = s.courier?.merchantId || "";
   const w = searchParams.w === "58" ? 58 : 80;
   const t = searchParams.t || "";
 
@@ -53,10 +54,13 @@ export default async function ThermalReceipt({ params, searchParams }: { params:
           <table>
             {order.items.map((i) => (
               <tr key={i.id}>
-                <td>
-                  <div className="b">{i.title}</div>
-                  {i.variant ? <div style={{ fontSize: ".9em" }}>{i.variant}</div> : null}
-                  <div style={{ fontSize: ".9em" }}>{i.qty} × {money(i.price)}</div>
+                <td style={{ display: "flex", gap: 6, alignItems: "flex-start" }}>
+                  {i.image && <img src={i.image} alt="" width={30} height={38} style={{ objectFit: "cover", borderRadius: 2, flex: "none", filter: "grayscale(1) contrast(1.05)" }} />}
+                  <span>
+                    <span className="b">{i.title}</span>
+                    {i.variant ? <div style={{ fontSize: ".9em" }}>{i.variant}</div> : null}
+                    <div style={{ fontSize: ".9em" }}>{i.qty} × {money(i.price)}</div>
+                  </span>
                 </td>
                 <td className="r b">{money(i.price * i.qty)}</td>
               </tr>
@@ -77,6 +81,7 @@ export default async function ThermalReceipt({ params, searchParams }: { params:
               <div>Courier : {order.courierName || "Steadfast"}</div>
               <div>Consignment ID:</div>
               <div className="c conId">{order.courierConsignmentId}</div>
+              {merchantId && <div className="c" style={{ fontSize: ".9em", marginTop: 4 }}>MERCHANT ID: {merchantId}</div>}
             </>
           )}
           <div className="dash" />

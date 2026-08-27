@@ -5,6 +5,7 @@ import { getSettings, publicSettings } from "@/lib/settings";
 import { Header, Footer, Announcement } from "@/components/chrome";
 import { ProductCard } from "@/components/parts";
 import Carousel from "@/components/home/carousel";
+import SmartImg from "@/components/smart-img";
 
 export const dynamic = "force-dynamic";
 
@@ -33,6 +34,9 @@ export default async function HomePage() {
     reviews.push(...extra);
   }
   const hp = s.homepage || {};
+  // cache-bust key: changes whenever homepage settings change → banners refresh instantly
+  const bust = (() => { let h = 0; const str = JSON.stringify(hp); for (let i = 0; i < str.length; i++) { h = ((h << 5) - h + str.charCodeAt(i)) | 0; } return Math.abs(h).toString(36); })();
+  const vb = (u?: string) => (u ? (u.includes("?") ? u + "&v=" + bust : u + "?v=" + bust) : u);
   const sectionCfg: { id: string; enabled: boolean }[] =
     Array.isArray(s.homeSections) && s.homeSections.length ? s.homeSections : DEFAULT_SECTIONS;
   const cp = (col: any) =>
@@ -49,7 +53,7 @@ export default async function HomePage() {
   const sections: Record<string, React.ReactNode> = {
     hero: (
       <section className="hero" key="hero">
-        {hp.heroImage && <img className="hero-img" src={hp.heroImage} alt={cfg.store?.name || "Hero"} fetchPriority="high" />}
+        {hp.heroImage && <SmartImg className="hero-img" priority src={vb(hp.heroImage)} alt={cfg.store?.name || "Hero"} />}
         <div className="hero-overlay">
           <div className="hero-content">
             <div className="eyebrow">{cfg.store?.tagline}</div>
@@ -130,7 +134,7 @@ export default async function HomePage() {
     ),
     promo: hp.promoTitle ? (
       <section className="promo container" style={{ marginBottom: 72 }} key="promo">
-        {hp.promoImage && <img src={hp.promoImage} alt={hp.promoTitle} loading="lazy" />}
+        {hp.promoImage && <SmartImg src={vb(hp.promoImage)} alt={hp.promoTitle} />}
         <div className="promo-box">
           <div className="promo-inner">
             <div className="eyebrow">Limited time</div>

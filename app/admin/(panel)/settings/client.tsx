@@ -376,6 +376,7 @@ export default function SettingsClient({ groups, user, userCount, hasCourier }: 
           <div className="acard"><div className="acard-h"><h3>Steadfast Courier</h3></div>
             <div className="acard-b form-grid">
               <F k="apiUrl" label="API URL" group="courier" />
+              <F k="merchantId" label="Steadfast Merchant ID (receipt-e print hobe)" group="courier" />
               <F k="apiKey" label="API Key" group="courier" />
               <F k="secretKey" label="Secret Key" group="courier" />
               <F k="insideDhaka" label="Inside Dhaka charge (৳)" type="number" group="courier" />

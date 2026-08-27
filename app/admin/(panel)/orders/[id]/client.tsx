@@ -111,6 +111,7 @@ export default function OrderDetailClient({ initial }: { initial: Order }) {
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           <button className="abtn" onClick={downloadOrder}>⭳ Download</button>
           <Link className="abtn" href={withToken("/admin/orders/" + o.id + "/receipt?w=80")}>🧾 Thermal</Link>
+          <Link className="abtn" href={withToken("/admin/dashboard")}>← Back to Dashboard</Link>
           <Link className="abtn" href={withToken("/admin/orders/" + o.id + "/invoice")} target="_blank">🖨 Invoice</Link>
           {!o.courierConsignmentId
             ? <button className="abtn primary" onClick={sendCourier} disabled={busy}>🚚 Send to Steadfast</button>

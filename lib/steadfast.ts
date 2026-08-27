@@ -91,3 +91,18 @@ export async function testConnection(): Promise<{ ok: boolean; configured: boole
   if (r.ok) return { ok: true, configured: true, detail: `Connected ✓ (balance: ৳${r.data?.current_balance ?? "?"})`, data: r.data };
   return { ok: false, configured: true, detail: r.error || "API unreachable", data: r.data };
 }
+
+/* Friendly status mapping for customer-facing tracking (Steadfast raw → label). */
+export function mapSteadfastStatus(raw?: string | null): { label: string; tone: "ok" | "warn" | "bad" | "info" } {
+  const s = (raw || "").toLowerCase();
+  if (s === "delivered") return { label: "Delivered", tone: "ok" };
+  if (s === "partial_delivered") return { label: "Partially Delivered", tone: "warn" };
+  if (s === "cancelled") return { label: "Cancelled", tone: "bad" };
+  if (s === "hold") return { label: "On Hold", tone: "warn" };
+  if (s === "in_review") return { label: "Pending — Picked Up Soon", tone: "info" };
+  if (s === "pending") return { label: "Pending", tone: "info" };
+  if (s.endsWith("approval_pending")) return { label: "Processing (Approval Pending)", tone: "info" };
+  if (s === "picked_up" || s === "in_transit") return { label: s === "picked_up" ? "Picked Up" : "In Transit", tone: "info" };
+  if (s === "unknown") return { label: "Status Unknown — Contact Support", tone: "warn" };
+  return { label: raw ? raw.replace(/_/g, " ") : "Unknown", tone: "info" };
+}
