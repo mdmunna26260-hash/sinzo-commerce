@@ -37,7 +37,15 @@ export async function GET(req: Request) {
       if (o) order = o;
     }
   }
-  if (!order) return NextResponse.json({ error: "Kono order pay nai ei tracking number-e. Code abar check korun." }, { status: 404 });
+  if (!order) {
+    // Not in our DB → query Steadfast directly by tracking code (server-side, keys safe).
+    const r = await checkStatusByTracking(code);
+    if (r.ok && r.data?.delivery_status !== undefined) {
+      const m = mapSteadfastStatus(r.data.delivery_status);
+      return NextResponse.json({ source: "steadfast", courierName: "Steadfast", status: m.label, tone: m.tone, courierStatusRaw: r.data.delivery_status, items: [] });
+    }
+    return NextResponse.json({ error: "Kono order pay nai ei tracking number-e. Code abar check korun." }, { status: 404 });
+  }
 
   const base = {
     code: order.code, createdAt: order.createdAt, area: order.area,
