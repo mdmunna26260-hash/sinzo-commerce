@@ -19,7 +19,7 @@ export async function generateMetadata({ params }: { params: { slug: string } })
   };
 }
 
-export default async function PDP({ params }: { params: { slug: string } }) {
+export default async function PDP({ params, searchParams }: { params: { slug: string }; searchParams?: any }) {
   const p = await db.product.findUnique({
     where: { slug: params.slug },
     include: { images: { orderBy: { position: "asc" } }, variants: true, category: true,
@@ -52,6 +52,7 @@ export default async function PDP({ params }: { params: { slug: string } }) {
           <Link href="/">Home</Link> / <Link href="/products">Shop</Link> {(p as any).category && <>/ <Link href={"/products?category=" + (p as any).category.slug}>{(p as any).category.name}</Link></>} / <span style={{ color: "var(--text)" }}>{p.title}</span>
         </div>
         <ProductPageClient
+          sizeChartImage={p.sizeChartImage || null}
           product={{
             id: p.id, title: p.title, slug: p.slug, price: p.price, comparePrice: p.comparePrice,
             shortDesc: p.shortDesc, description: p.description, sku: p.sku, stock: totalStock, lowStock: p.lowStock,
@@ -84,7 +85,7 @@ export default async function PDP({ params }: { params: { slug: string } }) {
           <div className="section-head"><div><div className="eyebrow">Keep browsing</div><h2>You may also like</h2></div></div>
           <div className="grid grid-4">
             {related.map((r) => (
-              <ProductCard key={r.id} p={{ id: r.id, title: r.title, slug: r.slug, price: r.price, comparePrice: r.comparePrice, image: r.images?.[0]?.url, categoryName: (r as any).category?.name, stock: r.stock }} />
+              <ProductCard key={r.id} p={{ id: r.id, title: r.title, slug: r.slug, price: r.price, comparePrice: r.comparePrice, image: r.images?.[0]?.url, categoryName: (r as any).category?.name, stock: r.stock, isNew: (r as any).isNew, isBestSeller: (r as any).isBestSeller }} />
             ))}
           </div>
         </section>

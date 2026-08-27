@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 type V = { id?: number; size: string; color: string; sku: string; price: string; stock: string };
 type P = any;
 
-const EMPTY: any = { title: "", slug: "", shortDesc: "", description: "", sku: "", price: "", comparePrice: "", cost: "", stock: "0", lowStock: "5", status: "ACTIVE", featured: false, tags: "", categoryId: "", images: [], variants: [] };
+const EMPTY: any = { title: "", slug: "", shortDesc: "", description: "", sku: "", price: "", comparePrice: "", cost: "", stock: "0", lowStock: "5", status: "ACTIVE", featured: false, isNew: false, isBestSeller: false, sizeChartImage: "", tags: "", categoryId: "", images: [], variants: [] };
 const slugify = (s: string) => s.toLowerCase().trim().replace(/[^a-z0-9\u0980-\u09FF]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 80);
 
 export default function ProductsClient({ initial, categories }: { initial: P[]; categories: { id: number; name: string }[] }) {
@@ -76,6 +76,16 @@ export default function ProductsClient({ initial, categories }: { initial: P[]; 
     if (urls.length) { setEdit((e: any) => ({ ...e, images: [...e.images, ...urls] })); setMsg(urls.length + " image added ✓"); setTimeout(() => setMsg(""), 2500); }
     setBusy(false);
   };
+  const uploadChart = async (file: File) => {
+    setBusy(true); setMsg("Uploading size chart…");
+    const fd = new FormData(); fd.append("file", file); fd.append("mode", "chart");
+    const r = await afetch("/api/admin/upload", { method: "POST", body: fd });
+    const j = await r.json();
+    if (r.ok) { setEdit((e: any) => ({ ...e, sizeChartImage: j.url })); setMsg("Size chart uploaded ✓"); }
+    else setMsg(j.error || "Upload failed");
+    setBusy(false); setTimeout(() => setMsg(""), 2500);
+  };
+
   const moveImg = (i: number, dir: number) => setEdit((e: any) => {
     const arr = [...e.images]; const j = i + dir;
     if (j < 0 || j >= arr.length) return e;
@@ -237,10 +247,33 @@ export default function ProductsClient({ initial, categories }: { initial: P[]; 
               </div>
             ))}
 
-            <div style={{ display: "flex", gap: 10, marginTop: 18, alignItems: "center" }}>
+            <div className="af full" style={{ marginTop: 16 }}>
+              <label>Size chart image (optional — product page-er "Size chart" button e dekhabe)</label>
+              <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+                {edit.sizeChartImage ? (
+                  <div style={{ position: "relative" }}>
+                    <img src={edit.sizeChartImage} alt="" style={{ maxHeight: 90, borderRadius: 4, border: "1px solid #ddd" }} />
+                    <button type="button" onClick={() => setEdit({ ...edit, sizeChartImage: "" })} style={{ position: "absolute", top: -7, right: -7, width: 18, height: 18, borderRadius: 99, border: "none", background: "#b3392f", color: "#fff", fontSize: 11, cursor: "pointer" }}>✕</button>
+                  </div>
+                ) : null}
+                <label className="abtn" style={{ cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 }}>
+                  ⬆ Upload size chart
+                  <input type="file" accept="image/*" hidden onChange={(e) => { if (e.target.files?.[0]) uploadChart(e.target.files[0]); e.target.value = ""; }} />
+                </label>
+              </div>
+            </div>
+
+            <div style={{ display: "flex", gap: 10, marginTop: 18, alignItems: "center", flexWrap: "wrap" }}>
               <label style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 13.5 }}>
                 <input type="checkbox" checked={!!edit.featured} onChange={(e) => setEdit({ ...edit, featured: e.target.checked })} /> Featured
               </label>
+              <label style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 13.5 }}>
+                <input type="checkbox" checked={!!edit.isNew} onChange={(e) => setEdit({ ...edit, isNew: e.target.checked })} /> 🆕 New Arrival
+              </label>
+              <label style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 13.5 }}>
+                <input type="checkbox" checked={!!edit.isBestSeller} onChange={(e) => setEdit({ ...edit, isBestSeller: e.target.checked })} /> ⭐ Best Seller
+              </label>
+              <span style={{ fontSize: 12, color: "var(--muted)" }}>(badge + homepage section auto)</span>
               <span style={{ flex: 1 }} />
               <button className="abtn" onClick={() => setEdit(null)}>Cancel</button>
               <button className="abtn primary" onClick={save} disabled={busy}>{busy ? "Saving…" : "Save Product"}</button>

@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useCart, useWishlist, trackEvent, toast } from "@/components/store";
 
@@ -11,23 +11,65 @@ type P = {
   variants: V[]; categoryName?: string;
 };
 
-export default function ProductPageClient({ product, sizeChartHtml }: { product: P; sizeChartHtml: string | null }) {
+export default function ProductPageClient({ product, sizeChartHtml, sizeChartImage }: { product: P; sizeChartHtml: string | null; sizeChartImage: string | null }) {
   const { add } = useCart();
   const router = useRouter();
   const wishlist = useWishlist();
+  const N = product.images.length;
+
+  // ---------- gallery state ----------
   const [img, setImg] = useState(0);
+  const [fading, setFading] = useState(false);
+  const [lightbox, setLightbox] = useState(false);
+  const [lbIdx, setLbIdx] = useState(0);
+  const [lbZoom, setLbZoom] = useState(false);
+  const [origin, setOrigin] = useState("50% 50%");
+  const [hoverZoom, setHoverZoom] = useState(false);
+  const [hzOrigin, setHzOrigin] = useState("50% 50%");
+  const touch = useRef<{ x: number; y: number } | null>(null);
+
+  const goTo = (i: number) => {
+    const n = ((i % N) + N) % N;
+    if (n === img) return;
+    setFading(true);
+    setTimeout(() => { setImg(n); setFading(false); }, 170);
+  };
+  const next = () => goTo(img + 1);
+  const prev = () => goTo(img - 1);
+
+  const onTouchStart = (e: React.TouchEvent) => { touch.current = { x: e.touches[0].clientX, y: e.touches[0].clientY }; };
+  const onTouchEnd = (e: React.TouchEvent, isLb = false) => {
+    if (!touch.current) return;
+    const dx = e.changedTouches[0].clientX - touch.current.x;
+    const dy = e.changedTouches[0].clientY - touch.current.y;
+    touch.current = null;
+    if (Math.abs(dx) > 45 && Math.abs(dx) > Math.abs(dy)) {
+      if (isLb) setLbIdx(((lbIdx + (dx < 0 ? 1 : -1)) % N + N) % N); else (dx < 0 ? next : prev)();
+    }
+  };
+
+  useEffect(() => {
+    const k = (e: KeyboardEvent) => {
+      if (!lightbox) return;
+      if (e.key === "Escape") setLightbox(false);
+      if (e.key === "ArrowRight") setLbIdx(((lbIdx + 1) % N + N) % N);
+      if (e.key === "ArrowLeft") setLbIdx(((lbIdx - 1) % N + N) % N);
+    };
+    window.addEventListener("keydown", k);
+    return () => window.removeEventListener("keydown", k);
+  }, [lightbox, lbIdx, N]);
+
+  // ---------- variant / buy state (existing logic) ----------
   const [size, setSize] = useState<string | null>(product.variants.find((v) => v.size)?.size || null);
   const [color, setColor] = useState<string | null>(product.variants.find((v) => v.color)?.color || null);
   const [qty, setQty] = useState(1);
-  const [zoom, setZoom] = useState(false);
   const [chart, setChart] = useState(false);
   const [buying, setBuying] = useState(false);
 
   const sizes = Array.from(new Set(product.variants.map((v) => v.size).filter(Boolean))) as string[];
   const colors = Array.from(new Set(product.variants.map((v) => v.color).filter(Boolean))) as string[];
 
-  const activeVariant = product.variants.find((v) =>
-    (!size || v.size === size) && (!color || v.color === color)) || null;
+  const activeVariant = product.variants.find((v) => (!size || v.size === size) && (!color || v.color === color)) || null;
   const avail = activeVariant ? activeVariant.stock : product.variants.length ? 0 : product.stock;
   const price = activeVariant?.price || product.price;
   const off = product.comparePrice && product.comparePrice > price ? Math.round((1 - price / product.comparePrice) * 100) : 0;
@@ -41,36 +83,63 @@ export default function ProductPageClient({ product, sizeChartHtml }: { product:
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [product.id]);
 
-  const addLine = () => {
-    add({
-      productId: product.id, variantId: activeVariant?.id, slug: product.slug, title: product.title,
-      image: product.images[0]?.url, price, qty, size: size || undefined, color: color || undefined,
-      stock: avail || 99,
-    }, qty);
-    toast("Added to cart ✓");
-  };
-  const buyNow = () => {
-    setBuying(true);
-    add({ productId: product.id, variantId: activeVariant?.id, slug: product.slug, title: product.title, image: product.images[0]?.url, price, qty, size: size || undefined, color: color || undefined, stock: avail || 99 }, qty);
-    router.push("/checkout");
-  };
+  const line = () => ({
+    productId: product.id, variantId: activeVariant?.id, slug: product.slug, title: product.title,
+    image: product.images[0]?.url, price, qty, size: size || undefined, color: color || undefined, stock: avail || 99,
+  });
+  const addLine = () => { add(line(), qty); toast("Added to cart ✓"); };
+  const buyNow = () => { setBuying(true); add(line(), qty); router.push("/checkout"); };
 
   return (
     <>
       <div className="pdp">
+        {/* ---------------- GALLERY ---------------- */}
         <div className="pdp-gallery">
-          {product.images.length > 1 && (
+          <div
+            className={"pdp-main-img" + (N <= 1 ? " single" : "")}
+            onTouchStart={onTouchStart}
+            onTouchEnd={(e) => onTouchEnd(e)}
+          >
+            <img
+              key={img}
+              src={product.images[img]?.url || product.images[0]?.url}
+              alt={product.images[img]?.alt || product.title}
+              className={"pdp-img" + (fading ? " changing" : "") + (hoverZoom && avail > 0 ? " hz" : "")}
+              style={hoverZoom ? { transformOrigin: hzOrigin } : undefined}
+              onMouseEnter={() => { if (window.matchMedia("(hover: hover)").matches) setHoverZoom(true); }}
+              onMouseLeave={() => { setHoverZoom(false); }}
+              onMouseMove={(e) => {
+                const r = e.currentTarget.getBoundingClientRect();
+                setHzOrigin(`${((e.clientX - r.left) / r.width) * 100}% ${((e.clientY - r.top) / r.height) * 100}%`);
+              }}
+            />
+            {/* zoom — top right corner */}
+            <button className="gal-zoom" title="Zoom" aria-label="Zoom image"
+              onClick={() => { setLbIdx(img); setLbZoom(false); setLightbox(true); }}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3M11 8v6M8 11h6"/></svg>
+            </button>
+            {N > 1 && (
+              <>
+                <button className="gal-nav prev" aria-label="Previous image" onClick={prev}>‹</button>
+                <button className="gal-nav next" aria-label="Next image" onClick={next}>›</button>
+                <div className="gal-count">{img + 1} / {N}</div>
+              </>
+            )}
+            {avail <= 0 && <div className="soldout-overlay"><span>Sold Out</span></div>}
+          </div>
+
+          {N > 1 && (
             <div className="thumbs">
               {product.images.map((im, i) => (
-                <img key={i} src={im.url} alt={im.alt} className={i === img ? "active" : ""} onClick={() => setImg(i)} />
+                <button key={i} className={i === img ? "active" : ""} onClick={() => goTo(i)} aria-label={"Image " + (i + 1)}>
+                  <img src={im.url} alt={im.alt} loading="lazy" />
+                </button>
               ))}
             </div>
           )}
-          <div className="pdp-main-img" style={product.images.length <= 1 ? { gridColumn: "1 / -1" } : undefined}>
-            <img src={product.images[img]?.url || product.images[0]?.url} alt={product.images[img]?.alt || product.title} onClick={() => setZoom(!zoom)} style={{ transform: zoom ? "scale(1.6)" : undefined, transformOrigin: "center" }} className={avail <= 0 ? "soldout" : undefined} />
-            {avail <= 0 && <div className="soldout-overlay"><span>Sold Out</span></div>}
-          </div>
         </div>
+
+        {/* ---------------- INFO ---------------- */}
         <div className="pdp-info">
           {product.categoryName && <div className="eyebrow">{product.categoryName}</div>}
           <h1>{product.title}</h1>
@@ -82,7 +151,7 @@ export default function ProductPageClient({ product, sizeChartHtml }: { product:
 
           {sizes.length > 0 && (
             <>
-              <div className="opt-label">Size {sizeChartHtml && <button className="sizechart-link" onClick={() => setChart(true)}>· Size chart</button>}</div>
+              <div className="opt-label">Size {(sizeChartHtml || sizeChartImage) && <button className="sizechart-link" onClick={() => setChart(true)}>· Size chart</button>}</div>
               <div className="sizes">
                 {sizes.map((s) => {
                   const v = product.variants.find((x) => x.size === s && (!color || x.color === color));
@@ -153,14 +222,51 @@ export default function ProductPageClient({ product, sizeChartHtml }: { product:
         <button className="btn" disabled={avail <= 0} onClick={addLine}>Add to Cart</button>
       </div>
 
-      {chart && sizeChartHtml && (
+      {/* size chart modal */}
+      {chart && (sizeChartImage || sizeChartHtml) && (
         <div className="modal-bg" onClick={() => setChart(false)}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <button className="modal-close" onClick={() => setChart(false)} aria-label="Close">×</button>
             <h3>Size Chart</h3>
-            <div dangerouslySetInnerHTML={{ __html: sizeChartHtml.replace(/<table/, '<table class="sizechart-table"') }} />
+            {sizeChartImage && <img src={sizeChartImage} alt="Size chart" style={{ width: "100%", borderRadius: 4 }} />}
+            {!sizeChartImage && sizeChartHtml && <div dangerouslySetInnerHTML={{ __html: sizeChartHtml.replace(/<table/, '<table class="sizechart-table"') }} />}
             <p style={{ fontSize: 12.5, color: "var(--muted)", marginTop: 14 }}>Measurements are approximate. Between sizes? We recommend sizing up.</p>
           </div>
+        </div>
+      )}
+
+      {/* ---------- LIGHTBOX (zoom) ---------- */}
+      {lightbox && (
+        <div className="lightbox" onClick={() => setLightbox(false)}>
+          <div className="lb-top" onClick={(e) => e.stopPropagation()}>
+            <button title={lbZoom ? "Zoom out" : "Zoom in"} onClick={() => setLbZoom(!lbZoom)} aria-label="Toggle zoom">
+              {lbZoom ? (
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3M8 11h6"/></svg>
+              ) : (
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3M11 8v6M8 11h6"/></svg>
+              )}
+            </button>
+            <button title="Close" onClick={() => setLightbox(false)} aria-label="Close">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M18 6 6 18M6 6l12 12"/></svg>
+            </button>
+          </div>
+          <div className="lb-count">{lbIdx + 1} / {N}</div>
+          <img
+            src={product.images[lbIdx]?.url || product.images[0]?.url}
+            alt={product.images[lbIdx]?.alt || product.title}
+            className={lbZoom ? "zoomed" : ""}
+            style={lbZoom ? { transformOrigin: origin } : undefined}
+            onClick={(e) => { e.stopPropagation(); setLbZoom(!lbZoom); }}
+            onMouseMove={(e) => { if (lbZoom) { const r = e.currentTarget.getBoundingClientRect(); setOrigin(`${((e.clientX - r.left) / r.width) * 100}% ${((e.clientY - r.top) / r.height) * 100}%`); } }}
+            onTouchStart={onTouchStart}
+            onTouchEnd={(e) => { e.stopPropagation(); onTouchEnd(e, true); }}
+          />
+          {N > 1 && (
+            <>
+              <button className="lb-nav prev" aria-label="Previous" onClick={(e) => { e.stopPropagation(); setLbZoom(false); setLbIdx(((lbIdx - 1) % N + N) % N); }}>‹</button>
+              <button className="lb-nav next" aria-label="Next" onClick={(e) => { e.stopPropagation(); setLbZoom(false); setLbIdx((lbIdx + 1) % N); }}>›</button>
+            </>
+          )}
         </div>
       )}
     </>

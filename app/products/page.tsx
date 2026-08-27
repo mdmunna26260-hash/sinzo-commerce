@@ -82,6 +82,7 @@ export default async function ProductsPage({ searchParams }: { searchParams: SP 
                   <ProductCard key={p.id} p={{
                     id: p.id, title: p.title, slug: p.slug, price: p.price, comparePrice: p.comparePrice,
                     image: p.images?.[0]?.url, categoryName: p.category?.name, stock: p.stock,
+                    isNew: p.isNew, isBestSeller: p.isBestSeller,
                   }} />
                 ))}
               </div>

@@ -19,6 +19,7 @@ export default async function CollectionPage({ params }: { params: { slug: strin
     id: x.product.id, title: x.product.title, slug: x.product.slug, price: x.product.price,
     comparePrice: x.product.comparePrice, image: x.product.images?.[0]?.url,
     categoryName: x.product.category?.name, stock: x.product.stock,
+    isNew: x.product.isNew, isBestSeller: x.product.isBestSeller,
   }));
   return (
     <>

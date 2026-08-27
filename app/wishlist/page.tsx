@@ -11,7 +11,7 @@ export default async function WishlistPage() {
   const cfg = publicSettings(s);
   const cats = await db.category.findMany({ orderBy: { id: "asc" } });
   const products = await db.product.findMany({ where: { status: "ACTIVE" }, include: { images: true, category: true } });
-  const data = products.map((p) => ({ id: p.id, title: p.title, slug: p.slug, price: p.price, comparePrice: p.comparePrice, image: p.images?.[0]?.url, categoryName: p.category?.name, stock: p.stock }));
+  const data = products.map((p) => ({ id: p.id, title: p.title, slug: p.slug, price: p.price, comparePrice: p.comparePrice, image: p.images?.[0]?.url, categoryName: p.category?.name, stock: p.stock, isNew: p.isNew, isBestSeller: p.isBestSeller }));
   return (
     <>
       <Header storeName={cfg.store?.name || "Store"} categories={cats.map((c) => ({ name: c.name, slug: c.slug }))} />

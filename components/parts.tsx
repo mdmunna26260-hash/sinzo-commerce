@@ -2,7 +2,7 @@ import Link from "next/link";
 
 export type CardProduct = {
   id: number; title: string; slug: string; price: number; comparePrice: number | null;
-  image?: string; categoryName?: string; stock: number; isNew?: boolean;
+  image?: string; categoryName?: string; stock: number; isNew?: boolean; isBestSeller?: boolean;
 };
 
 export function ProductCard({ p, wish }: { p: CardProduct; wish?: boolean }) {
@@ -13,7 +13,8 @@ export function ProductCard({ p, wish }: { p: CardProduct; wish?: boolean }) {
         {p.image && <img src={p.image} alt={p.title} loading="lazy" className={p.stock <= 0 ? "soldout" : undefined} />}
         <div className="pcard-badges">
           {off > 0 && <span className="badge sale">-{off}%</span>}
-          {p.isNew && <span className="badge">New</span>}
+          {p.isBestSeller && <span className="badge best">★ Best Seller</span>}
+          {p.isNew && <span className="badge new">New</span>}
         </div>
         {p.stock <= 0 && <div className="soldout-overlay"><span>Sold Out</span></div>}
         {wish ? <div className="pcard-quick"><button type="button">In your wishlist</button></div> : null}

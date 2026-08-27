@@ -4,6 +4,14 @@ import { requirePerm } from "@/lib/admin-guard";
 import { slugify } from "@/lib/slug";
 import { logAudit } from "@/lib/auth";
 
+async function syncCollection(productId: number, slug: string, want: boolean) {
+  const col = await db.collection.findUnique({ where: { slug } });
+  if (!col) return;
+  const ex = await db.collectionProduct.findUnique({ where: { collectionId_productId: { collectionId: col.id, productId } } });
+  if (want && !ex) await db.collectionProduct.create({ data: { collectionId: col.id, productId } });
+  if (!want && ex) await db.collectionProduct.delete({ where: { collectionId_productId: { collectionId: col.id, productId } } }).catch(() => {});
+}
+
 export const dynamic = "force-dynamic";
 export async function GET(req: Request) {
   const g = await requirePerm("products", req);
@@ -27,12 +35,15 @@ export async function POST(req: Request) {
         price: Number(b.price) || 0, comparePrice: b.comparePrice ? Number(b.comparePrice) : null,
         cost: b.cost ? Number(b.cost) : null, stock: Number(b.stock) || 0, lowStock: Number(b.lowStock) || 5,
         status: b.status || "ACTIVE", featured: !!b.featured, tags: b.tags || null,
+        sizeChartImage: b.sizeChartImage || null, isNew: !!b.isNew, isBestSeller: !!b.isBestSeller,
         categoryId: b.categoryId ? Number(b.categoryId) : null,
         images: { create: (b.images || []).map((u: string, i: number) => ({ url: u, position: i, alt: b.title })) },
         variants: { create: (b.variants || []).map((v: any) => ({ size: v.size || null, color: v.color || null, sku: v.sku || null, price: v.price ? Number(v.price) : null, stock: Number(v.stock) || 0 })) },
       },
       include: { images: true, variants: true },
     });
+    await syncCollection(product.id, "new-arrivals", !!b.isNew);
+    await syncCollection(product.id, "best-sellers", !!b.isBestSeller);
     await logAudit(g.user.email, "PRODUCT_CREATED", `${product.title} (#${product.id})`);
     return NextResponse.json({ ok: true, product });
   } catch (e: any) { return NextResponse.json({ error: e?.message || "Server error" }, { status: 500 }); }

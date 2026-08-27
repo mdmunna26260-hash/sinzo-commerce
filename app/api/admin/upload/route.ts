@@ -13,7 +13,8 @@ export async function POST(req: Request) {
     if (!file) return NextResponse.json({ error: "No file" }, { status: 400 });
     if (!ALLOWED.includes(file.type)) return NextResponse.json({ error: "Only JPG/PNG/WebP/AVIF/GIF allowed" }, { status: 400 });
     if (file.size > 15 * 1024 * 1024) return NextResponse.json({ error: "Max 15MB" }, { status: 400 });
-    const { buffer, ext } = await processProductImage(Buffer.from(await file.arrayBuffer()), file.type);
+    const mode = String(form.get("mode") || "");
+    const { buffer, ext, processed } = await processProductImage(Buffer.from(await file.arrayBuffer()), file.type, { keepRatio: mode === "chart" });
     const mimeMap: Record<string, string> = { jpg: "image/jpeg", png: "image/png", webp: "image/webp", avif: "image/avif", gif: "image/gif" };
     const mime = mimeMap[ext] || "image/jpeg";
     const m = await db.media.create({ data: {

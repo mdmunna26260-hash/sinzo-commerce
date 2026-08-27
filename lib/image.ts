@@ -15,16 +15,16 @@ export async function productImageRatio(): Promise<number> {
     return parseRatio(s.theme?.productImageRatio || "3:4");
   } catch { return 3 / 4; }
 }
-export async function processProductImage(buf: Buffer, mimeType: string): Promise<{ buffer: Buffer; ext: string; processed: boolean }> {
+export async function processProductImage(buf: Buffer, mimeType: string, opts?: { keepRatio?: boolean }): Promise<{ buffer: Buffer; ext: string; processed: boolean }> {
   try {
-    const ratio = await productImageRatio();
+    const ratio = opts?.keepRatio ? 0 : await productImageRatio();
     const mod = await import("sharp");
     const sharp = (mod.default || mod) as any;
     let img = sharp(buf).rotate(); // respect EXIF orientation
     const meta = await img.metadata();
     const srcW = meta.width || 0;
     const srcH = meta.height || 0;
-    if (srcW > 0 && srcH > 0) {
+    if (srcW > 0 && srcH > 0 && ratio > 0) {
       const srcRatio = srcW / srcH;
       if (Math.abs(srcRatio - ratio) > 0.01) {
         // centre-crop to the exact target ratio (no upscale)
@@ -35,7 +35,6 @@ export async function processProductImage(buf: Buffer, mimeType: string): Promis
         const top = Math.max(0, Math.floor((srcH - cropH) / 2));
         img = img.extract({ left, top, width: Math.min(cropW, srcW), height: Math.min(cropH, srcH) });
       }
-      // resolution cap on the long edge = 1200px
       const capLong = 1200;
       const capW = ratio >= 1 ? capLong : Math.round(capLong * ratio);
       const capH = ratio >= 1 ? Math.round(capLong / ratio) : capLong;
