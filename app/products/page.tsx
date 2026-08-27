@@ -71,6 +71,12 @@ export default async function ProductsPage({ searchParams }: { searchParams: SP 
   if (searchParams.max) activeChips.push({ label: "≤ ৳" + searchParams.max, patch: { max: undefined } });
   if (searchParams.avail === "1") activeChips.push({ label: "In stock", patch: { avail: undefined } });
   if (searchParams.onsale === "1") activeChips.push({ label: "On sale", patch: { onsale: undefined } });
+  const qpill = (slug?: string) => {
+    const params = new URLSearchParams();
+    if (searchParams.q) params.set("q", searchParams.q);
+    if (slug) params.set("category", slug);
+    return "/products" + (params.toString() ? "?" + params.toString() : "");
+  };
   const chipQs = (patch: Record<string, string | undefined>) => {
     const params = new URLSearchParams();
     const merged = { ...searchParams, ...patch };
@@ -90,6 +96,14 @@ export default async function ProductsPage({ searchParams }: { searchParams: SP 
 
         {/* toolbar: mobile shows Filter button; desktop shows count + sort right */}
         <ProductsToolbar count={totalMatching} cats={cats.map((c) => ({ name: c.name, slug: c.slug }))} />
+
+        {/* quick category pills */}
+        <div className="cat-pills">
+          <Link className={"cat-pill" + (!searchParams.category ? " active" : "")} href={qpill(undefined)}>All</Link>
+          {cats.map((c) => (
+            <Link key={c.slug} className={"cat-pill" + (searchParams.category === c.slug ? " active" : "")} href={qpill(c.slug)}>{c.name}</Link>
+          ))}
+        </div>
 
         {/* active filter chips */}
         {activeChips.length > 0 && (
