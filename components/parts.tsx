@@ -10,7 +10,7 @@ export function ProductCard({ p, wish }: { p: CardProduct; wish?: boolean }) {
   return (
     <Link className="pcard reveal" href={"/products/" + p.slug}>
       <div className="pcard-img">
-        {p.image && <img src={p.image} alt={p.title} loading="lazy" className={p.stock <= 0 ? "soldout" : undefined} />}
+        {p.image && <img src={p.image} alt={p.title} loading="lazy" decoding="async" className={p.stock <= 0 ? "soldout" : undefined} />}
         <div className="pcard-badges">
           {off > 0 && <span className="badge sale">-{off}%</span>}
           {p.isBestSeller && <span className="badge best">★ Best Seller</span>}

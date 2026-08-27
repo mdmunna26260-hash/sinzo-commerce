@@ -1,9 +1,17 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import RevealInit from "@/components/reveal";
 import PageViewTracker from "@/components/pageview";
 import { CartProvider } from "@/components/store";
 import { getSettings, publicSettings } from "@/lib/settings";
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 5,
+  viewportFit: "cover",
+  themeColor: "#faf9f7",
+};
 
 export async function generateMetadata(): Promise<Metadata> {
   try {

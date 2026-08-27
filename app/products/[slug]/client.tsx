@@ -104,6 +104,8 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
               key={img}
               src={product.images[img]?.url || product.images[0]?.url}
               alt={product.images[img]?.alt || product.title}
+              decoding="async"
+              {...(img === 0 ? { fetchPriority: "high" as const } : {})}
               className={"pdp-img" + (fading ? " changing" : "") + (hoverZoom && avail > 0 ? " hz" : "")}
               style={hoverZoom ? { transformOrigin: hzOrigin } : undefined}
               onMouseEnter={() => { if (window.matchMedia("(hover: hover)").matches) setHoverZoom(true); }}

@@ -183,11 +183,7 @@ h1, h2, h3, .serif { font-family: var(--font-head); font-weight: 500; letter-spa
 .pdp-main-img .pdp-img { width: 100%; height: 100%; object-fit: cover; opacity: 1; transition: opacity .3s ease, transform .3s ease; }
 .pdp-main-img .pdp-img.changing { opacity: 0; transform: scale(1.02); }
 .pdp-main-img .pdp-img.hz { transform: scale(1.9); cursor: crosshair; transition: transform .12s ease-out; }
-.gal-nav { position: absolute; top: 50%; transform: translateY(-50%); width: 42px; height: 42px; border-radius: 99px; background: rgba(255,255,255,.94); border: 1px solid var(--line); font-size: 24px; line-height: 0; color: var(--text); display: flex; align-items: center; justify-content: center; cursor: pointer; opacity: 0; transition: opacity .25s ease, background .2s ease; z-index: 3; padding-bottom: 4px; }
-.pdp-main-img:hover .gal-nav { opacity: 1; }
-.gal-nav:hover { background: #fff; }
-.gal-nav.prev { left: 12px; }
-.gal-nav.next { right: 12px; }
+.gal-nav { display: none !important; } /* arrows hidden — swipe + thumbnails + lightbox handle navigation */
 .gal-count { position: absolute; bottom: 12px; left: 12px; background: rgba(255,255,255,.92); font-size: 11px; letter-spacing: .12em; padding: 4px 12px; border-radius: 99px; z-index: 3; color: var(--text); }
 .gal-zoom { position: absolute; top: 12px; right: 12px; width: 40px; height: 40px; border-radius: 99px; background: rgba(255,255,255,.94); border: 1px solid var(--line); color: var(--text); display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 3; transition: background .2s ease, transform .2s ease; }
 .gal-zoom:hover { background: #fff; transform: scale(1.06); }
@@ -472,3 +468,43 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 13.5px; }
 
 .badge.new { background: #fff; color: var(--text); border: 1px solid var(--text); }
 .badge.best { background: var(--accent); color: #fff; }
+
+/* ---------- Mobile performance & pixel-perfect pass ---------- */
+/* render only what's on screen (below-fold sections skip layout cost) */
+.section, .values, .promo { content-visibility: auto; contain-intrinsic-size: auto 480px; }
+
+/* vertical scroll stays smooth while horizontal swipe changes gallery images */
+.pdp-main-img { touch-action: pan-y; }
+.pdp-main-img .pdp-img { will-change: transform, opacity; }
+
+/* sticky add-to-cart must not cover content */
+@media (max-width: 900px) { .pdp { padding-bottom: 84px; } }
+
+/* pixel checks at small widths */
+@media (max-width: 480px) {
+  .header-inner { height: 58px; gap: 10px; }
+  .logo { font-size: 20px !important; letter-spacing: .22em; }
+  .header-actions { gap: 10px; }
+  .icon-btn { padding: 5px; }
+  .hero-content h1 { font-size: 34px; }
+  .pdp-price { font-size: 19px; }
+  .pdp-info h1 { font-size: 24px; }
+  .btn { min-height: 44px; }
+  .sticky-atc { padding: 10px 12px; }
+  .sticky-atc .btn { padding: 12px 10px; font-size: 11px; }
+  .gal-zoom { width: 34px; height: 34px; top: 8px; right: 8px; }
+  .gal-count { font-size: 10px; padding: 3px 9px; bottom: 8px; left: 8px; }
+  .thumbs button { flex: 0 0 54px; }
+  .announce { font-size: 10px; padding: 8px 10px; }
+}
+@media (max-width: 380px) {
+  .grid-4, .grid-3 { gap: 14px; }
+  .pcard-title { font-size: 13px; }
+  .search-form input { font-size: 17px; }
+}
+
+/* accessibility: respect reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+  .reveal { opacity: 1; transform: none; }
+}
