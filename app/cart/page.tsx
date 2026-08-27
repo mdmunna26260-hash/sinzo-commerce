@@ -3,7 +3,8 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useCart, toast } from "@/components/store";
 
-/* Cart: quantity +/-, remove, size change — all live (no refresh needed). */
+/* Cart — reference design: live qty, per-line Total pill, size change, remove.
+   Every change updates instantly (deep-copied state) + confirmation toast. */
 export default function CartPage() {
   const { lines, subtotal, setQty, updateLine, remove, ready } = useCart();
   const [coupon, setCoupon] = useState("");
@@ -14,6 +15,39 @@ export default function CartPage() {
   const ship = subtotal >= FREE_T ? 0 : 80;
   const discount = applied ? applied.discount : 0;
   const total = Math.max(0, subtotal - discount) + (applied?.freeship ? 0 : ship);
+  const itemCount = lines.reduce((s, l) => s + (l.qty || 1), 0);
+
+  const bump = (l: any, q: number) => {
+    if (q < 1) { remove(l.key); toast("Item removed from cart"); return; }
+    setQty(l.key, q);
+    toast("Cart item updated successfully");
+  };
+
+  const changeSize = async (l: any, newSize: string) => {
+    try {
+      const r = await fetch(`/api/cart/variant?productId=${l.productId}&size=${encodeURIComponent(newSize)}${l.color ? "&color=" + encodeURIComponent(l.color) : ""}`);
+      const j = await r.json();
+      if (r.ok && j.match) {
+        updateLine(l.key, { variantId: j.match.id, price: j.match.price ?? l.price, size: newSize, stock: j.match.stock });
+        toast("Cart item updated successfully");
+      } else {
+        toast(`Size ${newSize} is out of stock`);
+      }
+    } catch { toast("Network error"); }
+  };
+
+  // lazy: old carts missing sizes[]
+  useEffect(() => {
+    if (!ready) return;
+    for (const l of lines) {
+      if (l.sizes && l.sizes.length) continue;
+      fetch(`/api/cart/variant?productId=${l.productId}`)
+        .then((r) => r.json())
+        .then((j) => { if (j?.options?.length) updateLine(l.key, { sizes: j.options }); })
+        .catch(() => {});
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready, lines.length]);
 
   const applyCoupon = async () => {
     if (!coupon.trim()) return;
@@ -27,49 +61,6 @@ export default function CartPage() {
     setBusy(false);
   };
 
-  // old carts may lack sizes[] — fetch available sizes once per line
-  useEffect(() => {
-    if (!ready) return;
-    for (const l of lines) {
-      if (l.sizes && l.sizes.length) continue;
-      fetch(`/api/cart/variant?productId=${l.productId}`)
-        .then((r) => r.json())
-        .then((j) => {
-          if (j?.options?.length) updateLine(l.key, { sizes: j.options });
-        })
-        .catch(() => {});
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ready, lines.length]);
-
-  // old carts may lack sizes[] — fetch available sizes once per line
-  useEffect(() => {
-    if (!ready) return;
-    for (const l of lines) {
-      if (l.sizes && l.sizes.length) continue;
-      fetch(`/api/cart/variant?productId=${l.productId}`)
-        .then((r) => r.json())
-        .then((j) => {
-          if (j?.options?.length) updateLine(l.key, { sizes: j.options });
-        })
-        .catch(() => {});
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ready, lines.length]);
-
-  const changeSize = async (key: string, productId: number, newSize: string, color?: string) => {
-    try {
-      const r = await fetch(`/api/cart/variant?productId=${productId}&size=${encodeURIComponent(newSize)}${color ? "&color=" + encodeURIComponent(color) : ""}`);
-      const j = await r.json();
-      if (r.ok && j.match) {
-        updateLine(key, { variantId: j.match.id, price: j.match.price ?? undefined, size: newSize, stock: j.match.stock });
-        toast(`Size → ${newSize} ✓`);
-      } else {
-        toast(`Size ${newSize} is out of stock`);
-      }
-    } catch { toast("Network error"); }
-  };
-
   if (!ready) {
     return <div className="container"><div className="empty" style={{ padding: "130px 20px" }}><h3>Loading…</h3></div></div>;
   }
@@ -77,7 +68,12 @@ export default function CartPage() {
   if (lines.length === 0) {
     return (
       <div className="container">
-        <div className="empty" style={{ padding: "130px 20px" }}>
+        <div className="cart-head">
+          <div className="eyebrow">Shopping Cart</div>
+          <h1>Your Cart</h1>
+          <p className="cart-sub">0 items in your cart</p>
+        </div>
+        <div className="empty" style={{ padding: "60px 20px" }}>
           <h3>Your cart is empty</h3>
           <p>Discover pieces made to last.</p>
           <br /><Link className="btn" href="/products">Start Shopping</Link>
@@ -89,52 +85,54 @@ export default function CartPage() {
   const remaining = Math.max(0, FREE_T - subtotal);
 
   return (
-    <div className="container" style={{ padding: "38px 24px 100px" }}>
-      <h1 style={{ fontSize: "clamp(28px,3.4vw,40px)", marginBottom: 30 }}>Your Cart</h1>
+    <div className="container cart-page">
+      <div className="cart-head">
+        <div className="eyebrow">Shopping Cart</div>
+        <h1>Your Cart</h1>
+        <p className="cart-sub">{itemCount} item{itemCount !== 1 ? "s" : ""} in your cart</p>
+        <Link className="btn btn-outline cart-continue" href="/products">Continue Shopping</Link>
+      </div>
+
       <div className="cart-layout">
-        <div>
+        <div className="cart-lines">
           {lines.map((l) => (
-            <div className="cart-row" key={l.key}>
-              <Link href={"/products/" + l.slug}><img src={l.image} alt={l.title} loading="lazy" decoding="async" /></Link>
-              <div>
-                <div className="t"><Link href={"/products/" + l.slug}>{l.title}</Link></div>
-                <div className="v">{[l.color].filter(Boolean).join(" · ")}</div>
-                <div className="v">৳{Number(l.price || 0).toLocaleString("en-IN")}</div>
-                {/* size switcher */}
-                <div style={{ marginTop: 10, display: "flex", alignItems: "center", gap: 8 }}>
-                  <span style={{ fontSize: 11, letterSpacing: ".14em", textTransform: "uppercase", color: "var(--muted)" }}>Size</span>
-                  <select
-                    className="cart-size-select"
-                    value={l.size || ""}
-                    onChange={(e) => changeSize(l.key, l.productId, e.target.value, l.color)}
-                    aria-label="Change size"
-                  >
-                    {!l.size && <option value="">—</option>}
-                    {l.sizes?.filter((s) => s !== l.size).map((s) => <option key={s} value={s}>{s}</option>)}
-                    {l.size && <option value={l.size}>{l.size} ✓</option>}
-                  </select>
-                </div>
-                <div style={{ marginTop: 10, display: "flex", alignItems: "center", gap: 12 }}>
-                  <div className="qty">
-                    <button type="button" onClick={() => setQty(l.key, (l.qty || 1) - 1)} aria-label="Decrease quantity">−</button>
-                    <span>{l.qty}</span>
-                    <button type="button" onClick={() => setQty(l.key, (l.qty || 1) + 1)} aria-label="Increase quantity">+</button>
+            <div className="ccard" key={l.key}>
+              <Link href={"/products/" + l.slug} className="ccard-img">
+                {l.image && <img src={l.image} alt={l.title} loading="lazy" decoding="async" />}
+              </Link>
+              <div className="ccard-body">
+                <Link href={"/products/" + l.slug} className="ccard-title">{l.title}</Link>
+                {(l.color || l.size) && (
+                  <div className="ccard-meta">
+                    {l.color && <span>{l.color}</span>}
+                    {l.size && <span className="pill-pill">Size: {l.size}</span>}
                   </div>
-                  {l.stock && l.stock <= 5 && <span style={{ fontSize: 11, color: "var(--danger)" }}>only {l.stock} left</span>}
+                )}
+                <div className="ccard-row">
+                  <div className="qty-pill" role="group" aria-label="Quantity">
+                    <button type="button" aria-label="Decrease" onClick={() => bump(l, (l.qty || 1) - 1)}>−</button>
+                    <span>{l.qty}</span>
+                    <button type="button" aria-label="Increase" onClick={() => bump(l, (l.qty || 1) + 1)}>+</button>
+                  </div>
+                  <div className="total-pill">Total: {Number(l.price * l.qty).toLocaleString("en-IN")}-BDT</div>
                 </div>
-                <button type="button" className="rm" onClick={() => { remove(l.key); toast("Removed from cart"); }}>Remove</button>
+                <button type="button" className="remove-btn" onClick={() => { remove(l.key); toast("Item removed from cart"); }}>
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6h14zM10 11v6M14 11v6"/></svg>
+                  Remove
+                </button>
+                {l.stock != null && l.stock <= 5 && <div className="ccard-low">Only {l.stock} left in stock</div>}
               </div>
-              <div style={{ fontWeight: 600 }}>৳{(Number(l.price || 0) * (l.qty || 1)).toLocaleString("en-IN")}</div>
             </div>
           ))}
         </div>
+
         <aside className="summary">
           <h3>Order Summary</h3>
           <div className="freeship-note">
             {remaining > 0 ? <>Add <b>৳{remaining.toLocaleString("en-IN")}</b> more for free delivery</> : <>🎉 You&apos;ve unlocked <b>free delivery</b></>}
           </div>
           <div className="freebar"><i style={{ width: Math.min(100, (subtotal / FREE_T) * 100) + "%" }} /></div>
-          <div className="sum-row"><span>Subtotal ({lines.reduce((s, l) => s + l.qty, 0)} items)</span><span>৳{subtotal.toLocaleString("en-IN")}</span></div>
+          <div className="sum-row"><span>Subtotal ({itemCount} items)</span><span>৳{subtotal.toLocaleString("en-IN")}</span></div>
           {discount > 0 && <div className="sum-row" style={{ color: "var(--ok)" }}><span>Discount ({applied.code})</span><span>−৳{discount.toLocaleString("en-IN")}</span></div>}
           <div className="sum-row"><span>Delivery (est.)</span><span>{(applied?.freeship || ship === 0) ? "Free" : "৳" + ship}</span></div>
           <div className="sum-row total"><span>Total</span><span>৳{total.toLocaleString("en-IN")}</span></div>
@@ -142,7 +140,7 @@ export default function CartPage() {
             <input placeholder="Coupon code" value={coupon} onChange={(e) => setCoupon(e.target.value.toUpperCase())} />
             <button className="abtn" onClick={applyCoupon} disabled={busy}>Apply</button>
           </div>
-          <Link className="btn" style={{ width: "100%" }} href="/checkout">Proceed to Checkout</Link>
+          <Link className="btn btn-accent" style={{ width: "100%" }} href="/checkout">Proceed to Checkout</Link>
           <div className="trust">
             <span>🔒 Secure checkout</span><span>💵 Cash on Delivery</span><span>↩ 7-day returns</span>
           </div>

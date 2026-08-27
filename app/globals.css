@@ -270,11 +270,13 @@ h1, h2, h3, .serif { font-family: var(--font-head); font-weight: 500; letter-spa
 .pdp-meta { border-top: 1px solid var(--line); margin-top: 24px; padding-top: 20px; display: grid; gap: 10px; font-size: 13px; color: var(--muted); }
 .pdp-meta div { display: flex; gap: 10px; align-items: center; }
 .pdp-meta svg { color: var(--accent); flex: none; }
-.sizechart-link { background: none; border: none; text-decoration: underline; font-size: 13px; color: var(--muted); padding: 0; }
+.sizechart-link { background: none; border: 1px solid var(--text); border-radius: var(--radius); font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--text); padding: 8px 16px; margin-left: 6px; cursor: pointer; transition: background .2s ease, color .2s ease; }
+.sizechart-link:hover { background: var(--text); color: var(--bg); }
 .modal-bg { position: fixed; inset: 0; background: rgba(20,20,20,.5); z-index: 90; display: flex; align-items: center; justify-content: center; padding: 20px; }
 .modal { background: #fff; max-width: 560px; width: 100%; border-radius: var(--radius); padding: 34px; max-height: 84vh; overflow: auto; position: relative; }
 .modal h3 { font-size: 22px; margin-bottom: 16px; }
-.modal-close { position: absolute; top: 14px; right: 14px; background: none; border: none; font-size: 22px; line-height: 1; }
+.modal-close { position: absolute; top: 12px; right: 12px; width: 46px; height: 46px; border-radius: 99px; background: var(--bg); border: 1px solid var(--line); font-size: 26px; line-height: 1; cursor: pointer; color: var(--text); display: flex; align-items: center; justify-content: center; }
+.modal-close:hover { border-color: var(--text); }
 .sizechart-table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
 .sizechart-table th, .sizechart-table td { border: 1px solid var(--line); padding: 9px 12px; text-align: left; }
 .sizechart-table th { background: var(--bg); font-size: 11px; letter-spacing: .12em; text-transform: uppercase; }
@@ -709,7 +711,7 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 13.5px; }
 .sh-link:hover { color: var(--accent); border-color: var(--accent); }
 
 /* product card: heart + colors */
-.pcard-heart { position: absolute; top: 10px; right: 10px; width: 34px; height: 34px; border-radius: 99px; background: rgba(255,255,255,.94); border: none; color: var(--text); display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 3; opacity: 0; transform: translateY(-3px); transition: opacity .22s ease, transform .22s ease, color .2s ease; }
+.pcard-heart { position: absolute; top: 10px; right: 10px; width: 36px; height: 36px; border-radius: 99px; background: transparent; border: none; color: var(--text); display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 3; opacity: 0; transform: translateY(-3px); transition: opacity .22s ease, transform .22s ease, color .2s ease; filter: drop-shadow(0 1px 3px rgba(0,0,0,.35)); }
 .pcard:hover .pcard-heart, .pcard-heart.on { opacity: 1; transform: none; }
 .pcard-heart.on { color: var(--danger); }
 @media (hover: none) { .pcard-heart { opacity: 1; transform: none; } }
@@ -751,3 +753,37 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 13.5px; }
 @media (max-width: 900px) { .nl-grid { grid-template-columns: 1fr; text-align: center; gap: 22px; } .nl-grid p { margin: 0 auto; } .nl-grid form { margin: 0 auto; max-width: 100%; } .nl-grid .eyebrow { justify-content: center; display: flex; } }
 
 .cart-size-select { border: 1px solid var(--line); background: #fff; padding: 8px 12px; border-radius: var(--radius); font-size: 13px; min-height: 40px; cursor: pointer; }
+
+/* ================= Cart — reference design ================= */
+.cart-page { padding: 34px 24px 100px; }
+.cart-head { margin-bottom: 22px; }
+.cart-head h1 { font-size: clamp(30px, 4vw, 44px); margin: 6px 0 2px; letter-spacing: -0.01em; }
+.cart-sub { color: var(--muted); font-size: 14.5px; }
+.cart-continue { margin-top: 16px; width: 100%; max-width: 560px; }
+
+.cart-lines { display: grid; gap: 16px; }
+.ccard { background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 16px; display: grid; gap: 14px; }
+.ccard-img { display: flex; justify-content: center; background: #f6f4f0; border-radius: 8px; overflow: hidden; }
+.ccard-img img { width: 200px; height: 200px; object-fit: contain; mix-blend-mode: multiply; }
+.ccard-title { font-size: 17px; font-weight: 700; letter-spacing: .01em; color: var(--text); }
+.ccard-meta { display: flex; gap: 8px; align-items: center; margin-top: 4px; font-size: 13px; color: var(--muted); flex-wrap: wrap; }
+.pill-pill { background: var(--bg); border: 1px solid var(--line); border-radius: 99px; padding: 5px 14px; font-size: 12.5px; color: var(--text); }
+.ccard-row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-top: 14px; padding-top: 14px; border-top: 1px solid #f1efec; }
+.qty-pill { display: inline-flex; align-items: center; border: 1px solid var(--line); border-radius: 99px; overflow: hidden; background: #fff; }
+.qty-pill button { width: 46px; height: 46px; border: none; background: none; font-size: 18px; cursor: pointer; color: var(--text); }
+.qty-pill button:hover { background: var(--bg); }
+.qty-pill button:first-child { background: var(--text); color: #fff; border-radius: 99px; margin: 3px; width: 42px; height: 42px; }
+.qty-pill span { min-width: 44px; text-align: center; font-size: 15px; font-weight: 600; }
+.total-pill { background: var(--text); color: #fff; border-radius: 99px; padding: 13px 22px; font-size: 14.5px; font-weight: 700; white-space: nowrap; }
+.remove-btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; width: 100%; max-width: 100%; border: 1px solid #eac6c2; background: #fdf1f0; color: var(--danger); border-radius: 99px; padding: 13px; font-size: 14px; font-weight: 600; cursor: pointer; transition: background .2s ease; }
+.remove-btn:hover { background: #f8e2e0; }
+.ccard-low { font-size: 12px; color: var(--danger); }
+@media (min-width: 900px) {
+  .ccard { grid-template-columns: 220px 1fr; align-items: start; }
+  .ccard-img img { width: 100%; max-width: 220px; height: 220px; }
+  .ccard-row { max-width: 520px; }
+}
+@media (max-width: 899px) {
+  .cart-layout { display: block; }
+  .summary { position: static; margin-top: 26px; }
+}

@@ -125,7 +125,14 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     const h = () => setLines(loadCart());
     window.addEventListener("sz_cart_changed", h); return () => window.removeEventListener("sz_cart_changed", h);
   }, []);
-  const commit = useCallback((c: CartLine[]) => { saveCart(c); setLines([...c]); window.dispatchEvent(new Event("sz_cart_changed")); }, []);
+  const commit = useCallback((c: CartLine[]) => {
+    const stored = c.map((l) => ({ ...l }));
+    memoryCart = stored;
+    try { localStorage.setItem(CART_KEY, JSON.stringify(stored)); } catch {}
+    // brand-new objects for React → guaranteed re-render on every qty/size change
+    setLines(stored.map((l) => ({ ...l })));
+    window.dispatchEvent(new Event("sz_cart_changed"));
+  }, []);
   const add: CartCtx["add"] = (l, qty = 1) => {
     const c = [...loadCart()];
     const key = `${l.productId}:${l.variantId || 0}`;
@@ -135,16 +142,19 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     commit(c);
     trackEvent("AddToCart", { value: l.price * qty, currency: "BDT", content_ids: [String(l.productId)], content_type: "product", contents: [{ id: String(l.productId), quantity: qty, item_price: l.price }] });
   };
-  const setQty: CartCtx["setQty"] = (key, qty) => { const c = loadCart(); const e = c.find((x) => x.key === key); if (e) e.qty = Math.max(1, Math.min(qty, e.stock || 99)); commit(c); };
+  const setQty: CartCtx["setQty"] = (key, qty) => {
+    commit(loadCart().map((l) => l.key === key
+      ? { ...l, qty: Math.max(1, Math.min(qty, l.stock || 99)) }
+      : l));
+  };
   const updateLine: CartCtx["updateLine"] = (key, patch) => {
-    const c = loadCart();
-    const e = c.find((x) => x.key === key);
-    if (!e) return;
-    // size change → new identity key
-    const newKey = `${e.productId}:${patch.variantId ?? e.variantId ?? 0}`;
-    Object.assign(e, patch, patch.variantId != null ? { key: newKey } : {});
-    e.qty = Math.max(1, Math.min(e.qty, e.stock || 99));
-    commit(c);
+    commit(loadCart().map((l) => {
+      if (l.key !== key) return l;
+      const merged = { ...l, ...patch };
+      if (patch.variantId != null) merged.key = `${merged.productId}:${patch.variantId}`; // size change → new identity
+      merged.qty = Math.max(1, Math.min(merged.qty || 1, merged.stock || 99));
+      return merged;
+    }));
   };
   const remove: CartCtx["remove"] = (key) => commit(loadCart().filter((x) => x.key !== key));
   const clear = () => commit([]);
