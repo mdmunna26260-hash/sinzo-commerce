@@ -754,36 +754,4 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 13.5px; }
 
 .cart-size-select { border: 1px solid var(--line); background: #fff; padding: 8px 12px; border-radius: var(--radius); font-size: 13px; min-height: 40px; cursor: pointer; }
 
-/* ================= Cart — reference design ================= */
-.cart-page { padding: 34px 24px 100px; }
-.cart-head { margin-bottom: 22px; }
-.cart-head h1 { font-size: clamp(30px, 4vw, 44px); margin: 6px 0 2px; letter-spacing: -0.01em; }
-.cart-sub { color: var(--muted); font-size: 14.5px; }
-.cart-continue { margin-top: 16px; width: 100%; max-width: 560px; }
-
-.cart-lines { display: grid; gap: 16px; }
-.ccard { background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 16px; display: grid; gap: 14px; }
-.ccard-img { display: flex; justify-content: center; background: #f6f4f0; border-radius: 8px; overflow: hidden; }
-.ccard-img img { width: 200px; height: 200px; object-fit: contain; mix-blend-mode: multiply; }
-.ccard-title { font-size: 17px; font-weight: 700; letter-spacing: .01em; color: var(--text); }
-.ccard-meta { display: flex; gap: 8px; align-items: center; margin-top: 4px; font-size: 13px; color: var(--muted); flex-wrap: wrap; }
-.pill-pill { background: var(--bg); border: 1px solid var(--line); border-radius: 99px; padding: 5px 14px; font-size: 12.5px; color: var(--text); }
-.ccard-row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-top: 14px; padding-top: 14px; border-top: 1px solid #f1efec; }
-.qty-pill { display: inline-flex; align-items: center; border: 1px solid var(--line); border-radius: 99px; overflow: hidden; background: #fff; }
-.qty-pill button { width: 46px; height: 46px; border: none; background: none; font-size: 18px; cursor: pointer; color: var(--text); }
-.qty-pill button:hover { background: var(--bg); }
-.qty-pill button:first-child { background: var(--text); color: #fff; border-radius: 99px; margin: 3px; width: 42px; height: 42px; }
-.qty-pill span { min-width: 44px; text-align: center; font-size: 15px; font-weight: 600; }
-.total-pill { background: var(--text); color: #fff; border-radius: 99px; padding: 13px 22px; font-size: 14.5px; font-weight: 700; white-space: nowrap; }
-.remove-btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; width: 100%; max-width: 100%; border: 1px solid #eac6c2; background: #fdf1f0; color: var(--danger); border-radius: 99px; padding: 13px; font-size: 14px; font-weight: 600; cursor: pointer; transition: background .2s ease; }
-.remove-btn:hover { background: #f8e2e0; }
-.ccard-low { font-size: 12px; color: var(--danger); }
-@media (min-width: 900px) {
-  .ccard { grid-template-columns: 220px 1fr; align-items: start; }
-  .ccard-img img { width: 100%; max-width: 220px; height: 220px; }
-  .ccard-row { max-width: 520px; }
-}
-@media (max-width: 899px) {
-  .cart-layout { display: block; }
-  .summary { position: static; margin-top: 26px; }
 }
