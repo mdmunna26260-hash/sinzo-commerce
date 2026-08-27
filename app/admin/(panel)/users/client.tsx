@@ -5,6 +5,8 @@ const ROLES = ["SUPER_ADMIN", "ADMIN", "ORDER_MANAGER", "PRODUCT_MANAGER", "MARK
 export default function UsersClient({ initial, meId, perms }: any) {
   const router = useRouter();
   const [msg, setMsg] = useState("");
+  const [pwUser, setPwUser] = useState<number | null>(null);
+  const [pwValue, setPwValue] = useState("");
   const [nu, setNu] = useState({ name: "", email: "", password: "", role: "ORDER_MANAGER" });
   const api = async (url: string, method: string, body?: any) => {
     const r = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: body ? JSON.stringify(body) : undefined });
@@ -34,7 +36,18 @@ export default function UsersClient({ initial, meId, perms }: any) {
                   <td style={{ fontSize: 11, color: "var(--muted)", maxWidth: 220 }}>{(perms[u.role] || []).join(", ")}</td>
                   <td style={{ whiteSpace: "nowrap" }}>
                     <button className="abtn sm" onClick={() => api("/api/admin/users/" + u.id, "PUT", { active: !u.active })}>{u.active ? "Disable" : "Enable"}</button>{" "}
-                    {u.id !== meId && <button className="abtn sm danger" onClick={() => { const pw = prompt("New password for " + u.email); if (pw) api("/api/admin/users/" + u.id, "PUT", { password: pw }); }}>🔑</button>}{" "}
+                    {u.id !== meId && (
+                      <span style={{ display: "inline-flex", gap: 4, alignItems: "center" }}>
+                        <button className="abtn sm" title="Change password" onClick={() => { setPwUser(pwUser === u.id ? null : u.id); setPwValue(""); }}>🔑</button>
+                        {pwUser === u.id && (
+                          <>
+                            <input type="password" placeholder="New password (min 6)" value={pwValue} onChange={(e) => setPwValue(e.target.value)}
+                              style={{ width: 150, border: "1px solid #ddd9d2", padding: "4px 8px", borderRadius: 4, fontSize: 12 }} autoFocus />
+                            <button className="abtn sm primary" onClick={() => { if (pwValue.length >= 6) { api("/api/admin/users/" + u.id, "PUT", { password: pwValue }); setPwUser(null); setPwValue(""); } }}>Save</button>
+                          </>
+                        )}
+                      </span>
+                    )}{" "}
                     {u.id !== meId && <button className="abtn sm danger" onClick={() => confirm("Delete " + u.email + "?") && api("/api/admin/users/" + u.id, "DELETE")}>✕</button>}
                   </td>
                 </tr>

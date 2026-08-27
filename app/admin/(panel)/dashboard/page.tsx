@@ -59,6 +59,7 @@ export default async function Dashboard({ searchParams }: { searchParams: any })
       <div className="admin-top">
         <div><h1>Dashboard</h1><div className="who">Welcome back, {user.name} · {new Date().toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" })}</div></div>
         <div style={{ display: "flex", gap: 8 }}>
+          <Link className="abtn" href="/" target="_blank">🌐 View Website</Link>
           <Link className="abtn" href={tk("/admin/products")}>+ Add Product</Link>
           <Link className="abtn primary" href={tk("/admin/orders")}>View Orders</Link>
         </div>

@@ -11,6 +11,36 @@ export function Announcement({ text }: { text?: string }) {
   return <div className="announce">{text}</div>;
 }
 
+/* Admin-only dashboard shortcut on the storefront header.
+   Visible only when the visitor has a valid admin session
+   (cookie on production, or ?t= / saved token elsewhere). */
+function AdminDashLink() {
+  const [state, setState] = useState<{ show: boolean; href: string }>({ show: false, href: "/admin/dashboard" });
+  useEffect(() => {
+    (async () => {
+      let token = "";
+      try { token = new URLSearchParams(location.search).get("t") || ""; } catch {}
+      if (!token) { try { token = localStorage.getItem("sz_admin_token") || ""; } catch {} }
+      try {
+        const headers: HeadersInit = token ? { Authorization: "Bearer " + token } : {};
+        const r = await fetch("/api/admin/whoami", { headers });
+        if (r.ok) {
+          const j = await r.json();
+          if (j?.ok) {
+            setState({ show: true, href: token ? "/admin/dashboard?t=" + encodeURIComponent(token) : "/admin/dashboard" });
+          }
+        }
+      } catch {}
+    })();
+  }, []);
+  if (!state.show) return null;
+  return (
+    <Link href={state.href} className="icon-btn" title="Admin dashboard" aria-label="Admin dashboard">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg>
+    </Link>
+  );
+}
+
 export function Header({ storeName, categories }: { storeName: string; categories: { name: string; slug: string }[] }) {
   const { count } = useCart();
   const path = usePathname();
@@ -56,6 +86,7 @@ export function Header({ storeName, categories }: { storeName: string; categorie
             <Link href="/track">Track Order</Link>
           </nav>
           <div className="header-actions">
+            <AdminDashLink />
             <button className="icon-btn" aria-label="Search" onClick={() => { setSearchOpen(true); setSugg(null); }}>
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
             </button>

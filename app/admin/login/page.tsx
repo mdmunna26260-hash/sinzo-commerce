@@ -10,12 +10,6 @@ export default function AdminLogin() {
   const [busy, setBusy] = useState(false);
   const router = useRouter();
 
-  const fillDemo = () => {
-    setEmail("Sinzo.bd@gmail.com");
-    setPassword("do you love me?");
-    setErr("");
-  };
-
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setBusy(true); setErr("");
@@ -59,13 +53,6 @@ export default function AdminLogin() {
       <form className="login-card" onSubmit={submit}>
         <span className="logo">SINZO</span>
         <div className="login-sub">Admin Panel — sign in to continue</div>
-
-        <div style={{ background: "#faf3e0", border: "1px solid #eadfbe", borderRadius: 6, padding: "10px 14px", fontSize: 12.5, marginBottom: 16 }}>
-          <b>Demo credentials:</b><br />
-          Email: <code>Sinzo.bd@gmail.com</code><br />
-          Password: <code>do you love me?</code> <span style={{ color: "#9a7b1e" }}>(shesh-e “?” ase)</span><br />
-          <button type="button" className="abtn sm" style={{ marginTop: 8 }} onClick={fillDemo}>⚡ Auto-fill credentials</button>
-        </div>
 
         {err && <div className="noti err">{err}</div>}
 
