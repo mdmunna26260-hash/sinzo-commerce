@@ -3,8 +3,8 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useCart, toast } from "@/components/store";
 
-/* Cart — reference design: live qty, per-line Total pill, size change, remove.
-   Every change updates instantly (deep-copied state) + confirmation toast. */
+/* Cart — ORIGINAL clean layout (thumbnail left, qty stepper, side summary),
+   with the v2 guarantees: guaranteed live qty/size updates + success toasts. */
 export default function CartPage() {
   const { lines, subtotal, setQty, updateLine, remove, ready } = useCart();
   const [coupon, setCoupon] = useState("");
@@ -68,12 +68,7 @@ export default function CartPage() {
   if (lines.length === 0) {
     return (
       <div className="container">
-        <div className="cart-head">
-          <div className="eyebrow">Shopping Cart</div>
-          <h1>Your Cart</h1>
-          <p className="cart-sub">0 items in your cart</p>
-        </div>
-        <div className="empty" style={{ padding: "60px 20px" }}>
+        <div className="empty" style={{ padding: "130px 20px" }}>
           <h3>Your cart is empty</h3>
           <p>Discover pieces made to last.</p>
           <br /><Link className="btn" href="/products">Start Shopping</Link>
@@ -85,47 +80,44 @@ export default function CartPage() {
   const remaining = Math.max(0, FREE_T - subtotal);
 
   return (
-    <div className="container cart-page">
-      <div className="cart-head">
-        <div className="eyebrow">Shopping Cart</div>
-        <h1>Your Cart</h1>
-        <p className="cart-sub">{itemCount} item{itemCount !== 1 ? "s" : ""} in your cart</p>
-        <Link className="btn btn-outline cart-continue" href="/products">Continue Shopping</Link>
-      </div>
-
+    <div className="container" style={{ padding: "38px 24px 100px" }}>
+      <h1 style={{ fontSize: "clamp(28px,3.4vw,40px)", marginBottom: 30 }}>Your Cart</h1>
       <div className="cart-layout">
-        <div className="cart-lines">
+        <div>
           {lines.map((l) => (
-            <div className="ccard" key={l.key}>
-              <Link href={"/products/" + l.slug} className="ccard-img">
-                {l.image && <img src={l.image} alt={l.title} loading="lazy" decoding="async" />}
-              </Link>
-              <div className="ccard-body">
-                <Link href={"/products/" + l.slug} className="ccard-title">{l.title}</Link>
-                {(l.color || l.size) && (
-                  <div className="ccard-meta">
-                    {l.color && <span>{l.color}</span>}
-                    {l.size && <span className="pill-pill">Size: {l.size}</span>}
-                  </div>
-                )}
-                <div className="ccard-row">
-                  <div className="qty-pill" role="group" aria-label="Quantity">
-                    <button type="button" aria-label="Decrease" onClick={() => bump(l, (l.qty || 1) - 1)}>−</button>
-                    <span>{l.qty}</span>
-                    <button type="button" aria-label="Increase" onClick={() => bump(l, (l.qty || 1) + 1)}>+</button>
-                  </div>
-                  <div className="total-pill">Total: {Number(l.price * l.qty).toLocaleString("en-IN")}-BDT</div>
+            <div className="cart-row" key={l.key}>
+              <Link href={"/products/" + l.slug}><img src={l.image} alt={l.title} loading="lazy" decoding="async" /></Link>
+              <div>
+                <div className="t"><Link href={"/products/" + l.slug}>{l.title}</Link></div>
+                <div className="v">{[l.color].filter(Boolean).join(" · ")}</div>
+                <div className="v">৳{Number(l.price || 0).toLocaleString("en-IN")}</div>
+                <div style={{ marginTop: 10, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                  <span style={{ fontSize: 11, letterSpacing: ".14em", textTransform: "uppercase", color: "var(--muted)" }}>Size</span>
+                  <select
+                    className="cart-size-select"
+                    value={l.size || ""}
+                    onChange={(e) => changeSize(l, e.target.value)}
+                    aria-label="Change size"
+                  >
+                    {!l.size && <option value="">—</option>}
+                    {l.size && <option value={l.size}>{l.size}</option>}
+                    {(l.sizes || []).filter((s) => s && s !== l.size).map((s) => <option key={s} value={s}>{s}</option>)}
+                  </select>
                 </div>
-                <button type="button" className="remove-btn" onClick={() => { remove(l.key); toast("Item removed from cart"); }}>
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6h14zM10 11v6M14 11v6"/></svg>
-                  Remove
-                </button>
-                {l.stock != null && l.stock <= 5 && <div className="ccard-low">Only {l.stock} left in stock</div>}
+                <div style={{ marginTop: 10, display: "flex", alignItems: "center", gap: 12 }}>
+                  <div className="qty">
+                    <button type="button" onClick={() => bump(l, (l.qty || 1) - 1)} aria-label="Decrease quantity">−</button>
+                    <span>{l.qty}</span>
+                    <button type="button" onClick={() => bump(l, (l.qty || 1) + 1)} aria-label="Increase quantity">+</button>
+                  </div>
+                  {l.stock != null && l.stock <= 5 && <span style={{ fontSize: 11, color: "var(--danger)" }}>only {l.stock} left</span>}
+                </div>
+                <button type="button" className="rm" onClick={() => { remove(l.key); toast("Item removed from cart"); }}>Remove</button>
               </div>
+              <div style={{ fontWeight: 600 }}>৳{(Number(l.price || 0) * (l.qty || 1)).toLocaleString("en-IN")}</div>
             </div>
           ))}
         </div>
-
         <aside className="summary">
           <h3>Order Summary</h3>
           <div className="freeship-note">
@@ -140,7 +132,7 @@ export default function CartPage() {
             <input placeholder="Coupon code" value={coupon} onChange={(e) => setCoupon(e.target.value.toUpperCase())} />
             <button className="abtn" onClick={applyCoupon} disabled={busy}>Apply</button>
           </div>
-          <Link className="btn btn-accent" style={{ width: "100%" }} href="/checkout">Proceed to Checkout</Link>
+          <Link className="btn" style={{ width: "100%" }} href="/checkout">Proceed to Checkout</Link>
           <div className="trust">
             <span>🔒 Secure checkout</span><span>💵 Cash on Delivery</span><span>↩ 7-day returns</span>
           </div>
