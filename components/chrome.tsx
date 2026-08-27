@@ -8,7 +8,14 @@ export type HeaderCfg = { storeName: string; announcement?: string; categories: 
 
 export function Announcement({ text }: { text?: string }) {
   if (!text) return null;
-  return <div className="announce">{text}</div>;
+  const item = <span className="announce-item">{text}<i className="announce-dot" aria-hidden>◆</i></span>;
+  return (
+    <div className="announce" role="marquee">
+      <div className="announce-track">
+        {item}{item}{item}{item}
+      </div>
+    </div>
+  );
 }
 
 /* Admin-only dashboard shortcut on the storefront header.
@@ -194,14 +201,19 @@ export function Footer({ cfg }: { cfg: any }) {
         </div>
       </div>
       <div className="newsletter">
-        <div className="container section" style={{ padding: "56px 24px" }}>
-          <h2>Join the list</h2>
-          <p>Early access to drops, private sales, and 10% off your first order.</p>
-          <form onSubmit={subscribe}>
-            <input type="email" required placeholder="Your email address" value={email} onChange={(e) => setEmail(e.target.value)} aria-label="Email" />
-            <button type="submit">Subscribe</button>
-          </form>
-          {msg && <div className="form-note">{msg}</div>}
+        <div className="container nl-grid">
+          <div>
+            <div className="eyebrow" style={{ opacity: .75 }}>Newsletter</div>
+            <h2>Join the {store.name || "SINZO"} list</h2>
+            <p>Early access to drops, private sales, and 10% off your first order.</p>
+          </div>
+          <div>
+            <form onSubmit={subscribe}>
+              <input type="email" required placeholder="Your email address" value={email} onChange={(e) => setEmail(e.target.value)} aria-label="Email" />
+              <button type="submit">Subscribe →</button>
+            </form>
+            {msg && <div className="form-note">{msg}</div>}
+          </div>
         </div>
       </div>
       <div className="container">

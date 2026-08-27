@@ -1,8 +1,10 @@
 import Link from "next/link";
+import WishHeart from "./wish-heart";
 
 export type CardProduct = {
   id: number; title: string; slug: string; price: number; comparePrice: number | null;
   image?: string; categoryName?: string; stock: number; isNew?: boolean; isBestSeller?: boolean;
+  colors?: string[];
 };
 
 export function ProductCard({ p, wish }: { p: CardProduct; wish?: boolean }) {
@@ -16,12 +18,22 @@ export function ProductCard({ p, wish }: { p: CardProduct; wish?: boolean }) {
           {p.isBestSeller && <span className="badge best">★ Best Seller</span>}
           {p.isNew && <span className="badge new">New</span>}
         </div>
+        <WishHeart id={p.id} />
         {p.stock <= 0 && <div className="soldout-overlay"><span>Sold Out</span></div>}
         {wish ? <div className="pcard-quick"><button type="button">In your wishlist</button></div> : null}
       </div>
       <div className="pcard-info">
         <div className="pcard-title">{p.title}</div>
-        {p.categoryName && <div className="pcard-cat">{p.categoryName}</div>}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+          <span className="pcard-cat">{p.categoryName}</span>
+          {p.colors && p.colors.length > 0 && (
+            <span className="pcard-colors" title={p.colors.join(", ")}>
+              {p.colors.slice(0, 4).map((c, i) => (
+                <i key={i} style={{ background: ["white", "off-white", "cream"].includes(c.toLowerCase()) ? "#f4f0e8" : c.toLowerCase() }} />
+              ))}
+            </span>
+          )}
+        </div>
         <div className="price">
           <b>৳{p.price.toLocaleString("en-IN")}</b>
           {p.comparePrice && p.comparePrice > p.price && (<><s>৳{p.comparePrice.toLocaleString("en-IN")}</s><span className="off">Save ৳{(p.comparePrice - p.price).toLocaleString("en-IN")}</span></>)}

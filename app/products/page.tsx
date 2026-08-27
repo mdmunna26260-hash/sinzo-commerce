@@ -81,6 +81,9 @@ export default async function ProductsPage({ searchParams }: { searchParams: SP 
   if (searchParams.avail === "1") activeChips.push({ label: "In stock", patch: { avail: undefined } });
   if (searchParams.color) activeChips.push({ label: searchParams.color, patch: { color: undefined } });
   if (searchParams.onsale === "1") activeChips.push({ label: "On sale", patch: { onsale: undefined } });
+  const catCounts = await db.product.groupBy({ by: ["categoryId"], where: { status: "ACTIVE" }, _count: { _all: true } });
+  const countMap = new Map(catCounts.map((c) => [c.categoryId, c._count._all]));
+  const activeTotal = catCounts.reduce((a, c) => a + c._count._all, 0);
   const qpill = (slug?: string) => {
     const params = new URLSearchParams();
     if (searchParams.q) params.set("q", searchParams.q);
@@ -109,9 +112,9 @@ export default async function ProductsPage({ searchParams }: { searchParams: SP 
 
         {/* quick category pills */}
         <div className="cat-pills">
-          <Link className={"cat-pill" + (!searchParams.category ? " active" : "")} href={qpill(undefined)}>All</Link>
+          <Link className={"cat-pill" + (!searchParams.category ? " active" : "")} href={qpill(undefined)}>All{activeTotal ? ` (${activeTotal})` : ""}</Link>
           {cats.map((c) => (
-            <Link key={c.slug} className={"cat-pill" + (searchParams.category === c.slug ? " active" : "")} href={qpill(c.slug)}>{c.name}</Link>
+            <Link key={c.slug} className={"cat-pill" + (searchParams.category === c.slug ? " active" : "")} href={qpill(c.slug)}>{c.name}{countMap.get(c.id) ? ` (${countMap.get(c.id)})` : ""}</Link>
           ))}
         </div>
 
@@ -141,6 +144,7 @@ export default async function ProductsPage({ searchParams }: { searchParams: SP 
                     id: p.id, title: p.title, slug: p.slug, price: p.price, comparePrice: p.comparePrice,
                     image: p.images?.[0]?.url, categoryName: p.category?.name, stock: p.stock,
                     isNew: p.isNew, isBestSeller: p.isBestSeller,
+                    colors: Array.from(new Set(p.variants.filter((v) => v.stock > 0 && v.color).map((v) => v.color!))),
                   }} />
                 ))}
               </div>
