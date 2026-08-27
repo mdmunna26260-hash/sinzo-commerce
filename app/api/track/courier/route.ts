@@ -44,6 +44,13 @@ export async function GET(req: Request) {
       const m = mapSteadfastStatus(r.data.delivery_status);
       return NextResponse.json({ source: "steadfast", courierName: "Steadfast", status: m.label, tone: m.tone, courierStatusRaw: r.data.delivery_status, items: [] });
     }
+    if (/^\d{6,}$/.test(code)) {
+      const rc = await checkStatusByConsignment(code);
+      if (rc.ok && rc.data?.delivery_status !== undefined) {
+        const m = mapSteadfastStatus(rc.data.delivery_status);
+        return NextResponse.json({ source: "steadfast", courierName: "Steadfast", status: m.label, tone: m.tone, courierStatusRaw: rc.data.delivery_status, items: [] });
+      }
+    }
     return NextResponse.json({ error: "Kono order pay nai ei tracking number-e. Code abar check korun." }, { status: 404 });
   }
 
