@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 /* Mobile filter drawer + desktop sidebar — one component, spec-exact. */
 const SIZES = ["S", "M", "L", "XL"];
 
-export default function Filters({ cats, colors = [], mobileOpen, onClose }: { cats: { name: string; slug: string }[]; colors?: string[]; mobileOpen?: boolean; onClose?: () => void }) {
+export default function Filters({ cats, mobileOpen, onClose }: { cats: { name: string; slug: string }[]; mobileOpen?: boolean; onClose?: () => void }) {
   const sp = useSearchParams();
   const router = useRouter();
   const get = (k: string) => sp.get(k) || undefined;
@@ -51,15 +51,6 @@ export default function Filters({ cats, colors = [], mobileOpen, onClose }: { ca
           {sz}
         </label>
       ))}
-      <h3>Color</h3>
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", padding: "4px 0 8px" }}>
-        {(colors.length ? colors : ["Black", "White", "Beige", "Camel"]).map((c) => (
-          <button key={c} title={c} aria-label={c}
-            className={"color-dot" + (get("color") === c ? " active" : "")}
-            style={{ background: ["white","off-white","cream"].includes(c.toLowerCase()) ? "#f4f0e8" : c.toLowerCase() }}
-            onClick={() => push({ color: get("color") === c ? undefined : c })} />
-        ))}
-      </div>
       <h3>Availability</h3>
       <label><input type="checkbox" checked={get("avail") === "1"} onChange={() => push({ avail: get("avail") === "1" ? undefined : "1" })} />In stock only</label>
       <label><input type="checkbox" checked={get("onsale") === "1"} onChange={() => push({ onsale: get("onsale") === "1" ? undefined : "1" })} />On sale</label>

@@ -125,8 +125,10 @@ export default async function HomePage() {
           <div className="grid grid-4">{cp(featuredCol).slice(0, 4).map((p: any) => <ProductCard key={p.id} p={p} />)}</div>
           <div className="grid grid-4">{cp(featuredCol).slice(4, 8).map((p: any) => <ProductCard key={p.id} p={p} />)}</div>
         </Carousel>
-        <div className="grid grid-4 desktop-only">
-          {cp(featuredCol).map((p: any) => <ProductCard key={p.id} p={p} />)}
+        <div className="desktop-only">
+          <div className="grid grid-4">
+            {cp(featuredCol).map((p: any) => <ProductCard key={p.id} p={p} />)}
+          </div>
         </div>
       </section>
     ),
@@ -137,8 +139,10 @@ export default async function HomePage() {
           <div className="grid grid-3">{cats.slice(0, 3).map((c) => <CatTile key={c.id} c={c} />)}</div>
           <div className="grid grid-3">{cats.slice(3, 6).map((c) => <CatTile key={c.id} c={c} />)}</div>
         </Carousel>
-        <div className="grid grid-3 desktop-only">
-          {cats.slice(0, 3).map((c) => <CatTile key={c.id} c={c} />)}
+        <div className="desktop-only">
+          <div className="grid grid-3">
+            {cats.slice(0, 3).map((c) => <CatTile key={c.id} c={c} />)}
+          </div>
         </div>
       </section>
     ),
@@ -167,8 +171,10 @@ export default async function HomePage() {
           <div className="grid grid-4">{cp(bestSellers).slice(0, 4).map((p: any) => <ProductCard key={p.id} p={p} />)}</div>
           <div className="grid grid-4">{cp(bestSellers).slice(4, 8).map((p: any) => <ProductCard key={p.id} p={p} />)}</div>
         </Carousel>
-        <div className="grid grid-4 desktop-only">
-          {cp(bestSellers).map((p: any) => <ProductCard key={p.id} p={p} />)}
+        <div className="desktop-only">
+          <div className="grid grid-4">
+            {cp(bestSellers).map((p: any) => <ProductCard key={p.id} p={p} />)}
+          </div>
         </div>
       </section>
     ),
@@ -179,8 +185,10 @@ export default async function HomePage() {
           <div className="grid grid-2q">{reviews.slice(0, 2).map((r) => <Quote key={r.id} r={r} />)}</div>
           <div className="grid grid-2q">{reviews.slice(2, 4).map((r) => <Quote key={r.id} r={r} />)}</div>
         </Carousel>
-        <div className="grid grid-3 desktop-only">
-          {reviews.map((r) => <Quote key={r.id} r={r} />)}
+        <div className="desktop-only">
+          <div className="grid grid-3">
+            {reviews.map((r) => <Quote key={r.id} r={r} />)}
+          </div>
         </div>
       </section>
     ) : null,

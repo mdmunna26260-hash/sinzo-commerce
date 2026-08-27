@@ -69,10 +69,6 @@ export default async function ProductsPage({ searchParams }: { searchParams: SP 
   };
 
   const activeCat = cats.find((c) => c.slug === searchParams.category);
-  const colors = Array.from(new Set(
-    (await db.productVariant.findMany({ where: { color: { not: null }, stock: { gt: 0 } }, select: { color: true }, distinct: ["color"], take: 24 }))
-      .map((v) => v.color!).filter(Boolean)
-  ));
   const activeChips: { label: string; patch: Record<string, string | undefined> }[] = [];
   if (searchParams.category && activeCat) activeChips.push({ label: activeCat.name, patch: { category: undefined } });
   if (searchParams.size) activeChips.push({ label: "Size " + searchParams.size, patch: { size: undefined } });
@@ -115,7 +111,7 @@ export default async function ProductsPage({ searchParams }: { searchParams: SP 
           ))}
         </div>
 
-        <ShopLayout count={totalMatching} cats={cats.map((c) => ({ name: c.name, slug: c.slug }))} colors={colors}>
+        <ShopLayout count={totalMatching} cats={cats.map((c) => ({ name: c.name, slug: c.slug }))}>
           {activeChips.length > 0 && (
             <div className="chips">
               {activeChips.map((c) => (

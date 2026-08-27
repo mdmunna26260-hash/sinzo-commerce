@@ -92,7 +92,7 @@ export function trackEvent(name: string, data?: Record<string, any>, opts?: { ev
 }
 
 /* ============ Cart (localStorage, guest-friendly) ============ */
-export type CartLine = { key: string; productId: number; variantId?: number; slug: string; title: string; image?: string; price: number; qty: number; size?: string; color?: string; stock: number };
+export type CartLine = { key: string; productId: number; variantId?: number; slug: string; title: string; image?: string; price: number; qty: number; size?: string; color?: string; stock: number; sizes?: string[] };
 const CART_KEY = "sz_cart_v1";
 
 /* Memory-first cart store: module-level state survives client-side navigation
@@ -109,8 +109,8 @@ function saveCart(c: CartLine[]) {
   try { localStorage.setItem(CART_KEY, JSON.stringify(c)); } catch {}
 }
 
-type CartCtx = { lines: CartLine[]; count: number; subtotal: number; ready: boolean; add: (l: Omit<CartLine, "key">, qty?: number) => void; setQty: (key: string, qty: number) => void; remove: (key: string) => void; clear: () => void; };
-const EMPTY_CTX: CartCtx = { lines: [], count: 0, subtotal: 0, ready: false, add: () => {}, setQty: () => {}, remove: () => {}, clear: () => {} };
+type CartCtx = { lines: CartLine[]; count: number; subtotal: number; ready: boolean; add: (l: Omit<CartLine, "key">, qty?: number) => void; setQty: (key: string, qty: number) => void; updateLine: (key: string, patch: Partial<CartLine>) => void; remove: (key: string) => void; clear: () => void; };
+const EMPTY_CTX: CartCtx = { lines: [], count: 0, subtotal: 0, ready: false, add: () => {}, setQty: () => {}, updateLine: () => {}, remove: () => {}, clear: () => {} };
 const Ctx = createContext<CartCtx>(EMPTY_CTX);
 export function useCart() { return useContext(Ctx); }
 
@@ -132,11 +132,21 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     trackEvent("AddToCart", { value: l.price * qty, currency: "BDT", content_ids: [String(l.productId)], content_type: "product", contents: [{ id: String(l.productId), quantity: qty, item_price: l.price }] });
   };
   const setQty: CartCtx["setQty"] = (key, qty) => { const c = loadCart(); const e = c.find((x) => x.key === key); if (e) e.qty = Math.max(1, Math.min(qty, e.stock || 99)); commit(c); };
+  const updateLine: CartCtx["updateLine"] = (key, patch) => {
+    const c = loadCart();
+    const e = c.find((x) => x.key === key);
+    if (!e) return;
+    // size change → new identity key
+    const newKey = `${e.productId}:${patch.variantId ?? e.variantId ?? 0}`;
+    Object.assign(e, patch, patch.variantId != null ? { key: newKey } : {});
+    e.qty = Math.max(1, Math.min(e.qty, e.stock || 99));
+    commit(c);
+  };
   const remove: CartCtx["remove"] = (key) => commit(loadCart().filter((x) => x.key !== key));
   const clear = () => commit([]);
   const count = lines.reduce((s, l) => s + l.qty, 0);
   const subtotal = lines.reduce((s, l) => s + l.qty * l.price, 0);
-  return <Ctx.Provider value={{ lines, count, subtotal, ready, add, setQty, remove, clear }}>{children}</Ctx.Provider>;
+  return <Ctx.Provider value={{ lines, count, subtotal, ready, add, setQty, updateLine, remove, clear }}>{children}</Ctx.Provider>;
 }
 
 /* ============ Wishlist (guest, localStorage) ============ */

@@ -86,6 +86,7 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
   const line = () => ({
     productId: product.id, variantId: activeVariant?.id, slug: product.slug, title: product.title,
     image: product.images[0]?.url, price, qty, size: size || undefined, color: color || undefined, stock: avail || 99,
+    sizes,
   });
   const addLine = () => { add(line(), qty); toast("Added to cart ✓"); };
   const buyNow = () => { setBuying(true); add(line(), qty); router.push("/checkout"); };
