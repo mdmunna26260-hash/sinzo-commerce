@@ -198,14 +198,12 @@ h1, h2, h3, .serif { font-family: var(--font-head); font-weight: 500; letter-spa
 .fdrawer-foot .abtn { flex: 1; min-height: 46px; }
 
 @media (min-width: 900px) {
-  .shop-wrap { position: relative; }
-  .shop-toolbar { border-top: none; border-bottom: 1px solid var(--line); margin-left: 260px; }
+  /* clean two-column shop layout — sidebar in its own grid column (never overlaps) */
+  .shop-toolbar { border-top: none; border-bottom: 1px solid var(--line); margin-bottom: 22px; }
   .st-left .st-btn { display: none; } /* desktop: sidebar instead of button */
   .fdrawer-bg { display: none !important; }
-  /* sidebar rendered once (toolbar), absolutely docked to the left rail */
-  .filters-side-wrap { position: absolute; top: 0; left: 24px; width: 220px; }
-  .filters-side-wrap .filters.side { display: block; position: sticky; top: 96px; max-height: calc(100vh - 130px); overflow-y: auto; padding-right: 8px; }
-  .shop-layout { padding-left: 260px; min-height: 400px; }
+  .shop-layout { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 0 44px; align-items: start; }
+  .shop-side .filters.side { display: block; position: sticky; top: 96px; max-height: calc(100vh - 130px); overflow-y: auto; scrollbar-width: thin; padding-right: 10px; }
   .shop-grid { grid-template-columns: repeat(3, 1fr); gap: 32px 20px; }
 }
 @media (min-width: 1200px) { .shop-grid { grid-template-columns: repeat(4, 1fr); } }

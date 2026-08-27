@@ -3,11 +3,15 @@ import { useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Filters, { SortSelect } from "@/components/filters";
 
-/* Compact toolbar: [count] [Filter] [Sort] — Filter opens the mobile drawer. */
-export default function ProductsToolbar({ count, cats, colors }: { count: number; cats: { name: string; slug: string }[]; colors?: string[] }) {
+/* ONE owner of the shop filtering UI:
+   toolbar (count · Filter btn [mobile] · Sort) + single Filters instance
+   (desktop sticky sidebar / mobile full-screen drawer) + main column. */
+export default function ShopLayout({ count, cats, colors, children }: {
+  count: number; cats: { name: string; slug: string }[]; colors?: string[]; children: React.ReactNode;
+}) {
   const [open, setOpen] = useState(false);
   const sp = useSearchParams();
-  const activeCount = ["category", "min", "max", "size", "avail", "onsale"].filter((k) => sp.get(k)).length;
+  const activeCount = ["category", "min", "max", "size", "color", "avail", "onsale"].filter((k) => sp.get(k)).length;
 
   return (
     <>
@@ -23,9 +27,12 @@ export default function ProductsToolbar({ count, cats, colors }: { count: number
           <SortSelect value={sp.get("sort") || "custom"} />
         </div>
       </div>
-      {/* SINGLE Filters instance: desktop sidebar + mobile drawer */}
-      <div className="filters-side-wrap">
-        <Filters cats={cats} colors={colors} mobileOpen={open} onClose={() => setOpen(false)} />
+
+      <div className="shop-layout">
+        <div className="shop-side">
+          <Filters cats={cats} colors={colors} mobileOpen={open} onClose={() => setOpen(false)} />
+        </div>
+        <main className="shop-main">{children}</main>
       </div>
     </>
   );

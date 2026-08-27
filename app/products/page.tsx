@@ -2,7 +2,7 @@ import { db } from "@/lib/db";
 import { getSettings, publicSettings } from "@/lib/settings";
 import { Header, Footer, Announcement } from "@/components/chrome";
 import { ProductCard } from "@/components/parts";
-import ProductsToolbar from "./toolbar";
+import ShopLayout from "./shop-layout";
 import Link from "next/link";
 
 export const dynamic = "force-dynamic";
@@ -107,9 +107,6 @@ export default async function ProductsPage({ searchParams }: { searchParams: SP 
           {activeCat ? activeCat.name : searchParams.q ? `Results for “${searchParams.q}”` : "All Products"}
         </h1>
 
-        {/* toolbar: mobile shows Filter button; desktop shows count + sort right */}
-        <ProductsToolbar count={totalMatching} cats={cats.map((c) => ({ name: c.name, slug: c.slug }))} colors={colors} />
-
         {/* quick category pills */}
         <div className="cat-pills">
           <Link className={"cat-pill" + (!searchParams.category ? " active" : "")} href={qpill(undefined)}>All{activeTotal ? ` (${activeTotal})` : ""}</Link>
@@ -118,19 +115,16 @@ export default async function ProductsPage({ searchParams }: { searchParams: SP 
           ))}
         </div>
 
-        {/* active filter chips */}
-        {activeChips.length > 0 && (
-          <div className="chips">
-            {activeChips.map((c) => (
-              <Link key={c.label} className="chip removable" href={chipQs(c.patch)} scroll={false}>
-                {c.label} <span aria-hidden>×</span>
-              </Link>
-            ))}
-          </div>
-        )}
-
-        <div className="shop-layout">
-          <main>
+        <ShopLayout count={totalMatching} cats={cats.map((c) => ({ name: c.name, slug: c.slug }))} colors={colors}>
+          {activeChips.length > 0 && (
+            <div className="chips">
+              {activeChips.map((c) => (
+                <Link key={c.label} className="chip removable" href={chipQs(c.patch)} scroll={false}>
+                  {c.label} <span aria-hidden>×</span>
+                </Link>
+              ))}
+            </div>
+          )}
             {shown.length === 0 ? (
               <div className="empty">
                 <h3>Nothing here yet</h3>
@@ -154,8 +148,7 @@ export default async function ProductsPage({ searchParams }: { searchParams: SP 
                 <Link className="btn btn-outline" href={pageQs(page + 1)} scroll={false}>Load More</Link>
               </div>
             )}
-          </main>
-        </div>
+        </ShopLayout>
       </div>
       <Footer cfg={{ ...cfg, _nav: { categories: cats.map((c) => ({ name: c.name, slug: c.slug })) } }} />
     </>
