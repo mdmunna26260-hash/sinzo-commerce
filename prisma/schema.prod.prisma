@@ -264,3 +264,12 @@ model Blacklist {
   note      String?
   createdAt DateTime @default(now())
 }
+
+model Media {
+  id        String   @id @default(cuid())
+  filename  String
+  mime      String
+  size      Int
+  data      Bytes
+  createdAt DateTime @default(now())
+}
