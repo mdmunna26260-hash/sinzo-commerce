@@ -754,8 +754,6 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 13.5px; }
 
 .cart-size-select { border: 1px solid var(--line); background: #fff; padding: 8px 12px; border-radius: var(--radius); font-size: 13px; min-height: 40px; cursor: pointer; }
 
-}
-
 /* collections page on mobile: 2-col like home carousel, comfortable text */
 @media (max-width: 899px) {
   .shop-grid { padding: 0; }
