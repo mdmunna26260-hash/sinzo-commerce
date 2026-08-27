@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { getSettings, publicSettings } from "@/lib/settings";
 import { Header, Footer, Announcement } from "@/components/chrome";
 import { ProductCard } from "@/components/parts";
+import Carousel from "@/components/home/carousel";
 
 export const dynamic = "force-dynamic";
 
@@ -81,7 +82,11 @@ export default async function HomePage() {
           </div>
           <Link className="link-underline" href={"/collections/" + featuredSlug}>View all</Link>
         </div>
-        <div className="grid grid-4">
+        <Carousel className="mobile-only">
+          <div className="grid grid-4">{cp(featuredCol).slice(0, 4).map((p: any) => <ProductCard key={p.id} p={p} />)}</div>
+          <div className="grid grid-4">{cp(featuredCol).slice(4, 8).map((p: any) => <ProductCard key={p.id} p={p} />)}</div>
+        </Carousel>
+        <div className="grid grid-4 desktop-only">
           {cp(featuredCol).map((p: any) => <ProductCard key={p.id} p={p} />)}
         </div>
       </section>
@@ -89,7 +94,29 @@ export default async function HomePage() {
     categories: (
       <section className="section container" style={{ paddingTop: 0 }} key="categories">
         <div className="section-head"><div><div className="eyebrow">Browse</div><h2>Shop by Category</h2></div></div>
-        <div className="grid grid-3">
+        <Carousel className="mobile-only">
+          <div className="grid grid-3">
+            {cats.slice(0, Math.ceil(Math.min(cats.length, 6) / 3)).map((c) => (
+              <Link key={c.id} className="ctile" href={"/products?category=" + c.slug}>
+                {c.image ? <img src={c.image} alt={c.name} loading="lazy" /> : (
+                  <img src={"/uploads/seed/p-" + ({shirts:"shirt",outerwear:"coat",dresses:"dress",bottoms:"trousers",knitwear:"knit",accessories:"bag","t-shirts":"tee"} as any)[c.slug] + ".jpg"} alt={c.name} loading="lazy" />
+                )}
+                <div className="ctile-label"><span>{c.description?.slice(0, 40) || "Collection"}</span><h3>{c.name}</h3></div>
+              </Link>
+            ))}
+          </div>
+          <div className="grid grid-3">
+            {cats.slice(Math.ceil(Math.min(cats.length, 6) / 3), 6).map((c) => (
+              <Link key={c.id} className="ctile" href={"/products?category=" + c.slug}>
+                {c.image ? <img src={c.image} alt={c.name} loading="lazy" /> : (
+                  <img src={"/uploads/seed/p-" + ({shirts:"shirt",outerwear:"coat",dresses:"dress",bottoms:"trousers",knitwear:"knit",accessories:"bag","t-shirts":"tee"} as any)[c.slug] + ".jpg"} alt={c.name} loading="lazy" />
+                )}
+                <div className="ctile-label"><span>{c.description?.slice(0, 40) || "Collection"}</span><h3>{c.name}</h3></div>
+              </Link>
+            ))}
+          </div>
+        </Carousel>
+        <div className="grid grid-3 desktop-only">
           {cats.slice(0, 3).map((c) => (
             <Link key={c.id} className="ctile reveal" href={"/products?category=" + c.slug}>
               {c.image ? <img src={c.image} alt={c.name} loading="lazy" /> : (
@@ -120,7 +147,10 @@ export default async function HomePage() {
           <div><div className="eyebrow">Loved by hundreds</div><h2>Best Sellers</h2></div>
           <Link className="link-underline" href="/collections/best-sellers">View all</Link>
         </div>
-        <div className="grid grid-4">
+        <Carousel className="mobile-only">
+          <div className="grid grid-4">{cp(bestSellers).slice(0, 4).map((p: any) => <ProductCard key={p.id} p={p} />)}</div>
+        </Carousel>
+        <div className="grid grid-4 desktop-only">
           {cp(bestSellers).map((p: any) => <ProductCard key={p.id} p={p} />)}
         </div>
       </section>
@@ -128,7 +158,23 @@ export default async function HomePage() {
     testimonials: reviews.length > 0 ? (
       <section className="section container" style={{ paddingTop: 0 }} key="testimonials">
         <div className="section-head"><div><div className="eyebrow">Reviews</div><h2>What customers say</h2></div></div>
-        <div className="grid grid-3">
+        <Carousel className="mobile-only">
+          <div className="grid grid-3">{reviews.slice(0, 2).map((r) => (
+            <div className="quote" key={r.id}>
+              <span className="stars">{"★".repeat(r.rating)}{"☆".repeat(5 - r.rating)}</span>
+              <p>“{r.text}”</p>
+              <div className="who">{r.name} · {r.product.title.slice(0, 24)}…</div>
+            </div>
+          ))}</div>
+          <div className="grid grid-3">{reviews.slice(2, 4).map((r) => (
+            <div className="quote" key={r.id}>
+              <span className="stars">{"★".repeat(r.rating)}{"☆".repeat(5 - r.rating)}</span>
+              <p>“{r.text}”</p>
+              <div className="who">{r.name} · {r.product.title.slice(0, 24)}…</div>
+            </div>
+          ))}</div>
+        </Carousel>
+        <div className="grid grid-3 desktop-only">
           {reviews.map((r) => (
             <div className="quote" key={r.id}>
               <span className="stars">{"★".repeat(r.rating)}{"☆".repeat(5 - r.rating)}</span>
