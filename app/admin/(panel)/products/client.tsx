@@ -1,0 +1,253 @@
+"use client";
+import { afetch, withToken } from "@/lib/afetch";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+
+type V = { id?: number; size: string; color: string; sku: string; price: string; stock: string };
+type P = any;
+
+const EMPTY: any = { title: "", slug: "", shortDesc: "", description: "", sku: "", price: "", comparePrice: "", cost: "", stock: "0", lowStock: "5", status: "ACTIVE", featured: false, tags: "", categoryId: "", images: [], variants: [] };
+const slugify = (s: string) => s.toLowerCase().trim().replace(/[^a-z0-9\u0980-\u09FF]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 80);
+
+export default function ProductsClient({ initial, categories }: { initial: P[]; categories: { id: number; name: string }[] }) {
+  const router = useRouter();
+  const [q, setQ] = useState("");
+  const [edit, setEdit] = useState<any | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState("");
+  const [slugTouched, setSlugTouched] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const [items, setItems] = useState<P[]>(initial);
+  const [dragId, setDragId] = useState<number | null>(null);
+  useEffect(() => { setItems(initial); }, [initial]);
+  const list = useMemo(() => items.filter((p) => !q || (p.title + p.sku + p.tags).toLowerCase().includes(q.toLowerCase())), [items, q]);
+
+  const persistOrder = async (next: P[]) => {
+    setItems(next);
+    try {
+      const r = await afetch("/api/admin/products/reorder", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ids: next.map((p) => p.id) }) });
+      if (r.ok) { setMsg("✓ Order saved — homepage/listing-e dekhabe"); router.refresh(); }
+      else { const j = await r.json(); setMsg(j.error || "Reorder failed"); }
+    } catch { setMsg("Network error"); }
+    setTimeout(() => setMsg(""), 2500);
+  };
+  const move = (fromId: number | null, toId: number) => {
+    if (fromId == null || fromId === toId) return;
+    const next = [...items];
+    const fi = next.findIndex((p) => p.id === fromId);
+    const ti = next.findIndex((p) => p.id === toId);
+    if (fi < 0 || ti < 0) return;
+    const [m] = next.splice(fi, 1);
+    next.splice(ti, 0, m);
+    persistOrder(next);
+  };
+  const moveBy = (id: number, d: number) => {
+    const i = items.findIndex((p) => p.id === id);
+    const j = i + d;
+    if (i < 0 || j < 0 || j >= items.length) return;
+    const next = [...items];
+    [next[i], next[j]] = [next[j], next[i]];
+    persistOrder(next);
+  };
+
+  const openNew = () => { setSlugTouched(false); setEdit({ ...EMPTY }); };
+  const openEdit = (p: P) => { setSlugTouched(true); setEdit({
+    ...EMPTY, ...p,
+    price: String(p.price), comparePrice: p.comparePrice != null ? String(p.comparePrice) : "",
+    cost: p.cost != null ? String(p.cost) : "", stock: String(p.stock), lowStock: String(p.lowStock),
+    variants: p.variants.map((v: any) => ({ ...v, size: v.size || "", color: v.color || "", sku: v.sku || "", price: v.price != null ? String(v.price) : "", stock: String(v.stock) })),
+  }); };
+
+  const genVariants = () => {
+    const sizes = ["S", "M", "L", "XL"];
+    setEdit((e: any) => ({ ...e, variants: sizes.map((s) => ({ size: s, color: "", sku: e.sku ? e.sku + "-" + s : "", price: "", stock: "10" })) }));
+  };
+
+  const upload = async (files: FileList) => {
+    setBusy(true); setMsg("Uploading " + files.length + " image(s)…");
+    const urls: string[] = [];
+    for (const file of Array.from(files)) {
+      const fd = new FormData(); fd.append("file", file);
+      const r = await afetch("/api/admin/upload", { method: "POST", body: fd });
+      const j = await r.json();
+      if (r.ok) urls.push(j.url); else alert(j.error || "Upload failed: " + file.name);
+    }
+    if (urls.length) { setEdit((e: any) => ({ ...e, images: [...e.images, ...urls] })); setMsg(urls.length + " image added ✓"); setTimeout(() => setMsg(""), 2500); }
+    setBusy(false);
+  };
+  const moveImg = (i: number, dir: number) => setEdit((e: any) => {
+    const arr = [...e.images]; const j = i + dir;
+    if (j < 0 || j >= arr.length) return e;
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+    return { ...e, images: arr };
+  });
+
+  const save = async () => {
+    if (!edit.title || !edit.price) { alert("Title and price are required"); return; }
+    setBusy(true); setMsg("");
+    const payload = {
+      ...edit,
+      price: Number(edit.price), comparePrice: edit.comparePrice ? Number(edit.comparePrice) : null,
+      cost: edit.cost ? Number(edit.cost) : null, stock: Number(edit.stock || 0), lowStock: Number(edit.lowStock || 5),
+      categoryId: edit.categoryId ? Number(edit.categoryId) : null,
+      variants: (edit.variants || []).map((v: any) => ({ ...v, price: v.price ? Number(v.price) : null, stock: Number(v.stock || 0) })),
+    };
+    const r = await fetch(edit.id ? "/api/admin/products/" + edit.id : "/api/admin/products", {
+      method: edit.id ? "PUT" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload),
+    });
+    const j = await r.json();
+    if (r.ok) { setEdit(null); setMsg(edit.id ? "Product updated ✓" : "Product created ✓"); router.refresh(); }
+    else setMsg(j.error || "Save failed");
+    setBusy(false);
+    setTimeout(() => setMsg(""), 2500);
+  };
+
+  const del = async (p: P) => {
+    if (!confirm(`Delete "${p.title}" permanently?`)) return;
+    setBusy(true);
+    await afetch("/api/admin/products/" + p.id, { method: "DELETE" });
+    setBusy(false); router.refresh();
+  };
+  const exportCsv = () => { window.location.href = withToken("/api/admin/export?type=products"); };
+
+  return (
+    <>
+      <div className="admin-top">
+        <h1>Products <span style={{ fontSize: 14, color: "var(--muted)" }}>({initial.length})</span></h1>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button className="abtn" onClick={exportCsv}>⭳ Export CSV</button>
+          <button className="abtn primary" onClick={openNew}>+ Add Product</button>
+        </div>
+      </div>
+      {msg && <div className="noti ok">{msg}</div>}
+      <input className="asearch" style={{ marginBottom: 14 }} placeholder="Search products…" value={q} onChange={(e) => setQ(e.target.value)} />
+
+      <div style={{ fontSize: 12.5, color: "var(--muted)", margin: "0 0 10px" }}>⠿ handle dhore drag korun — order change hole automatic save hoy ar homepage/listing-e sei order dekhabe</div>
+      <div className="acard">
+        <div style={{ overflowX: "auto" }}>
+          <table className="tbl">
+            <thead><tr><th style={{ width: 60 }}>⠿ Order</th><th></th><th>Product</th><th>SKU</th><th>Price</th><th>Stock</th><th>Variants</th><th>Status</th><th>Views</th><th></th></tr></thead>
+            <tbody>
+              {list.length === 0 && <tr><td colSpan={10} style={{ color: "var(--muted)", padding: 30 }}>No products yet.</td></tr>}
+              {list.map((p, idx) => (
+                <tr key={p.id}
+                  draggable={q === ""}
+                  onDragStart={() => setDragId(p.id)}
+                  onDragOver={(e) => { if (q === "") e.preventDefault(); }}
+                  onDrop={() => { move(dragId, p.id); setDragId(null); }}
+                  style={{ cursor: q === "" ? "grab" : undefined, opacity: dragId === p.id ? 0.5 : 1 }}
+                >
+                  <td style={{ whiteSpace: "nowrap" }}>
+                    <span title="Drag to reorder" style={{ cursor: "grab", fontSize: 16, color: "var(--muted)" }}>⠿</span>
+                    <button className="abtn sm" style={{ padding: "1px 6px", margin: "0 2px" }} title="Move up" onClick={() => moveBy(p.id, -1)} disabled={idx === 0}>↑</button>
+                    <button className="abtn sm" style={{ padding: "1px 6px" }} title="Move down" onClick={() => moveBy(p.id, 1)} disabled={idx === list.length - 1}>↓</button>
+                  </td>
+                  <td>{p.image ? <img src={p.image} alt="" /> : <div style={{ width: 40, height: 50, background: "#eee", borderRadius: 4 }} />}</td>
+                  <td><b>{p.title}</b><br /><span style={{ color: "var(--muted)", fontSize: 12 }}>{p.categoryName || "Uncategorized"}{p.featured ? " · ★ Featured" : ""}</span></td>
+                  <td style={{ fontSize: 12 }}>{p.sku || "—"}</td>
+                  <td>৳{p.price.toLocaleString("en-IN")}{p.comparePrice ? <><br /><s style={{ color: "var(--muted)", fontSize: 12 }}>৳{p.comparePrice.toLocaleString("en-IN")}</s></> : null}</td>
+                  <td>{p.stock <= p.lowStock ? <span style={{ color: "var(--danger)", fontWeight: 700 }}>{p.stock}</span> : p.stock}</td>
+                  <td>{p.variants.length || "—"}</td>
+                  <td><span className={"pill " + p.status}>{p.status}</span></td>
+                  <td>{p.views}</td>
+                  <td style={{ whiteSpace: "nowrap" }}>
+                    <button className="abtn sm" onClick={() => openEdit(p)}>Edit</button>{" "}
+                    <button className="abtn sm danger" onClick={() => del(p)}>✕</button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {edit && (
+        <div className="modal-bg" onClick={() => setEdit(null)}>
+          <div className="modal" style={{ maxWidth: 760 }} onClick={(e) => e.stopPropagation()}>
+            <button className="modal-close" onClick={() => setEdit(null)}>×</button>
+            <h3>{edit.id ? "Edit Product" : "New Product"}</h3>
+            <div className="form-grid">
+              <div className="af full"><label>Title *</label>
+                <input value={edit.title} onChange={(e) => { const title = e.target.value; setEdit((x: any) => ({ ...x, title, slug: slugTouched ? x.slug : slugify(title) })); }} />
+              </div>
+              <div className="af full">
+                <label>URL / Slug (auto-generates from title)</label>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <input value={edit.slug} onChange={(e) => { setSlugTouched(true); setEdit({ ...edit, slug: slugify(e.target.value) }); }} placeholder="auto-generates…" />
+                  <button type="button" className="abtn" title="Auto-generate from title" onClick={() => { setSlugTouched(false); setEdit({ ...edit, slug: slugify(edit.title) }); }}>↻ Auto</button>
+                </div>
+                <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 4 }}>🔗 yourdomain.com/products/<b>{edit.slug || "…"}{edit.id ? "" : " (notun product save korlei live hobe)"}</b></div>
+              </div>
+              <div className="af"><label>Price (৳) *</label><input type="number" value={edit.price} onChange={(e) => setEdit({ ...edit, price: e.target.value })} /></div>
+              <div className="af"><label>Compare-at price (৳)</label><input type="number" value={edit.comparePrice} onChange={(e) => setEdit({ ...edit, comparePrice: e.target.value })} placeholder="Original price for discounts" /></div>
+              <div className="af"><label>Cost per item (৳)</label><input type="number" value={edit.cost} onChange={(e) => setEdit({ ...edit, cost: e.target.value })} placeholder="For profit margin" /></div>
+              <div className="af"><label>SKU</label><input value={edit.sku} onChange={(e) => setEdit({ ...edit, sku: e.target.value })} /></div>
+              <div className="af"><label>Stock</label><input type="number" value={edit.stock} onChange={(e) => setEdit({ ...edit, stock: e.target.value })} /></div>
+              <div className="af"><label>Low-stock alert at</label><input type="number" value={edit.lowStock} onChange={(e) => setEdit({ ...edit, lowStock: e.target.value })} /></div>
+              <div className="af"><label>Category</label>
+                <select value={edit.categoryId} onChange={(e) => setEdit({ ...edit, categoryId: e.target.value })}>
+                  <option value="">— None —</option>
+                  {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+              </div>
+              <div className="af"><label>Status</label>
+                <select value={edit.status} onChange={(e) => setEdit({ ...edit, status: e.target.value })}>
+                  <option>ACTIVE</option><option>DRAFT</option><option>ARCHIVED</option>
+                </select>
+              </div>
+              <div className="af full"><label>Short description</label><input value={edit.shortDesc} onChange={(e) => setEdit({ ...edit, shortDesc: e.target.value })} /></div>
+              <div className="af full"><label>Full description</label><textarea value={edit.description} onChange={(e) => setEdit({ ...edit, description: e.target.value })} /></div>
+              <div className="af full"><label>Tags (comma separated)</label><input value={edit.tags} onChange={(e) => setEdit({ ...edit, tags: e.target.value })} placeholder="linen, summer, new" /></div>
+            </div>
+
+            <div style={{ margin: "16px 0 6px", fontWeight: 600, fontSize: 13.5 }}>Images</div>
+            <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-start" }}>
+              {edit.images.map((u: string, i: number) => (
+                <div key={i} style={{ position: "relative", textAlign: "center" }}>
+                  <img src={u} alt="" style={{ width: 64, height: 80, objectFit: "cover", borderRadius: 4, border: i === 0 ? "2px solid var(--text)" : "1px solid #ddd" }} title={i === 0 ? "Main image" : "Image " + (i + 1)} />
+                  {i === 0 && <span style={{ position: "absolute", top: 4, left: 4, background: "var(--text)", color: "#fff", fontSize: 9, padding: "1px 6px", borderRadius: 99 }}>MAIN</span>}
+                  <button onClick={() => setEdit({ ...edit, images: edit.images.filter((_: any, x: number) => x !== i) })} style={{ position: "absolute", top: -7, right: -7, width: 18, height: 18, borderRadius: 99, border: "none", background: "#b3392f", color: "#fff", fontSize: 11, cursor: "pointer" }}>✕</button>
+                  <div style={{ display: "flex", gap: 2, marginTop: 4, justifyContent: "center" }}>
+                    <button type="button" className="abtn sm" style={{ padding: "2px 8px" }} disabled={i === 0} onClick={() => moveImg(i, -1)}>←</button>
+                    <button type="button" className="abtn sm" style={{ padding: "2px 8px" }} disabled={i === edit.images.length - 1} onClick={() => moveImg(i, 1)}>→</button>
+                  </div>
+                </div>
+              ))}
+              <button className="abtn" onClick={() => fileRef.current?.click()} type="button">⬆ Upload images</button>
+              <input ref={fileRef} type="file" accept="image/*" multiple hidden onChange={(e) => { if (e.target.files?.length) upload(e.target.files); e.target.value = ""; }} />
+              <div style={{ fontSize: 12, color: "var(--muted)", width: "100%" }}>Ek sathe multiple image select kora jay (Ctrl/Cmd+click) · first image = main product image · ←/→ diye order bodlao</div>
+            </div>
+
+            <div style={{ margin: "18px 0 6px", fontWeight: 600, fontSize: 13.5, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span>Variants (size / color / stock)</span>
+              <span style={{ display: "flex", gap: 6 }}>
+                <button className="abtn sm" type="button" onClick={genVariants}>Auto S–XL</button>
+                <button className="abtn sm" type="button" onClick={() => setEdit({ ...edit, variants: [...(edit.variants || []), { size: "", color: "", sku: "", price: "", stock: "0" }] })}>+ Add</button>
+              </span>
+            </div>
+            {(edit.variants || []).map((v: any, i: number) => (
+              <div key={i} style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1.3fr .8fr .8fr auto", gap: 8, marginBottom: 8 }}>
+                <input placeholder="Size" value={v.size} onChange={(e) => { const vs = [...edit.variants]; vs[i] = { ...v, size: e.target.value }; setEdit({ ...edit, variants: vs }); }} />
+                <input placeholder="Color" value={v.color} onChange={(e) => { const vs = [...edit.variants]; vs[i] = { ...v, color: e.target.value }; setEdit({ ...edit, variants: vs }); }} />
+                <input placeholder="SKU" value={v.sku} onChange={(e) => { const vs = [...edit.variants]; vs[i] = { ...v, sku: e.target.value }; setEdit({ ...edit, variants: vs }); }} />
+                <input placeholder="Price" type="number" value={v.price} onChange={(e) => { const vs = [...edit.variants]; vs[i] = { ...v, price: e.target.value }; setEdit({ ...edit, variants: vs }); }} />
+                <input placeholder="Stock" type="number" value={v.stock} onChange={(e) => { const vs = [...edit.variants]; vs[i] = { ...v, stock: e.target.value }; setEdit({ ...edit, variants: vs }); }} />
+                <button className="abtn sm danger" type="button" onClick={() => setEdit({ ...edit, variants: edit.variants.filter((_: any, x: number) => x !== i) })}>✕</button>
+              </div>
+            ))}
+
+            <div style={{ display: "flex", gap: 10, marginTop: 18, alignItems: "center" }}>
+              <label style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 13.5 }}>
+                <input type="checkbox" checked={!!edit.featured} onChange={(e) => setEdit({ ...edit, featured: e.target.checked })} /> Featured
+              </label>
+              <span style={{ flex: 1 }} />
+              <button className="abtn" onClick={() => setEdit(null)}>Cancel</button>
+              <button className="abtn primary" onClick={save} disabled={busy}>{busy ? "Saving…" : "Save Product"}</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}

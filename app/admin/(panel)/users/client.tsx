@@ -1,0 +1,60 @@
+"use client";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+const ROLES = ["SUPER_ADMIN", "ADMIN", "ORDER_MANAGER", "PRODUCT_MANAGER", "MARKETING", "SUPPORT"];
+export default function UsersClient({ initial, meId, perms }: any) {
+  const router = useRouter();
+  const [msg, setMsg] = useState("");
+  const [nu, setNu] = useState({ name: "", email: "", password: "", role: "ORDER_MANAGER" });
+  const api = async (url: string, method: string, body?: any) => {
+    const r = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: body ? JSON.stringify(body) : undefined });
+    const j = await r.json();
+    if (r.ok) { setMsg("Saved ✓"); router.refresh(); } else setMsg(j.error || "Failed");
+    setTimeout(() => setMsg(""), 2200);
+  };
+  return (
+    <>
+      <div className="admin-top"><h1>Team &amp; Roles</h1></div>
+      {msg && <div className="noti ok">{msg}</div>}
+      <div style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr", gap: 16, alignItems: "start" }}>
+        <div className="acard">
+          <div className="acard-h"><h3>Users ({initial.length})</h3></div>
+          <table className="tbl">
+            <thead><tr><th>User</th><th>Role</th><th>Status</th><th>Permissions</th><th></th></tr></thead>
+            <tbody>
+              {initial.map((u: any) => (
+                <tr key={u.id}>
+                  <td><b>{u.name}</b><br /><span style={{ fontSize: 12, color: "var(--muted)" }}>{u.email}</span></td>
+                  <td>
+                    <select className="abtn sm" value={u.role} onChange={(e) => api("/api/admin/users/" + u.id, "PUT", { role: e.target.value })}>
+                      {ROLES.map((r) => <option key={r}>{r}</option>)}
+                    </select>
+                  </td>
+                  <td><span className={"pill " + (u.active ? "ACTIVE" : "DRAFT")}>{u.active ? "Active" : "Disabled"}</span></td>
+                  <td style={{ fontSize: 11, color: "var(--muted)", maxWidth: 220 }}>{(perms[u.role] || []).join(", ")}</td>
+                  <td style={{ whiteSpace: "nowrap" }}>
+                    <button className="abtn sm" onClick={() => api("/api/admin/users/" + u.id, "PUT", { active: !u.active })}>{u.active ? "Disable" : "Enable"}</button>{" "}
+                    {u.id !== meId && <button className="abtn sm danger" onClick={() => { const pw = prompt("New password for " + u.email); if (pw) api("/api/admin/users/" + u.id, "PUT", { password: pw }); }}>🔑</button>}{" "}
+                    {u.id !== meId && <button className="abtn sm danger" onClick={() => confirm("Delete " + u.email + "?") && api("/api/admin/users/" + u.id, "DELETE")}>✕</button>}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <div className="acard">
+          <div className="acard-h"><h3>Add Team Member</h3></div>
+          <div className="acard-b form-grid">
+            <div className="af full"><label>Name</label><input value={nu.name} onChange={(e) => setNu({ ...nu, name: e.target.value })} /></div>
+            <div className="af full"><label>Email</label><input type="email" value={nu.email} onChange={(e) => setNu({ ...nu, email: e.target.value })} /></div>
+            <div className="af full"><label>Password (min 6)</label><input type="password" value={nu.password} onChange={(e) => setNu({ ...nu, password: e.target.value })} /></div>
+            <div className="af full"><label>Role</label>
+              <select value={nu.role} onChange={(e) => setNu({ ...nu, role: e.target.value })}>{ROLES.map((r) => <option key={r}>{r}</option>)}</select>
+            </div>
+            <div className="full"><button className="abtn primary" style={{ width: "100%" }} onClick={() => api("/api/admin/users", "POST", nu)}>Create User</button></div>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}

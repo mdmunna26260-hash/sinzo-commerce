@@ -1,0 +1,22 @@
+import { db } from "@/lib/db";
+import { requireAdmin } from "@/lib/auth";
+import ProductsClient from "./client";
+
+export const dynamic = "force-dynamic";
+export const metadata = { title: "Products" };
+
+export default async function AdminProducts({ searchParams }: { searchParams: any }) {
+  await requireAdmin(searchParams);
+  const products = await db.product.findMany({ include: { images: true, variants: true, category: true }, orderBy: [{ position: "asc" }, { id: "desc" }] });
+  const categories = await db.category.findMany({ orderBy: { name: "asc" } });
+  const data = products.map((p) => ({
+    id: p.id, title: p.title, slug: p.slug, sku: p.sku, price: p.price, comparePrice: p.comparePrice,
+    cost: p.cost, stock: p.stock, lowStock: p.lowStock, status: p.status, featured: p.featured,
+    tags: p.tags, shortDesc: p.shortDesc, description: p.description,
+    categoryId: p.categoryId, categoryName: p.category?.name, views: p.views,
+    image: p.images?.[0]?.url || null,
+    images: p.images.sort((a, b) => a.position - b.position).map((i) => i.url),
+    variants: p.variants.map((v) => ({ id: v.id, size: v.size, color: v.color, sku: v.sku, price: v.price, stock: v.stock })),
+  }));
+  return <ProductsClient initial={data} categories={categories.map((c) => ({ id: c.id, name: c.name }))} />;
+}

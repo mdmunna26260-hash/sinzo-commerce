@@ -1,0 +1,40 @@
+{
+  "name": "sinzo-commerce",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Production-grade e-commerce platform (storefront + admin) - BDT / COD / Steadfast / Meta CAPI ready",
+  "scripts": {
+    "dev": "next dev -H 0.0.0.0 -p 3000",
+    "build": "prisma generate && next build",
+    "start": "next start -H 0.0.0.0 -p 3000",
+    "lint": "next lint",
+    "db:push": "prisma db push",
+    "db:migrate": "prisma migrate deploy",
+    "db:seed": "node prisma/seed.js",
+    "db:studio": "prisma studio",
+    "wa": "node scripts/whatsapp-bridge.js",
+    "postinstall": "prisma generate",
+    "test": "node scripts/smoke.js"
+  },
+  "dependencies": {
+    "@prisma/client": "5.22.0",
+    "@whiskeysockets/baileys": "^7.0.0-rc14",
+    "bcryptjs": "2.4.3",
+    "next": "14.2.32",
+    "nodemailer": "^9.0.5",
+    "pino": "^10.3.1",
+    "qrcode": "^1.5.4",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "sharp": "^0.35.4",
+    "zod": "3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "20.14.9",
+    "@types/nodemailer": "^8.0.1",
+    "@types/react": "18.3.3",
+    "@types/react-dom": "18.3.0",
+    "prisma": "5.22.0",
+    "typescript": "5.6.3"
+  }
+}
