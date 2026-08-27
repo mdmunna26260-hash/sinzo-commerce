@@ -4,7 +4,7 @@ import { useSearchParams } from "next/navigation";
 import Filters, { SortSelect } from "@/components/filters";
 
 /* Compact toolbar: [count] [Filter] [Sort] — Filter opens the mobile drawer. */
-export default function ProductsToolbar({ count, cats }: { count: number; cats: { name: string; slug: string }[] }) {
+export default function ProductsToolbar({ count, cats, colors }: { count: number; cats: { name: string; slug: string }[]; colors?: string[] }) {
   const [open, setOpen] = useState(false);
   const sp = useSearchParams();
   const activeCount = ["category", "min", "max", "size", "avail", "onsale"].filter((k) => sp.get(k)).length;
@@ -23,7 +23,10 @@ export default function ProductsToolbar({ count, cats }: { count: number; cats: 
           <SortSelect value={sp.get("sort") || "custom"} />
         </div>
       </div>
-      <Filters cats={cats} mobileOpen={open} onClose={() => setOpen(false)} />
+      {/* SINGLE Filters instance: desktop sidebar + mobile drawer */}
+      <div className="filters-side-wrap">
+        <Filters cats={cats} colors={colors} mobileOpen={open} onClose={() => setOpen(false)} />
+      </div>
     </>
   );
 }

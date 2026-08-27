@@ -2,13 +2,12 @@ import { db } from "@/lib/db";
 import { getSettings, publicSettings } from "@/lib/settings";
 import { Header, Footer, Announcement } from "@/components/chrome";
 import { ProductCard } from "@/components/parts";
-import Filters, { SortSelect } from "@/components/filters";
 import ProductsToolbar from "./toolbar";
 import Link from "next/link";
 
 export const dynamic = "force-dynamic";
 
-type SP = { q?: string; category?: string; min?: string; max?: string; size?: string; avail?: string; sort?: string; onsale?: string; page?: string };
+type SP = { q?: string; category?: string; min?: string; max?: string; size?: string; color?: string; avail?: string; sort?: string; onsale?: string; page?: string };
 
 export const metadata = { title: "Shop All" };
 
@@ -42,6 +41,7 @@ export default async function ProductsPage({ searchParams }: { searchParams: SP 
     searchParams.sort === "price_desc" ? { price: "desc" } :
     searchParams.sort === "popular" ? { views: "desc" } :
     searchParams.sort === "new" ? { createdAt: "desc" } :
+    searchParams.sort === "oldest" ? { createdAt: "asc" } :
     [{ position: "asc" }, { id: "desc" }]; // default = admin drag&drop order
 
   const PAGE = 12;
@@ -52,9 +52,14 @@ export default async function ProductsPage({ searchParams }: { searchParams: SP 
     take: PAGE, skip: (page - 1) * PAGE,
   });
   let shown = products;
+  let filtered = shown;
   if (searchParams.size) {
-    shown = products.filter((p) => p.variants.some((v) => v.size === searchParams.size && v.stock > 0));
+    filtered = filtered.filter((p) => p.variants.some((v) => v.size === searchParams.size && v.stock > 0));
   }
+  if (searchParams.color) {
+    filtered = filtered.filter((p) => p.variants.some((v) => (v.color || "").toLowerCase() === searchParams.color!.toLowerCase() && v.stock > 0));
+  }
+  shown = filtered;
   const hasMore = page * PAGE < totalMatching;
   const pageQs = (n: number) => {
     const params = new URLSearchParams();
@@ -64,12 +69,17 @@ export default async function ProductsPage({ searchParams }: { searchParams: SP 
   };
 
   const activeCat = cats.find((c) => c.slug === searchParams.category);
+  const colors = Array.from(new Set(
+    (await db.productVariant.findMany({ where: { color: { not: null }, stock: { gt: 0 } }, select: { color: true }, distinct: ["color"], take: 24 }))
+      .map((v) => v.color!).filter(Boolean)
+  ));
   const activeChips: { label: string; patch: Record<string, string | undefined> }[] = [];
   if (searchParams.category && activeCat) activeChips.push({ label: activeCat.name, patch: { category: undefined } });
   if (searchParams.size) activeChips.push({ label: "Size " + searchParams.size, patch: { size: undefined } });
   if (searchParams.min) activeChips.push({ label: "৳" + searchParams.min + "+", patch: { min: undefined } });
   if (searchParams.max) activeChips.push({ label: "≤ ৳" + searchParams.max, patch: { max: undefined } });
   if (searchParams.avail === "1") activeChips.push({ label: "In stock", patch: { avail: undefined } });
+  if (searchParams.color) activeChips.push({ label: searchParams.color, patch: { color: undefined } });
   if (searchParams.onsale === "1") activeChips.push({ label: "On sale", patch: { onsale: undefined } });
   const qpill = (slug?: string) => {
     const params = new URLSearchParams();
@@ -95,7 +105,7 @@ export default async function ProductsPage({ searchParams }: { searchParams: SP 
         </h1>
 
         {/* toolbar: mobile shows Filter button; desktop shows count + sort right */}
-        <ProductsToolbar count={totalMatching} cats={cats.map((c) => ({ name: c.name, slug: c.slug }))} />
+        <ProductsToolbar count={totalMatching} cats={cats.map((c) => ({ name: c.name, slug: c.slug }))} colors={colors} />
 
         {/* quick category pills */}
         <div className="cat-pills">
@@ -117,7 +127,6 @@ export default async function ProductsPage({ searchParams }: { searchParams: SP 
         )}
 
         <div className="shop-layout">
-          <Filters cats={cats.map((c) => ({ name: c.name, slug: c.slug }))} />
           <main>
             {shown.length === 0 ? (
               <div className="empty">

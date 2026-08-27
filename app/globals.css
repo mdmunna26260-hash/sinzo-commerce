@@ -198,13 +198,17 @@ h1, h2, h3, .serif { font-family: var(--font-head); font-weight: 500; letter-spa
 .fdrawer-foot .abtn { flex: 1; min-height: 46px; }
 
 @media (min-width: 900px) {
-  .shop-layout { display: grid; grid-template-columns: 220px 1fr; gap: 40px; align-items: start; }
-  .filters.side { display: block; position: sticky; top: 96px; }
+  .shop-wrap { position: relative; }
+  .shop-toolbar { border-top: none; border-bottom: 1px solid var(--line); margin-left: 260px; }
+  .st-left .st-btn { display: none; } /* desktop: sidebar instead of button */
   .fdrawer-bg { display: none !important; }
+  /* sidebar rendered once (toolbar), absolutely docked to the left rail */
+  .filters-side-wrap { position: absolute; top: 0; left: 24px; width: 220px; }
+  .filters-side-wrap .filters.side { display: block; position: sticky; top: 96px; max-height: calc(100vh - 130px); overflow-y: auto; padding-right: 8px; }
+  .shop-layout { padding-left: 260px; min-height: 400px; }
   .shop-grid { grid-template-columns: repeat(3, 1fr); gap: 32px 20px; }
-  .shop-toolbar { border-top: none; border-bottom: 1px solid var(--line); }
-  .st-left .st-btn { display: none; } /* desktop uses sidebar */
 }
+@media (min-width: 1200px) { .shop-grid { grid-template-columns: repeat(4, 1fr); } }
 @media (min-width: 1200px) { .shop-grid { grid-template-columns: repeat(4, 1fr); } }
 @media (min-width: 1500px) { .shop-grid { grid-template-columns: repeat(5, 1fr); gap: 28px 18px; } }
 .empty { text-align: center; padding: 80px 20px; color: var(--muted); }
@@ -428,6 +432,9 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 13.5px; }
 .bar-chart-wrap { padding-bottom: 26px; }
 
 /* ---------- Responsive ---------- */
+@media (min-width: 992px) and (max-width: 1199px) {
+  .grid-4 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
 @media (max-width: 1080px) {
   .grid-4 { grid-template-columns: repeat(3, 1fr); }
   .footer-grid { grid-template-columns: 1fr 1fr; }
@@ -653,13 +660,14 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 13.5px; }
 .tbl-scroll-hint { display: none; font-size: 11px; color: var(--muted); padding: 6px 14px 0; }
 
 /* ---------- desktop density: smaller product cards on big screens ---------- */
+/* Home grids: controlled card width, spec breakpoints */
 @media (min-width: 1500px) {
-  .grid-4 { grid-template-columns: repeat(5, 1fr); gap: 26px 18px; }
-  .pcard-title { font-size: 13.5px; }
-  .price b { font-size: 13.5px; }
+  .grid-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 28px 22px; }
+  .grid-4 .pcard { max-width: 340px; margin: 0 auto; width: 100%; }
+  .pcard-title { font-size: 14px; }
 }
 @media (min-width: 1100px) and (max-width: 1499px) {
-  .grid-4 { grid-template-columns: repeat(4, 1fr); gap: 24px 16px; }
+  .grid-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 26px 20px; }
 }
 
 /* ---------- products page: quick category pills + sidebar polish ---------- */
