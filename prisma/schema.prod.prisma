@@ -274,5 +274,9 @@ model Media {
   mime      String
   size      Int
   data      Bytes
+  width     Int?
+  height    Int?
+  blurData  Bytes?   // tiny blur placeholder (webp)
+  variantsJson String? // JSON: { w300:{id,size}, w600:{...}, w1000:{...}, w1200:{...} }
   createdAt DateTime @default(now())
 }

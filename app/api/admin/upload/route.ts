@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { requirePerm } from "@/lib/admin-guard";
-import { processProductImage } from "@/lib/image";
+import { createMediaWithVariants } from "@/lib/media-store";
 import { db } from "@/lib/db";
 export const dynamic = "force-dynamic";
 const ALLOWED = ["image/jpeg", "image/png", "image/webp", "image/avif", "image/gif"];
@@ -13,14 +13,8 @@ export async function POST(req: Request) {
     if (!file) return NextResponse.json({ error: "No file" }, { status: 400 });
     if (!ALLOWED.includes(file.type)) return NextResponse.json({ error: "Only JPG/PNG/WebP/AVIF/GIF allowed" }, { status: 400 });
     if (file.size > 15 * 1024 * 1024) return NextResponse.json({ error: "Max 15MB" }, { status: 400 });
-    const mode = String(form.get("mode") || "");
-    const { buffer, ext, processed } = await processProductImage(Buffer.from(await file.arrayBuffer()), file.type, { keepRatio: mode === "chart" });
-    const mimeMap: Record<string, string> = { jpg: "image/jpeg", png: "image/png", webp: "image/webp", avif: "image/avif", gif: "image/gif" };
-    const mime = mimeMap[ext] || "image/jpeg";
-    const m = await db.media.create({ data: {
-      filename: Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 8) + "." + ext,
-      mime, size: buffer.length, data: buffer,
-    }});
-    return NextResponse.json({ ok: true, url: "/api/media/" + m.id, processed: true });
+    // responsive variant pipeline: blur + 300/600/1000/1200 WebP + normalized original
+    const { primaryId, width, height } = await createMediaWithVariants(Buffer.from(await file.arrayBuffer()), file.type);
+    return NextResponse.json({ ok: true, url: "/api/media/" + primaryId, width, height, processed: true });
   } catch (e: any) { return NextResponse.json({ error: e?.message || "Upload failed" }, { status: 500 }); }
 }

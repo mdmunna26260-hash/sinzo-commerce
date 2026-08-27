@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useCart, useWishlist, trackEvent, toast } from "@/components/store";
+import ProductImg from "@/components/product-img";
 
 type V = { id: number; size: string | null; color: string | null; stock: number; price: number | null };
 type P = {
@@ -101,12 +102,11 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
             onTouchStart={onTouchStart}
             onTouchEnd={(e) => onTouchEnd(e)}
           >
-            <img
+            <ProductImg
               key={img}
-              src={product.images[img]?.url || product.images[0]?.url}
+              priority={img === 0}
+              img={product.images[img] || product.images[0]}
               alt={product.images[img]?.alt || product.title}
-              decoding="async"
-              {...(img === 0 ? { fetchPriority: "high" as const } : {})}
               className={"pdp-img" + (fading ? " changing" : "") + (hoverZoom && avail > 0 ? " hz" : "")}
               style={hoverZoom ? { transformOrigin: hzOrigin } : undefined}
               onMouseEnter={() => { if (window.matchMedia("(hover: hover)").matches) setHoverZoom(true); }}
@@ -135,7 +135,7 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
             <div className="thumbs">
               {product.images.map((im, i) => (
                 <button key={i} className={i === img ? "active" : ""} onClick={() => goTo(i)} aria-label={"Image " + (i + 1)}>
-                  <img src={im.url} alt={im.alt} loading="lazy" />
+                  <img src={im.url.includes("/api/media/") ? im.url + "/w300" : im.url} alt={im.alt} loading="lazy" decoding="async" width={72} height={96} />
                 </button>
               ))}
             </div>
