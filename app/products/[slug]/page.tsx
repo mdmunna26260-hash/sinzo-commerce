@@ -45,6 +45,9 @@ export default async function PDP({ params, searchParams }: { params: { slug: st
 
   return (
     <>
+      {p.images?.[0]?.url && (
+        <link rel="preload" as="image" href={p.images[0].url} fetchPriority="high" />
+      )}
       <Announcement text={s.homepage?.announcement} />
       <Header storeName={cfg.store?.name || "Store"} categories={cats.map((c) => ({ name: c.name, slug: c.slug }))} />
       <div className="container">

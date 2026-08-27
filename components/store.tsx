@@ -101,7 +101,11 @@ const CART_KEY = "sz_cart_v1";
 let memoryCart: CartLine[] | null = null;
 function loadCart(): CartLine[] {
   if (memoryCart) return memoryCart;
-  try { memoryCart = JSON.parse(localStorage.getItem(CART_KEY) || "[]") || []; } catch { memoryCart = []; }
+  try {
+    const parsed = JSON.parse(localStorage.getItem(CART_KEY) || "[]");
+    // corrupted / non-array storage (old schema, manual edit, quota glitch) → safe reset
+    memoryCart = Array.isArray(parsed) ? parsed.filter((l) => l && typeof l === "object" && l.productId) : [];
+  } catch { memoryCart = []; }
   return memoryCart!;
 }
 function saveCart(c: CartLine[]) {
@@ -153,7 +157,10 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 let memoryWishlist: number[] | null = null;
 function loadWishlist(): number[] {
   if (memoryWishlist) return memoryWishlist;
-  try { memoryWishlist = JSON.parse(localStorage.getItem("sz_wishlist") || "[]") || []; } catch { memoryWishlist = []; }
+  try {
+    const parsed = JSON.parse(localStorage.getItem("sz_wishlist") || "[]");
+    memoryWishlist = Array.isArray(parsed) ? parsed.filter((x) => typeof x === "number") : [];
+  } catch { memoryWishlist = []; }
   return memoryWishlist!;
 }
 function saveWishlist(ids: number[]) {

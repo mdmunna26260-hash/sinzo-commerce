@@ -27,6 +27,36 @@ export default function CartPage() {
     setBusy(false);
   };
 
+  // old carts may lack sizes[] — fetch available sizes once per line
+  useEffect(() => {
+    if (!ready) return;
+    for (const l of lines) {
+      if (l.sizes && l.sizes.length) continue;
+      fetch(`/api/cart/variant?productId=${l.productId}`)
+        .then((r) => r.json())
+        .then((j) => {
+          if (j?.options?.length) updateLine(l.key, { sizes: j.options });
+        })
+        .catch(() => {});
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready, lines.length]);
+
+  // old carts may lack sizes[] — fetch available sizes once per line
+  useEffect(() => {
+    if (!ready) return;
+    for (const l of lines) {
+      if (l.sizes && l.sizes.length) continue;
+      fetch(`/api/cart/variant?productId=${l.productId}`)
+        .then((r) => r.json())
+        .then((j) => {
+          if (j?.options?.length) updateLine(l.key, { sizes: j.options });
+        })
+        .catch(() => {});
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready, lines.length]);
+
   const changeSize = async (key: string, productId: number, newSize: string, color?: string) => {
     try {
       const r = await fetch(`/api/cart/variant?productId=${productId}&size=${encodeURIComponent(newSize)}${color ? "&color=" + encodeURIComponent(color) : ""}`);
@@ -65,11 +95,11 @@ export default function CartPage() {
         <div>
           {lines.map((l) => (
             <div className="cart-row" key={l.key}>
-              <Link href={"/products/" + l.slug}><img src={l.image} alt={l.title} /></Link>
+              <Link href={"/products/" + l.slug}><img src={l.image} alt={l.title} loading="lazy" decoding="async" /></Link>
               <div>
                 <div className="t"><Link href={"/products/" + l.slug}>{l.title}</Link></div>
                 <div className="v">{[l.color].filter(Boolean).join(" · ")}</div>
-                <div className="v">৳{l.price.toLocaleString("en-IN")}</div>
+                <div className="v">৳{Number(l.price || 0).toLocaleString("en-IN")}</div>
                 {/* size switcher */}
                 <div style={{ marginTop: 10, display: "flex", alignItems: "center", gap: 8 }}>
                   <span style={{ fontSize: 11, letterSpacing: ".14em", textTransform: "uppercase", color: "var(--muted)" }}>Size</span>
@@ -86,15 +116,15 @@ export default function CartPage() {
                 </div>
                 <div style={{ marginTop: 10, display: "flex", alignItems: "center", gap: 12 }}>
                   <div className="qty">
-                    <button onClick={() => setQty(l.key, l.qty - 1)} aria-label="Decrease quantity">−</button>
+                    <button type="button" onClick={() => setQty(l.key, (l.qty || 1) - 1)} aria-label="Decrease quantity">−</button>
                     <span>{l.qty}</span>
-                    <button onClick={() => setQty(l.key, l.qty + 1)} aria-label="Increase quantity">+</button>
+                    <button type="button" onClick={() => setQty(l.key, (l.qty || 1) + 1)} aria-label="Increase quantity">+</button>
                   </div>
                   {l.stock && l.stock <= 5 && <span style={{ fontSize: 11, color: "var(--danger)" }}>only {l.stock} left</span>}
                 </div>
-                <button className="rm" onClick={() => { remove(l.key); toast("Removed from cart"); }}>Remove</button>
+                <button type="button" className="rm" onClick={() => { remove(l.key); toast("Removed from cart"); }}>Remove</button>
               </div>
-              <div style={{ fontWeight: 600 }}>৳{(l.price * l.qty).toLocaleString("en-IN")}</div>
+              <div style={{ fontWeight: 600 }}>৳{(Number(l.price || 0) * (l.qty || 1)).toLocaleString("en-IN")}</div>
             </div>
           ))}
         </div>
