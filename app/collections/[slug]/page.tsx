@@ -29,7 +29,7 @@ export default async function CollectionPage({ params }: { params: { slug: strin
         <div className="eyebrow">Collection</div>
         <h1 style={{ fontSize: "clamp(28px,3.4vw,40px)", margin: "8px 0 6px" }}>{col.title}</h1>
         {col.subtitle && <p style={{ color: "var(--muted)", marginBottom: 30 }}>{col.subtitle}</p>}
-        <div className="grid grid-4">
+        <div className="shop-grid">
           {items.map((p: any) => <ProductCard key={p.id} p={p} />)}
         </div>
       </div>
