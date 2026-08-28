@@ -228,6 +228,7 @@ model AbandonedCheckout {
   id             Int      @id @default(autoincrement())
   phone          String?
   name           String?
+  address        String?
   cartJson       String
   total          Float
   recovered      Boolean  @default(false)

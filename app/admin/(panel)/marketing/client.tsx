@@ -11,6 +11,7 @@ export default function MarketingClient({ abandoned, subscribers, sources }: any
   const [items, setItems] = useState(abandoned);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
+  const [expanded, setExpanded] = useState<number | null>(null);
 
   const open = items.filter((a: any) => a.status === "OPEN");
   const recovered = items.filter((a: any) => a.status !== "OPEN");
@@ -85,7 +86,8 @@ export default function MarketingClient({ abandoned, subscribers, sources }: any
               <tbody>
                 {items.length === 0 && <tr><td colSpan={5} style={{ color: "var(--muted)", padding: 30 }}>No abandoned checkouts recorded yet.</td></tr>}
                 {items.map((a: any) => (
-                  <tr key={a.id} className="abandoned-row" title={a.phone ? "Phone: " + a.phone : "No phone captured"}>
+                  <>
+                  <tr key={a.id} className="abandoned-row" style={{ cursor: "pointer" }} onClick={() => setExpanded(expanded === a.id ? null : a.id)} title="Tap for details">
                     <td style={{ fontSize: 12.5 }}>{new Date(a.updatedAt).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</td>
                     <td style={{ fontSize: 12.5 }}>{a.cart.map((i: any) => i.title + " ×" + i.qty).join(", ").slice(0, 80)}</td>
                     <td><b>{money(a.total)}</b></td>
@@ -101,6 +103,46 @@ export default function MarketingClient({ abandoned, subscribers, sources }: any
                       <button className="abtn sm danger" disabled={busy} onClick={(e) => deleteRow(a, e)}>✕</button>
                     </td>
                   </tr>
+                  {expanded === a.id && (
+                    <tr key={a.id + "-detail"}>
+                      <td colSpan={5} style={{ background: "#fbfaf8", padding: 16 }}>
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 18 }}>
+                          <div>
+                            <div style={{ fontSize: 10.5, letterSpacing: ".16em", textTransform: "uppercase", color: "var(--muted)", marginBottom: 8 }}>🛒 Cart Items</div>
+                            {a.cart.map((i: any, k: number) => (
+                              <div key={k} style={{ display: "flex", justifyContent: "space-between", padding: "5px 0", borderBottom: "1px solid #f1efec", fontSize: 13 }}>
+                                <span>{i.title} × {i.qty}</span>
+                                <b>{money((i.price || 0) * (i.qty || 1))}</b>
+                              </div>
+                            ))}
+                            <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 0 0", fontWeight: 700 }}>
+                              <span>Total</span><span>{money(a.total)}</span>
+                            </div>
+                          </div>
+                          <div>
+                            <div style={{ fontSize: 10.5, letterSpacing: ".16em", textTransform: "uppercase", color: "var(--muted)", marginBottom: 8 }}>👤 Customer</div>
+                            {a.name || a.phone || a.address ? (
+                              <div style={{ fontSize: 13.5, display: "grid", gap: 8 }}>
+                                {a.name && <div><b>{a.name}</b></div>}
+                                {a.phone && (
+                                  <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                                    📞 {a.phone}
+                                    <button className="abtn sm" onClick={(e) => copyPhone(e, a.phone)}>📋</button>
+                                    <a className="abtn sm" style={{ color: "var(--ok)" }} href={waLink(a.phone)} target="_blank" rel="noreferrer">💬 WhatsApp</a>
+                                  </div>
+                                )}
+                                {a.address && <div style={{ color: "var(--muted)" }}>📍 {a.address}</div>}
+                                {!a.phone && <div style={{ color: "var(--danger)", fontSize: 12.5 }}>⚠ Phone nai — WhatsApp/call kora jabe na</div>}
+                              </div>
+                            ) : (
+                              <div style={{ color: "var(--muted)", fontSize: 13 }}>Checkout form fill kore nai — shudhu cart items ase.</div>
+                            )}
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                  </>
                 ))}
               </tbody>
             </table>
