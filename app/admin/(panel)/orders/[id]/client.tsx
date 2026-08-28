@@ -1,9 +1,22 @@
 "use client";
 import { FmtDate } from "@/components/dates";
 import { afetch, withToken, copyText } from "@/lib/afetch";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+
+function ThermalLink({ orderId, token }: { orderId: number; token: string }) {
+  const [w, setW] = useState("80");
+  useEffect(() => {
+    try {
+      afetch("/api/admin/settings")
+        .then((r) => r.json())
+        .then((j) => { const tw = j?.settings?.shipping?.thermalWidth; if (tw) setW(String(tw)); })
+        .catch(() => {});
+    } catch {}
+  }, [token]);
+  return <Link className="abtn" href={withToken("/admin/orders/" + orderId + "/receipt?w=" + w)}>🧾 Thermal ({w}mm)</Link>;
+}
 
 type Order = any;
 const STATUSES = ["PENDING", "CONFIRMED", "PROCESSING", "PACKED", "SHIPPED", "DELIVERED", "CANCELLED", "RETURNED", "ON_HOLD"];
@@ -110,7 +123,7 @@ export default function OrderDetailClient({ initial }: { initial: Order }) {
         </div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           <button className="abtn" onClick={downloadOrder}>⭳ Download</button>
-          <Link className="abtn" href={withToken("/admin/orders/" + o.id + "/receipt?w=80")}>🧾 Thermal</Link>
+          <ThermalLink orderId={o.id} token={(() => { try { return new URLSearchParams(location.search).get("t") || localStorage.getItem("sz_admin_token") || ""; } catch { return ""; } })()} />
           <Link className="abtn" href={withToken("/admin/dashboard")}>← Back to Dashboard</Link>
           <Link className="abtn" href={withToken("/admin/orders/" + o.id + "/invoice")} target="_blank">🖨 Invoice</Link>
           {!o.courierConsignmentId

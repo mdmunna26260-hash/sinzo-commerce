@@ -7,6 +7,42 @@ type V = { id?: number; size: string; color: string; sku: string; price: string;
 type P = any;
 
 const EMPTY: any = { title: "", slug: "", shortDesc: "", description: "", sku: "", price: "", comparePrice: "", cost: "", stock: "0", lowStock: "5", status: "ACTIVE", featured: false, isNew: false, isBestSeller: false, sizeChartImage: "", tags: "", categoryId: "", images: [], variants: [] };
+function DescriptionEditor({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const ref = useRef<HTMLTextAreaElement>(null);
+  const wrap = (before: string, after: string) => {
+    const ta = ref.current; if (!ta) return;
+    const s = ta.selectionStart, e = ta.selectionEnd;
+    const sel = value.slice(s, e) || "text";
+    const next = value.slice(0, s) + before + sel + after + value.slice(e);
+    onChange(next);
+    setTimeout(() => { ta.focus(); ta.selectionStart = s + before.length; ta.selectionEnd = s + before.length + sel.length; }, 0);
+  };
+  const linePrefix = (prefix: string) => {
+    const ta = ref.current; if (!ta) return;
+    const s = ta.selectionStart;
+    const lineStart = value.lastIndexOf("\n", s - 1) + 1;
+    const next = value.slice(0, lineStart) + prefix + value.slice(lineStart);
+    onChange(next);
+    setTimeout(() => { ta.focus(); ta.selectionStart = ta.selectionEnd = s + prefix.length; }, 0);
+  };
+  return (
+    <div>
+      <div style={{ display: "flex", gap: 6, marginBottom: 8, flexWrap: "wrap" }}>
+        <button type="button" className="abtn sm" title="Bold" onClick={() => wrap("**", "**")}><b>B</b></button>
+        <button type="button" className="abtn sm" title="Italic" onClick={() => wrap("_", "_")}><i>I</i></button>
+        <button type="button" className="abtn sm" title="Large text" onClick={() => wrap("## ", "")} style={{ fontWeight: 700, fontSize: 14 }}>H</button>
+        <button type="button" className="abtn sm" title="Small text" onClick={() => wrap("~~", "~~")} style={{ fontSize: 11 }}>small</button>
+        <button type="button" className="abtn sm" title="Bullet point" onClick={() => linePrefix("• ")}>• List</button>
+        <button type="button" className="abtn sm" title="Tick point" onClick={() => linePrefix("✓ ")}>✓ Tick</button>
+      </div>
+      <textarea ref={ref} value={value} onChange={(e) => onChange(e.target.value)} style={{ minHeight: 130, fontFamily: "ui-monospace, monospace", fontSize: 13 }} />
+      <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 4 }}>
+        <b>**text**</b> = bold · <b>## text</b> = large heading · <b>_text_</b> = italic · <b>~~text~~</b> = small · <b>• / ✓</b> = list items (product page-e auto style hobe)
+      </div>
+    </div>
+  );
+}
+
 const slugify = (s: string) => s.toLowerCase().trim().replace(/[^a-z0-9\u0980-\u09FF]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 80);
 
 export default function ProductsClient({ initial, categories }: { initial: P[]; categories: { id: number; name: string }[] }) {
@@ -59,9 +95,18 @@ export default function ProductsClient({ initial, categories }: { initial: P[]; 
     variants: p.variants.map((v: any) => ({ ...v, size: v.size || "", color: v.color || "", sku: v.sku || "", price: v.price != null ? String(v.price) : "", stock: String(v.stock) })),
   }); };
 
-  const genVariants = () => {
-    const sizes = ["S", "M", "L", "XL"];
-    setEdit((e: any) => ({ ...e, variants: sizes.map((s) => ({ size: s, color: "", sku: e.sku ? e.sku + "-" + s : "", price: "", stock: "10" })) }));
+  const genVariants = (kind: "alpha" | "numeric") => {
+    const sizes = kind === "alpha" ? ["S", "M", "L", "XL", "XXL"] : ["28", "30", "32", "34", "36", "38", "40"];
+    setEdit((e: any) => ({
+      ...e,
+      variants: sizes.map((s) => ({
+        size: s,
+        color: (e.variants || [])[0]?.color || "",
+        sku: (e.sku ? e.sku + "-" : "") + s,
+        price: (e.variants || [])[0]?.price || "",
+        stock: (e.variants || [])[0]?.stock || "10",
+      })),
+    }));
   };
 
   const upload = async (files: FileList) => {
@@ -207,7 +252,10 @@ export default function ProductsClient({ initial, categories }: { initial: P[]; 
                 </select>
               </div>
               <div className="af full"><label>Short description</label><input value={edit.shortDesc} onChange={(e) => setEdit({ ...edit, shortDesc: e.target.value })} /></div>
-              <div className="af full"><label>Full description</label><textarea value={edit.description} onChange={(e) => setEdit({ ...edit, description: e.target.value })} /></div>
+              <div className="af full">
+                <label>Full description (formatting supported)</label>
+                <DescriptionEditor value={edit.description || ""} onChange={(v: string) => setEdit({ ...edit, description: v })} />
+              </div>
               <div className="af full"><label>Tags (comma separated)</label><input value={edit.tags} onChange={(e) => setEdit({ ...edit, tags: e.target.value })} placeholder="linen, summer, new" /></div>
             </div>
 
@@ -232,7 +280,8 @@ export default function ProductsClient({ initial, categories }: { initial: P[]; 
             <div style={{ margin: "18px 0 6px", fontWeight: 600, fontSize: 13.5, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <span>Variants (size / color / stock)</span>
               <span style={{ display: "flex", gap: 6 }}>
-                <button className="abtn sm" type="button" onClick={genVariants}>Auto S–XL</button>
+                <button className="abtn sm" type="button" title="S M L XL XXL auto-generate" onClick={() => genVariants("alpha")}>Auto S–XXL</button>
+                <button className="abtn sm" type="button" title="28–40 numeric sizes auto-generate" onClick={() => genVariants("numeric")}>Auto 28–40</button>
                 <button className="abtn sm" type="button" onClick={() => setEdit({ ...edit, variants: [...(edit.variants || []), { size: "", color: "", sku: "", price: "", stock: "0" }] })}>+ Add</button>
               </span>
             </div>

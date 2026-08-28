@@ -23,6 +23,11 @@ export default function SuccessPage({ searchParams }: { searchParams: { code?: s
         Save your order code to track your parcel anytime.
       </p>
       <div style={{ display: "flex", gap: 12, justifyContent: "center", marginTop: 26, flexWrap: "wrap" }}>
+        {code && (
+          <a className="btn btn-accent" href={"/invoice/" + code} target="_blank" rel="noreferrer">
+            🧾 Download Invoice
+          </a>
+        )}
         <Link className="btn" href={"/track?code=" + code}>Track Order</Link>
         <Link className="btn btn-outline" href="/products">Continue Shopping</Link>
       </div>

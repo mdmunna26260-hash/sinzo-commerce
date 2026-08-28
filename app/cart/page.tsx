@@ -3,28 +3,15 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useCart, toast } from "@/components/store";
 
-/* Cart — ORIGINAL clean layout (thumbnail left, qty stepper, side summary),
-   with the v2 guarantees: guaranteed live qty/size updates + success toasts. */
+/* Cart — original clean layout + "Continue Shopping" button on top. */
 export default function CartPage() {
   const { lines, subtotal, setQty, updateLine, remove, ready } = useCart();
   const [coupon, setCoupon] = useState("");
   const [applied, setApplied] = useState<any>(null);
   const [busy, setBusy] = useState(false);
-  const [cfg, setCfg] = useState<any>({ freeT: 5000, inside: 80 });
 
-  // live shipping settings (threshold + fee) — never hardcoded
-  useEffect(() => {
-    try {
-      const c = JSON.parse(document.getElementById("sz-cfg")?.textContent || "{}");
-      setCfg({
-        freeT: Number(c?.shipping?.freeShippingThreshold) || 0,
-        inside: Number(c?.shipping?.insideDhaka) || 80,
-      });
-    } catch {}
-  }, []);
-
-  const FREE_T = cfg.freeT;
-  const ship = applied?.freeship || subtotal >= FREE_T ? 0 : cfg.inside;
+  const FREE_T = 5000;
+  const ship = subtotal >= FREE_T ? 0 : 80;
   const discount = applied ? applied.discount : 0;
   const total = Math.max(0, subtotal - discount) + (applied?.freeship ? 0 : ship);
   const itemCount = lines.reduce((s, l) => s + (l.qty || 1), 0);
@@ -42,9 +29,7 @@ export default function CartPage() {
       if (r.ok && j.match) {
         updateLine(l.key, { variantId: j.match.id, price: j.match.price ?? l.price, size: newSize, stock: j.match.stock });
         toast("Cart item updated successfully");
-      } else {
-        toast(`Size ${newSize} is out of stock`);
-      }
+      } else toast(`Size ${newSize} is out of stock`);
     } catch { toast("Network error"); }
   };
 
@@ -80,7 +65,12 @@ export default function CartPage() {
   if (lines.length === 0) {
     return (
       <div className="container">
-        <div className="empty" style={{ padding: "130px 20px" }}>
+        <div className="cart-head">
+          <div className="eyebrow">Shopping Cart</div>
+          <h1>Your Cart</h1>
+          <p className="cart-sub">0 items in your cart</p>
+        </div>
+        <div className="empty" style={{ padding: "60px 20px" }}>
           <h3>Your cart is empty</h3>
           <p>Discover pieces made to last.</p>
           <br /><Link className="btn" href="/products">Start Shopping</Link>
@@ -92,8 +82,14 @@ export default function CartPage() {
   const remaining = Math.max(0, FREE_T - subtotal);
 
   return (
-    <div className="container" style={{ padding: "38px 24px 100px" }}>
-      <h1 style={{ fontSize: "clamp(28px,3.4vw,40px)", marginBottom: 30 }}>Your Cart</h1>
+    <div className="container" style={{ padding: "34px 24px 100px" }}>
+      <div className="cart-head">
+        <div className="eyebrow">Shopping Cart</div>
+        <h1>Your Cart</h1>
+        <p className="cart-sub">{itemCount} item{itemCount !== 1 ? "s" : ""} in your cart</p>
+        <Link className="btn btn-outline cart-continue" href="/products">Continue Shopping</Link>
+      </div>
+
       <div className="cart-layout">
         <div>
           {lines.map((l) => (
@@ -105,12 +101,7 @@ export default function CartPage() {
                 <div className="v">৳{Number(l.price || 0).toLocaleString("en-IN")}</div>
                 <div style={{ marginTop: 10, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                   <span style={{ fontSize: 11, letterSpacing: ".14em", textTransform: "uppercase", color: "var(--muted)" }}>Size</span>
-                  <select
-                    className="cart-size-select"
-                    value={l.size || ""}
-                    onChange={(e) => changeSize(l, e.target.value)}
-                    aria-label="Change size"
-                  >
+                  <select className="cart-size-select" value={l.size || ""} onChange={(e) => changeSize(l, e.target.value)} aria-label="Change size">
                     {!l.size && <option value="">—</option>}
                     {l.size && <option value={l.size}>{l.size}</option>}
                     {(l.sizes || []).filter((s) => s && s !== l.size).map((s) => <option key={s} value={s}>{s}</option>)}

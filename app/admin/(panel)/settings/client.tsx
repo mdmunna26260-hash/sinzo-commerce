@@ -357,6 +357,18 @@ export default function SettingsClient({ groups, user, userCount, hasCourier }: 
       {tab === "Homepage Layout" && <HomepageLayoutTab groups={g} save={save} busy={busy} />}
 
       {tab === "Shipping" && (
+        <>
+        <div className="acard" style={{ marginBottom: 16 }}><div className="acard-h"><h3>🖨 Thermal Printer</h3></div>
+          <div className="acard-b form-grid">
+            <div className="af"><label>Default receipt width</label>
+              <select value={g.shipping?.thermalWidth || "80"} onChange={(e) => setG({ ...g, shipping: { ...g.shipping, thermalWidth: e.target.value } })}>
+                <option value="58">58mm (small thermal)</option>
+                <option value="80">80mm (wide thermal)</option>
+              </select>
+              <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 4 }}>Order page-er 🧾 Thermal button ei width-e open hobe.</div>
+            </div>
+          </div>
+        </div>
         <div className="acard"><div className="acard-h"><h3>Delivery Charges (BD)</h3></div>
           <div className="acard-b form-grid">
             <F k="insideDhaka" label="Inside Dhaka fee (৳)" type="number" group="shipping" />
@@ -367,6 +379,7 @@ export default function SettingsClient({ groups, user, userCount, hasCourier }: 
             <div className="full">{saveBtn("shipping")}</div>
           </div>
         </div>
+        </>
       )}
 
       {tab === "Courier" && (
