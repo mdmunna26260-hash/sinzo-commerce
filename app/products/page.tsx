@@ -7,7 +7,7 @@ import Link from "next/link";
 
 export const dynamic = "force-dynamic";
 
-type SP = { q?: string; category?: string; min?: string; max?: string; size?: string; color?: string; avail?: string; sort?: string; onsale?: string; page?: string };
+type SP = { q?: string; category?: string; min?: string; max?: string; size?: string; color?: string; avail?: string; sort?: string; onsale?: string };
 
 export const metadata = { title: "Shop All" };
 
@@ -44,29 +44,17 @@ export default async function ProductsPage({ searchParams }: { searchParams: SP 
     searchParams.sort === "oldest" ? { createdAt: "asc" } :
     [{ position: "asc" }, { id: "desc" }]; // default = admin drag&drop order
 
-  const PAGE = 12;
-  const page = Math.max(1, parseInt(searchParams.page || "1", 10) || 1);
   const totalMatching = await db.product.count({ where });
-  const products = await db.product.findMany({
+  let products = await db.product.findMany({
     where, orderBy, include: { images: true, category: true, variants: true },
-    take: PAGE, skip: (page - 1) * PAGE,
   });
-  let shown = products;
-  let filtered = shown;
+
   if (searchParams.size) {
-    filtered = filtered.filter((p) => p.variants.some((v) => v.size === searchParams.size && v.stock > 0));
+    products = products.filter((p) => p.variants.some((v) => v.size === searchParams.size && v.stock > 0));
   }
   if (searchParams.color) {
-    filtered = filtered.filter((p) => p.variants.some((v) => (v.color || "").toLowerCase() === searchParams.color!.toLowerCase() && v.stock > 0));
+    products = products.filter((p) => p.variants.some((v) => (v.color || "").toLowerCase() === searchParams.color!.toLowerCase() && v.stock > 0));
   }
-  shown = filtered;
-  const hasMore = page * PAGE < totalMatching;
-  const pageQs = (n: number) => {
-    const params = new URLSearchParams();
-    for (const [k, v] of Object.entries(searchParams)) if (v && k !== "page") params.set(k, String(v));
-    params.set("page", String(n));
-    return "/products?" + params.toString();
-  };
 
   const activeCat = cats.find((c) => c.slug === searchParams.category);
   const activeChips: { label: string; patch: Record<string, string | undefined> }[] = [];
@@ -121,7 +109,7 @@ export default async function ProductsPage({ searchParams }: { searchParams: SP 
               ))}
             </div>
           )}
-            {shown.length === 0 ? (
+            {products.length === 0 ? (
               <div className="empty">
                 <h3>Nothing here yet</h3>
                 <p>Try different filters or browse all products.</p>
@@ -129,7 +117,7 @@ export default async function ProductsPage({ searchParams }: { searchParams: SP 
               </div>
             ) : (
               <div className="shop-grid">
-                {shown.map((p) => (
+                {products.map((p) => (
                   <ProductCard key={p.id} p={{
                     id: p.id, title: p.title, slug: p.slug, price: p.price, comparePrice: p.comparePrice,
                     image: p.images?.[0]?.url, categoryName: p.category?.name, stock: p.stock,
@@ -137,11 +125,6 @@ export default async function ProductsPage({ searchParams }: { searchParams: SP 
                     colors: Array.from(new Set(p.variants.filter((v) => v.stock > 0 && v.color).map((v) => v.color!))),
                   }} />
                 ))}
-              </div>
-            )}
-            {hasMore && (
-              <div style={{ display: "flex", justifyContent: "center", padding: "34px 0 6px" }}>
-                <Link className="btn btn-outline" href={pageQs(page + 1)} scroll={false}>Load More</Link>
               </div>
             )}
         </ShopLayout>
