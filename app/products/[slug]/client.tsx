@@ -142,7 +142,7 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
         {/* ---------------- INFO ---------------- */}
         <div className="pdp-info">
           {product.categoryName && <div className="eyebrow">{product.categoryName}</div>}
-          <h1>{product.title}</h1>
+          <h1>{product.title}</h1><!-- v3 -->
           <div className="pdp-price">
             <b>৳{price.toLocaleString("en-IN")}</b>
             {product.comparePrice && product.comparePrice > price && (<><s>৳{product.comparePrice.toLocaleString("en-IN")}</s><span className="off">{off}% OFF</span></>)}
