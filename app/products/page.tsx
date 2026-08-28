@@ -3,6 +3,7 @@ import { getSettings, publicSettings } from "@/lib/settings";
 import { Header, Footer, Announcement } from "@/components/chrome";
 import { ProductCard } from "@/components/parts";
 import ShopLayout from "./shop-layout";
+import InfiniteGrid from "./infinite-grid";
 import Link from "next/link";
 
 export const dynamic = "force-dynamic";
@@ -116,16 +117,12 @@ export default async function ProductsPage({ searchParams }: { searchParams: SP 
                 <br /><Link className="btn btn-outline" href="/products">Clear filters</Link>
               </div>
             ) : (
-              <div className="shop-grid">
-                {products.map((p) => (
-                  <ProductCard key={p.id} p={{
-                    id: p.id, title: p.title, slug: p.slug, price: p.price, comparePrice: p.comparePrice,
-                    image: p.images?.[0]?.url, categoryName: p.category?.name, stock: p.stock,
-                    isNew: p.isNew, isBestSeller: p.isBestSeller,
-                    colors: Array.from(new Set(p.variants.filter((v) => v.stock > 0 && v.color).map((v) => v.color!))),
-                  }} />
-                ))}
-              </div>
+              <InfiniteGrid products={products.map((p) => ({
+                id: p.id, title: p.title, slug: p.slug, price: p.price, comparePrice: p.comparePrice,
+                image: p.images?.[0]?.url, categoryName: p.category?.name, stock: p.stock,
+                isNew: p.isNew, isBestSeller: p.isBestSeller,
+                colors: Array.from(new Set(p.variants.filter((v) => v.stock > 0 && v.color).map((v) => v.color!))),
+              }))} />
             )}
         </ShopLayout>
       </div>

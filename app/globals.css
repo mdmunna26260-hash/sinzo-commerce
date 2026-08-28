@@ -760,3 +760,9 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 13.5px; }
 }
 .pcard-title { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.35; }
 .pcard .price { flex-wrap: wrap; row-gap: 2px; }
+
+/* infinite scroll sentinel */
+.inf-sentinel { display: flex; justify-content: center; padding: 36px 0 10px; }
+.inf-spinner { width: 26px; height: 26px; border: 2px solid var(--line); border-top-color: var(--text); border-radius: 99px; animation: szspin .8s linear infinite; }
+@keyframes szspin { to { transform: rotate(360deg); } }
+.inf-end { text-align: center; color: var(--muted); font-size: 12px; letter-spacing: .12em; padding: 30px 0 6px; text-transform: uppercase; }
