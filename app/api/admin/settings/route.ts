@@ -29,6 +29,12 @@ export async function PUT(req: Request) {
   if (Array.isArray(value)) {
     merged = value; // arrays (e.g. homepage sections) replace wholesale
   } else {
+    // numeric fields must be stored as numbers (string "2500" breaks comparisons)
+    if (group === "shipping") {
+      for (const k of ["insideDhaka", "outsideDhaka", "freeShippingThreshold"]) {
+        if (value[k] !== undefined && value[k] !== "") value[k] = Number(value[k]) || 0;
+      }
+    }
     const existing: any = (current as any)[group] || {};
     merged = { ...existing };
     for (const [k, v] of Object.entries(value)) {

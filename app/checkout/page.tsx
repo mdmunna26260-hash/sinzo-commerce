@@ -13,9 +13,9 @@ export default function CheckoutPage() {
     try { return JSON.parse(document.getElementById("sz-cfg")?.textContent || "{}"); } catch { return {}; }
   }, []);
   const shipCfg = cfg?.shipping || {};
-  const inside = shipCfg.insideDhaka ?? 80;
-  const outside = shipCfg.outsideDhaka ?? 140;
-  const freeT = shipCfg.freeShippingThreshold ?? 5000;
+  const inside = Number(shipCfg.insideDhaka) || 80;
+  const outside = Number(shipCfg.outsideDhaka) || 140;
+  const freeT = Number(shipCfg.freeShippingThreshold) || 0;
   const codEnabled = cfg?.checkout?.codEnabled !== false;
 
   const [form, setForm] = useState({ name: "", phone: "", email: "", address: "", area: "INSIDE_DHAKA", notes: "" });
