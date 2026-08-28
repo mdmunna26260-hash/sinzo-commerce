@@ -772,3 +772,20 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 13.5px; }
 .pdp-main-img .pdp-img.changing { opacity: 0; transform: translateX(24px); }
 .pdp-main-img .pdp-img { opacity: 1; transform: translateX(0); transition: opacity .28s ease, transform .28s cubic-bezier(.25,.46,.45,.94); }
 .pdp-main-img img[src] { transition: opacity .3s ease, transform .35s cubic-bezier(.25,.46,.45,.94); }
+
+/* ===== Cross-fade product gallery (Zaman-style) =====
+   All images stacked absolute; active one opacity:1 on top.
+   380ms ease-in-out opacity transition = smooth cross-fade, no flicker. */
+.pdp-main-img { position: relative; }
+.pdp-main-img .pdp-fade {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  object-fit: cover; opacity: 0; z-index: 0;
+  transition: opacity .38s ease-in-out;
+  pointer-events: none;
+}
+.pdp-main-img .pdp-fade.active {
+  opacity: 1; z-index: 1;
+  pointer-events: auto;
+  transition: opacity .38s ease-in-out;
+}
+.pdp-main-img .pdp-fade.hz { transform: scale(1.9); cursor: crosshair; transition: opacity .38s ease-in-out, transform .12s ease-out; }
