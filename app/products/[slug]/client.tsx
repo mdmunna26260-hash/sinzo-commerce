@@ -31,8 +31,14 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
   const goTo = (i: number) => {
     const n = ((i % N) + N) % N;
     if (n === img) return;
+    // Preload next image before showing it (prevents flash)
+    const nextImg = new Image();
+    nextImg.src = product.images[n]?.url || "";
+    nextImg.onload = () => {
+      setImg(n);
+      setFading(false);
+    };
     setFading(true);
-    setTimeout(() => { setImg(n); setFading(false); }, 170);
   };
   const next = () => goTo(img + 1);
   const prev = () => goTo(img - 1);
@@ -102,7 +108,7 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
           >
             <img
               key={img}
-              src={product.images[img]?.url || product.images[0]?.url}
+              src={(product.images[img] || product.images[0])?.url.includes("/uploads/seed/") ? (product.images[img] || product.images[0]).url.replace(".jpg", "-600.webp") : (product.images[img] || product.images[0])?.url}
               alt={product.images[img]?.alt || product.title}
               className={"pdp-img" + (fading ? " changing" : "") + (hoverZoom && avail > 0 ? " hz" : "")}
               style={hoverZoom ? { transformOrigin: hzOrigin } : undefined}

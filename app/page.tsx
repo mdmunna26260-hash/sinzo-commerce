@@ -35,7 +35,7 @@ function CatTile({ c }: { c: any }) {
   return (
     <Link className="ctile" href={"/products?category=" + c.slug}>
       {c.image ? <img src={c.image} alt={c.name} loading="lazy" /> : (
-        <img src={"/uploads/seed/p-" + (CAT_IMG[c.slug] || "shirt") + ".jpg"} alt={c.name} loading="lazy" />
+        <img src={"/uploads/seed/p-" + (CAT_IMG[c.slug] || "shirt") + "-600.webp"} alt={c.name} loading="lazy" decoding="async" />
       )}
       <div className="ctile-label"><span>{c.description?.slice(0, 40) || "Collection"}</span><h3>{c.name}</h3></div>
       <span className="ctile-arrow" aria-hidden>→</span>

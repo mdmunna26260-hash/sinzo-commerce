@@ -11,7 +11,17 @@ export function ProductCard({ p, wish }: { p: CardProduct; wish?: boolean }) {
   return (
     <Link className="pcard reveal" href={"/products/" + p.slug}>
       <div className="pcard-img">
-        {p.image && <img src={p.image} alt={p.title} loading="lazy" decoding="async" style={{ width: "100%", height: "100%", objectFit: "cover" }} />}
+        {p.image && <img
+            src={p.image.includes('/uploads/seed/') ? p.image.replace('.jpg', '-600.webp') : p.image}
+            srcSet={p.image.includes('/uploads/seed/') ? [
+              `${p.image.replace('.jpg', '-300.webp')} 300w`,
+              `${p.image.replace('.jpg', '-600.webp')} 600w`,
+              `${p.image.replace('.jpg', '-1000.webp')} 1000w`,
+            ].join(', ') : undefined}
+            sizes="(max-width: 600px) 50vw, (max-width: 1200px) 33vw, 300px"
+            alt={p.title} loading="lazy" decoding="async"
+            style={{ width: "100%", height: "100%", objectFit: "cover" }}
+          />}
         <div className="pcard-badges">
           {off > 0 && <span className="badge sale">-{off}%</span>}
           {p.isBestSeller && <span className="badge best">★ Best Seller</span>}

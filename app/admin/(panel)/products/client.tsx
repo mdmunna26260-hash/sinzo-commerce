@@ -158,6 +158,16 @@ export default function ProductsClient({ initial, categories }: { initial: P[]; 
     setTimeout(() => setMsg(""), 2500);
   };
 
+  const duplicate = async (p: P) => {
+    setBusy(true);
+    const r = await afetch("/api/admin/products/" + p.id + "/duplicate", { method: "POST" });
+    const j = await r.json();
+    if (r.ok) { setMsg("✓ Product duplicated as DRAFT — edit & publish it"); router.refresh(); }
+    else setMsg(j.error || "Duplicate failed");
+    setBusy(false);
+    setTimeout(() => setMsg(""), 3000);
+  };
+
   const del = async (p: P) => {
     if (!confirm(`Delete "${p.title}" permanently?`)) return;
     setBusy(true);
@@ -208,6 +218,7 @@ export default function ProductsClient({ initial, categories }: { initial: P[]; 
                   <td>{p.views}</td>
                   <td style={{ whiteSpace: "nowrap" }}>
                     <button className="abtn sm" onClick={() => openEdit(p)}>Edit</button>{" "}
+                    <button className="abtn sm" title="Duplicate product" onClick={() => duplicate(p)}>📋</button>{" "}
                     <button className="abtn sm danger" onClick={() => del(p)}>✕</button>
                   </td>
                 </tr>
