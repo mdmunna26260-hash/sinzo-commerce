@@ -33,11 +33,9 @@ export default async function ThermalReceipt({ params, searchParams }: { params:
         @media print { .no-print { display: none !important; } .rc { box-shadow: none; } body { background: #fff; } }
       ` }} />
       <div className="rc-wrap">
-        <div className="no-print" style={{ display: "flex", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
-          <a className="abtn" href={`/admin/orders/${order.id}/receipt?w=58${t ? "&t=" + encodeURIComponent(t) : ""}`}>58mm</a>
-          <a className="abtn" href={`/admin/orders/${order.id}/receipt?w=80${t ? "&t=" + encodeURIComponent(t) : ""}`}>80mm</a>
-          <button className="abtn primary" id="printbtn">🖨 Print</button>
-          <a className="abtn" href={`/admin/orders/${order.id}${t ? "?t=" + encodeURIComponent(t) : ""}`}>← Back</a>
+        <div className="no-print" style={{ display: "flex", gap: 10, marginBottom: 14, flexWrap: "wrap", justifyContent: "center" }}>
+          <button className="btn" id="printbtn" style={{ minWidth: 220 }}>🖨 PRINT / SAVE PDF</button>
+          <a className="btn btn-outline" href={`/admin/orders/${order.id}${t ? "?t=" + encodeURIComponent(t) : ""}`}>← BACK TO ORDER</a>
         </div>
         <div className="rc" id="rc">
           <div className="c big" style={{ letterSpacing: ".3em" }}>{store.name || "STORE"}</div>
