@@ -9,11 +9,24 @@ export default function CartPage() {
   const [coupon, setCoupon] = useState("");
   const [applied, setApplied] = useState<any>(null);
   const [busy, setBusy] = useState(false);
+  const [cfg, setCfg] = useState({ freeT: 5000, inside: 80, outside: 140 });
 
-  const FREE_T = 5000;
-  const ship = subtotal >= FREE_T ? 0 : 80;
+  useEffect(() => {
+    try {
+      const c = JSON.parse(document.getElementById("sz-cfg")?.textContent || "{}");
+      setCfg({
+        freeT: Number(c?.shipping?.freeShippingThreshold) || 5000,
+        inside: Number(c?.shipping?.insideDhaka) || 80,
+        outside: Number(c?.shipping?.outsideDhaka) || 140,
+      });
+    } catch {}
+  }, []);
+
   const discount = applied ? applied.discount : 0;
-  const total = Math.max(0, subtotal - discount) + (applied?.freeship ? 0 : ship);
+  const effectiveTotal = subtotal - discount; // free shipping applies to discounted total
+  const FREE_T = cfg.freeT;
+  const ship = applied?.freeship || effectiveTotal >= FREE_T ? 0 : cfg.inside;
+  const total = Math.max(0, effectiveTotal) + (applied?.freeship ? 0 : ship);
   const itemCount = lines.reduce((s, l) => s + (l.qty || 1), 0);
 
   const bump = (l: any, q: number) => {

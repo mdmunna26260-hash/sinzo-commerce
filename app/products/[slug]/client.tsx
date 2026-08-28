@@ -138,7 +138,7 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
             <div className="thumbs">
               {product.images.map((im, i) => (
                 <button key={i} className={i === img ? "active" : ""} onClick={() => goTo(i)} aria-label={"Image " + (i + 1)}>
-                  <img src={im.url} alt={im.alt} loading="lazy" />
+                  <img src={im.url.includes("/uploads/seed/") ? im.url.replace(".jpg", "-300.webp") : im.url} alt={im.alt} loading="lazy" decoding="async" width={72} height={96} />
                 </button>
               ))}
             </div>
@@ -215,7 +215,7 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
       {product.description && (
         <section className="section" style={{ padding: "10px 0 46px" }}>
           <div className="section-head"><div><div className="eyebrow">The details</div><h2>About this product</h2></div></div>
-          <p style={{ maxWidth: 720, color: "var(--muted)", fontSize: 15.5 }}>{product.description}</p>
+          <FormattedDescription text={product.description} />
         </section>
       )}
 
@@ -277,4 +277,41 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
       )}
     </>
   );
+}
+
+
+/* Lightweight markdown-ish renderer for admin-formatted descriptions:
+   ## heading · **bold** · _italic_ · ~~small~~ · • / ✓ list items */
+function FormattedDescription({ text }: { text: string }) {
+  const inline = (s: string) =>
+    s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+      .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+      .replace(/(^|\s)_(.+?)_(?=\s|$|[,.;:!?)])/g, "$1<em>$2</em>")
+      .replace(/~~(.+?)~~/g, '<span style="font-size:.85em;color:var(--muted)">$1</span>');
+  const blocks: React.ReactNode[] = [];
+  let list: { icon: string; text: string }[] = [];
+  const flush = () => {
+    if (list.length) {
+      blocks.push(
+        <ul key={"l" + blocks.length} style={{ margin: "8px 0", paddingLeft: 6, listStyle: "none", display: "grid", gap: 6 }}>
+          {list.map((li, i) => (
+            <li key={i} style={{ display: "flex", gap: 10, alignItems: "flex-start", color: "var(--text)", fontSize: 15 }}>
+              <span style={{ color: "var(--accent)", fontWeight: 700, flex: "none" }}>{li.icon}</span>
+              <span dangerouslySetInnerHTML={{ __html: inline(li.text) }} />
+            </li>
+          ))}
+        </ul>
+      );
+      list = [];
+    }
+  };
+  text.split("\n").forEach((raw, i) => {
+    const line = raw.trimEnd();
+    if (/^##\s+/.test(line)) { flush(); blocks.push(<h3 key={i} style={{ fontSize: 20, margin: "22px 0 6px", fontFamily: "var(--font-head)" }}>{line.replace(/^##\s+/, "")}</h3>); }
+    else if (/^[•✓]\s+/.test(line)) { list.push({ icon: line[0], text: line.replace(/^[•✓]\s+/, "") }); }
+    else if (line.trim() === "") { flush(); }
+    else { flush(); blocks.push(<p key={i} style={{ marginBottom: 10, color: "var(--muted)", fontSize: 15.5, lineHeight: 1.7 }} dangerouslySetInnerHTML={{ __html: inline(line) }} />); }
+  });
+  flush();
+  return <div style={{ maxWidth: 720 }}>{blocks}</div>;
 }

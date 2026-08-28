@@ -26,8 +26,8 @@ export default function CheckoutPage() {
   const [payment, setPayment] = useState("COD");
   const started = useState(false);
 
-  const ship = applied?.freeship || subtotal >= freeT ? 0 : form.area === "INSIDE_DHAKA" ? inside : outside;
   const discount = applied ? applied.discount : 0;
+  const ship = applied?.freeship || subtotal - discount >= freeT ? 0 : form.area === "INSIDE_DHAKA" ? inside : outside;
   const total = Math.max(0, subtotal - discount) + ship;
 
   useEffect(() => {
