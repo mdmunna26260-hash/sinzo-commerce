@@ -86,6 +86,7 @@ export default async function HomePage() {
         comparePrice: x.product.comparePrice, image: x.product.images?.[0]?.url,
         categoryName: x.product.category?.name, stock: Math.max(x.product.stock, (x.product.variants || []).reduce((s: number, v: any) => s + v.stock, 0)),
         isNew: x.product.isNew, isBestSeller: x.product.isBestSeller,
+        sizes: Array.from(new Set((x.product.variants || []).filter((v: any) => v.stock > 0 && v.size).map((v: any) => v.size))).sort(),
         colors: Array.from(new Set((x.product.variants || []).filter((v: any) => v.stock > 0 && v.color).map((v: any) => v.color))),
       }));
 

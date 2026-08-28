@@ -44,6 +44,7 @@ export default function InfiniteGrid({ products }: { products: any[] }) {
             image: p.image, categoryName: p.categoryName, stock: p.stock,
             isNew: p.isNew, isBestSeller: p.isBestSeller,
             colors: p.colors,
+            sizes: p.sizes ? [...new Set(p.sizes)].sort() as string[] : undefined,
           }} />
         ))}
       </div>

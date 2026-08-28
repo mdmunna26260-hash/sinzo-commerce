@@ -4,7 +4,7 @@ import WishHeart from "./wish-heart";
 export type CardProduct = {
   id: number; title: string; slug: string; price: number; comparePrice: number | null;
   image?: string; categoryName?: string; stock: number; isNew?: boolean; isBestSeller?: boolean;
-  colors?: string[];
+  colors?: string[]; sizes?: string[];
 };
 
 export function ProductCard({ p, wish }: { p: CardProduct; wish?: boolean }) {
@@ -34,6 +34,9 @@ export function ProductCard({ p, wish }: { p: CardProduct; wish?: boolean }) {
             </span>
           )}
         </div>
+        {p.sizes && p.sizes.length > 0 && (
+          <div className="pcard-sizes">Size: {p.sizes.join(", ")}</div>
+        )}
         <div className="price">
           <b>৳{p.price.toLocaleString("en-IN")}</b>
           {p.comparePrice && p.comparePrice > p.price && (<><s>৳{p.comparePrice.toLocaleString("en-IN")}</s><span className="off">Save ৳{(p.comparePrice - p.price).toLocaleString("en-IN")}</span></>)}
