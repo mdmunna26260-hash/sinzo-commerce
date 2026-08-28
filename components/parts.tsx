@@ -1,11 +1,10 @@
 import Link from "next/link";
 import WishHeart from "./wish-heart";
-import ProductImg from "./product-img";
 
 export type CardProduct = {
   id: number; title: string; slug: string; price: number; comparePrice: number | null;
   image?: string; categoryName?: string; stock: number; isNew?: boolean; isBestSeller?: boolean;
-  colors?: string[]; imageWidth?: number | null; imageHeight?: number | null;
+  colors?: string[];
 };
 
 export function ProductCard({ p, wish }: { p: CardProduct; wish?: boolean }) {
@@ -13,7 +12,7 @@ export function ProductCard({ p, wish }: { p: CardProduct; wish?: boolean }) {
   return (
     <Link className="pcard reveal" href={"/products/" + p.slug}>
       <div className="pcard-img">
-        {p.image && <ProductImg img={{ url: p.image, width: p.imageWidth, height: p.imageHeight }} alt={p.title} />}
+        {p.image && <img src={p.image} alt={p.title} loading="lazy" decoding="async" className={p.stock <= 0 ? "soldout" : undefined} />}
         <div className="pcard-badges">
           {off > 0 && <span className="badge sale">-{off}%</span>}
           {p.isBestSeller && <span className="badge best">★ Best Seller</span>}
