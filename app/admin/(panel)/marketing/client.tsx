@@ -37,6 +37,20 @@ export default function MarketingClient({ abandoned, subscribers, sources }: any
     setBusy(false);
   };
 
+  const takeToOrder = async (a: any, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!confirm("Ei abandoned checkout theke real ORDER banaben? (Status: CONFIRMED, COD)")) return;
+    setBusy(true);
+    const r = await afetch(`/api/admin/abandoned/${a.id}/convert`, { method: "POST" });
+    const j = await r.json();
+    if (r.ok) {
+      setItems((xs: any[]) => xs.map((x) => x.id === a.id ? { ...x, status: "CONVERTED" } : x));
+      flash("✓ Order " + j.code + " created — Orders page-e dekhun!");
+      router.refresh();
+    } else flash(j.error || "Failed");
+    setBusy(false);
+  };
+
   const deleteRow = async (a: any, e: React.MouseEvent) => {
     e.stopPropagation();
     if (!confirm("Delete this abandoned checkout?")) return;
@@ -98,7 +112,13 @@ export default function MarketingClient({ abandoned, subscribers, sources }: any
                         <a className="abtn sm" style={{ color: "var(--ok)", borderColor: "#c4dfd0" }} href={waLink(a.phone)} target="_blank" rel="noreferrer" title="WhatsApp customer">💬</a>
                       )}{" "}
                       {a.status === "OPEN" && (
-                        <button className="abtn sm primary" disabled={busy} onClick={(e) => markRecovered(a, e)}>Mark Recovered</button>
+                        <>
+                          <button className="abtn sm primary" disabled={busy} onClick={(e) => markRecovered(a, e)}>Mark Recovered</button>
+                          {a.phone && a.address && (
+                            <button className="abtn sm" style={{ color: "var(--accent)", borderColor: "#d9c49a", fontWeight: 600 }} disabled={busy}
+                              title="Real order hishebe convert korun" onClick={(e) => takeToOrder(a, e)}>🛒 Take to Order</button>
+                          )}
+                        </>
                       )}{" "}
                       <button className="abtn sm danger" disabled={busy} onClick={(e) => deleteRow(a, e)}>✕</button>
                     </td>
@@ -126,12 +146,17 @@ export default function MarketingClient({ abandoned, subscribers, sources }: any
                                 {a.name && <div><b>{a.name}</b></div>}
                                 {a.phone && (
                                   <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-                                    📞 {a.phone}
-                                    <button className="abtn sm" onClick={(e) => copyPhone(e, a.phone)}>📋</button>
-                                    <a className="abtn sm" style={{ color: "var(--ok)" }} href={waLink(a.phone)} target="_blank" rel="noreferrer">💬 WhatsApp</a>
+                                    📞 <b>{a.phone}</b>
+                                    <button className="abtn sm" onClick={(e) => copyPhone(e, a.phone)}>📋 Copy</button>
+                                    <a className="abtn sm" style={{ color: "var(--ok)", borderColor: "#c4dfd0", fontWeight: 600 }} href={waLink(a.phone)} target="_blank" rel="noreferrer">💬 WhatsApp</a>
                                   </div>
                                 )}
-                                {a.address && <div style={{ color: "var(--muted)" }}>📍 {a.address}</div>}
+                                {a.address && (
+                                  <div style={{ display: "flex", gap: 8, alignItems: "flex-start", flexWrap: "wrap" }}>
+                                    📍 <span>{a.address}</span>
+                                    <button className="abtn sm" onClick={(e) => { e.stopPropagation(); copyText(a.address).then(() => flash("📍 Address copied ✓")); }}>📋 Copy</button>
+                                  </div>
+                                )}
                                 {!a.phone && <div style={{ color: "var(--danger)", fontSize: 12.5 }}>⚠ Phone nai — WhatsApp/call kora jabe na</div>}
                               </div>
                             ) : (
