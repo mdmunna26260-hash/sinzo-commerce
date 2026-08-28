@@ -5,6 +5,8 @@ export const dynamic = "force-dynamic";
 export async function POST(req: Request) {
   try {
     const { items, total, phone, name, address } = await req.json();
+    // Only capture as "abandoned" when the customer actually filled the checkout form
+    if (!phone || !name || !address) return NextResponse.json({ ok: false, skipped: "incomplete" });
     const since = new Date(Date.now() - 30 * 60 * 1000);
     const recent = await db.abandonedCheckout.findFirst({
       where: { checkoutStatus: "OPEN", updatedAt: { gte: since }, ...(phone ? { phone: String(phone) } : { phone: null }) },

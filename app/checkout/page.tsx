@@ -52,15 +52,17 @@ export default function CheckoutPage() {
     })();
   }, []);
   useEffect(() => {
-    if (started[0] || lines.length === 0) return;
-    started[0] = true;
+    if (lines.length === 0) return;
+    // capture as abandoned ONLY after customer fills phone + name + address
+    const filled = form.phone.replace(/[\s-]/g, "").length === 11 && form.name.trim().length >= 3 && form.address.trim().length >= 10;
+    if (!filled) return;
     trackEvent("InitiateCheckout", { value: subtotal, currency: "BDT", contents: lines.map((l) => ({ id: String(l.productId), quantity: l.qty })) });
     fetch("/api/checkout/start", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({
       items: lines.map((l) => ({ title: l.title, qty: l.qty, price: l.price })), total: subtotal,
-      phone: form.phone || undefined, name: form.name || undefined, address: form.address || undefined,
+      phone: form.phone.replace(/[\s-]/g, ""), name: form.name.trim(), address: form.address.trim(),
     }) }).catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lines.length]);
+  }, [lines.length, form.phone, form.name, form.address]);
 
   if (!ready) {
     return <div className="container"><div className="empty" style={{ padding: "130px 20px" }}><h3>Loading…</h3></div></div>;
