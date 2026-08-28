@@ -1,0 +1,134 @@
+"use client";
+import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { afetch, copyText } from "@/lib/afetch";
+
+const money = (n: number) => "৳" + Math.round(n).toLocaleString("en-IN");
+const STATUS_PILL: Record<string, string> = { OPEN: "PENDING", RECOVERED: "SHIPPED", CONVERTED: "DELIVERED" };
+
+export default function MarketingClient({ abandoned, subscribers, sources }: any) {
+  const router = useRouter();
+  const [items, setItems] = useState(abandoned);
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState("");
+
+  const open = items.filter((a: any) => a.status === "OPEN");
+  const recovered = items.filter((a: any) => a.status !== "OPEN");
+  const rate = items.length ? Math.round((recovered.length / items.length) * 100) : 0;
+
+  const flash = (m: string) => { setMsg(m); setTimeout(() => setMsg(""), 2600); };
+
+  const copyPhone = async (e: React.MouseEvent, phone?: string | null) => {
+    e.stopPropagation();
+    if (!phone) { flash("Ei checkout-e phone nai"); return; }
+    const ok = await copyText(phone);
+    flash(ok ? "📋 " + phone + " copied ✓" : "Copy failed");
+  };
+
+  const markRecovered = async (a: any, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setBusy(true);
+    const r = await afetch("/api/admin/abandoned/" + a.id, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status: "RECOVERED" }) });
+    if (r.ok) {
+      setItems((xs: any[]) => xs.map((x) => x.id === a.id ? { ...x, status: "RECOVERED" } : x));
+      flash("✓ Marked as RECOVERED" + (a.phone ? " — phone: " + a.phone : ""));
+    } else flash("Failed");
+    setBusy(false);
+  };
+
+  const deleteRow = async (a: any, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!confirm("Delete this abandoned checkout?")) return;
+    setBusy(true);
+    const r = await afetch("/api/admin/abandoned/" + a.id, { method: "DELETE" });
+    if (r.ok) { setItems((xs: any[]) => xs.filter((x) => x.id !== a.id)); flash("Deleted"); }
+    setBusy(false);
+  };
+
+  const deleteOld2wk = async () => {
+    if (!confirm("2 week+ purano OPEN checkouts delete hobe. Confirm?")) return;
+    setBusy(true);
+    const r = await afetch("/api/admin/abandoned?olderThanDays=2", { method: "DELETE" });
+    const j = await r.json().catch(() => ({}));
+    if (r.ok) {
+      setItems((xs: any[]) => xs.filter((x) => {
+        const age = Date.now() - new Date(x.updatedAt).getTime();
+        return !(x.status === "OPEN" && age > 14 * 86400000);
+      }));
+      flash("✓ " + (j.deleted || 0) + " old checkouts deleted");
+      router.refresh();
+    } else flash("Failed");
+    setBusy(false);
+  };
+
+  const waLink = (phone?: string | null) => phone ? "https://wa.me/" + phone.replace(/[^0-9]/g, "") : null;
+
+  return (
+    <>
+      <div className="admin-top"><h1>Marketing &amp; Recovery</h1></div>
+      {msg && <div className="noti ok">{msg}</div>}
+      <div className="kpis" style={{ gridTemplateColumns: "repeat(4,1fr)" }}>
+        <div className="kpi"><div className="k-label">Abandoned Checkouts</div><div className="k-val">{open.length}</div><div className="k-sub">not recovered</div></div>
+        <div className="kpi"><div className="k-label">Recovered</div><div className="k-val">{items.filter((a: any) => a.status === "RECOVERED").length}</div></div>
+        <div className="kpi"><div className="k-label">Recovery Rate</div><div className="k-val">{rate}%</div></div>
+        <div className="kpi"><div className="k-label">Newsletter Subscribers</div><div className="k-val">{subscribers.length}</div></div>
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr", gap: 16, alignItems: "start" }}>
+        <div className="acard">
+          <div className="acard-h">
+            <h3>Abandoned Checkouts (latest 50)</h3>
+            <button className="abtn sm danger" onClick={deleteOld2wk} disabled={busy}>🗑 Delete 2wk+ old</button>
+          </div>
+          <div style={{ overflowX: "auto" }}>
+            <table className="tbl">
+              <thead><tr><th>Date</th><th>Items</th><th>Value</th><th>Status</th><th>Actions</th></tr></thead>
+              <tbody>
+                {items.length === 0 && <tr><td colSpan={5} style={{ color: "var(--muted)", padding: 30 }}>No abandoned checkouts recorded yet.</td></tr>}
+                {items.map((a: any) => (
+                  <tr key={a.id} className="abandoned-row" title={a.phone ? "Phone: " + a.phone : "No phone captured"}>
+                    <td style={{ fontSize: 12.5 }}>{new Date(a.updatedAt).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</td>
+                    <td style={{ fontSize: 12.5 }}>{a.cart.map((i: any) => i.title + " ×" + i.qty).join(", ").slice(0, 80)}</td>
+                    <td><b>{money(a.total)}</b></td>
+                    <td><span className={"pill " + (STATUS_PILL[a.status] || "PENDING")}>{a.status}</span></td>
+                    <td style={{ whiteSpace: "nowrap" }}>
+                      {a.phone && <button className="abtn sm" title="Copy phone" onClick={(e) => copyPhone(e, a.phone)}>📋</button>}{" "}
+                      {a.status === "OPEN" && a.phone && (
+                        <a className="abtn sm" style={{ color: "var(--ok)", borderColor: "#c4dfd0" }} href={waLink(a.phone)} target="_blank" rel="noreferrer" title="WhatsApp customer">💬</a>
+                      )}{" "}
+                      {a.status === "OPEN" && (
+                        <button className="abtn sm primary" disabled={busy} onClick={(e) => markRecovered(a, e)}>Mark Recovered</button>
+                      )}{" "}
+                      <button className="abtn sm danger" disabled={busy} onClick={(e) => deleteRow(a, e)}>✕</button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div>
+          <div className="acard" style={{ marginBottom: 16 }}>
+            <div className="acard-h"><h3>Order Sources</h3></div>
+            <table className="tbl">
+              <thead><tr><th>Source</th><th>Orders</th><th>Revenue</th></tr></thead>
+              <tbody>
+                {sources.sort((a: any, b: any) => b.revenue - a.revenue).map((s: any) => (
+                  <tr key={s.source || "Direct"}><td>{s.source || "Direct"}</td><td>{s.orders}</td><td><b>{money(s.revenue)}</b></td></tr>
+                ))}
+                {sources.length === 0 && <tr><td colSpan={3} style={{ color: "var(--muted)", padding: 20 }}>No orders yet.</td></tr>}
+              </tbody>
+            </table>
+          </div>
+          <div className="acard">
+            <div className="acard-h"><h3>Subscribers</h3><a className="abtn sm" href="/api/admin/export?type=subscribers">⭳ CSV</a></div>
+            <div className="acard-b" style={{ maxHeight: 300, overflow: "auto", fontSize: 13 }}>
+              {subscribers.length === 0 && <span style={{ color: "var(--muted)" }}>No subscribers yet.</span>}
+              {subscribers.map((s: any) => <div key={s.id} style={{ padding: "5px 0", borderBottom: "1px solid #f1efec" }}>{s.email}</div>)}
+            </div>
+          </div>
+        </div>
+      </div>
+      <div style={{ height: 40 }} />
+    </>
+  );
+}

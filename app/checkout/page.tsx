@@ -55,7 +55,7 @@ export default function CheckoutPage() {
     if (started[0] || lines.length === 0) return;
     started[0] = true;
     trackEvent("InitiateCheckout", { value: subtotal, currency: "BDT", contents: lines.map((l) => ({ id: String(l.productId), quantity: l.qty })) });
-    fetch("/api/checkout/start", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ items: lines.map((l) => ({ title: l.title, qty: l.qty, price: l.price })), total: subtotal }) }).catch(() => {});
+    fetch("/api/checkout/start", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ items: lines.map((l) => ({ title: l.title, qty: l.qty, price: l.price })), total: subtotal, phone: form.phone || undefined }) }).catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lines.length]);
 

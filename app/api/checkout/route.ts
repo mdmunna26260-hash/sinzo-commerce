@@ -132,8 +132,11 @@ export async function POST(req: Request) {
       await db.inventoryMovement.create({ data: { productId: i.productId, delta: -i.qty, reason: "ORDER", ref: code } }).catch(() => {});
     }
 
-    // --- abandoned checkout: mark recovered (same phone) ---
-    await db.abandonedCheckout.updateMany({ where: { phone: cleanPhone, recovered: false }, data: { recovered: true } }).catch(() => {});
+    // --- abandoned checkout: mark CONVERTED (order placed) ---
+    await db.abandonedCheckout.updateMany({
+      where: { phone: cleanPhone, checkoutStatus: "OPEN" },
+      data: { checkoutStatus: "CONVERTED", recovered: true },
+    }).catch(() => {});
 
     // --- server-side Purchase via Meta CAPI (dedup with browser pixel by event_id) ---
     sendCapi({
