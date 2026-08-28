@@ -119,7 +119,7 @@ export default async function ProductsPage({ searchParams }: { searchParams: SP 
             ) : (
               <InfiniteGrid products={products.map((p) => ({
                 id: p.id, title: p.title, slug: p.slug, price: p.price, comparePrice: p.comparePrice,
-                image: p.images?.[0]?.url, categoryName: p.category?.name, stock: p.stock,
+                image: p.images?.[0]?.url, categoryName: p.category?.name, stock: Math.max(p.stock, p.variants.reduce((s, v) => s + v.stock, 0)),
                 isNew: p.isNew, isBestSeller: p.isBestSeller,
                 colors: Array.from(new Set(p.variants.filter((v) => v.stock > 0 && v.color).map((v) => v.color!))),
               }))} />

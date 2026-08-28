@@ -41,7 +41,8 @@ export default async function PDP({ params, searchParams }: { params: { slug: st
     related.push(...extra);
   }
   const avgRating = p.reviews.length ? p.reviews.reduce((a, r) => a + r.rating, 0) / p.reviews.length : 0;
-  const totalStock = p.stock;
+  const variantStock = p.variants.reduce((sum, v) => sum + v.stock, 0);
+  const totalStock = Math.max(p.stock, variantStock);
 
   return (
     <>
