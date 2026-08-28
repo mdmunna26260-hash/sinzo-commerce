@@ -55,6 +55,7 @@ export default async function PDP({ params, searchParams }: { params: { slug: st
           <Link href="/">Home</Link> / <Link href="/products">Shop</Link> {(p as any).category && <>/ <Link href={"/products?category=" + (p as any).category.slug}>{(p as any).category.name}</Link></>} / <span style={{ color: "var(--text)" }}>{p.title}</span>
         </div>
         <ProductPageClient
+          sizeChartImage={p.sizeChartImage || null}
           product={{
             id: p.id, title: p.title, slug: p.slug, price: p.price, comparePrice: p.comparePrice,
             shortDesc: p.shortDesc, description: p.description, sku: p.sku, stock: totalStock, lowStock: p.lowStock,

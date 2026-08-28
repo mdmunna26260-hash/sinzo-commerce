@@ -11,14 +11,15 @@ type P = {
   variants: V[]; categoryName?: string;
 };
 
-export default function ProductPageClient({ product, sizeChartHtml }: { product: P; sizeChartHtml: string | null }) {
+export default function ProductPageClient({ product, sizeChartHtml, sizeChartImage }: { product: P; sizeChartHtml: string | null; sizeChartImage: string | null }) {
   const { add } = useCart();
   const router = useRouter();
   const wishlist = useWishlist();
   const N = product.images.length;
 
-  /* ===== Cross-fade gallery: both images stacked, opacity swap, no layout shift ===== */
+  // ---------- gallery state ----------
   const [img, setImg] = useState(0);
+  const [fading, setFading] = useState(false);
   const [lightbox, setLightbox] = useState(false);
   const [lbIdx, setLbIdx] = useState(0);
   const [lbZoom, setLbZoom] = useState(false);
@@ -30,7 +31,8 @@ export default function ProductPageClient({ product, sizeChartHtml }: { product:
   const goTo = (i: number) => {
     const n = ((i % N) + N) % N;
     if (n === img) return;
-    setImg(n); // CSS cross-fade handles the transition — no flicker
+    setFading(true);
+    setTimeout(() => { setImg(n); setFading(false); }, 170);
   };
   const next = () => goTo(img + 1);
   const prev = () => goTo(img - 1);
@@ -84,7 +86,6 @@ export default function ProductPageClient({ product, sizeChartHtml }: { product:
   const line = () => ({
     productId: product.id, variantId: activeVariant?.id, slug: product.slug, title: product.title,
     image: product.images[0]?.url, price, qty, size: size || undefined, color: color || undefined, stock: avail || 99,
-    sizes,
   });
   const addLine = () => { add(line(), qty); toast("Added to cart ✓"); };
   const buyNow = () => { setBuying(true); add(line(), qty); router.push("/checkout"); };
@@ -92,39 +93,37 @@ export default function ProductPageClient({ product, sizeChartHtml }: { product:
   return (
     <>
       <div className="pdp">
-        {/* ===== CROSS-FADE GALLERY ===== */}
+        {/* ---------------- GALLERY ---------------- */}
         <div className="pdp-gallery">
           <div
             className={"pdp-main-img" + (N <= 1 ? " single" : "")}
             onTouchStart={onTouchStart}
             onTouchEnd={(e) => onTouchEnd(e)}
           >
-            {/* ALL images stacked absolute — active one on top with opacity 1 → smooth cross-fade */}
-            {product.images.map((im, i) => (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                key={i}
-                src={im.url}
-                alt={im.alt || product.title}
-                decoding="async"
-                {...(i === 0 ? { fetchPriority: "high" as const } : { loading: "lazy" as const })}
-                className={"pdp-fade" + (i === img ? " active" : "") + (i === img && hoverZoom && avail > 0 ? " hz" : "")}
-                style={i === img && hoverZoom ? { transformOrigin: hzOrigin } : undefined}
-                onMouseEnter={() => { if (window.matchMedia("(hover: hover)").matches) setHoverZoom(true); }}
-                onMouseLeave={() => { setHoverZoom(false); }}
-                onMouseMove={(e) => {
-                  const r = e.currentTarget.getBoundingClientRect();
-                  setHzOrigin(`${((e.clientX - r.left) / r.width) * 100}% ${((e.clientY - r.top) / r.height) * 100}%`);
-                }}
-              />
-            ))}
+            <img
+              key={img}
+              src={product.images[img]?.url || product.images[0]?.url}
+              alt={product.images[img]?.alt || product.title}
+              className={"pdp-img" + (fading ? " changing" : "") + (hoverZoom && avail > 0 ? " hz" : "")}
+              style={hoverZoom ? { transformOrigin: hzOrigin } : undefined}
+              onMouseEnter={() => { if (window.matchMedia("(hover: hover)").matches) setHoverZoom(true); }}
+              onMouseLeave={() => { setHoverZoom(false); }}
+              onMouseMove={(e) => {
+                const r = e.currentTarget.getBoundingClientRect();
+                setHzOrigin(`${((e.clientX - r.left) / r.width) * 100}% ${((e.clientY - r.top) / r.height) * 100}%`);
+              }}
+            />
             {/* zoom — top right corner */}
             <button className="gal-zoom" title="Zoom" aria-label="Zoom image"
               onClick={() => { setLbIdx(img); setLbZoom(false); setLightbox(true); }}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3M11 8v6M8 11h6"/></svg>
             </button>
             {N > 1 && (
-              <div className="gal-count">{img + 1} / {N}</div>
+              <>
+                <button className="gal-nav prev" aria-label="Previous image" onClick={prev}>‹</button>
+                <button className="gal-nav next" aria-label="Next image" onClick={next}>›</button>
+                <div className="gal-count">{img + 1} / {N}</div>
+              </>
             )}
             {avail <= 0 && <div className="soldout-overlay"><span>Sold Out</span></div>}
           </div>
@@ -133,8 +132,7 @@ export default function ProductPageClient({ product, sizeChartHtml }: { product:
             <div className="thumbs">
               {product.images.map((im, i) => (
                 <button key={i} className={i === img ? "active" : ""} onClick={() => goTo(i)} aria-label={"Image " + (i + 1)}>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={im.url.includes("/api/media/") ? im.url + "/w300" : im.url} alt={im.alt} loading="lazy" decoding="async" width={72} height={96} />
+                  <img src={im.url} alt={im.alt} loading="lazy" />
                 </button>
               ))}
             </div>
@@ -153,7 +151,7 @@ export default function ProductPageClient({ product, sizeChartHtml }: { product:
 
           {sizes.length > 0 && (
             <>
-              <div className="opt-label">Size {(sizeChartHtml) && <button className="sizechart-link" onClick={() => setChart(true)}>· Size chart</button>}</div>
+              <div className="opt-label">Size {(sizeChartHtml || sizeChartImage) && <button className="sizechart-link" onClick={() => setChart(true)}>· Size chart</button>}</div>
               <div className="sizes">
                 {sizes.map((s) => {
                   const v = product.variants.find((x) => x.size === s && (!color || x.color === color));
@@ -211,7 +209,7 @@ export default function ProductPageClient({ product, sizeChartHtml }: { product:
       {product.description && (
         <section className="section" style={{ padding: "10px 0 46px" }}>
           <div className="section-head"><div><div className="eyebrow">The details</div><h2>About this product</h2></div></div>
-          <FormattedDescription text={product.description} />
+          <p style={{ maxWidth: 720, color: "var(--muted)", fontSize: 15.5 }}>{product.description}</p>
         </section>
       )}
 
@@ -225,12 +223,13 @@ export default function ProductPageClient({ product, sizeChartHtml }: { product:
       </div>
 
       {/* size chart modal */}
-      {chart && (sizeChartHtml) && (
+      {chart && (sizeChartImage || sizeChartHtml) && (
         <div className="modal-bg" onClick={() => setChart(false)}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <button className="modal-close" onClick={() => setChart(false)} aria-label="Close">×</button>
             <h3>Size Chart</h3>
-            <div dangerouslySetInnerHTML={{ __html: sizeChartHtml.replace(/<table/, '<table class="sizechart-table"') }} />
+            {sizeChartImage && <img src={sizeChartImage} alt="Size chart" style={{ width: "100%", borderRadius: 4 }} />}
+            {!sizeChartImage && sizeChartHtml && <div dangerouslySetInnerHTML={{ __html: sizeChartHtml.replace(/<table/, '<table class="sizechart-table"') }} />}
             <p style={{ fontSize: 12.5, color: "var(--muted)", marginTop: 14 }}>Measurements are approximate. Between sizes? We recommend sizing up.</p>
           </div>
         </div>
@@ -252,7 +251,6 @@ export default function ProductPageClient({ product, sizeChartHtml }: { product:
             </button>
           </div>
           <div className="lb-count">{lbIdx + 1} / {N}</div>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={product.images[lbIdx]?.url || product.images[0]?.url}
             alt={product.images[lbIdx]?.alt || product.title}
@@ -273,40 +271,4 @@ export default function ProductPageClient({ product, sizeChartHtml }: { product:
       )}
     </>
   );
-}
-
-/* Lightweight markdown-ish renderer for admin-formatted descriptions */
-function FormattedDescription({ text }: { text: string }) {
-  const inline = (s: string) =>
-    s
-      .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
-      .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
-      .replace(/(^\s)_(.+?)_(?=\s|$|[,.;:!?)])/g, "$1<em>$2</em>")
-      .replace(/~~(.+?)~~/g, '<span style="font-size:.85em;color:var(--muted)">$1</span>');
-  const blocks: React.ReactNode[] = [];
-  let list: { icon: string; text: string }[] = [];
-  const flush = () => {
-    if (list.length) {
-      blocks.push(
-        <ul key={"l" + blocks.length} style={{ margin: "8px 0", paddingLeft: 6, listStyle: "none", display: "grid", gap: 6 }}>
-          {list.map((li, i) => (
-            <li key={i} style={{ display: "flex", gap: 10, alignItems: "flex-start", color: "var(--text)", fontSize: 15 }}>
-              <span style={{ color: "var(--accent)", fontWeight: 700, flex: "none" }}>{li.icon}</span>
-              <span dangerouslySetInnerHTML={{ __html: inline(li.text) }} />
-            </li>
-          ))}
-        </ul>
-      );
-      list = [];
-    }
-  };
-  text.split("\n").forEach((raw, i) => {
-    const line = raw.trimEnd();
-    if (/^##\s+/.test(line)) { flush(); blocks.push(<h3 key={i} style={{ fontSize: 20, margin: "22px 0 6px", fontFamily: "var(--font-head)" }}>{line.replace(/^##\s+/, "")}</h3>); }
-    else if (/^[•✓]\s+/.test(line)) { list.push({ icon: line[0], text: line.replace(/^[•✓]\s+/, "") }); }
-    else if (line.trim() === "") { flush(); }
-    else { flush(); blocks.push(<p key={i} style={{ marginBottom: 10, color: "var(--muted)", fontSize: 15.5, lineHeight: 1.7 }} dangerouslySetInnerHTML={{ __html: inline(line) }} />); }
-  });
-  flush();
-  return <div style={{ maxWidth: 720 }}>{blocks}</div>;
 }
