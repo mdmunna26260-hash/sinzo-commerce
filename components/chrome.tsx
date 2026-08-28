@@ -110,10 +110,10 @@ export function Header({ storeName, categories }: { storeName: string; categorie
           </div>
         </div>
         <nav className={"mobile-nav" + (open ? " open" : "")}>
-          <Link href="/products">Shop All</Link>
-          {categories.slice(0, 6).map((c) => <Link key={c.slug} href={"/products?category=" + c.slug}>{c.name}</Link>)}
-          <Link href="/track">Track Order</Link>
-          <Link href="/wishlist">Wishlist</Link>
+          <Link href="/products" onClick={() => setOpen(false)}>Shop All</Link>
+          {categories.slice(0, 6).map((c) => <Link key={c.slug} href={"/products?category=" + c.slug} onClick={() => setOpen(false)}>{c.name}</Link>)}
+          <Link href="/track" onClick={() => setOpen(false)}>Track Order</Link>
+          <Link href="/wishlist" onClick={() => setOpen(false)}>Wishlist</Link>
         </nav>
       </header>
 
