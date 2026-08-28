@@ -28,12 +28,12 @@ export default function TrackClient() {
       <div className="eyebrow">Order tracking</div>
       <h1 style={{ fontSize: "clamp(28px,3.4vw,38px)", margin: "8px 0 6px" }}>Where&apos;s my parcel?</h1>
       <p style={{ color: "var(--muted)", fontSize: 14, marginBottom: 22 }}>
-        Tracking number, Consignment ID ba Order code — jekono ekta dilei cholbe.
+        Tracking number, Consignment ID, Order code ba Phone number — jekono ekta dilei cholbe.
       </p>
       <form onSubmit={(e) => { e.preventDefault(); lookup(code); }}>
         <div className="field">
           <input
-            placeholder="e.g. SFR260827ST… ba ORD-1057"
+            placeholder="Tracking / Consignment / Order Code / Phone"
             value={code} onChange={(e) => setCode(e.target.value)}
             autoCapitalize="characters" spellCheck={false} aria-label="Tracking number"
             style={{ fontSize: 16, minHeight: 52, letterSpacing: ".04em" }}

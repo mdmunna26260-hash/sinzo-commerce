@@ -766,3 +766,9 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 13.5px; }
 .inf-spinner { width: 26px; height: 26px; border: 2px solid var(--line); border-top-color: var(--text); border-radius: 99px; animation: szspin .8s linear infinite; }
 @keyframes szspin { to { transform: rotate(360deg); } }
 .inf-end { text-align: center; color: var(--muted); font-size: 12px; letter-spacing: .12em; padding: 30px 0 6px; text-transform: uppercase; }
+
+/* PDP gallery smooth slide transitions */
+.pdp-main-img .pimg { transition: transform .4s cubic-bezier(.25,.46,.45,.94); }
+.pdp-main-img .pdp-img.changing { opacity: 0; transform: translateX(24px); }
+.pdp-main-img .pdp-img { opacity: 1; transform: translateX(0); transition: opacity .28s ease, transform .28s cubic-bezier(.25,.46,.45,.94); }
+.pdp-main-img img[src] { transition: opacity .3s ease, transform .35s cubic-bezier(.25,.46,.45,.94); }

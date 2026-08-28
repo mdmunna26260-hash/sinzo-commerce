@@ -37,6 +37,16 @@ export async function GET(req: Request) {
       if (o) order = o;
     }
   }
+  // also search by customer phone number
+  if (!order && /^01[3-9]\d{8}$/.test(code.replace(/[\s-]/g, ""))) {
+    const cleanPhone = code.replace(/[\s-]/g, "");
+    const o = await db.order.findFirst({
+      where: { phone: cleanPhone },
+      orderBy: { id: "desc" },
+      select: { id: true, code: true, status: true, createdAt: true, courierName: true, courierConsignmentId: true, courierStatus: true, courierTracking: true, items: { select: { title: true, qty: true } }, area: true },
+    });
+    if (o) order = o;
+  }
   if (!order) {
     // Not in our DB → query Steadfast directly by tracking code (server-side, keys safe).
     const r = await checkStatusByTracking(code);
