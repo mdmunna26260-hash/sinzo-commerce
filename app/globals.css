@@ -767,11 +767,3 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 13.5px; }
 .inf-spinner { width: 26px; height: 26px; border: 2px solid var(--line); border-top-color: var(--text); border-radius: 99px; animation: szspin .8s linear infinite; }
 @keyframes szspin { to { transform: rotate(360deg); } }
 .inf-end { text-align: center; color: var(--muted); font-size: 12px; letter-spacing: .12em; padding: 30px 0 6px; text-transform: uppercase; }
-
-/* PDP gallery smooth slide transitions */
-
-
-
-  .thumbs button { flex: 0 0 60px; }
-}
-// deploy 1787930638
