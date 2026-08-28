@@ -276,5 +276,9 @@ model Media {
   mime      String
   size      Int
   data      Bytes
+  width     Int?
+  height    Int?
+  blurData  Bytes?
+  variantsJson String?
   createdAt DateTime @default(now())
 }
