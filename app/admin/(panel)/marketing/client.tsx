@@ -76,7 +76,14 @@ export default function MarketingClient({ abandoned, subscribers, sources }: any
     setBusy(false);
   };
 
-  const waLink = (phone?: string | null) => phone ? "https://wa.me/" + phone.replace(/[^0-9]/g, "") : null;
+  /* BD numbers stored as 01XXXXXXXXX — wa.me needs full international format 8801XXXXXXXXX */
+  const waLink = (phone?: string | null) => {
+    if (!phone) return null;
+    let digits = phone.replace(/[^0-9]/g, "");
+    if (digits.startsWith("0")) digits = "88" + digits;
+    else if (!digits.startsWith("880")) digits = "880" + digits;
+    return "https://wa.me/" + digits;
+  };
 
   return (
     <>

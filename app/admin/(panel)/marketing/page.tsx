@@ -11,7 +11,8 @@ export default async function MarketingPage({ searchParams }: { searchParams: an
   ]);
   return <MarketingClient
     abandoned={abandoned.map((a) => ({
-      id: a.id, phone: a.phone, cart: JSON.parse(a.cartJson || "[]"),
+      id: a.id, phone: a.phone, name: a.name, address: a.address,
+      cart: JSON.parse(a.cartJson || "[]"),
       total: a.total, status: a.checkoutStatus || (a.recovered ? "RECOVERED" : "OPEN"),
       updatedAt: a.updatedAt.toISOString(),
     }))}
