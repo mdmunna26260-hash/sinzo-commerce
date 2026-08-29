@@ -830,3 +830,54 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 13.5px; }
 @media (max-width: 640px) {
   .badge { font-size: 9px !important; padding: 0 !important; border: none !important; background: none !important; backdrop-filter: none !important; color: var(--text) !important; font-weight: 700 !important; letter-spacing: .08em !important; }
 }
+
+/* ===== Premium Page Transitions ===== */
+/* Content fade-up on page load (works in ALL browsers) */
+@keyframes pageIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.pdp { animation: pageIn .25s ease-out both; }
+.shop-grid { animation: pageIn .25s ease-out both; }
+.cart-layout { animation: pageIn .25s ease-out both; }
+.checkout-layout { animation: pageIn .25s ease-out both; }
+.track-wrap { animation: pageIn .25s ease-out both; }
+.success-wrap { animation: pageIn .25s ease-out both; }
+.hero-content { animation: pageIn .3s ease-out .05s both; }
+.section-head2 { animation: pageIn .25s ease-out .1s both; }
+.pcard-info { animation: pageIn .25s ease-out .15s both; }
+
+/* View Transition API — product image shared element */
+.pdp-main-img {
+  view-transition-name: product-hero;
+}
+.pcard-img {
+  view-transition-name: product-hero-card;
+}
+
+/* During transition, product image morphs smoothly */
+::view-transition-group(product-hero) {
+  animation-duration: 300ms;
+  animation-timing-function: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+/* Old page fades out quickly, new page content fades up */
+::view-transition-old(root) {
+  animation: vtOut 150ms ease-out both;
+}
+::view-transition-new(root) {
+  animation: vtIn 200ms ease-out 80ms both;
+}
+
+@keyframes vtOut {
+  to { opacity: 0; }
+}
+@keyframes vtIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Ensure no layout shift during transitions */
+.pdp-main-img, .pcard-img {
+  contain: layout style;
+}

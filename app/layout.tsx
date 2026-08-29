@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import RevealInit from "@/components/reveal";
 import PageViewTracker from "@/components/pageview";
+import PageTransition from "@/components/page-transition";
 import { CartProvider } from "@/components/store";
 import { getSettings, publicSettings } from "@/lib/settings";
 
@@ -79,6 +80,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         </CartProvider>
         <RevealInit />
         <PageViewTracker />
+        <PageTransition />
         <script dangerouslySetInnerHTML={{ __html: `history.scrollRestoration = 'manual';` }} />
       </body>
     </html>
