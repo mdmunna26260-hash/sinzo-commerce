@@ -6,7 +6,7 @@ import ShopLayout from "./shop-layout";
 import InfiniteGrid from "./infinite-grid";
 import Link from "next/link";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 30;
 
 type SP = { q?: string; category?: string; min?: string; max?: string; size?: string; color?: string; avail?: string; sort?: string; onsale?: string };
 

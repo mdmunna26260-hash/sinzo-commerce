@@ -8,7 +8,9 @@ import { CartProvider } from "@/components/store";
 import Carousel from "@/components/home/carousel";
 import SmartImg from "@/components/smart-img";
 
-export const dynamic = "force-dynamic";
+// ISR: Cache page for 60s, then revalidate in background
+// First visitor after expiry: gets cached page (fast), fresh page renders in background
+export const revalidate = 60;
 
 const DEFAULT_SECTIONS = [
   { id: "hero", enabled: true }, { id: "values", enabled: true }, { id: "featured", enabled: true },

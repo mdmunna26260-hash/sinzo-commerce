@@ -3,7 +3,7 @@ import { getSettings, publicSettings } from "@/lib/settings";
 import { db } from "@/lib/db";
 import WishlistClient from "./client";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 300;
 export const metadata = { title: "Wishlist" };
 
 export default async function WishlistPage() {

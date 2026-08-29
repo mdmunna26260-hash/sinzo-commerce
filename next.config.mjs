@@ -18,6 +18,10 @@ const nextConfig = {
       { source: "/_next/static/:path*", headers: [
         { key: "Cache-Control", value: "public, max-age=31536000, immutable" },
       ]},
+      // Products page: short cache + stale-while-revalidate
+      { source: "/products", headers: [
+        { key: "Cache-Control", value: "public, s-maxage=30, stale-while-revalidate=60" },
+      ]},
     ];
   },
 };

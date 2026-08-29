@@ -4,7 +4,7 @@ import { Header, Footer, Announcement } from "@/components/chrome";
 import { ProductCard } from "@/components/parts";
 import { notFound } from "next/navigation";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 60;
 
 export default async function CollectionPage({ params }: { params: { slug: string } }) {
   const col = await db.collection.findUnique({
