@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useCart, useWishlist, trackEvent, toast } from "@/components/store";
 import { imgSrc, imgSrcSet } from "@/components/parts";
+import { warmImage } from "@/components/img-warm";
 
 type V = { id: number; size: string | null; color: string | null; stock: number; price: number | null };
 type P = {
@@ -80,6 +81,13 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
   useEffect(() => {
     window.scrollTo(0, 0);
   }, []);
+
+  // Idle-warm the rest of the gallery ~1.5s after load → swiping photos is instant
+  useEffect(() => {
+    const t = setTimeout(() => { for (const im of product.images) warmImage(im.url, { idle: true }); }, 1500);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [product.id]);
 
   useEffect(() => {
     trackEvent("ViewContent", {
