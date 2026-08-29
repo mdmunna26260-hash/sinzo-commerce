@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useCart, useWishlist, trackEvent, toast } from "@/components/store";
+import { imgSrc, imgSrcSet } from "@/components/parts";
 
 type V = { id: number; size: string | null; color: string | null; stock: number; price: number | null };
 type P = {
@@ -23,21 +24,17 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
   const [lightbox, setLightbox] = useState(false);
   const [lbIdx, setLbIdx] = useState(0);
   const [lbZoom, setLbZoom] = useState(false);
-  const [origin, setOrigin] = useState("50% 50%");
   const [hoverZoom, setHoverZoom] = useState(false);
-  const [hzOrigin, setHzOrigin] = useState("50% 50%");
   const touch = useRef<{ x: number; y: number } | null>(null);
 
   const goTo = (i: number) => {
     const n = ((i % N) + N) % N;
     if (n === img) return;
-    // Preload next image before showing it (prevents flash)
+    // Preload next image before showing it (prevents flash); switch anyway on error
     const nextImg = new Image();
-    nextImg.src = product.images[n]?.url || "";
-    nextImg.onload = () => {
-      setImg(n);
-      setFading(false);
-    };
+    nextImg.onload = () => { setImg(n); setFading(false); };
+    nextImg.onerror = () => { setImg(n); setFading(false); };
+    nextImg.src = imgSrc(product.images[n]?.url, 1000) || product.images[n]?.url || "";
     setFading(true);
   };
   const next = () => goTo(img + 1);
@@ -112,15 +109,18 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
           >
             <img
               key={img}
-              src={(product.images[img] || product.images[0])?.url.includes("/uploads/seed/") ? (product.images[img] || product.images[0]).url.replace(".jpg", "-600.webp") : (product.images[img] || product.images[0])?.url}
+              src={imgSrc((product.images[img] || product.images[0])?.url, 1000) || (product.images[img] || product.images[0])?.url}
+              srcSet={imgSrcSet((product.images[img] || product.images[0])?.url, [600, 1000, 1200])}
+              sizes="(max-width: 900px) 100vw, 45vw"
               alt={product.images[img]?.alt || product.title}
               className={"pdp-img" + (fading ? " changing" : "") + (hoverZoom && avail > 0 ? " hz" : "")}
-              style={hoverZoom ? { transformOrigin: hzOrigin } : undefined}
+              style={hoverZoom ? { transformOrigin: "50% 50%" } : undefined}
               onMouseEnter={() => { if (window.matchMedia("(hover: hover)").matches) setHoverZoom(true); }}
               onMouseLeave={() => { setHoverZoom(false); }}
               onMouseMove={(e) => {
+                // write transform-origin straight to the DOM node — no re-render on every mousemove
                 const r = e.currentTarget.getBoundingClientRect();
-                setHzOrigin(`${((e.clientX - r.left) / r.width) * 100}% ${((e.clientY - r.top) / r.height) * 100}%`);
+                e.currentTarget.style.transformOrigin = `${((e.clientX - r.left) / r.width) * 100}% ${((e.clientY - r.top) / r.height) * 100}%`;
               }}
             />
             {/* zoom — top right corner */}
@@ -142,7 +142,7 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
             <div className="thumbs">
               {product.images.map((im, i) => (
                 <button key={i} className={i === img ? "active" : ""} onClick={() => goTo(i)} aria-label={"Image " + (i + 1)}>
-                  <img src={im.url.includes("/uploads/seed/") ? im.url.replace(".jpg", "-300.webp") : im.url} alt={im.alt} loading="lazy" decoding="async" width={72} height={96} />
+                  <img src={imgSrc(im.url, 300) || im.url} alt={im.alt} loading="lazy" decoding="async" width={72} height={96} />
                 </button>
               ))}
             </div>
@@ -265,9 +265,9 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
             src={product.images[lbIdx]?.url || product.images[0]?.url}
             alt={product.images[lbIdx]?.alt || product.title}
             className={lbZoom ? "zoomed" : ""}
-            style={lbZoom ? { transformOrigin: origin } : undefined}
+            style={lbZoom ? { transformOrigin: "50% 50%" } : undefined}
             onClick={(e) => { e.stopPropagation(); setLbZoom(!lbZoom); }}
-            onMouseMove={(e) => { if (lbZoom) { const r = e.currentTarget.getBoundingClientRect(); setOrigin(`${((e.clientX - r.left) / r.width) * 100}% ${((e.clientY - r.top) / r.height) * 100}%`); } }}
+            onMouseMove={(e) => { if (lbZoom) { const r = e.currentTarget.getBoundingClientRect(); e.currentTarget.style.transformOrigin = `${((e.clientX - r.left) / r.width) * 100}% ${((e.clientY - r.top) / r.height) * 100}%`; } }}
             onTouchStart={onTouchStart}
             onTouchEnd={(e) => { e.stopPropagation(); onTouchEnd(e, true); }}
           />

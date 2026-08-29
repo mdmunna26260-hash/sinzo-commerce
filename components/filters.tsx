@@ -2,10 +2,11 @@
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
-/* Mobile filter drawer + desktop sidebar — one component, spec-exact. */
-const SIZES = ["S", "M", "L", "XL"];
-
-export default function Filters({ cats, mobileOpen, onClose }: { cats: { name: string; slug: string }[]; mobileOpen?: boolean; onClose?: () => void }) {
+/* Mobile filter drawer + desktop sidebar — one component, spec-exact.
+   Sizes come from the DB (real variant sizes), never hardcoded. */
+export default function Filters({ cats, sizes = [], mobileOpen, onClose }: {
+  cats: { name: string; slug: string }[]; sizes?: string[]; mobileOpen?: boolean; onClose?: () => void;
+}) {
   const sp = useSearchParams();
   const router = useRouter();
   const get = (k: string) => sp.get(k) || undefined;
@@ -44,13 +45,17 @@ export default function Filters({ cats, mobileOpen, onClose }: { cats: { name: s
         <span>—</span>
         <input type="number" name="max" placeholder="Max" value={max} onChange={(e) => setMax(e.target.value)} inputMode="numeric" />
       </form>
-      <h3>Size</h3>
-      {SIZES.map((sz) => (
-        <label key={sz}>
-          <input type="checkbox" checked={get("size") === sz} onChange={() => push({ size: get("size") === sz ? undefined : sz })} />
-          {sz}
-        </label>
-      ))}
+      {sizes.length > 0 && (
+        <>
+          <h3>Size</h3>
+          {sizes.map((sz) => (
+            <label key={sz}>
+              <input type="checkbox" checked={get("size") === sz} onChange={() => push({ size: get("size") === sz ? undefined : sz })} />
+              {sz}
+            </label>
+          ))}
+        </>
+      )}
       <h3>Availability</h3>
       <label><input type="checkbox" checked={get("avail") === "1"} onChange={() => push({ avail: get("avail") === "1" ? undefined : "1" })} />In stock only</label>
       <label><input type="checkbox" checked={get("onsale") === "1"} onChange={() => push({ onsale: get("onsale") === "1" ? undefined : "1" })} />On sale</label>

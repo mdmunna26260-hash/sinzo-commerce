@@ -17,7 +17,9 @@ export const viewport: Viewport = {
 export async function generateMetadata(): Promise<Metadata> {
   try {
     const s = publicSettings(await getSettings());
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.VERCEL_URL || "";
     return {
+      metadataBase: siteUrl ? new URL(siteUrl.startsWith("http") ? siteUrl : "https://" + siteUrl) : undefined,
       title: { default: s.seo?.metaTitle || s.store?.name || "Store", template: `%s · ${s.store?.name || "Store"}` },
       description: s.seo?.metaDescription || s.store?.tagline || "",
       openGraph: { title: s.seo?.metaTitle || s.store?.name, description: s.seo?.metaDescription, images: s.homepage?.heroImage ? [s.homepage.heroImage] : [] },
@@ -68,6 +70,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       <head>
         <style dangerouslySetInnerHTML={{ __html: cssVars }} />
         <link rel="manifest" href="/manifest.webmanifest" />
+        <link rel="icon" href="/icon-192.png" sizes="192x192" type="image/png" />
+        <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         {gtmId ? (
           <script id="gtm" dangerouslySetInnerHTML={{ __html: `(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src='https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);})(window,document,'script','dataLayer','${gtmId}');` }} />

@@ -3,7 +3,7 @@ import { Fragment } from "react";
 import { db } from "@/lib/db";
 import { getSettings, publicSettings } from "@/lib/settings";
 import { Header, Footer, Announcement } from "@/components/chrome";
-import { ProductCard } from "@/components/parts";
+import { ProductCard, imgSrc } from "@/components/parts";
 import { CartProvider } from "@/components/store";
 import Carousel from "@/components/home/carousel";
 import SmartImg from "@/components/smart-img";
@@ -34,11 +34,12 @@ function Head({ no, eyebrow, title, href }: { no: string; eyebrow: string; title
 }
 
 function CatTile({ c }: { c: any }) {
+  const tileSrc = c.image
+    ? (c.image.includes("/uploads/seed/") ? c.image.replace(/\.jpg$/, "-600.webp") : (c.image.match(/^\/api\/media\/([a-z0-9]+)$/i) ? c.image + "/w600" : c.image))
+    : "/uploads/seed/p-" + (CAT_IMG[c.slug] || "shirt") + "-600.webp";
   return (
     <Link className="ctile" href={"/products?category=" + c.slug}>
-      {c.image ? <img src={c.image} alt={c.name} loading="lazy" /> : (
-        <img src={"/uploads/seed/p-" + (CAT_IMG[c.slug] || "shirt") + "-600.webp"} alt={c.name} loading="lazy" decoding="async" />
-      )}
+      <img src={tileSrc} alt={c.name} loading="lazy" decoding="async" />
       <div className="ctile-label"><span>{c.description?.slice(0, 40) || "Collection"}</span><h3>{c.name}</h3></div>
       <span className="ctile-arrow" aria-hidden>→</span>
     </Link>
@@ -61,17 +62,29 @@ export default async function HomePage() {
   const cfg = publicSettings(s);
   const cats = await db.category.findMany({ orderBy: { id: "asc" } });
   const featuredSlug = s.homepage?.featuredCollection || "new-arrivals";
+  // select only what product cards need — full rows (description, tags, sku…) stay on the server
+  const colProductSelect = {
+    product: {
+      select: {
+        id: true, title: true, slug: true, price: true, comparePrice: true, stock: true,
+        badge: true, isNew: true, isBestSeller: true, position: true, status: true,
+        category: { select: { name: true } },
+        images: { select: { url: true }, orderBy: { position: "asc" as const }, take: 1 },
+        variants: { select: { size: true, color: true, stock: true } },
+      },
+    },
+  } as const;
   const featuredCol = await db.collection.findUnique({
     where: { slug: featuredSlug },
-    include: { products: { take: 8, include: { product: { include: { images: true, category: true, variants: true } } } } },
+    include: { products: { take: 8, select: colProductSelect } },
   });
   const bestSellers = await db.collection.findUnique({
     where: { slug: "best-sellers" },
-    include: { products: { take: 8, include: { product: { include: { images: true, category: true, variants: true } } } } },
+    include: { products: { take: 8, select: colProductSelect } },
   });
-  const reviews = await db.review.findMany({ where: { status: "APPROVED", featured: true }, include: { product: true }, take: 4 });
+  const reviews = await db.review.findMany({ where: { status: "APPROVED", featured: true }, include: { product: { select: { title: true } } }, take: 4 });
   if (reviews.length < 4) {
-    const extra = await db.review.findMany({ where: { status: "APPROVED" }, include: { product: true }, take: 4 - reviews.length });
+    const extra = await db.review.findMany({ where: { status: "APPROVED" }, include: { product: { select: { title: true } } }, take: 4 - reviews.length });
     reviews.push(...extra);
   }
   const hp = s.homepage || {};

@@ -16,33 +16,37 @@ function check(name, cond, extra) {
 }
 (async () => {
   console.log("Smoke test →", BASE);
-  // storefront pages
-  for (const p of ["/", "/products", "/cart", "/checkout", "/track", "/wishlist", "/products/oversized-linen-shirt", "/collections/best-sellers"]) {
+  // admin login first (seeded super admin) so tests adapt to whatever products exist
+  let r = await req("/api/admin/login", { method: "POST", body: JSON.stringify({ email: "Sinzo.bd@gmail.com", password: "do you love me?" }) });
+  check("admin login works", r.status === 200 && r.body?.ok, JSON.stringify(r.body));
+  const plist = (await req("/api/admin/products")).body?.products || [];
+  check("admin products list", plist.length >= 1, "(got " + plist.length + ")");
+  const live = plist.find((p) => p.status === "ACTIVE" && p.stock > 0) || plist[0];
+  const slug = live?.slug || "";
+  const needle = (live?.title || "").split(" ").slice(-1)[0] || live?.title || "";
+
+  // storefront pages (PDP uses a real product slug from the DB)
+  for (const p of ["/", "/products", "/cart", "/checkout", "/track", "/wishlist", "/products/" + slug, "/collections/best-sellers"]) {
     const r = await fetch(BASE + p);
     check("GET " + p, r.status === 200, "(" + r.status + ")");
   }
-  // search api
-  let r = await req("/api/search?q=linen");
-  check("search finds linen shirt", r.body?.products?.length > 0);
+  // search api (search a word from a real product title)
+  r = await req("/api/search?q=" + encodeURIComponent(needle));
+  check("search finds existing product", r.body?.products?.length > 0, "(q=" + needle + ")");
   // coupon api
   r = await req("/api/coupon", { method: "POST", body: JSON.stringify({ code: "WELCOME10", subtotal: 2000 }) });
   check("coupon WELCOME10 valid", r.body?.valid === true && r.body.discount === 200);
   r = await req("/api/coupon", { method: "POST", body: JSON.stringify({ code: "BOGUS", subtotal: 2000 }) });
   check("invalid coupon rejected", r.body?.valid === false);
-  // admin auth guard
-  r = await req("/api/admin/products");
-  check("admin api blocked without login", r.status === 401);
-  // admin login (seeded super admin)
-  r = await req("/api/admin/login", { method: "POST", body: JSON.stringify({ email: "Sinzo.bd@gmail.com", password: "do you love me?" }) });
-  check("admin login works", r.status === 200 && r.body?.ok, JSON.stringify(r.body));
-  r = await req("/api/admin/products");
-  check("admin products list", r.status === 200 && r.body?.products?.length >= 10);
+  // admin auth guard (fresh request, no cookie)
+  {
+    const s = cookie; cookie = "";
+    r = await req("/api/admin/products");
+    check("admin api blocked without login", r.status === 401);
+    cookie = s;
+  }
   // checkout flow (real order)
-  const prod = (await req("/api/search?q=linen")).body.products[0];
-  const pr = await fetch(BASE + "/api/admin/products");
-  // find product id via admin
-  const plist = (await req("/api/admin/products")).body.products;
-  const target = plist.find((p) => p.slug === "relaxed-heavyweight-tee") || plist.find((p) => p.stock > 0) || plist[0];
+  const target = live;
   const variant = (target.variants || []).find((v) => v.stock > 0) || null;
   r = await req("/api/checkout", { method: "POST", body: JSON.stringify({
     name: "Smoke Test Customer", phone: "01812345678", address: "House 99, Road 12, Banani, Dhaka",

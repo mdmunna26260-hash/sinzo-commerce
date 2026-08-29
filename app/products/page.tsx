@@ -46,8 +46,17 @@ export default async function ProductsPage({ searchParams }: { searchParams: SP 
     [{ position: "asc" }, { id: "desc" }]; // default = admin drag&drop order
 
   const totalMatching = await db.product.count({ where });
+  // select only card fields — descriptions/tags/sku stay on the server,
+  // keeping the transferred page payload small on mobile connections
   let products = await db.product.findMany({
-    where, orderBy, include: { images: true, category: true, variants: true },
+    where, orderBy,
+    select: {
+      id: true, title: true, slug: true, price: true, comparePrice: true, stock: true,
+      badge: true, isNew: true, isBestSeller: true,
+      category: { select: { name: true } },
+      images: { select: { url: true }, orderBy: { position: "asc" }, take: 1 },
+      variants: { select: { size: true, color: true, stock: true } },
+    },
   });
 
   if (searchParams.size) {
@@ -58,6 +67,13 @@ export default async function ProductsPage({ searchParams }: { searchParams: SP 
   }
 
   const activeCat = cats.find((c) => c.slug === searchParams.category);
+  // real variant sizes across all active products (natural sort: 28…40, then S…XL)
+  const vsRows = await db.productVariant.findMany({
+    where: { stock: { gt: 0 }, product: { status: "ACTIVE" } },
+    select: { size: true }, distinct: ["size"],
+  });
+  const allSizes = vsRows.map((v) => v.size).filter((s): s is string => !!s)
+    .sort((a, b) => (/^\d+$/.test(a) && /^\d+$/.test(b) ? Number(a) - Number(b) : a.localeCompare(b)));
   const activeChips: { label: string; patch: Record<string, string | undefined> }[] = [];
   if (searchParams.category && activeCat) activeChips.push({ label: activeCat.name, patch: { category: undefined } });
   if (searchParams.size) activeChips.push({ label: "Size " + searchParams.size, patch: { size: undefined } });
@@ -100,7 +116,7 @@ export default async function ProductsPage({ searchParams }: { searchParams: SP 
           ))}
         </div>
 
-        <ShopLayout count={totalMatching} cats={cats.map((c) => ({ name: c.name, slug: c.slug }))}>
+        <ShopLayout count={totalMatching} cats={cats.map((c) => ({ name: c.name, slug: c.slug }))} sizes={allSizes}>
           {activeChips.length > 0 && (
             <div className="chips">
               {activeChips.map((c) => (

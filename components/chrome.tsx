@@ -20,11 +20,20 @@ export function Announcement({ text }: { text?: string }) {
 
 /* Admin-only dashboard shortcut on the storefront header.
    Visible only when the visitor has a valid admin session
-   (cookie on production, or ?t= / saved token elsewhere). */
+   (cookie on production, or ?t= / saved token elsewhere).
+   Result is cached in sessionStorage (10 min) so the 99% of visitors
+   who are NOT admins don't hit /api/admin/whoami on every page load. */
 function AdminDashLink() {
   const [state, setState] = useState<{ show: boolean; href: string }>({ show: false, href: "/admin/dashboard" });
   useEffect(() => {
     (async () => {
+      try {
+        const cached = sessionStorage.getItem("sz_admin_whoami");
+        if (cached && Date.now() - JSON.parse(cached).at < 10 * 60 * 1000) {
+          if (JSON.parse(cached).ok) setState((s) => ({ ...s, show: true }));
+          return;
+        }
+      } catch {}
       let token = "";
       try { token = new URLSearchParams(location.search).get("t") || ""; } catch {}
       if (!token) { try { token = localStorage.getItem("sz_admin_token") || ""; } catch {} }
@@ -34,9 +43,12 @@ function AdminDashLink() {
         if (r.ok) {
           const j = await r.json();
           if (j?.ok) {
+            try { sessionStorage.setItem("sz_admin_whoami", JSON.stringify({ ok: true, at: Date.now() })); } catch {}
             setState({ show: true, href: token ? "/admin/dashboard?t=" + encodeURIComponent(token) : "/admin/dashboard" });
+            return;
           }
         }
+        try { sessionStorage.setItem("sz_admin_whoami", JSON.stringify({ ok: false, at: Date.now() })); } catch {}
       } catch {}
     })();
   }, []);

@@ -9,6 +9,30 @@ const BADGE_LABELS: Record<string, string> = {
   limited: "LIMITED",
 };
 
+/* Shared image-variant helpers — used by every storefront surface.
+   /uploads/seed/x.jpg   → /uploads/seed/x-{w}.webp   (pre-generated)
+   /api/media/{id}       → /api/media/{id}/w{w}        (on-the-fly variant)
+   Tolerates cache-buster query strings (?v=…) on both URL kinds. */
+const MEDIA_RE = /^(\/api\/media\/([a-z0-9]+))(\?.*)?$/i;
+
+export function imgSrc(url: string | undefined | null, w: number): string {
+  if (!url) return "";
+  const m = url.match(MEDIA_RE);
+  if (m) return `/api/media/${m[2]}/w${w}${m[3] || ""}`;
+  if (/\/uploads\/seed\/[^?]*\.jpg/i.test(url)) return url.replace(/\.jpg(\?.*)?$/i, `-${w}.webp$1`);
+  return url;
+}
+export function imgSrcSet(url: string | undefined | null, ws: number[]): string | undefined {
+  if (!url) return undefined;
+  const m = url.match(MEDIA_RE);
+  if (m) return ws.map((w) => `/api/media/${m[2]}/w${w} ${w}w`).join(", ");
+  if (/\/uploads\/seed\/[^?]*\.jpg/i.test(url)) {
+    // .jpg(?query)? → -{w}.webp(?query) — the buster rides along on every candidate
+    return ws.map((w) => `${url.replace(/\.jpg(\?.*)?$/i, `-${w}.webp$1`)} ${w}w`).join(", ");
+  }
+  return undefined;
+}
+
 export type CardProduct = {
   id: number; title: string; slug: string; price: number; comparePrice: number | null;
   image?: string; categoryName?: string; stock: number; isNew?: boolean; isBestSeller?: boolean;
@@ -19,21 +43,8 @@ export function ProductCard({ p, wish }: { p: CardProduct; wish?: boolean }) {
   return (
     <Link className="pcard reveal" href={"/products/" + p.slug}>
       <div className="pcard-img">
-                {p.image && (() => {
-          const isSeed = p.image.includes('/uploads/seed/');
-          const isMedia = p.image.includes('/api/media/');
-          const mainSrc = isSeed ? p.image.replace('.jpg', '-600.webp') : p.image + '/w600';
-          const srcset = isSeed ? [
-            `${p.image.replace('.jpg', '-300.webp')} 300w`,
-            `${p.image.replace('.jpg', '-600.webp')} 600w`,
-            `${p.image.replace('.jpg', '-1000.webp')} 1000w`,
-          ].join(', ') : isMedia ? [
-            `${p.image}/w300 300w`,
-            `${p.image}/w600 600w`,
-            `${p.image}/w1000 1000w`,
-            `${p.image}/w1200 1200w`,
-          ].join(', ') : undefined;
-          return <img src={mainSrc} srcSet={srcset} sizes="(max-width: 600px) 50vw, (max-width: 1200px) 33vw, 300px" alt={p.title} loading="lazy" decoding="async" style={{ width: "100%", height: "100%", objectFit: "cover" }} />;
+        {p.image && (() => {
+          return <img src={imgSrc(p.image, 600)} srcSet={imgSrcSet(p.image, [300, 600, 1000, 1200])} sizes="(max-width: 600px) 50vw, (max-width: 1200px) 33vw, 300px" alt={p.title} loading="lazy" decoding="async" style={{ width: "100%", height: "100%", objectFit: "cover" }} />;
         })()}
         <div className="pcard-badges">
           {off > 0 && <span className="badge sale">-{off}%</span>}

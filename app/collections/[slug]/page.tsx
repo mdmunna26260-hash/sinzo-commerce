@@ -9,7 +9,22 @@ export const revalidate = 60;
 export default async function CollectionPage({ params }: { params: { slug: string } }) {
   const col = await db.collection.findUnique({
     where: { slug: params.slug },
-    include: { products: { include: { product: { include: { images: true, category: true } } } } },
+    include: {
+      products: {
+        include: {
+          product: {
+            select: {
+              id: true, title: true, slug: true, price: true, comparePrice: true, stock: true,
+              badge: true, isNew: true, isBestSeller: true, position: true, status: true,
+              category: { select: { name: true } },
+              images: { select: { url: true }, orderBy: { position: "asc" as const }, take: 1 },
+              // BUGFIX: variants were never loaded here → sizes & variant stock were silently ignored
+              variants: { select: { size: true, color: true, stock: true } },
+            },
+          },
+        },
+      },
+    },
   });
   if (!col) notFound();
   const s = await getSettings();

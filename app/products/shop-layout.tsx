@@ -6,8 +6,8 @@ import Filters, { SortSelect } from "@/components/filters";
 /* ONE owner of the shop filtering UI:
    toolbar (count · Filter btn [mobile] · Sort) + single Filters instance
    (desktop sticky sidebar / mobile full-screen drawer) + main column. */
-export default function ShopLayout({ count, cats, children }: {
-  count: number; cats: { name: string; slug: string }[]; children: React.ReactNode;
+export default function ShopLayout({ count, cats, sizes, children }: {
+  count: number; cats: { name: string; slug: string }[]; sizes?: string[]; children: React.ReactNode;
 }) {
   const [open, setOpen] = useState(false);
   const sp = useSearchParams();
@@ -30,7 +30,7 @@ export default function ShopLayout({ count, cats, children }: {
 
       <div className="shop-layout">
         <div className="shop-side">
-          <Filters cats={cats} mobileOpen={open} onClose={() => setOpen(false)} />
+          <Filters cats={cats} sizes={sizes} mobileOpen={open} onClose={() => setOpen(false)} />
         </div>
         <main className="shop-main">{children}</main>
       </div>

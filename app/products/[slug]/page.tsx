@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { getSettings, publicSettings } from "@/lib/settings";
 import { Header, Footer, Announcement } from "@/components/chrome";
-import { ProductCard } from "@/components/parts";
+import { ProductCard, imgSrc } from "@/components/parts";
 import ProductPageClient from "./client";
 import ProductPageReviewForm from "./review-form";
 import Link from "next/link";
@@ -23,7 +23,7 @@ export async function generateMetadata({ params }: { params: { slug: string } })
 export default async function PDP({ params, searchParams }: { params: { slug: string }; searchParams?: any }) {
   const p = await db.product.findUnique({
     where: { slug: params.slug },
-    include: { images: { orderBy: { position: "asc" } }, variants: true, category: true,
+    include: { images: { orderBy: { position: "asc" }, select: { url: true, alt: true, position: true } }, variants: true, category: true,
       reviews: { where: { status: "APPROVED" }, orderBy: { createdAt: "desc" } } },
   });
   if (!p || p.status === "ARCHIVED") notFound();
@@ -33,22 +33,33 @@ export default async function PDP({ params, searchParams }: { params: { slug: st
   const s = await getSettings();
   const cfg = publicSettings(s);
   const cats = await db.category.findMany({ orderBy: { id: "asc" } });
+  const relSelect = { id: true, title: true, slug: true, price: true, comparePrice: true, stock: true, badge: true, isNew: true, isBestSeller: true, categoryId: true, images: { select: { url: true, alt: true }, take: 1 } } as const;
   const related = await db.product.findMany({
     where: { status: "ACTIVE", categoryId: p.categoryId, id: { not: p.id } },
-    include: { images: true }, take: 4,
+    select: relSelect, take: 4,
   });
   if (related.length < 4) {
-    const extra = await db.product.findMany({ where: { status: "ACTIVE", id: { notIn: [p.id, ...related.map((r) => r.id)] } }, include: { images: true }, take: 4 - related.length });
+    const extra = await db.product.findMany({ where: { status: "ACTIVE", id: { notIn: [p.id, ...related.map((r) => r.id)] } }, select: relSelect, take: 4 - related.length });
     related.push(...extra);
   }
   const avgRating = p.reviews.length ? p.reviews.reduce((a, r) => a + r.rating, 0) / p.reviews.length : 0;
   const variantStock = p.variants.reduce((sum, v) => sum + v.stock, 0);
   const totalStock = Math.max(p.stock, variantStock);
 
+  const first = p.images?.[0]?.url;
+  const pv = (u: string, w: number) => imgSrc(u, w) || u;
   return (
     <>
-      {p.images?.[0]?.url && (
-        <link rel="preload" as="image" href={p.images[0].url} fetchPriority="high" />
+      {first && (
+        <link
+          rel="preload"
+          as="image"
+          href={pv(first, 1000)}
+          /* must match the gallery's srcset/sizes exactly, or the preload is wasted bandwidth */
+          imageSrcSet={[600, 1000, 1200].map((w) => `${pv(first, w)} ${w}w`).join(", ")}
+          imageSizes="(max-width: 900px) 100vw, 45vw"
+          fetchPriority="high"
+        />
       )}
       <Announcement text={s.homepage?.announcement} />
       <Header storeName={cfg.store?.name || "Store"} categories={cats.map((c) => ({ name: c.name, slug: c.slug }))} />
@@ -91,13 +102,13 @@ export default async function PDP({ params, searchParams }: { params: { slug: st
           <div className="related-scroll mobile-only">
             {related.map((r) => (
               <div className="rs-card" key={r.id}>
-                <ProductCard p={{ id: r.id, title: r.title, slug: r.slug, price: r.price, comparePrice: r.comparePrice, image: r.images?.[0]?.url, categoryName: (r as any).category?.name, stock: r.stock, isNew: (r as any).isNew, isBestSeller: (r as any).isBestSeller }} />
+                <ProductCard p={{ id: r.id, title: r.title, slug: r.slug, price: r.price, comparePrice: r.comparePrice, image: r.images?.[0]?.url, stock: r.stock, badge: r.badge, isNew: r.isNew, isBestSeller: r.isBestSeller }} />
               </div>
             ))}
           </div>
           <div className="grid grid-4 desktop-only">
             {related.map((r) => (
-              <ProductCard key={r.id} p={{ id: r.id, title: r.title, slug: r.slug, price: r.price, comparePrice: r.comparePrice, image: r.images?.[0]?.url, categoryName: (r as any).category?.name, stock: r.stock, isNew: (r as any).isNew, isBestSeller: (r as any).isBestSeller }} />
+              <ProductCard key={r.id} p={{ id: r.id, title: r.title, slug: r.slug, price: r.price, comparePrice: r.comparePrice, image: r.images?.[0]?.url, stock: r.stock, badge: r.badge, isNew: r.isNew, isBestSeller: r.isBestSeller }} />
             ))}
           </div>
         </section>

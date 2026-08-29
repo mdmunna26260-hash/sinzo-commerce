@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCart, trackEvent, toast, captureAttribution, newEventId } from "@/components/store";
 import { normalizeBDPhone, isValidBDPhone } from "@/lib/phone";
+import { imgSrc } from "@/components/parts";
 
 declare global { interface Window { __SZ_SHIPPING?: any; __SZ_CHECKOUT?: any } }
 
@@ -25,7 +26,6 @@ export default function CheckoutPage() {
   const [errors, setErrors] = useState<any>({});
   const [busy, setBusy] = useState(false);
   const [payment, setPayment] = useState("COD");
-  const started = useState(false);
 
   const discount = applied ? applied.discount : 0;
   const ship = applied?.freeship || subtotal - discount >= freeT ? 0 : form.area === "INSIDE_DHAKA" ? inside : outside;
@@ -197,7 +197,7 @@ export default function CheckoutPage() {
           <h3>Your Order</h3>
           {lines.map((l) => (
             <div className="mini-item" key={l.key}>
-              <img src={l.image} alt="" />
+              <img src={imgSrc(l.image, 300) || l.image} alt="" width={52} height={66} loading="lazy" decoding="async" />
               <div style={{ flex: 1 }}>
                 <div className="m">{l.title}</div>
                 <div className="s">{[l.size, l.color].filter(Boolean).join(" · ")} × {l.qty}</div>

@@ -207,7 +207,6 @@ h1, h2, h3, .serif { font-family: var(--font-head); font-weight: 500; letter-spa
   .shop-grid { grid-template-columns: repeat(3, 1fr); gap: 32px 20px; }
 }
 @media (min-width: 1200px) { .shop-grid { grid-template-columns: repeat(4, 1fr); } }
-@media (min-width: 1200px) { .shop-grid { grid-template-columns: repeat(4, 1fr); } }
 @media (min-width: 1500px) { .shop-grid { grid-template-columns: repeat(5, 1fr); gap: 28px 18px; } }
 .empty { text-align: center; padding: 80px 20px; color: var(--muted); }
 .empty h3 { font-size: 22px; color: var(--text); margin-bottom: 8px; }
@@ -769,7 +768,6 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 13.5px; }
 .inf-end { text-align: center; color: var(--muted); font-size: 12px; letter-spacing: .12em; padding: 30px 0 6px; text-transform: uppercase; }
 .pcard-sizes { font-size: 12px; color: var(--muted); margin-top: 2px; letter-spacing: .02em; }
 
-.pcard-sizes { font-size: 12px; color: var(--muted); margin-top: 2px; letter-spacing: .02em; }
 .badge-trending { background: rgba(255,255,255,.85); backdrop-filter: blur(4px); border: 1.5px solid var(--danger); color: var(--danger); }
 .badge-hot { background: rgba(255,255,255,.85); backdrop-filter: blur(4px); border: 1.5px solid #ff6b35; color: #ff6b35; }
 .badge-new { background: rgba(255,255,255,.85); backdrop-filter: blur(4px); border: 1.5px solid var(--text); color: var(--text); }
@@ -845,20 +843,23 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 13.5px; }
 .success-wrap { animation: pageIn .25s ease-out both; }
 .hero-content { animation: pageIn .3s ease-out .05s both; }
 .section-head2 { animation: pageIn .25s ease-out .1s both; }
-.pcard-info { animation: pageIn .25s ease-out .15s both; }
+/* NOTE: .pcard-info intentionally NOT animated here — cards already use the
+   .reveal IntersectionObserver animation; a second animation = double fade + wasted paint on mobile */
 
-/* View Transition API — product image shared element */
+/* View Transition API — PDP main image gets a unique name so it can morph.
+   NOTE: cards must NOT have a view-transition-name — duplicate names on a page
+   make the browser skip the whole transition (all transitions would break). */
 .pdp-main-img {
   view-transition-name: product-hero;
 }
-.pcard-img {
-  view-transition-name: product-hero-card;
-}
 
 /* During transition, product image morphs smoothly */
-::view-transition-group(product-hero) {
-  animation-duration: 300ms;
-  animation-timing-function: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+@keyframes vtOut {
+  to { opacity: 0; }
+}
+@keyframes vtIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 /* Old page fades out quickly, new page content fades up */
@@ -869,12 +870,18 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 13.5px; }
   animation: vtIn 200ms ease-out 80ms both;
 }
 
-@keyframes vtOut {
-  to { opacity: 0; }
+/* product-hero: image itself doesn't animate (group handles the morph) */
+::view-transition-old(product-hero),
+::view-transition-new(product-hero) {
+  animation: none;
+  mix-blend-mode: normal;
+  height: 100%;
+  overflow: clip;
+  object-fit: cover;
 }
-@keyframes vtIn {
-  from { opacity: 0; transform: translateY(6px); }
-  to { opacity: 1; transform: translateY(0); }
+::view-transition-group(product-hero) {
+  animation-duration: 300ms;
+  animation-timing-function: cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
 /* Ensure no layout shift during transitions */

@@ -2,6 +2,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useCart, toast } from "@/components/store";
+import { imgSrc } from "@/components/parts";
 
 /* Cart — original clean layout + "Continue Shopping" button on top. */
 export default function CartPage() {
@@ -31,8 +32,7 @@ export default function CartPage() {
 
   const bump = (l: any, q: number) => {
     if (q < 1) { remove(l.key); toast("Item removed from cart"); return; }
-    setQty(l.key, q);
-    toast("Cart item updated successfully");
+    setQty(l.key, q); // no toast per tap — instant feedback comes from the number itself
   };
 
   const changeSize = async (l: any, newSize: string) => {
@@ -107,7 +107,7 @@ export default function CartPage() {
         <div>
           {lines.map((l) => (
             <div className="cart-row" key={l.key}>
-              <Link href={"/products/" + l.slug}><img src={l.image} alt={l.title} loading="lazy" decoding="async" /></Link>
+              <Link href={"/products/" + l.slug}><img src={imgSrc(l.image, 300) || l.image} alt={l.title} loading="lazy" decoding="async" width={100} height={126} /></Link>
               <div>
                 <div className="t"><Link href={"/products/" + l.slug}>{l.title}</Link></div>
                 <div className="v">{[l.color].filter(Boolean).join(" · ")}</div>
