@@ -43,7 +43,7 @@ export async function sendCapi(evt: CapiEvent): Promise<{ ok: boolean; configure
   };
   if (testCode) payload.test_event_code = testCode;
   try {
-    const res = await fetch(`https://graph.facebook.com/v19.0/${pixelId}/events?access_token=${encodeURIComponent(token)}`, {
+    const res = await fetch(`https://graph.facebook.com/v18.0/${pixelId}/events?access_token=${encodeURIComponent(token)}`, {
       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload),
     });
     const json: any = await res.json().catch(() => ({}));

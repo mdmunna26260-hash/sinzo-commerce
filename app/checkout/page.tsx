@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCart, trackEvent, toast, captureAttribution, newEventId } from "@/components/store";
+import { normalizeBDPhone, isValidBDPhone } from "@/lib/phone";
 
 declare global { interface Window { __SZ_SHIPPING?: any; __SZ_CHECKOUT?: any } }
 
@@ -89,7 +90,8 @@ export default function CheckoutPage() {
   const validate = (): boolean => {
     const e: any = {};
     if (!form.name.trim() || form.name.trim().length < 3) e.name = "Please enter your full name";
-    if (!/^01[3-9]\d{8}$/.test(form.phone.replace(/[\s-]/g, ""))) e.phone = "Enter a valid 11-digit BD mobile number (01XXXXXXXXX)";
+    const normalizedPhone = normalizeBDPhone(form.phone);
+    if (!isValidBDPhone(normalizedPhone)) e.phone = "Enter a valid BD mobile number (01676450711 or +8801676450711)";
     if (!form.address.trim() || form.address.trim().length < 10) e.address = "Please enter your full address (house, road, area)";
     setErrors(e);
     return Object.keys(e).length === 0;
@@ -106,7 +108,7 @@ export default function CheckoutPage() {
       const r = await fetch("/api/checkout", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          ...form, phone: form.phone.replace(/[\s-]/g, ""), paymentMethod: payment,
+          ...form, phone: normalizeBDPhone(form.phone), paymentMethod: payment,
           couponCode: applied?.code || null, purchaseEventId: eventId,
           attribution: captureAttribution(),
           items: lines.map((l) => ({ productId: l.productId, variantId: l.variantId || null, qty: l.qty })),

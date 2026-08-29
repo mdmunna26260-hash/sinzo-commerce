@@ -5,6 +5,7 @@ import { assessRisk } from "@/lib/risk";
 import { sendCapi } from "@/lib/capi";
 import { detectSource, getClientIp } from "@/lib/ua";
 import { orderCode } from "@/lib/slug";
+import { normalizeBDPhone, isValidBDPhone } from "@/lib/phone";
 import { notifyAdmin, emailCustomerOrder, whatsappCustomerOrder } from "@/lib/notify";
 
 export const dynamic = "force-dynamic";
@@ -18,8 +19,8 @@ export async function POST(req: Request) {
     // --- validation ---
     const errors: any = {};
     if (!name || String(name).trim().length < 3) errors.name = "Please enter your full name";
-    const cleanPhone = String(phone || "").replace(/[\s-]/g, "");
-    if (!/^01[3-9]\d{8}$/.test(cleanPhone)) errors.phone = "Enter a valid 11-digit BD mobile number";
+    const cleanPhone = normalizeBDPhone(String(phone || ""));
+    if (!isValidBDPhone(cleanPhone)) errors.phone = "Enter a valid BD mobile number";
     if (!address || String(address).trim().length < 10) errors.address = "Please enter your full address";
     if (area !== "INSIDE_DHAKA" && area !== "OUTSIDE_DHAKA") errors.area = "Select delivery zone";
     if (items.length === 0) return NextResponse.json({ error: "Your cart is empty" }, { status: 400 });

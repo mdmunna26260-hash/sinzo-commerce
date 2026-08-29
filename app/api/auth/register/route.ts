@@ -4,14 +4,15 @@ import { db } from "@/lib/db";
 import { createCustomerToken, customerCookie } from "@/lib/customer-auth";
 import { rateLimit } from "@/lib/auth";
 import { getClientIp } from "@/lib/ua";
+import { normalizeBDPhone, isValidBDPhone } from "@/lib/phone";
 export const dynamic = "force-dynamic";
 export async function POST(req: Request) {
   if (!rateLimit("custreg:" + getClientIp(req), 10, 10 * 60 * 1000)) return NextResponse.json({ error: "Too many attempts, try later." }, { status: 429 });
   try {
     const { name, phone, email, password } = await req.json();
-    const cleanPhone = String(phone || "").replace(/[\s-]/g, "");
+    const cleanPhone = normalizeBDPhone(String(phone || ""));
     if (!name || String(name).trim().length < 3) return NextResponse.json({ error: "Full name din" }, { status: 400 });
-    if (!/^01[3-9]\d{8}$/.test(cleanPhone)) return NextResponse.json({ error: "Valid 11-digit mobile din (01XXXXXXXXX)" }, { status: 400 });
+    if (!isValidBDPhone(cleanPhone)) return NextResponse.json({ error: "Valid 11-digit mobile din (01XXXXXXXXX)" }, { status: 400 });
     if (!password || String(password).length < 6) return NextResponse.json({ error: "Password minimum 6 character" }, { status: 400 });
     const existing = await db.customer.findUnique({ where: { phone: cleanPhone } });
     if (existing?.password) return NextResponse.json({ error: "Ei number-e account ase — login korun" }, { status: 400 });

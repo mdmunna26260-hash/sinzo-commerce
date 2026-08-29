@@ -4,12 +4,13 @@ import { db } from "@/lib/db";
 import { createCustomerToken, customerCookie } from "@/lib/customer-auth";
 import { rateLimit } from "@/lib/auth";
 import { getClientIp } from "@/lib/ua";
+import { normalizeBDPhone, isValidBDPhone } from "@/lib/phone";
 export const dynamic = "force-dynamic";
 export async function POST(req: Request) {
   if (!rateLimit("custlogin:" + getClientIp(req), 10, 10 * 60 * 1000)) return NextResponse.json({ error: "Too many attempts, try later." }, { status: 429 });
   try {
     const { phone, password } = await req.json();
-    const cleanPhone = String(phone || "").replace(/[\s-]/g, "");
+    const cleanPhone = normalizeBDPhone(String(phone || ""));
     const customer = await db.customer.findUnique({ where: { phone: cleanPhone } });
     if (!customer || !customer.password) return NextResponse.json({ error: "Account pay nai — age register korun" }, { status: 401 });
     const ok = await bcrypt.compare(String(password || ""), customer.password);
