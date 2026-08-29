@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 type V = { id?: number; size: string; color: string; sku: string; price: string; stock: string };
 type P = any;
 
-const EMPTY: any = { title: "", slug: "", shortDesc: "", description: "", sku: "", price: "", comparePrice: "", cost: "", stock: "0", lowStock: "5", status: "ACTIVE", featured: false, isNew: false, isBestSeller: false, sizeChartImage: "", tags: "", categoryId: "", images: [], variants: [] };
+const EMPTY: any = { title: "", slug: "", shortDesc: "", description: "", sku: "", price: "", comparePrice: "", cost: "", stock: "0", lowStock: "5", status: "ACTIVE", featured: false, isNew: false, isBestSeller: false, badge: '', sizeChartImage: "", tags: "", categoryId: "", images: [], variants: [] };
 function DescriptionEditor({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   const ref = useRef<HTMLTextAreaElement>(null);
   const wrap = (before: string, after: string) => {
@@ -88,8 +88,12 @@ export default function ProductsClient({ initial, categories }: { initial: P[]; 
   };
 
   const openNew = () => { setSlugTouched(false); setEdit({ ...EMPTY }); };
-  const openEdit = (p: P) => { setSlugTouched(true); setEdit({
-    ...EMPTY, ...p,
+  const openEdit = (p: P) => {
+    setSlugTouched(true);
+    // Map old isNew/isBestSeller to badge for backwards compatibility
+    const badge = p.badge || (p.isBestSeller ? "hot" : p.isNew ? "new" : "");
+    setEdit({
+      ...EMPTY, ...p, badge,
     price: String(p.price), comparePrice: p.comparePrice != null ? String(p.comparePrice) : "",
     cost: p.cost != null ? String(p.cost) : "", stock: String(p.stock), lowStock: String(p.lowStock),
     variants: p.variants.map((v: any) => ({ ...v, size: v.size || "", color: v.color || "", sku: v.sku || "", price: v.price != null ? String(v.price) : "", stock: String(v.stock) })),
@@ -324,16 +328,17 @@ export default function ProductsClient({ initial, categories }: { initial: P[]; 
             </div>
 
             <div style={{ display: "flex", gap: 10, marginTop: 18, alignItems: "center", flexWrap: "wrap" }}>
-              <label style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 13.5 }}>
-                <input type="checkbox" checked={!!edit.featured} onChange={(e) => setEdit({ ...edit, featured: e.target.checked })} /> Featured
-              </label>
-              <label style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 13.5 }}>
-                <input type="checkbox" checked={!!edit.isNew} onChange={(e) => setEdit({ ...edit, isNew: e.target.checked })} /> 🆕 New Arrival
-              </label>
-              <label style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 13.5 }}>
-                <input type="checkbox" checked={!!edit.isBestSeller} onChange={(e) => setEdit({ ...edit, isBestSeller: e.target.checked })} /> ⭐ Best Seller
-              </label>
-              <span style={{ fontSize: 12, color: "var(--muted)" }}>(badge + homepage section auto)</span>
+              <div className="af" style={{ minWidth: 200 }}>
+                <label>Badge</label>
+                <select value={edit.badge || ""} onChange={(e) => setEdit({ ...edit, badge: e.target.value })}>
+                  <option value="">No Badge</option>
+                  <option value="trending">🔥 TRENDING NOW</option>
+                  <option value="hot">🔥 HOT PICK</option>
+                  <option value="new">🆕 NEW</option>
+                  <option value="signature">👑 SIGNATURE</option>
+                  <option value="limited">💎 LIMITED</option>
+                </select>
+              </div>
               <span style={{ flex: 1 }} />
               <button className="abtn" onClick={() => setEdit(null)}>Cancel</button>
               <button className="abtn primary" onClick={save} disabled={busy}>{busy ? "Saving…" : "Save Product"}</button>

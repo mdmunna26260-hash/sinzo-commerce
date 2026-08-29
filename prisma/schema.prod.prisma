@@ -84,6 +84,7 @@ model Product {
   views       Int                @default(0)
   position    Int                @default(0) // admin drag&drop order -> homepage/listing
   sizeChartImage String?         // per-product size chart image (media URL)
+  badge          String?
   isNew          Boolean          @default(false) // -> New Arrivals collection + badge
   isBestSeller   Boolean          @default(false) // -> Best Sellers collection + badge
   createdAt   DateTime           @default(now())

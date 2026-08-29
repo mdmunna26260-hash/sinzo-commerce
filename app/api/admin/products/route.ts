@@ -35,7 +35,7 @@ export async function POST(req: Request) {
         price: Number(b.price) || 0, comparePrice: b.comparePrice ? Number(b.comparePrice) : null,
         cost: b.cost ? Number(b.cost) : null, stock: Number(b.stock) || 0, lowStock: Number(b.lowStock) || 5,
         status: b.status || "ACTIVE", featured: !!b.featured, tags: b.tags || null,
-        sizeChartImage: b.sizeChartImage || null, isNew: !!b.isNew, isBestSeller: !!b.isBestSeller,
+        sizeChartImage: b.sizeChartImage || null, badge: b.badge || null, isNew: !!b.isNew, isBestSeller: !!b.isBestSeller,
         categoryId: b.categoryId ? Number(b.categoryId) : null,
         images: { create: (b.images || []).map((u: string, i: number) => ({ url: u, position: i, alt: b.title })) },
         variants: { create: (b.variants || []).map((v: any) => ({ size: v.size || null, color: v.color || null, sku: v.sku || null, price: v.price ? Number(v.price) : null, stock: Number(v.stock) || 0 })) },

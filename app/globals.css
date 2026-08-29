@@ -770,3 +770,8 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 13.5px; }
 .pcard-sizes { font-size: 12px; color: var(--muted); margin-top: 2px; letter-spacing: .02em; }
 
 .pcard-sizes { font-size: 12px; color: var(--muted); margin-top: 2px; letter-spacing: .02em; }
+.badge-trending { background: #e63946; color: #fff; }
+.badge-hot { background: #ff6b35; color: #fff; }
+.badge-new { background: var(--text); color: var(--bg); }
+.badge-signature { background: #1a1a2e; color: #d4af37; }
+.badge-limited { background: #2d2d2d; color: #d4af37; }

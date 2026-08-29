@@ -34,7 +34,7 @@ export async function PUT(req: Request, { params }: Ctx) {
       price: Number(b.price) || 0, comparePrice: b.comparePrice ? Number(b.comparePrice) : null,
       cost: b.cost ? Number(b.cost) : null, stock: Number(b.stock) || 0, lowStock: Number(b.lowStock) || 5,
       status: b.status || "ACTIVE", featured: !!b.featured, tags: b.tags || null,
-      sizeChartImage: b.sizeChartImage || null, isNew: !!b.isNew, isBestSeller: !!b.isBestSeller,
+      sizeChartImage: b.sizeChartImage || null, badge: b.badge || null, isNew: !!b.isNew, isBestSeller: !!b.isBestSeller,
       categoryId: b.categoryId ? Number(b.categoryId) : null,
     };
     if (b.slug) {

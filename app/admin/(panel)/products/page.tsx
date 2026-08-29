@@ -13,7 +13,7 @@ export default async function AdminProducts({ searchParams }: { searchParams: an
     id: p.id, title: p.title, slug: p.slug, sku: p.sku, price: p.price, comparePrice: p.comparePrice,
     cost: p.cost, stock: p.stock, lowStock: p.lowStock, status: p.status, featured: p.featured,
     tags: p.tags, shortDesc: p.shortDesc, description: p.description,
-    sizeChartImage: p.sizeChartImage || null, isNew: p.isNew, isBestSeller: p.isBestSeller,
+    sizeChartImage: p.sizeChartImage || null, badge: p.badge, isNew: p.isNew, isBestSeller: p.isBestSeller,
     categoryId: p.categoryId, categoryName: p.category?.name, views: p.views,
     image: p.images?.[0]?.url || null,
     images: p.images.sort((a, b) => a.position - b.position).map((i) => i.url),

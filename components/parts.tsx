@@ -1,10 +1,18 @@
 import Link from "next/link";
 import WishHeart from "./wish-heart";
 
+const BADGE_LABELS: Record<string, string> = {
+  trending: "🔥 TRENDING",
+  hot: "🔥 HOT PICK",
+  new: "NEW",
+  signature: "👑 SIGNATURE",
+  limited: "💎 LIMITED",
+};
+
 export type CardProduct = {
   id: number; title: string; slug: string; price: number; comparePrice: number | null;
   image?: string; categoryName?: string; stock: number; isNew?: boolean; isBestSeller?: boolean;
-  colors?: string[]; sizes?: string[]; };
+  colors?: string[]; sizes?: string[]; badge?: string | null; };
 
 export function ProductCard({ p, wish }: { p: CardProduct; wish?: boolean }) {
   const off = p.comparePrice && p.comparePrice > p.price ? Math.round((1 - p.price / p.comparePrice) * 100) : 0;
@@ -29,8 +37,7 @@ export function ProductCard({ p, wish }: { p: CardProduct; wish?: boolean }) {
         })()}
         <div className="pcard-badges">
           {off > 0 && <span className="badge sale">-{off}%</span>}
-          {p.isBestSeller && <span className="badge best">★ Best Seller</span>}
-          {p.isNew && <span className="badge new">New</span>}
+          {p.badge && <span className={"badge badge-" + p.badge}>{BADGE_LABELS[p.badge] || p.badge}</span>}
         </div>
         <WishHeart id={p.id} />
         {p.stock <= 0 && <div className="soldout-overlay"><span>Sold Out</span></div>}
