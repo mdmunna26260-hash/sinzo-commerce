@@ -775,3 +775,53 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 13.5px; }
 .badge-new { background: var(--text); color: var(--bg); }
 .badge-signature { background: #1a1a2e; color: #d4af37; }
 .badge-limited { background: #2d2d2d; color: #d4af37; }
+
+/* ===== Admin Panel Polish ===== */
+.admin-main { max-width: 1400px; }
+.admin-top h1 { font-weight: 600; letter-spacing: -0.02em; }
+
+/* Cleaner KPI cards */
+.kpi { transition: box-shadow .2s ease, transform .15s ease; }
+.kpi:hover { box-shadow: 0 2px 8px rgba(0,0,0,.06); }
+
+/* Better table styling */
+.tbl td { font-size: 13px; }
+.tbl .pill { font-size: 10px; }
+
+/* Cleaner admin buttons */
+.abtn { transition: all .15s ease; }
+.abtn:hover { border-color: #999; }
+.abtn.primary:hover { background: #333; }
+
+/* Sidebar active link accent */
+.admin-side a.active { border-left-color: #9a7b4f; background: rgba(154,123,79,.08); }
+
+/* Notification badge on sidebar */
+.bell-btn { position: relative; }
+
+/* Modal improvements */
+.modal { animation: modalIn .2s ease-out; }
+@keyframes modalIn { from { opacity: 0; transform: scale(.97) translateY(8px); } to { opacity: 1; transform: none; } }
+
+/* Toast */
+.toast { z-index: 999; font-weight: 500; }
+
+/* Admin search */
+.asearch:focus { outline: none; border-color: var(--text); }
+
+/* Empty states */
+.empty { padding: 60px 20px; }
+.empty h3 { font-weight: 600; }
+
+/* Responsive admin tables on small screens */
+@media (max-width: 768px) {
+  .admin-top { flex-direction: column; align-items: flex-start; gap: 12px; }
+  .admin-top .who { font-size: 12px; }
+  .kpis { grid-template-columns: 1fr 1fr !important; gap: 10px; }
+  .kpi { padding: 14px; }
+  .kpi .k-val { font-size: 20px; }
+  .stat-strip { flex-direction: column; gap: 8px; }
+  .acard { margin-bottom: 14px; }
+  .form-grid { grid-template-columns: 1fr !important; }
+  .bar-chart { height: 120px !important; }
+}

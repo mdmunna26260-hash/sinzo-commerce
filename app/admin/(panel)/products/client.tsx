@@ -332,11 +332,11 @@ export default function ProductsClient({ initial, categories }: { initial: P[]; 
                 <label>Badge</label>
                 <select value={edit.badge || ""} onChange={(e) => setEdit({ ...edit, badge: e.target.value })}>
                   <option value="">No Badge</option>
-                  <option value="trending">🔥 TRENDING NOW</option>
-                  <option value="hot">🔥 HOT PICK</option>
-                  <option value="new">🆕 NEW</option>
-                  <option value="signature">👑 SIGNATURE</option>
-                  <option value="limited">💎 LIMITED</option>
+                  <option value="trending">TRENDING NOW</option>
+                  <option value="hot">HOT PICK</option>
+                  <option value="new">NEW</option>
+                  <option value="signature">SIGNATURE</option>
+                  <option value="limited">LIMITED</option>
                 </select>
               </div>
               <span style={{ flex: 1 }} />

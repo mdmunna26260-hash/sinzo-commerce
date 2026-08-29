@@ -2,11 +2,11 @@ import Link from "next/link";
 import WishHeart from "./wish-heart";
 
 const BADGE_LABELS: Record<string, string> = {
-  trending: "🔥 TRENDING",
-  hot: "🔥 HOT PICK",
+  trending: "TRENDING NOW",
+  hot: "HOT PICK",
   new: "NEW",
-  signature: "👑 SIGNATURE",
-  limited: "💎 LIMITED",
+  signature: "SIGNATURE",
+  limited: "LIMITED",
 };
 
 export type CardProduct = {
