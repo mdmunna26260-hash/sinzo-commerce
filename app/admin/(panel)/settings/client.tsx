@@ -354,7 +354,44 @@ export default function SettingsClient({ groups, user, userCount, hasCourier }: 
         </div>
       )}
 
-      {tab === "Homepage Layout" && <HomepageLayoutTab groups={g} save={save} busy={busy} />}
+      {tab === "Homepage Layout" && (
+        <>
+          <HomepageLayoutTab groups={g} save={save} busy={busy} />
+          <div className="acard" style={{ marginTop: 16 }}>
+            <div className="acard-h"><h3>Hero Banner</h3></div>
+            <div className="acard-b form-grid">
+              <div className="af full"><label>Hero headline</label><textarea style={{ minHeight: 50 }} value={g.homepage?.heroTitle || ""} onChange={(e) => setG({ ...g, homepage: { ...g.homepage, heroTitle: e.target.value } })} /></div>
+              <div className="af full"><label>Hero subtitle</label><input value={g.homepage?.heroSubtitle || ""} onChange={(e) => setG({ ...g, homepage: { ...g.homepage, heroSubtitle: e.target.value } })} /></div>
+              <F k="heroCta" label="Hero button text" group="homepage" />
+              <ImgField k="heroImage" label="Hero banner image" group="homepage" />
+              <div className="full">{saveBtn("homepage")}</div>
+            </div>
+          </div>
+          <div className="acard" style={{ marginTop: 16 }}>
+            <div className="acard-h"><h3>Promo Banner</h3></div>
+            <div className="acard-b form-grid">
+              <F k="promoTitle" label="Promo title" group="homepage" />
+              <F k="promoText" label="Promo text" group="homepage" />
+              <ImgField k="promoImage" label="Promo image" group="homepage" />
+              <div className="full">{saveBtn("homepage")}</div>
+            </div>
+          </div>
+          <div className="acard" style={{ marginTop: 16 }}>
+            <div className="acard-h"><h3>Featured Collection</h3></div>
+            <div className="acard-b form-grid">
+              <div className="af full"><label>Featured collection</label>
+                <select value={g.homepage?.featuredCollection || "new-arrivals"} onChange={(e) => setG({ ...g, homepage: { ...g.homepage, featuredCollection: e.target.value } })}>
+                  <option value="new-arrivals">New Arrivals</option>
+                  <option value="best-sellers">Best Sellers</option>
+                  <option value="sale">Sale</option>
+                </select>
+              </div>
+              <div className="full" style={{ fontSize: 12.5, color: "var(--muted)" }}>Homepage-er "01 Curated for you" section-e kon collection dekhabe seta ekhane set korun.</div>
+              <div className="full">{saveBtn("homepage")}</div>
+            </div>
+          </div>
+        </>
+      )}
 
       {tab === "Shipping" && (
         <>
