@@ -825,3 +825,8 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 13.5px; }
   .form-grid { grid-template-columns: 1fr !important; }
   .bar-chart { height: 120px !important; }
 }
+
+/* Badges: small plain text on mobile — no border, no bg, just black text */
+@media (max-width: 640px) {
+  .badge { font-size: 9px !important; padding: 0 !important; border: none !important; background: none !important; backdrop-filter: none !important; color: var(--text) !important; font-weight: 700 !important; letter-spacing: .08em !important; }
+}

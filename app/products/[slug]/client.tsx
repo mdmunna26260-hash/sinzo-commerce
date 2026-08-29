@@ -81,6 +81,10 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
   const off = product.comparePrice && product.comparePrice > price ? Math.round((1 - price / product.comparePrice) * 100) : 0;
 
   useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
+
+  useEffect(() => {
     trackEvent("ViewContent", {
       value: price, currency: "BDT", content_name: product.title,
       content_ids: [String(product.id)], content_type: "product",

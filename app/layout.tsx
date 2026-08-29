@@ -79,6 +79,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         </CartProvider>
         <RevealInit />
         <PageViewTracker />
+        <script dangerouslySetInnerHTML={{ __html: `history.scrollRestoration = 'manual';` }} />
       </body>
     </html>
   );

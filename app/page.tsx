@@ -121,7 +121,7 @@ export default async function HomePage() {
     ),
     featured: (
       <section className="section container" key="featured">
-        <Head no="01" eyebrow="Curated for you" title={featuredCol?.title || "New Arrivals"} href={"/collections/" + featuredSlug} />
+        <Head no="01" eyebrow="Created for you" title={featuredCol?.title || "New Arrivals"} href={"/collections/" + featuredSlug} />
         <Carousel className="mobile-only">
           <div className="grid grid-4">{cp(featuredCol).slice(0, 4).map((p: any) => <ProductCard key={p.id} p={p} />)}</div>
           <div className="grid grid-4">{cp(featuredCol).slice(4, 8).map((p: any) => <ProductCard key={p.id} p={p} />)}</div>
