@@ -1,8 +1,16 @@
+"use client";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import WishHeart from "./wish-heart";
 import CardImg from "./card-img";
+import { sharedProductNav } from "./shared-nav";
 
 export { imgSrc, imgSrcSet } from "./img-src";
+
+export type CardProduct = {
+  id: number; title: string; slug: string; price: number; comparePrice: number | null;
+  image?: string; categoryName?: string; stock: number; isNew?: boolean; isBestSeller?: boolean;
+  colors?: string[]; sizes?: string[]; badge?: string | null; };
 
 const BADGE_LABELS: Record<string, string> = {
   trending: "TRENDING NOW",
@@ -12,15 +20,15 @@ const BADGE_LABELS: Record<string, string> = {
   limited: "LIMITED",
 };
 
-export type CardProduct = {
-  id: number; title: string; slug: string; price: number; comparePrice: number | null;
-  image?: string; categoryName?: string; stock: number; isNew?: boolean; isBestSeller?: boolean;
-  colors?: string[]; sizes?: string[]; badge?: string | null; };
-
 export function ProductCard({ p, wish }: { p: CardProduct; wish?: boolean }) {
+  const router = useRouter();
   const off = p.comparePrice && p.comparePrice > p.price ? Math.round((1 - p.price / p.comparePrice) * 100) : 0;
   return (
-    <Link className="pcard reveal" href={"/products/" + p.slug}>
+    <Link
+      className="pcard reveal"
+      href={"/products/" + p.slug}
+      onClick={(e) => sharedProductNav(e, router, "/products/" + p.slug)}
+    >
       <div className="pcard-img">
         {p.image && <CardImg url={p.image} alt={p.title} slug={p.slug} />}
         <div className="pcard-badges">

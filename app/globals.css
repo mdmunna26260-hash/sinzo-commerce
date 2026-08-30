@@ -887,3 +887,21 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 13.5px; }
 .pdp-main-img, .pcard-img {
   contain: layout style;
 }
+
+/* ---------- Skeleton loading system (subtle, premium, CSS-only) ----------
+   Shown ONLY while a navigation has no cached content (router cache makes
+   this rare). Mirrors each page's real layout → zero layout shift. */
+.sk { position: relative; overflow: hidden; background: #ece8e1; border-radius: var(--radius); }
+.sk::after { content: ""; position: absolute; inset: 0; transform: translateX(-100%); background: linear-gradient(90deg, transparent, rgba(255,255,255,.6), transparent); animation: skShimmer 1.5s ease-in-out infinite; }
+@keyframes skShimmer { to { transform: translateX(100%); } }
+@media (prefers-reduced-motion: reduce) { .sk::after { animation: none; } }
+.sk-img { aspect-ratio: var(--img-ratio, 3 / 4); }
+.sk-line { height: 12px; margin: 8px 0; }
+.sk-line.sm { height: 9px; width: 42%; }
+.sk-btn { height: 46px; margin-top: 14px; }
+.sk-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 18px 10px; }
+@media (min-width: 900px) { .sk-grid { grid-template-columns: repeat(3, 1fr); gap: 32px 20px; } }
+@media (min-width: 1200px) { .sk-grid { grid-template-columns: repeat(4, 1fr); } }
+@media (min-width: 1500px) { .sk-grid { grid-template-columns: repeat(5, 1fr); gap: 28px 18px; } }
+.pdp-sk { display: grid; gap: 30px; align-items: start; }
+@media (min-width: 900px) { .pdp-sk { grid-template-columns: 1.1fr 1fr; } }

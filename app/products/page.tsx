@@ -3,6 +3,7 @@ import { getSettings, publicSettings } from "@/lib/settings";
 import { getCategories } from "@/lib/catalog";
 import { Header, Footer, Announcement } from "@/components/chrome";
 import { ProductCard } from "@/components/parts";
+import { imgSrc } from "@/components/img-src";
 import ShopLayout from "./shop-layout";
 import InfiniteGrid from "./infinite-grid";
 import Link from "next/link";

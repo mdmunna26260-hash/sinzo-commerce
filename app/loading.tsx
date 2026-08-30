@@ -1,9 +1,18 @@
-export default function RouteLoading() {
-  /* Shown only when a navigation has no cached payload (rare after prefetch).
-     Instant branded feedback instead of a frozen old page. */
+/* Home skeleton — hero band + featured grid (mirrors the real layout) */
+export default function Loading() {
   return (
-    <div style={{ minHeight: "62vh", display: "flex", alignItems: "center", justifyContent: "center" }} aria-live="polite" aria-busy="true">
-      <span className="inf-spinner" />
+    <div className="container" style={{ paddingTop: 18, paddingBottom: 60 }} aria-busy="true">
+      <div className="sk" style={{ height: "min(62vh, 540px)" }} />
+      <div style={{ height: 40 }} />
+      <div className="sk-grid">
+        {Array.from({ length: 8 }).map((_, i) => (
+          <div key={i}>
+            <div className="sk sk-img" />
+            <div className="sk sk-line" style={{ width: "72%" }} />
+            <div className="sk sk-line sm" />
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
