@@ -1,5 +1,5 @@
 /** @type {import('next').NextConfig} */
-// build: 1787932717
+// build: 1788065000
 const nextConfig = {
   images: { unoptimized: true },
   poweredByHeader: false,
