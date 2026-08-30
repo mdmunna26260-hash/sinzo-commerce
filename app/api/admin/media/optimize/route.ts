@@ -6,9 +6,24 @@ export const dynamic = "force-dynamic";
 export async function POST(req: Request) {
   const g = await requirePerm("products", req);
   if ("res" in g) return g.res;
-  // candidates: rows with no variant index at all, or a legacy index missing any size key
+
+  /* Only migrate media that's actually USED (product images, category images,
+     hero/promo/any settings URL) — old deleted uploads stay untouched. */
+  const [imgs, cats, settings] = await Promise.all([
+    db.productImage.findMany({ select: { url: true } }),
+    db.category.findMany({ select: { image: true } }),
+    db.setting.findMany(),
+  ]);
+  const urls = [
+    ...imgs.map((i) => i.url),
+    ...cats.map((c) => c.image).filter(Boolean),
+    ...settings.map((s) => JSON.stringify(s).match(/\/api\/media\/[a-z0-9]+/gi) || []).flat(),
+  ];
+  const refIds = [...new Set(urls.map((u) => (u.match(/media\/([a-z0-9]+)/i) || [])[1]).filter(Boolean))];
+  if (!refIds.length) return NextResponse.json({ ok: true, optimized: 0, remaining: 0, done: true });
+
   const candidates = await db.media.findMany({
-    where: { mime: { startsWith: "image/" } },
+    where: { id: { in: refIds }, mime: { startsWith: "image/" } },
     select: { id: true, variantsJson: true },
     take: 400,
   });
@@ -38,10 +53,6 @@ export async function POST(req: Request) {
       optimized++;
     } catch {}
   }
-  const after = await db.media.findMany({ where: { mime: { startsWith: "image/" } }, select: { id: true, variantsJson: true }, take: 400 });
-  const remaining = after.filter((r) => {
-    if (!r.variantsJson) return true;
-    try { const idx = JSON.parse(r.variantsJson); return NEED.some((k) => !idx[k]?.id); } catch { return true; }
-  }).length;
-  return NextResponse.json({ ok: true, optimized, remaining, done: remaining === 0 });
+  const remaining = legacy.length - optimized;
+  return NextResponse.json({ ok: true, optimized, remaining, done: remaining <= 0 });
 }

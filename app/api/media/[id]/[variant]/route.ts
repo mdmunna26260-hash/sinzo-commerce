@@ -16,24 +16,29 @@ export async function GET(_: Request, { params }: Ctx) {
     where: { id: params.id },
     select: { variantsJson: true }, // never pull the big primary blob just to read the index
   }).catch(() => null);
-  if (!m?.variantsJson) return new Response(null, { status: 404, headers: { "Cache-Control": NOSTORE } });
+  if (!m) return new Response(null, { status: 404, headers: { "Cache-Control": NOSTORE } });
 
-  let idx: any = {};
-  try { idx = JSON.parse(m.variantsJson); } catch { return new Response(null, { status: 404, headers: { "Cache-Control": NOSTORE } }); }
-  const v = idx[params.variant];
-
-  if (v?.id) {
-    const row = await db.media.findUnique({ where: { id: v.id }, select: { data: true, size: true } });
-    if (row) {
-      return new Response(new Uint8Array(row.data), {
-        headers: { "Content-Type": "image/webp", "Content-Length": String(row.size), "Cache-Control": CACHE },
-      });
-    }
+  /* Legacy uploads (before the variant pipeline) have no/partial index →
+     fall through to the original below. A missing variant must NEVER break
+     an image — srcset candidates don't fall back on their own. */
+  if (m.variantsJson) {
+    try {
+      const idx = JSON.parse(m.variantsJson);
+      const v = idx[params.variant];
+      if (v?.id) {
+        const row = await db.media.findUnique({ where: { id: v.id }, select: { data: true, size: true } });
+        if (row) {
+          return new Response(new Uint8Array(row.data), {
+            headers: { "Content-Type": "image/webp", "Content-Length": String(row.size), "Cache-Control": CACHE },
+          });
+        }
+      }
+    } catch {}
   }
-  /* GRACEFUL FALLBACK (legacy uploads without this variant):
-     serve the original instead of a broken image. Still immutable + edge-cached;
-     once the optimize migration generates the real variant, new uploads of the
-     same URL keep working (content only gets smaller/sharper). */
+
+  /* FALLBACK: serve the original bytes. Still immutable + edge-cached.
+     Once the optimize migration generates the real variant, the same URL
+     keeps working (content only gets smaller). */
   const orig = await db.media.findUnique({
     where: { id: params.id },
     select: { data: true, size: true, mime: true },
