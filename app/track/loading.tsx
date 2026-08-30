@@ -1,13 +1,10 @@
-/* Track order skeleton — narrow centered panel */
+/* Route loading state: the classic centered spinner.
+   Shown only when a navigation has no cached content (router cache keeps
+   this rare) — no artificial delay. */
 export default function Loading() {
   return (
-    <div className="container" aria-busy="true">
-      <div className="track-wrap">
-        <div className="sk sk-line" style={{ width: 160, height: 24 }} />
-        <div className="sk sk-line sm" style={{ width: "70%" }} />
-        <div className="sk sk-btn" style={{ marginTop: 26 }} />
-        <div className="sk" style={{ height: 170, marginTop: 26 }} />
-      </div>
+    <div style={{ minHeight: "62vh", display: "flex", alignItems: "center", justifyContent: "center" }} aria-live="polite" aria-busy="true">
+      <span className="inf-spinner" />
     </div>
   );
 }
