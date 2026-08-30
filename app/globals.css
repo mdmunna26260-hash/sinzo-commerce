@@ -905,3 +905,9 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 13.5px; }
 @media (min-width: 1500px) { .sk-grid { grid-template-columns: repeat(5, 1fr); gap: 28px 18px; } }
 .pdp-sk { display: grid; gap: 30px; align-items: start; }
 @media (min-width: 900px) { .pdp-sk { grid-template-columns: 1.1fr 1fr; } }
+
+/* Shared-element morph target while the PDP skeleton is on screen
+   (uncached navigation) — keeps the card→PDP morph continuous even when
+   the real hero image hasn't rendered yet. Skeleton and real hero never
+   coexist, so there is never a duplicate name. */
+.pdp-sk .sk-img { view-transition-name: product-hero; }
