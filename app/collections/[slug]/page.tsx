@@ -1,5 +1,6 @@
 import { db } from "@/lib/db";
 import { getSettings, publicSettings } from "@/lib/settings";
+import { getCategories } from "@/lib/catalog";
 import { Header, Footer, Announcement } from "@/components/chrome";
 import { ProductCard } from "@/components/parts";
 import { notFound } from "next/navigation";
@@ -29,7 +30,7 @@ export default async function CollectionPage({ params }: { params: { slug: strin
   if (!col) notFound();
   const s = await getSettings();
   const cfg = publicSettings(s);
-  const cats = await db.category.findMany({ orderBy: { id: "asc" } });
+  const cats = await getCategories();
   const items = col.products.filter((x: any) => x.product.status === "ACTIVE").map((x: any) => ({
     id: x.product.id, title: x.product.title, slug: x.product.slug, price: x.product.price,
     comparePrice: x.product.comparePrice, image: x.product.images?.[0]?.url,

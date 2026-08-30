@@ -1,5 +1,6 @@
 import { db } from "@/lib/db";
 import { getSettings, publicSettings } from "@/lib/settings";
+import { getCategories } from "@/lib/catalog";
 import { getCustomerSessionFromRequest, verifyCustomerToken } from "@/lib/customer-auth";
 import { Header, Footer, Announcement } from "@/components/chrome";
 import { redirect } from "next/navigation";
@@ -16,7 +17,7 @@ export default async function AccountPage({ searchParams }: { searchParams: { ct
   const orders = await db.order.findMany({ where: { phone: customer.phone }, include: { items: true }, orderBy: { id: "desc" }, take: 50 });
   const s = await getSettings();
   const cfg = publicSettings(s);
-  const cats = await db.category.findMany({ orderBy: { id: "asc" } });
+  const cats = await getCategories();
 
   return (
     <>

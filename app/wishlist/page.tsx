@@ -1,5 +1,6 @@
 import { Header, Footer } from "@/components/chrome";
 import { getSettings, publicSettings } from "@/lib/settings";
+import { getCategories } from "@/lib/catalog";
 import { db } from "@/lib/db";
 import WishlistClient from "./client";
 
@@ -9,7 +10,7 @@ export const metadata = { title: "Wishlist" };
 export default async function WishlistPage() {
   const s = await getSettings();
   const cfg = publicSettings(s);
-  const cats = await db.category.findMany({ orderBy: { id: "asc" } });
+  const cats = await getCategories();
   // only the fields ProductCard renders (badge included) — nothing heavy is shipped to the client
   const products = await db.product.findMany({
     where: { status: "ACTIVE" },

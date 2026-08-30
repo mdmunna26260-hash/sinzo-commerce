@@ -1,5 +1,6 @@
 import { db } from "@/lib/db";
 import { getSettings, publicSettings } from "@/lib/settings";
+import { getCategories } from "@/lib/catalog";
 import { Header, Footer, Announcement } from "@/components/chrome";
 import { ProductCard } from "@/components/parts";
 import ShopLayout from "./shop-layout";
@@ -15,7 +16,7 @@ export const metadata = { title: "Shop All" };
 export default async function ProductsPage({ searchParams }: { searchParams: SP }) {
   const s = await getSettings();
   const cfg = publicSettings(s);
-  const cats = await db.category.findMany({ orderBy: { id: "asc" } });
+  const cats = await getCategories();
 
   const where: any = { status: "ACTIVE" };
   if (searchParams.q) {

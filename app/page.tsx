@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Fragment } from "react";
 import { db } from "@/lib/db";
 import { getSettings, publicSettings } from "@/lib/settings";
+import { getCategories } from "@/lib/catalog";
 import { Header, Footer, Announcement } from "@/components/chrome";
 import { ProductCard, imgSrc } from "@/components/parts";
 import { CartProvider } from "@/components/store";
@@ -60,7 +61,7 @@ function Quote({ r }: { r: any }) {
 export default async function HomePage() {
   const s = await getSettings();
   const cfg = publicSettings(s);
-  const cats = await db.category.findMany({ orderBy: { id: "asc" } });
+  const cats = await getCategories();
   const featuredSlug = s.homepage?.featuredCollection || "new-arrivals";
   // select only what product cards need — full rows (description, tags, sku…) stay on the server
   const colProductSelect = {

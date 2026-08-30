@@ -96,26 +96,26 @@ export function Header({ storeName, categories }: { storeName: string; categorie
           <button className="burger icon-btn" aria-label="Menu" onClick={() => setOpen(!open)}>
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
           </button>
-          <Link href="/" className="logo">{storeName}</Link>
+          <Link prefetch href="/" className="logo">{storeName}</Link>
           <nav className="nav">
-            <Link href="/products" className={path === "/products" ? "active" : ""}>Shop All</Link>
+            <Link prefetch href="/products" className={path === "/products" ? "active" : ""}>Shop All</Link>
             {categories.slice(0, 4).map((c) => (
               <Link key={c.slug} href={"/products?category=" + c.slug} className={path === "/products" ? "" : ""}>{c.name}</Link>
             ))}
-            <Link href="/track">Track Order</Link>
+            <Link prefetch href="/track">Track Order</Link>
           </nav>
           <div className="header-actions">
             <AdminDashLink />
             <button className="icon-btn" aria-label="Search" onClick={() => { setSearchOpen(true); setSugg(null); }}>
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
             </button>
-            <Link href="/account" className="icon-btn" aria-label="Account">
+            <Link prefetch href="/account" className="icon-btn" aria-label="Account">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
             </Link>
-            <Link href="/wishlist" className="icon-btn" aria-label="Wishlist">
+            <Link prefetch href="/wishlist" className="icon-btn" aria-label="Wishlist">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21.2l7.8-7.8 1-1a5.5 5.5 0 0 0 0-7.8z"/></svg>
             </Link>
-            <Link href="/cart" className="icon-btn" aria-label="Cart">
+            <Link prefetch href="/cart" className="icon-btn" aria-label="Cart">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
               {count > 0 && <span className="cart-count">{count}</span>}
             </Link>
@@ -123,9 +123,9 @@ export function Header({ storeName, categories }: { storeName: string; categorie
         </div>
         <nav className={"mobile-nav" + (open ? " open" : "")}>
           <Link href="/products" onClick={() => setOpen(false)}>Shop All</Link>
-          {categories.slice(0, 6).map((c) => <Link key={c.slug} href={"/products?category=" + c.slug} onClick={() => setOpen(false)}>{c.name}</Link>)}
+          {categories.slice(0, 6).map((c) => <Link prefetch key={c.slug} href={"/products?category=" + c.slug} onClick={() => setOpen(false)}>{c.name}</Link>)}
           <Link href="/track" onClick={() => setOpen(false)}>Track Order</Link>
-          <Link href="/wishlist" onClick={() => setOpen(false)}>Wishlist</Link>
+          <Link prefetch href="/wishlist" onClick={() => setOpen(false)}>Wishlist</Link>
         </nav>
       </header>
 
@@ -192,13 +192,13 @@ export function Footer({ cfg }: { cfg: any }) {
           <div>
             <h4>Shop</h4>
             {(cfg?._nav?.categories || []).slice(0, 5).map((c: any) => (
-              <Link key={c.slug} href={"/products?category=" + c.slug}>{c.name}</Link>
+              <Link prefetch key={c.slug} href={"/products?category=" + c.slug}>{c.name}</Link>
             ))}
-            <Link href="/products">All Products</Link>
+            <Link prefetch href="/products">All Products</Link>
           </div>
           <div>
             <h4>Help</h4>
-            <Link href="/track">Track Order</Link>
+            <Link prefetch href="/track">Track Order</Link>
             <Link href="/products">Shipping</Link>
             <Link href="/products">Returns &amp; Exchange</Link>
             <a href={store.whatsapp ? "https://wa.me/" + String(store.whatsapp).replace(/[^0-9]/g, "") : "#"} target="_blank" rel="noreferrer">WhatsApp Support</a>

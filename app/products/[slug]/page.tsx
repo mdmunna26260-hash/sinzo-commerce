@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { getSettings, publicSettings } from "@/lib/settings";
+import { getCategories } from "@/lib/catalog";
 import { Header, Footer, Announcement } from "@/components/chrome";
 import { ProductCard, imgSrc } from "@/components/parts";
 import ProductPageClient from "./client";
@@ -32,7 +33,7 @@ export default async function PDP({ params, searchParams }: { params: { slug: st
 
   const s = await getSettings();
   const cfg = publicSettings(s);
-  const cats = await db.category.findMany({ orderBy: { id: "asc" } });
+  const cats = await getCategories();
   const relSelect = { id: true, title: true, slug: true, price: true, comparePrice: true, stock: true, badge: true, isNew: true, isBestSeller: true, categoryId: true, images: { select: { url: true, alt: true }, take: 1 } } as const;
   const related = await db.product.findMany({
     where: { status: "ACTIVE", categoryId: p.categoryId, id: { not: p.id } },
