@@ -6,16 +6,25 @@ export const dynamic = "force-dynamic";
 export async function POST(req: Request) {
   const g = await requirePerm("products", req);
   if ("res" in g) return g.res;
-  const legacy = await db.media.findMany({
-    where: { variantsJson: null, mime: { startsWith: "image/" } },
-    select: { id: true }, take: 200,
+  // candidates: rows with no variant index at all, or a legacy index missing any size key
+  const candidates = await db.media.findMany({
+    where: { mime: { startsWith: "image/" } },
+    select: { id: true, variantsJson: true },
+    take: 400,
   });
+  const NEED = ["w300", "w600", "w1000", "w1200"];
+  const legacy = candidates
+    .filter((r) => {
+      if (!r.variantsJson) return true;
+      try { const idx = JSON.parse(r.variantsJson); return NEED.some((k) => !idx[k]?.id); } catch { return true; }
+    })
+    .map((r) => ({ id: r.id }));
   if (!legacy.length) return NextResponse.json({ done: true, remaining: 0 });
   let optimized = 0;
   for (const { id } of legacy.slice(0, 5)) {
     try {
       const row = await db.media.findUnique({ where: { id } });
-      if (!row || row.variantsJson) continue;
+      if (!row) continue;
       const v = await generateVariants(Buffer.from(row.data));
       const mk = async (data: Buffer, tag: string) => {
         const r = await db.media.create({ data: { filename: tag + ".webp", mime: "image/webp", size: data.length, data } });
@@ -29,6 +38,10 @@ export async function POST(req: Request) {
       optimized++;
     } catch {}
   }
-  const remaining = await db.media.count({ where: { variantsJson: null, mime: { startsWith: "image/" } } });
+  const after = await db.media.findMany({ where: { mime: { startsWith: "image/" } }, select: { id: true, variantsJson: true }, take: 400 });
+  const remaining = after.filter((r) => {
+    if (!r.variantsJson) return true;
+    try { const idx = JSON.parse(r.variantsJson); return NEED.some((k) => !idx[k]?.id); } catch { return true; }
+  }).length;
   return NextResponse.json({ ok: true, optimized, remaining, done: remaining === 0 });
 }
