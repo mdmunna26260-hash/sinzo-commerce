@@ -68,6 +68,7 @@ export function Header({ storeName, categories }: { storeName: string; categorie
   const [searchOpen, setSearchOpen] = useState(false);
   const [q, setQ] = useState("");
   const [sugg, setSugg] = useState<any[] | null>(null);
+  const [fetching, setFetching] = useState(false);
   const timer = useRef<any>(null);
 
   useEffect(() => { setOpen(false); setSugg(null); }, [path]);
@@ -76,12 +77,14 @@ export function Header({ storeName, categories }: { storeName: string; categorie
     setQ(v);
     clearTimeout(timer.current);
     if (!v.trim()) { setSugg(null); return; }
+    setFetching(true);
     timer.current = setTimeout(async () => {
       try {
         const r = await fetch("/api/search?q=" + encodeURIComponent(v));
         const j = await r.json();
         setSugg(j.products || []);
       } catch {}
+      setFetching(false);
     }, 220);
   };
   const submitQ = (e: React.FormEvent) => {
@@ -141,6 +144,7 @@ export function Header({ storeName, categories }: { storeName: string; categorie
                 </button>
               </form>
               {sugg === null && q.trim().length < 2 && <div className="search-hint" style={{ padding: "16px 2px 0" }}>Popular right now ↓ — likhte shuru korun</div>}
+              {fetching && <div className="search-hint" style={{ display: "flex", alignItems: "center", gap: 8, padding: "14px 2px 0" }}><span className="spinner" aria-hidden="true" /> Searching…</div>}
               {sugg !== null && (
                 <>
                   <div className="eyebrow" style={{ margin: "18px 0 8px" }}>{q.trim().length >= 2 ? (sugg.length ? "Products" : "") : "Popular right now"}</div>
@@ -173,13 +177,17 @@ export function Footer({ cfg }: { cfg: any }) {
   const store = cfg?.store || {};
   const [email, setEmail] = useState("");
   const [msg, setMsg] = useState("");
+  const [subscribing, setSubscribing] = useState(false);
   const subscribe = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (subscribing) return;
+    setSubscribing(true);
     try {
       const r = await fetch("/api/newsletter", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email }) });
       if (r.ok) { setMsg("Thank you — you're on the list."); setEmail(""); trackEvent("Lead", { content_name: "newsletter" }); }
       else setMsg("Please enter a valid email.");
     } catch { setMsg("Something went wrong."); }
+    setSubscribing(false);
   };
   return (
     <footer className="footer">
@@ -221,8 +229,10 @@ export function Footer({ cfg }: { cfg: any }) {
           </div>
           <div>
             <form onSubmit={subscribe}>
-              <input type="email" required placeholder="Your email address" value={email} onChange={(e) => setEmail(e.target.value)} aria-label="Email" />
-              <button type="submit">Subscribe →</button>
+              <input type="email" required placeholder="Your email address" value={email} onChange={(e) => setEmail(e.target.value)} aria-label="Email" disabled={subscribing} />
+              <button type="submit" disabled={subscribing} aria-busy={subscribing || undefined}>
+                {subscribing ? <span className="spinner" aria-hidden="true" /> : "Subscribe →"}
+              </button>
             </form>
             {msg && <div className="form-note">{msg}</div>}
           </div>

@@ -68,6 +68,7 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
   const [qty, setQty] = useState(1);
   const [chart, setChart] = useState(false);
   const [buying, setBuying] = useState(false);
+  const [adding, setAdding] = useState(false);
 
   const sizes = Array.from(new Set(product.variants.map((v) => v.size).filter(Boolean))) as string[];
   const colors = Array.from(new Set(product.variants.map((v) => v.color).filter(Boolean))) as string[];
@@ -101,8 +102,19 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
     productId: product.id, variantId: activeVariant?.id, slug: product.slug, title: product.title,
     image: product.images[0]?.url, price, qty, size: size || undefined, color: color || undefined, stock: avail || 99,
   });
-  const addLine = () => { add(line(), qty); toast("Added to cart ✓"); };
-  const buyNow = () => { setBuying(true); add(line(), qty); router.push("/checkout"); };
+  const addLine = () => {
+    if (adding || buying) return; // no duplicate adds
+    setAdding(true);
+    add(line(), qty);
+    toast("Added to cart ✓");
+    setTimeout(() => setAdding(false), 450); // brief confirmation state
+  };
+  const buyNow = () => {
+    if (buying || adding) return;
+    setBuying(true);
+    add(line(), qty);
+    router.push("/checkout");
+  };
 
   return (
     <>
@@ -121,6 +133,7 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
               alt={product.images[img]?.alt || product.title}
               className={"pdp-img" + (hoverZoom && avail > 0 ? " hz" : "")}
               fetchPriority="high"
+              onError={(e) => { (e.currentTarget as HTMLImageElement).style.opacity = "0"; }}
               style={hoverZoom ? { transformOrigin: "50% 50%" } : undefined}
               onMouseEnter={() => { if (window.matchMedia("(hover: hover)").matches) setHoverZoom(true); }}
               onMouseLeave={() => { setHoverZoom(false); }}
@@ -207,8 +220,12 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
           </div>
 
           <div className="pdp-actions">
-            <button className="btn" disabled={avail <= 0} onClick={addLine}>Add to Cart</button>
-            <button className="btn btn-accent" disabled={avail <= 0 || buying} onClick={buyNow}>{buying ? "One moment…" : "Buy Now"}</button>
+            <button className="btn" disabled={avail <= 0 || adding} aria-busy={adding || undefined} onClick={addLine}>
+              {adding && <span className="spinner" aria-hidden="true" />}<span style={adding ? { marginLeft: 8 } : undefined}>{adding ? "Adding…" : "Add to Cart"}</span>
+            </button>
+            <button className="btn btn-accent" disabled={avail <= 0 || buying} aria-busy={buying || undefined} onClick={buyNow}>
+              {buying && <span className="spinner" aria-hidden="true" />}<span style={buying ? { marginLeft: 8 } : undefined}>{buying ? "Processing…" : "Buy Now"}</span>
+            </button>
             <button className="btn btn-outline" style={{ flex: "0 0 auto", minWidth: 0, padding: "13px 16px" }} onClick={() => wishlist.toggle(product.id)} aria-label="Wishlist">
               <svg width="18" height="18" viewBox="0 0 24 24" fill={wishlist.has(product.id) ? "currentColor" : "none"} stroke="currentColor" strokeWidth="1.5"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21.2l7.8-7.8 1-1a5.5 5.5 0 0 0 0-7.8z"/></svg>
             </button>
@@ -236,7 +253,9 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
           <div style={{ fontSize: 16, fontWeight: 600 }}>৳{price.toLocaleString("en-IN")}</div>
           <div style={{ fontSize: 11, color: avail > 0 ? "var(--ok)" : "var(--danger)" }}>{avail > 0 ? "In stock" : "Sold out"}</div>
         </div>
-        <button className="btn" disabled={avail <= 0} onClick={addLine}>Add to Cart</button>
+        <button className="btn" disabled={avail <= 0 || adding} aria-busy={adding || undefined} onClick={addLine}>
+          {adding && <span className="spinner" aria-hidden="true" />}<span style={adding ? { marginLeft: 8 } : undefined}>{adding ? "Adding…" : "Add to Cart"}</span>
+        </button>
       </div>
 
       {/* size chart modal */}

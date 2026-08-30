@@ -62,7 +62,12 @@ export default function CustomerLoginPage() {
             <label>Password * {mode === "register" && <span style={{ textTransform: "none", letterSpacing: 0 }}>(min 6)</span>}</label>
             <input required type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} placeholder="••••••••" />
           </div>
-          <button className="btn" style={{ width: "100%" }} disabled={busy}>{busy ? "…" : mode === "login" ? "Sign In" : "Create Account"}</button>
+          <button className="btn" style={{ width: "100%" }} disabled={busy} aria-busy={busy || undefined}>
+            {busy && <span className="spinner" aria-hidden="true" />}
+            <span style={busy ? { marginLeft: 8 } : undefined}>
+              {busy ? (mode === "login" ? "Signing in…" : "Creating account…") : mode === "login" ? "Sign In" : "Create Account"}
+            </span>
+          </button>
           <p style={{ fontSize: 12, color: "var(--muted)", textAlign: "center" }}>
             Order track korte login lagbe na — <Link href="/track" className="link-underline" style={{ textTransform: "none", letterSpacing: 0 }}>Track Order</Link> page use korun.
           </p>

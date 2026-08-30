@@ -905,3 +905,23 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 13.5px; }
 @media (min-width: 1500px) { .sk-grid { grid-template-columns: repeat(5, 1fr); gap: 28px 18px; } }
 .pdp-sk { display: grid; gap: 30px; align-items: start; }
 @media (min-width: 900px) { .pdp-sk { grid-template-columns: 1.1fr 1fr; } }
+
+/* ---------- Loading kit: inline action spinner + image reveal ---------- */
+.spinner { display: inline-block; flex: none; border: 2px solid currentColor; border-right-color: transparent; border-radius: 99px; animation: szspin .7s linear infinite; opacity: .92; vertical-align: -2px; }
+.btn .spinner, .abtn .spinner { margin-right: 2px; }
+.btn, .abtn { text-align: center; }
+.btn[aria-busy="true"], .abtn[aria-busy="true"] { opacity: .85; cursor: progress; }
+
+/* Smooth image reveal: subtle fade-in the moment the bitmap is decoded.
+   Layout box (aspect-ratio + bg) is fixed → zero CLS. */
+.fade-img { opacity: 0; transition: opacity .35s ease; }
+.fade-img.loaded { opacity: 1; }
+@media (prefers-reduced-motion: reduce) { .fade-img { transition: none; } }
+
+/* Shop results "updating" state (filter/sort/search changes):
+   previous results stay visible but dimmed + toolbar spinner — no flash,
+   header/pills/filters stay live. Clears when fresh results commit. */
+.shop-main { transition: opacity .2s ease; }
+.shop-main.updating .shop-grid, .shop-main.updating .chips, .shop-main.updating .inf-sentinel { opacity: .45; pointer-events: none; transition: opacity .2s ease; }
+.shop-main.updating .empty { opacity: .45; }
+.st-spin { margin-right: 6px; vertical-align: -2px; }

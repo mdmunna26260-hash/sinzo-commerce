@@ -25,6 +25,7 @@ export default function CheckoutPage() {
   const [applied, setApplied] = useState<any>(null);
   const [errors, setErrors] = useState<any>({});
   const [busy, setBusy] = useState(false);
+  const [cbusy, setCBusy] = useState(false);
   const [payment, setPayment] = useState("COD");
 
   const discount = applied ? applied.discount : 0;
@@ -82,9 +83,14 @@ export default function CheckoutPage() {
   const set = (k: string, v: string) => setForm((f) => ({ ...f, [k]: v }));
 
   const applyCoupon = async () => {
-    const r = await fetch("/api/coupon", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code: coupon.trim(), subtotal }) });
-    const j = await r.json();
-    if (r.ok && j.valid) { setApplied(j); toast(`Coupon ${j.code} applied ✓`); } else { setApplied(null); toast(j.error || "Invalid coupon"); }
+    if (!coupon.trim() || cbusy || busy) return;
+    setCBusy(true);
+    try {
+      const r = await fetch("/api/coupon", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code: coupon.trim(), subtotal }) });
+      const j = await r.json();
+      if (r.ok && j.valid) { setApplied(j); toast(`Coupon ${j.code} applied ✓`); } else { setApplied(null); toast(j.error || "Invalid coupon"); }
+    } catch { toast("Network error"); }
+    setCBusy(false);
   };
 
   const validate = (): boolean => {
@@ -212,11 +218,16 @@ export default function CheckoutPage() {
             <div className="sum-row total"><span>Total</span><span>৳{total.toLocaleString("en-IN")}</span></div>
           </div>
           <div className="coupon-row">
-            <input placeholder="Coupon code" value={coupon} onChange={(e) => setCoupon(e.target.value.toUpperCase())} />
-            <button className="abtn" onClick={applyCoupon} type="button">Apply</button>
+            <input placeholder="Coupon code" value={coupon} onChange={(e) => setCoupon(e.target.value.toUpperCase())} disabled={busy} />
+            <button className="abtn" onClick={applyCoupon} type="button" disabled={busy || cbusy} aria-busy={cbusy || undefined}>
+              {cbusy && <span className="spinner" aria-hidden="true" />}{cbusy ? "Checking" : "Apply"}
+            </button>
           </div>
-          <button className="btn btn-accent" style={{ width: "100%" }} onClick={placeOrder} disabled={busy}>
-            {busy ? "Placing order…" : `Place Order · ৳${total.toLocaleString("en-IN")}`}
+          <button className="btn btn-accent" style={{ width: "100%" }} onClick={placeOrder} disabled={busy} aria-busy={busy || undefined}>
+            {busy && <span className="spinner" aria-hidden="true" />}
+            <span style={busy ? { marginLeft: 8 } : undefined}>
+              {busy ? "Processing Order…" : `Place Order · ৳${total.toLocaleString("en-IN")}`}
+            </span>
           </button>
           <p style={{ fontSize: 12, color: "var(--muted)", marginTop: 12, textAlign: "center" }}>
             Estimated delivery: {form.area === "INSIDE_DHAKA" ? shipCfg.estimateInside || "1-2 days" : shipCfg.estimateOutside || "2-4 days"}

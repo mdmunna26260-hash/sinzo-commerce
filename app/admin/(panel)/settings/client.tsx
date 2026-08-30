@@ -274,7 +274,7 @@ export default function SettingsClient({ groups, user, userCount, hasCourier }: 
       <input type={type} value={g[group]?.[k] ?? ""} onChange={(e) => setG({ ...g, [group]: { ...g[group], [k]: e.target.value } })} />
     </div>
   );
-  const saveBtn = (group: string) => <button className="abtn primary" onClick={() => save(group, g[group])} disabled={busy}>{busy ? "Saving…" : "Save " + group.charAt(0).toUpperCase() + group.slice(1)}</button>;
+  const saveBtn = (group: string) => <button className="abtn primary" onClick={() => save(group, g[group])} disabled={busy} aria-busy={busy || undefined}>{busy && <span className="spinner" aria-hidden="true" />} {busy ? "Saving…" : "Save " + group.charAt(0).toUpperCase() + group.slice(1)}</button>;
   const blacklistAdd = async () => {
     if (!bl.value) return;
     // blacklist is stored via settings-less model — use audit+blacklist API? simplest: direct fetch to a tiny route

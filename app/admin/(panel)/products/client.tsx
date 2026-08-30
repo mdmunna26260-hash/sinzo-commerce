@@ -341,7 +341,7 @@ export default function ProductsClient({ initial, categories }: { initial: P[]; 
               </div>
               <span style={{ flex: 1 }} />
               <button className="abtn" onClick={() => setEdit(null)}>Cancel</button>
-              <button className="abtn primary" onClick={save} disabled={busy}>{busy ? "Saving…" : "Save Product"}</button>
+              <button className="abtn primary" onClick={save} disabled={busy} aria-busy={busy || undefined}>{busy && <span className="spinner" aria-hidden="true" />} {busy ? "Saving…" : "Save Product"}</button>
             </div>
           </div>
         </div>

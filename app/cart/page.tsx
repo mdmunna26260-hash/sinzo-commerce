@@ -10,6 +10,7 @@ export default function CartPage() {
   const [coupon, setCoupon] = useState("");
   const [applied, setApplied] = useState<any>(null);
   const [busy, setBusy] = useState(false);
+  const [sizing, setSizing] = useState<string | null>(null);
   const [cfg, setCfg] = useState({ freeT: 5000, inside: 80, outside: 140 });
 
   useEffect(() => {
@@ -36,6 +37,7 @@ export default function CartPage() {
   };
 
   const changeSize = async (l: any, newSize: string) => {
+    setSizing(l.key);
     try {
       const r = await fetch(`/api/cart/variant?productId=${l.productId}&size=${encodeURIComponent(newSize)}${l.color ? "&color=" + encodeURIComponent(l.color) : ""}`);
       const j = await r.json();
@@ -44,6 +46,7 @@ export default function CartPage() {
         toast("Cart item updated successfully");
       } else toast(`Size ${newSize} is out of stock`);
     } catch { toast("Network error"); }
+    setSizing(null);
   };
 
   // lazy: old carts missing sizes[]
@@ -114,11 +117,12 @@ export default function CartPage() {
                 <div className="v">৳{Number(l.price || 0).toLocaleString("en-IN")}</div>
                 <div style={{ marginTop: 10, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                   <span style={{ fontSize: 11, letterSpacing: ".14em", textTransform: "uppercase", color: "var(--muted)" }}>Size</span>
-                  <select className="cart-size-select" value={l.size || ""} onChange={(e) => changeSize(l, e.target.value)} aria-label="Change size">
+                  <select className="cart-size-select" value={l.size || ""} onChange={(e) => changeSize(l, e.target.value)} aria-label="Change size" disabled={sizing === l.key} style={sizing === l.key ? { opacity: .6 } : undefined}>
                     {!l.size && <option value="">—</option>}
                     {l.size && <option value={l.size}>{l.size}</option>}
                     {(l.sizes || []).filter((s) => s && s !== l.size).map((s) => <option key={s} value={s}>{s}</option>)}
                   </select>
+                  {sizing === l.key && <span className="spinner spin-sm" aria-hidden="true" style={{ width: 13, height: 13 }} />}
                 </div>
                 <div style={{ marginTop: 10, display: "flex", alignItems: "center", gap: 12 }}>
                   <div className="qty">
@@ -146,7 +150,9 @@ export default function CartPage() {
           <div className="sum-row total"><span>Total</span><span>৳{total.toLocaleString("en-IN")}</span></div>
           <div className="coupon-row">
             <input placeholder="Coupon code" value={coupon} onChange={(e) => setCoupon(e.target.value.toUpperCase())} />
-            <button className="abtn" onClick={applyCoupon} disabled={busy}>Apply</button>
+            <button className="abtn" onClick={applyCoupon} disabled={busy} aria-busy={busy || undefined}>
+              {busy && <span className="spinner" aria-hidden="true" />}{busy ? "Checking" : "Apply"}
+            </button>
           </div>
           <Link className="btn" style={{ width: "100%" }} href="/checkout">Proceed to Checkout</Link>
           <div className="trust">

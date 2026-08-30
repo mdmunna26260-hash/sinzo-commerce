@@ -20,6 +20,7 @@ export default function Filters({ cats, sizes = [], mobileOpen, onClose }: {
     for (const [k, v] of Object.entries(patch)) {
       if (v) params.set(k, v); else params.delete(k);
     }
+    window.dispatchEvent(new Event("sz_nav_start")); // results area → updating state
     router.push("/products?" + params.toString(), { scroll: false });
     onClose?.();
   };
@@ -99,6 +100,7 @@ export function SortSelect({ value }: { value: string }) {
     <select className="sort-select" value={value} onChange={(e) => {
       const params = new URLSearchParams(sp.toString());
       if (e.target.value === "custom") params.delete("sort"); else params.set("sort", e.target.value);
+      window.dispatchEvent(new Event("sz_nav_start")); // results area → updating state
       router.push("/products?" + params.toString(), { scroll: false });
     }} aria-label="Sort products">
       <option value="custom">Sort</option>
