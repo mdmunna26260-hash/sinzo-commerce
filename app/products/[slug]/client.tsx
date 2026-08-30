@@ -21,22 +21,21 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
 
   // ---------- gallery state ----------
   const [img, setImg] = useState(0);
-  const [fading, setFading] = useState(false);
   const [lightbox, setLightbox] = useState(false);
   const [lbIdx, setLbIdx] = useState(0);
   const [lbZoom, setLbZoom] = useState(false);
   const [hoverZoom, setHoverZoom] = useState(false);
   const touch = useRef<{ x: number; y: number } | null>(null);
 
+  /* Instant swap, no fade-gate: the <img> element keeps displaying the previous
+     bitmap while the new src downloads (browser-native behaviour), so tapping a
+     thumbnail NEVER shows a blank box — the new photo appears the moment it's
+     decoded. warmImage() races the exact variant into cache ahead of the swap. */
   const goTo = (i: number) => {
     const n = ((i % N) + N) % N;
     if (n === img) return;
-    // Preload next image before showing it (prevents flash); switch anyway on error
-    const nextImg = new Image();
-    nextImg.onload = () => { setImg(n); setFading(false); };
-    nextImg.onerror = () => { setImg(n); setFading(false); };
-    nextImg.src = imgSrc(product.images[n]?.url, 1000) || product.images[n]?.url || "";
-    setFading(true);
+    warmImage(product.images[n]?.url);
+    setImg(n);
   };
   const next = () => goTo(img + 1);
   const prev = () => goTo(img - 1);
@@ -116,12 +115,12 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
             onTouchEnd={(e) => onTouchEnd(e)}
           >
             <img
-              key={img}
               src={imgSrc((product.images[img] || product.images[0])?.url, 1000) || (product.images[img] || product.images[0])?.url}
               srcSet={imgSrcSet((product.images[img] || product.images[0])?.url, [600, 1000, 1200])}
               sizes="(max-width: 900px) 100vw, 45vw"
               alt={product.images[img]?.alt || product.title}
-              className={"pdp-img" + (fading ? " changing" : "") + (hoverZoom && avail > 0 ? " hz" : "")}
+              className={"pdp-img" + (hoverZoom && avail > 0 ? " hz" : "")}
+              fetchPriority="high"
               style={hoverZoom ? { transformOrigin: "50% 50%" } : undefined}
               onMouseEnter={() => { if (window.matchMedia("(hover: hover)").matches) setHoverZoom(true); }}
               onMouseLeave={() => { setHoverZoom(false); }}

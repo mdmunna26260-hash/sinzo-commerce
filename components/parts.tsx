@@ -22,7 +22,7 @@ export function ProductCard({ p, wish }: { p: CardProduct; wish?: boolean }) {
   return (
     <Link className="pcard reveal" href={"/products/" + p.slug}>
       <div className="pcard-img">
-        {p.image && <CardImg url={p.image} alt={p.title} />}
+        {p.image && <CardImg url={p.image} alt={p.title} slug={p.slug} />}
         <div className="pcard-badges">
           {off > 0 && <span className="badge sale">-{off}%</span>}
           {p.badge && <span className={"badge badge-" + p.badge}>{BADGE_LABELS[p.badge] || p.badge}</span>}
