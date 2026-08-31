@@ -434,6 +434,19 @@ export default function SettingsClient({ groups, user, userCount, hasCourier }: 
               <div className="full">{saveBtn("courier")}</div>
             </div>
           </div>
+          <div className="acard" style={{ marginTop: 16 }}><div className="acard-h"><h3>Courier Fraud Check (order page)</h3>
+            <span className={"risk-badge " + (g.courier?.fraudApiKey ? "risk-LOW" : "risk-HIGH")}>{g.courier?.fraudApiKey ? "CONFIGURED" : "NOT CONFIGURED"}</span>
+          </div>
+            <div className="acard-b form-grid">
+              <div className="af"><label>Provider name</label><input value={g.courier?.fraudProviderName || ""} onChange={(e) => setG({ ...g, courier: { ...g.courier, fraudProviderName: e.target.value } })} placeholder="FraudBD" /></div>
+              <div className="af"><label>Check API URL</label><input value={g.courier?.fraudApiUrl || ""} onChange={(e) => setG({ ...g, courier: { ...g.courier, fraudApiUrl: e.target.value } })} placeholder="https://fraudbd.com/api/check-courier-info" autoCapitalize="none" /></div>
+              <div className="af full"><label>API Key</label><input type="password" value={g.courier?.fraudApiKey || ""} onChange={(e) => setG({ ...g, courier: { ...g.courier, fraudApiKey: e.target.value } })} placeholder="provider dashboard theke API key" autoCapitalize="none" /></div>
+              <div className="full" style={{ fontSize: 12, color: "var(--muted)" }}>
+                FraudBD hole: fraudbd.com theke sign up kore API key nin. Key thakle order page-er Courier Fraud Check card e phone diye Steadfast/Pathao/RedX/Paperfly delivery history dekha jabe. Key na thakleo nijer store-er data (delivered/cancel/return) shob somoy dekhabe.
+              </div>
+              <div className="full">{saveBtn("courier")}</div>
+            </div>
+          </div>
           <div className="acard" style={{ marginTop: 16 }}><div className="acard-h"><h3>Fraud Blacklist</h3></div>
             <div className="acard-b">
               <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>

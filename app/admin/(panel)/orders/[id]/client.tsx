@@ -21,6 +21,89 @@ function ThermalLink({ orderId, token }: { orderId: number; token: string }) {
 type Order = any;
 const STATUSES = ["PENDING", "CONFIRMED", "PROCESSING", "PACKED", "SHIPPED", "DELIVERED", "CANCELLED", "RETURNED", "ON_HOLD"];
 
+/* Courier fraud check card: provider report (Steadfast/Pathao/RedX/… delivery
+   history via FraudBD-compatible API) + our own store history (always real).
+   On-demand only — one API call per click, spinner state, honest errors. */
+function FraudCheck({ orderId, phone }: { orderId: number; phone: string }) {
+  const [busy, setBusy] = useState(false);
+  const [res, setRes] = useState<any>(null);
+  const [err, setErr] = useState("");
+
+  const run = async () => {
+    setBusy(true); setErr("");
+    try {
+      const r = await afetch(`/api/admin/orders/${orderId}/fraudcheck`, { method: "POST" });
+      const j = await r.json();
+      if (r.ok) setRes(j); else setErr(j.error || "Check failed");
+    } catch { setErr("Network error"); }
+    setBusy(false);
+  };
+
+  const tone = (rate?: number, risk?: string) => {
+    if (risk === "high" || (rate != null && rate < 50)) return "risk-HIGH";
+    if (risk === "medium" || (rate != null && rate < 75)) return "risk-MEDIUM";
+    return "risk-LOW";
+  };
+
+  return (
+    <div className="acard" style={{ marginBottom: 16 }}>
+      <div className="acard-h">
+        <h3>🛡️ Courier Fraud Check — {phone}</h3>
+        <button className="abtn" onClick={run} disabled={busy} aria-busy={busy || undefined}>
+          {busy && <span className="spinner" aria-hidden="true" />} {busy ? "Checking…" : res ? "Check again" : "Check courier history"}
+        </button>
+      </div>
+      {err && <div className="acard-b" style={{ paddingTop: 12 }}><div className="noti err">{err}</div></div>}
+      {!res && !err && (
+        <div className="acard-b" style={{ fontSize: 12.5, color: "var(--muted)" }}>
+          Courier delivery history (Steadfast / Pathao / RedX / Paperfly) + apnar nijer store-er data — shipping er age check korun. Setup: Settings → Courier.
+        </div>
+      )}
+      {res && (
+        <div className="acard-b">
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: res.provider?.ok ? 14 : 0 }}>
+            <span className="pill DELIVERED">Own store: delivered {res.own.delivered}</span>
+            <span className={"pill " + (res.own.cancelled + res.own.returned > 0 ? "CANCELLED" : "DRAFT")}>cancelled {res.own.cancelled} · returned {res.own.returned}</span>
+            {res.own.active > 0 && <span className="pill PROCESSING">active {res.own.active}</span>}
+            {res.own.successRate != null && <span className={"risk-badge " + tone(res.own.successRate)}>own success {res.own.successRate}%</span>}
+          </div>
+          {res.provider?.ok ? (
+            <>
+              <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center", marginBottom: 10 }}>
+                <span className={"risk-badge " + tone(res.provider.summary?.successRate)}>
+                  All couriers: {res.provider.summary?.successRate ?? "—"}% success
+                </span>
+                <span style={{ fontSize: 12, color: "var(--muted)" }}>
+                  {res.provider.summary?.total ?? 0} deliveries · {res.provider.summary?.success ?? 0} success · {res.provider.summary?.cancel ?? 0} cancel ({res.provider.provider})
+                </span>
+              </div>
+              <table className="tbl">
+                <thead><tr><th>Courier</th><th>Total</th><th>Success</th><th>Cancel</th><th>Success %</th><th>Risk</th></tr></thead>
+                <tbody>
+                  {(res.provider.couriers || []).map((c: any) => (
+                    <tr key={c.name}>
+                      <td><b>{c.name}</b></td>
+                      <td>{c.total}</td>
+                      <td>{c.success}</td>
+                      <td>{c.cancel}</td>
+                      <td>{c.total ? (c.successRate ?? Math.round((c.success / c.total) * 100)) + "%" : "—"}</td>
+                      <td>{c.risk || c.message ? <span className={"risk-badge " + tone(undefined, c.risk)}>{String(c.message || c.risk).replace(/_/g, " ")}</span> : "—"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </>
+          ) : (
+            <div className="noti err" style={{ marginTop: 6 }}>
+              Provider report: {res.provider?.error || "not configured"} — nijer store-er data upore dekhachhe. API key add korun: Settings → Courier.
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function OrderDetailClient({ initial }: { initial: Order }) {
   const router = useRouter();
   const [o, setO] = useState(initial);
@@ -135,6 +218,7 @@ export default function OrderDetailClient({ initial }: { initial: Order }) {
       {o.riskLevel !== "LOW" && (
         <div className="noti err">⚠ Risk level: <b>{o.riskLevel}</b>{o.riskFlags ? " — " + o.riskFlags : ""} — review before shipping.</div>
       )}
+      <FraudCheck orderId={o.id} phone={o.phone} />
 
       <div style={{ display: "grid", gridTemplateColumns: "1.6fr 1fr", gap: 16, alignItems: "start" }}>
         <div>
