@@ -61,12 +61,28 @@ function FraudCheck({ orderId, phone }: { orderId: number; phone: string }) {
       )}
       {res && (
         <div className="acard-b">
-          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: res.provider?.ok ? 14 : 0 }}>
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 12 }}>
             <span className="pill DELIVERED">Own store: delivered {res.own.delivered}</span>
             <span className={"pill " + (res.own.cancelled + res.own.returned > 0 ? "CANCELLED" : "DRAFT")}>cancelled {res.own.cancelled} · returned {res.own.returned}</span>
             {res.own.active > 0 && <span className="pill PROCESSING">active {res.own.active}</span>}
             {res.own.successRate != null && <span className={"risk-badge " + tone(res.own.successRate)}>own success {res.own.successRate}%</span>}
           </div>
+          {res.stf && (
+            res.stf.ok ? (
+              <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center", marginBottom: res.provider?.ok ? 14 : 0 }}>
+                <span className={"risk-badge " + tone(res.stf.summary?.successRate)}>Steadfast (FREE): {res.stf.summary?.successRate ?? 0}% success</span>
+                <span style={{ fontSize: 12, color: "var(--muted)" }}>
+                  {res.stf.summary?.total ?? 0} deliveries · {res.stf.summary?.success ?? 0} delivered · {res.stf.summary?.cancel ?? 0} cancelled
+                </span>
+              </div>
+            ) : (
+              <div className={"noti " + (res.stf.configured ? "err" : "ok")} style={{ marginBottom: res.provider?.ok ? 14 : 0, fontSize: 12.5 }}>
+                {res.stf.configured
+                  ? "Steadfast free check fail: " + (res.stf.error || "unknown")
+                  : "Steadfast FREE check: Settings → Courier e merchant web email + password din (portal.packzy.com login) — tahole ekhane Steadfast delivery history free dekhajabe."}
+              </div>
+            )
+          )}
           {res.provider?.ok ? (
             <>
               <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center", marginBottom: 10 }}>

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requirePerm } from "@/lib/admin-guard";
 import { checkCourierFraud, ownCustomerStats } from "@/lib/fraudcheck";
+import { steadfastFreeFraudCheck } from "@/lib/steadfast";
 import { rateLimit } from "@/lib/auth";
 export const dynamic = "force-dynamic";
 type Ctx = { params: { id: string } };
@@ -19,5 +20,6 @@ export async function POST(req: Request, { params }: Ctx) {
   if (!order) return NextResponse.json({ error: "Order not found" }, { status: 404 });
   const own = await ownCustomerStats(order.phone);
   const provider = await checkCourierFraud(order.phone);
-  return NextResponse.json({ ok: true, phone: order.phone, own, provider });
+  const stf = await steadfastFreeFraudCheck(order.phone); // FREE (merchant web login)
+  return NextResponse.json({ ok: true, phone: order.phone, own, provider, stf });
 }

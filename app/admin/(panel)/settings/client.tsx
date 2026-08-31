@@ -434,7 +434,19 @@ export default function SettingsClient({ groups, user, userCount, hasCourier }: 
               <div className="full">{saveBtn("courier")}</div>
             </div>
           </div>
-          <div className="acard" style={{ marginTop: 16 }}><div className="acard-h"><h3>Courier Fraud Check (order page)</h3>
+          <div className="acard" style={{ marginTop: 16 }}><div className="acard-h"><h3>Steadfast FREE Fraud Check</h3>
+            <span className={"risk-badge " + (g.courier?.stfEmail ? "risk-LOW" : "risk-HIGH")}>{g.courier?.stfEmail ? "CONFIGURED" : "NOT CONFIGURED"}</span>
+          </div>
+            <div className="acard-b form-grid">
+              <div className="af"><label>Steadfast merchant web email (portal.packzy.com login)</label><input value={g.courier?.stfEmail || ""} onChange={(e) => setG({ ...g, courier: { ...g.courier, stfEmail: e.target.value } })} autoCapitalize="none" /></div>
+              <div className="af"><label>Steadfast web password</label><input type="password" value={g.courier?.stfPassword || ""} onChange={(e) => setG({ ...g, courier: { ...g.courier, stfPassword: e.target.value } })} autoCapitalize="none" /></div>
+              <div className="full" style={{ fontSize: 12, color: "var(--muted)" }}>
+                Steadfast merchant dashboard-er <b>free</b> fraud check — order page-e "Courier Fraud Check" card e Steadfast delivery history (delivered/cancelled) FREE dekhabe. Api-key lagbe na, shudhu web login.
+              </div>
+              <div className="full">{saveBtn("courier")}</div>
+            </div>
+          </div>
+          <div className="acard" style={{ marginTop: 16 }}><div className="acard-h"><h3>Courier Fraud Check — All couriers (FraudBD, optional paid)</h3>
             <span className={"risk-badge " + (g.courier?.fraudApiKey ? "risk-LOW" : "risk-HIGH")}>{g.courier?.fraudApiKey ? "CONFIGURED" : "NOT CONFIGURED"}</span>
           </div>
             <div className="acard-b form-grid">
