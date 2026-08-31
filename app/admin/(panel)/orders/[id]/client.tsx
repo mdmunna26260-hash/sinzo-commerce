@@ -28,6 +28,23 @@ function FraudCheck({ orderId, phone }: { orderId: number; phone: string }) {
   const [busy, setBusy] = useState(false);
   const [res, setRes] = useState<any>(null);
   const [err, setErr] = useState("");
+  const [repOpen, setRepOpen] = useState(false);
+  const [repType, setRepType] = useState("Cancelled order");
+  const [repNote, setRepNote] = useState("");
+  const [repMsg, setRepMsg] = useState("");
+  const [repBusy, setRepBusy] = useState(false);
+
+  const submitReport = async () => {
+    setRepBusy(true); setRepMsg("");
+    try {
+      const r = await afetch("/api/admin/fraud-report", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ phone, reason: repType, note: repNote }) });
+      const j = await r.json();
+      setRepMsg(r.ok ? "✓ Report saved — phone auto-blacklisted" : (j.error || "Failed"));
+      if (r.ok) { setRepOpen(false); setRepNote(""); }
+    } catch { setRepMsg("Network error"); }
+    setRepBusy(false);
+    setTimeout(() => setRepMsg(""), 4000);
+  };
 
   const run = async () => {
     setBusy(true); setErr("");
@@ -49,10 +66,35 @@ function FraudCheck({ orderId, phone }: { orderId: number; phone: string }) {
     <div className="acard" style={{ marginBottom: 16 }}>
       <div className="acard-h">
         <h3>🛡️ Courier Fraud Check — {phone}</h3>
-        <button className="abtn" onClick={run} disabled={busy} aria-busy={busy || undefined}>
-          {busy && <span className="spinner" aria-hidden="true" />} {busy ? "Checking…" : res ? "Check again" : "Check courier history"}
-        </button>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <button className="abtn" onClick={run} disabled={busy} aria-busy={busy || undefined}>
+            {busy && <span className="spinner" aria-hidden="true" />} {busy ? "Checking…" : res ? "Check again" : "Check courier history"}
+          </button>
+          <button className={"abtn " + (repOpen ? "" : "danger")} onClick={() => setRepOpen(!repOpen)}>🚩 Report fraud</button>
+        </div>
       </div>
+      {repMsg && <div className="acard-b" style={{ paddingTop: 10, paddingBottom: 0 }}><div className={"noti " + (repMsg.includes("✓") ? "ok" : "err")}>{repMsg}</div></div>}
+      {repOpen && (
+        <div className="acard-b" style={{ paddingTop: 12, borderBottom: "1px solid #f1efec" }}>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+            <select className="abtn" value={repType} onChange={(e) => setRepType(e.target.value)} aria-label="Report reason">
+              <option>Cancelled order</option>
+              <option>Returned parcel</option>
+              <option>Fake number / unreachable</option>
+              <option>Refused to receive</option>
+              <option>Address problem</option>
+              <option>Abusive behaviour</option>
+            </select>
+            <input placeholder="Note (optional)" value={repNote} onChange={(e) => setRepNote(e.target.value)} style={{ flex: 1, minWidth: 160, border: "1px solid #ddd9d2", padding: "9px 12px", borderRadius: 5 }} />
+            <button className="abtn danger" onClick={submitReport} disabled={repBusy} aria-busy={repBusy || undefined}>
+              {repBusy && <span className="spinner" aria-hidden="true" />} {repBusy ? "Reporting…" : "Confirm report"}
+            </button>
+          </div>
+          <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 8 }}>
+            Report korle ei number <b>auto-blacklist</b> hobe — bhisher dike ei phone diye notun order place korte parbe na. Vul hole Settings → Fraud Blacklist theke remove korun.
+          </div>
+        </div>
+      )}
       {err && <div className="acard-b" style={{ paddingTop: 12 }}><div className="noti err">{err}</div></div>}
       {!res && !err && (
         <div className="acard-b" style={{ fontSize: 12.5, color: "var(--muted)" }}>
@@ -71,8 +113,10 @@ function FraudCheck({ orderId, phone }: { orderId: number; phone: string }) {
             res.stf.ok ? (
               <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center", marginBottom: res.provider?.ok ? 14 : 0 }}>
                 <span className={"risk-badge " + tone(res.stf.summary?.successRate)}>Steadfast (FREE): {res.stf.summary?.successRate ?? 0}% success</span>
-                <span style={{ fontSize: 12, color: "var(--muted)" }}>
-                  {res.stf.summary?.total ?? 0} deliveries · {res.stf.summary?.success ?? 0} delivered · {res.stf.summary?.cancel ?? 0} cancelled
+                <span style={{ fontSize: 12, display: "inline-flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+                  <b style={{ color: "#9a7b1e" }}>{res.stf.summary?.total ?? 0} deliveries</b>
+                  <b style={{ color: "var(--ok)" }}>{res.stf.summary?.success ?? 0} delivered</b>
+                  <b style={{ color: "var(--danger)" }}>{res.stf.summary?.cancel ?? 0} cancelled</b>
                 </span>
               </div>
             ) : (
