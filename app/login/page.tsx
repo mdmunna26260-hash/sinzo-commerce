@@ -1,14 +1,31 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
+import { getCfg } from "@/components/store";
+
+const GOOGLE_ERRORS: Record<string, string> = {
+  google_not_configured: "Google login ekhono configure kora hoy nai — admin panel e Client ID/Secret dite hobe.",
+  google_state: "Security check fail holo — abar try korun.",
+  google_token: "Google theke token nilam na — abar try korun.",
+  google_email: "Google account er email verified na.",
+  google_error: "Google login e somossa holo — abar try korun.",
+};
 
 export default function CustomerLoginPage() {
   const [mode, setMode] = useState<"login" | "register">("login");
   const [form, setForm] = useState({ name: "", phone: "", email: "", password: "" });
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
+  const [googleOn, setGoogleOn] = useState(false);
   const router = useRouter();
+  const sp = useSearchParams();
+
+  useEffect(() => {
+    const e = sp.get("err");
+    if (e) setErr(GOOGLE_ERRORS[e] || e);
+    try { setGoogleOn(!!getCfg()?.integrations?.googleLoginEnabled); } catch {}
+  }, [sp]);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -68,6 +85,17 @@ export default function CustomerLoginPage() {
               {busy ? (mode === "login" ? "Signing in…" : "Creating account…") : mode === "login" ? "Sign In" : "Create Account"}
             </span>
           </button>
+          {googleOn && (
+            <>
+              <div style={{ display: "flex", alignItems: "center", gap: 12, color: "var(--muted)", fontSize: 11, letterSpacing: ".16em", textTransform: "uppercase" }}>
+                <span style={{ flex: 1, height: 1, background: "var(--line)" }} />or<span style={{ flex: 1, height: 1, background: "var(--line)" }} />
+              </div>
+              <a href="/api/auth/google" className="btn btn-outline" style={{ width: "100%", textDecoration: "none" }} aria-label="Continue with Google">
+                <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path fill="#4285F4" d="M23.5 12.3c0-.9-.1-1.5-.3-2.2H12v4.1h6.5c-.1 1.1-.8 2.7-2.4 3.8l3.7 2.9c2.3-2.1 3.7-5.2 3.7-8.6z"/><path fill="#34A853" d="M12 24c3.2 0 5.9-1.1 7.9-2.9l-3.7-2.9c-1 .7-2.4 1.2-4.2 1.2-3.2 0-5.9-2.1-6.9-5.1L1.3 17.2C3.3 21.2 7.3 24 12 24z"/><path fill="#FBBC05" d="M5.1 14.3c-.2-.7-.4-1.5-.4-2.3s.1-1.6.4-2.3L1.3 6.8C.5 8.4 0 10.1 0 12s.5 3.6 1.3 5.2l3.8-2.9z"/><path fill="#EA4335" d="M12 4.7c1.8 0 3 .8 3.7 1.4l3.3-3.2C17.9 1.1 15.2 0 12 0 7.3 0 3.3 2.8 1.3 6.8l3.8 2.9c1-3 3.7-5 6.9-5z"/></svg>
+                Continue with Google
+              </a>
+            </>
+          )}
           <p style={{ fontSize: 12, color: "var(--muted)", textAlign: "center" }}>
             Order track korte login lagbe na — <Link href="/track" className="link-underline" style={{ textTransform: "none", letterSpacing: 0 }}>Track Order</Link> page use korun.
           </p>

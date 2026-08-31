@@ -2,7 +2,7 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
 
 /* ============ Client-side tracking service (Meta Pixel + GA4 + GTM + server CAPI) ============ */
-function getCfg(): any {
+export function getCfg(): any {
   try { return JSON.parse(document.getElementById("sz-cfg")?.textContent || "{}"); } catch { return {}; }
 }
 function genEventId(): string {

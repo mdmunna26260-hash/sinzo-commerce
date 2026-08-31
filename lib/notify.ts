@@ -82,6 +82,25 @@ export async function whatsappCustomerOrder(to: string, name: string, order: { c
   } catch { return { configured: false }; }
 }
 
+/* Canonical public site URL for links inside emails */
+export function storeUrl(s: any): string {
+  const raw = s?.seo?.siteUrl || process.env.NEXT_PUBLIC_SITE_URL || "";
+  const url = String(raw).trim();
+  if (url.startsWith("http")) return url.replace(/\/$/, "");
+  if (url) return "https://" + url.replace(/\/$/, "");
+  return "https://sinzo-commerce.vercel.app";
+}
+
+/* Email action buttons (invoice / track) — table-based, email-client safe */
+function actionButtons(url: string, code: string): string {
+  const inv = `${url}/invoice/${code}`;
+  const trk = `${url}/track?code=${code}`;
+  return `<table style="margin-top:20px;border-collapse:collapse"><tr>
+    <td style="padding-right:12px"><a href="${inv}" style="display:inline-block;background:#141414;color:#fff;text-decoration:none;padding:12px 22px;font-size:12px;letter-spacing:.14em;text-transform:uppercase">View Invoice</a></td>
+    <td><a href="${trk}" style="display:inline-block;background:#fff;color:#141414;border:1px solid #141414;text-decoration:none;padding:12px 22px;font-size:12px;letter-spacing:.14em;text-transform:uppercase">Track Order</a></td>
+  </tr></table>`;
+}
+
 /* Customer-facing order confirmation email (used at checkout when email is given). */
 export async function emailCustomerOrder(to: string, name: string, order: { code: string; total: number; area: string; items: { title: string; qty: number; price: number }[] }) {
   try {
@@ -89,14 +108,58 @@ export async function emailCustomerOrder(to: string, name: string, order: { code
     const n = s.notifications || {};
     if (!n.smtp?.host || !n.smtp?.user || !n.smtp?.pass) return { configured: false };
     const rows = order.items.map((i) => `<tr><td style="padding:6px 0">${i.title} × ${i.qty}</td><td style="text-align:right">৳${Math.round(i.price * i.qty).toLocaleString("en-IN")}</td></tr>`).join("");
+    const url = storeUrl(s);
     const html = emailHtml(
       `Thank you for your order, ${name}!`,
       `Order <b>${order.code}</b> received. We'll call you shortly to confirm.<br><br>
        <table style="width:100%;border-collapse:collapse">${rows}</table>
        <div style="border-top:2px solid #141414;margin-top:8px;padding-top:8px;font-weight:700">Total: ৳${Math.round(order.total).toLocaleString("en-IN")} (COD)</div>
-       <div style="margin-top:8px;color:#666">Estimated delivery: ${order.area === "INSIDE_DHAKA" ? "1–2 days (Inside Dhaka)" : "2–4 days (Outside Dhaka)"}</div>`
+       <div style="margin-top:8px;color:#666">Estimated delivery: ${order.area === "INSIDE_DHAKA" ? "1–2 days (Inside Dhaka)" : "2–4 days (Outside Dhaka)"}</div>
+       ${actionButtons(url, order.code)}`
     );
     const ok = await sendMail(n.smtp, to, `Order ${order.code} confirmed — ${s.store?.name || "Store"}`, html);
+    return { configured: true, ok };
+  } catch { return { configured: false, ok: false }; }
+}
+
+/* Customer order-STATUS emails: courier in review / rider assigned / cancelled. */
+export type OrderStatusEmailKind = "in_review" | "rider" | "cancelled" | "shipped";
+export async function emailCustomerStatus(
+  to: string, name: string,
+  order: { code: string; total: number; area: string; courierName?: string | null },
+  kind: OrderStatusEmailKind
+) {
+  try {
+    const s = envFallback(await getSettings());
+    const n = s.notifications || {};
+    if (!n.smtp?.host || !n.smtp?.user || !n.smtp?.pass) return { configured: false };
+    if (!to) return { configured: true, ok: false, skipped: "no email" };
+    const url = storeUrl(s);
+    const courier = order.courierName || "Steadfast";
+    let title = "", body = "", subject = "";
+    if (kind === "in_review") {
+      subject = `Order ${order.code} — ${courier}-e review cholche`;
+      title = `Your order is with ${courier}`;
+      body = `Hi ${name},<br><br>Apnar order <b>${order.code}</b> amra <b>${courier}</b>-er kache diye diyechi. Ekhon courier review cholche — verify holei rider pickup korbe.<br><br>
+        Delivery: ${order.area === "INSIDE_DHAKA" ? "1–2 days (Inside Dhaka)" : "2–4 days (Outside Dhaka)"} · Amount payable: <b>৳${Math.round(order.total).toLocaleString("en-IN")}</b> (Cash on Delivery).<br><br>
+        Niche Track Order click kore kokhono e kokhono parcel kothay ache dekhte parben.`;
+    } else if (kind === "rider") {
+      subject = `Order ${order.code} — Rider assigned, parcel on the way!`;
+      title = "Rider assigned — parcel is on the way";
+      body = `Hi ${name},<br><br>Good news! Apnar parcel <b>${order.code}</b> rider er kache — ekhon delivery er pothe.<br><br>
+        <b>Phone khule rakhben</b> — rider delivery-er age call korte pare. Amount payable: <b>৳${Math.round(order.total).toLocaleString("en-IN")}</b> (Cash on Delivery).`;
+    } else if (kind === "cancelled") {
+      subject = `Order ${order.code} cancelled`;
+      title = `Order ${order.code} has been cancelled`;
+      body = `Hi ${name},<br><br>Apnar order <b>${order.code}</b> cancel kora hoyeche. Eta Cash on Delivery order chhilo, tai apnar kono taka jay ni — kono chinta nai.<br><br>
+        Bhul ba onno kono proyojon hole amader WhatsApp/phone e janaben — abar order kore dibo.`;
+    } else {
+      subject = `Order ${order.code} shipped`;
+      title = `Order ${order.code} has been shipped`;
+      body = `Hi ${name}, apnar order ship kora hoyeche. Shighroi e pouchabe.`;
+    }
+    const html = emailHtml(title, body + actionButtons(url, order.code));
+    const ok = await sendMail(n.smtp, to, subject, html);
     return { configured: true, ok };
   } catch { return { configured: false, ok: false }; }
 }

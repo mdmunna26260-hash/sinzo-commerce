@@ -10,7 +10,8 @@ const money = (n: number) => "৳" + Math.round(n).toLocaleString("en-IN");
 export default function AccountClient({ customer, orders, token }: { customer: any; orders: any[]; token: string }) {
   const router = useRouter();
   const [tab, setTab] = useState<"orders" | "profile">("orders");
-  const [profile, setProfile] = useState({ name: customer.name || "", email: customer.email || "", address: customer.address || "", area: customer.area || "INSIDE_DHAKA", currentPassword: "", newPassword: "" });
+  const tempPhone = !/^01[3-9]\d{8}$/.test(customer.phone || ""); // Google-login accounts start with a temp id
+  const [profile, setProfile] = useState({ name: customer.name || "", email: customer.email || "", phone: tempPhone ? "" : customer.phone, address: customer.address || "", area: customer.area || "INSIDE_DHAKA", currentPassword: "", newPassword: "" });
   const [msg, setMsg] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -25,9 +26,11 @@ export default function AccountClient({ customer, orders, token }: { customer: a
     e.preventDefault();
     setBusy(true); setMsg("");
     const body: any = { name: profile.name, email: profile.email, address: profile.address, area: profile.area };
+    if (tempPhone && profile.phone.trim()) body.phone = profile.phone.trim();
     if (profile.newPassword) { body.currentPassword = profile.currentPassword; body.newPassword = profile.newPassword; }
     const r = await call("/api/account/update", { method: "POST", body: JSON.stringify(body) });
     const j = await r.json();
+    if (r.ok && j.token) { document.cookie = `sz_customer=${j.token}; path=/; max-age=2592000; SameSite=Lax`; router.refresh(); }
     setMsg(r.ok ? "Saved ✓" : j.error || "Failed");
     if (r.ok) setProfile({ ...profile, currentPassword: "", newPassword: "" });
     setBusy(false);
@@ -93,8 +96,17 @@ export default function AccountClient({ customer, orders, token }: { customer: a
       {tab === "profile" && (
         <form className="acard" style={{ padding: 26, maxWidth: 560 }} onSubmit={save}>
           {msg && <div className={"noti " + (msg.includes("✓") ? "ok" : "err")}>{msg}</div>}
+          {tempPhone && (
+            <div className="noti ok" style={{ fontSize: 13 }}>
+              Google diye login korchen — order korun, ba niche apnar <b>mobile number</b> add korun jate order track korte paren.
+            </div>
+          )}
           <div className="field"><label>Full Name</label><input value={profile.name} onChange={(e) => setProfile({ ...profile, name: e.target.value })} /></div>
-          <div className="field"><label>Mobile (login id — fixed)</label><input value={customer.phone} disabled style={{ background: "#f6f4f1" }} /></div>
+          {tempPhone ? (
+            <div className="field"><label>Mobile Number (order track korar jonno)</label><input value={profile.phone} onChange={(e) => setProfile({ ...profile, phone: e.target.value })} placeholder="01XXXXXXXXX" inputMode="numeric" /></div>
+          ) : (
+            <div className="field"><label>Mobile (login id — fixed)</label><input value={customer.phone} disabled style={{ background: "#f6f4f1" }} /></div>
+          )}
           <div className="field"><label>Email</label><input type="email" value={profile.email} onChange={(e) => setProfile({ ...profile, email: e.target.value })} /></div>
           <div className="field"><label>Default Address</label><textarea value={profile.address} onChange={(e) => setProfile({ ...profile, address: e.target.value })} style={{ minHeight: 70 }} /></div>
           <div className="field"><label>Default Zone</label>

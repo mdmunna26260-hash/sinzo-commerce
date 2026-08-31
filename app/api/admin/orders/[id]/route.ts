@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requirePerm } from "@/lib/admin-guard";
 import { logAudit } from "@/lib/auth";
-import { notifyAdmin } from "@/lib/notify";
+import { notifyAdmin, emailCustomerStatus } from "@/lib/notify";
 export const dynamic = "force-dynamic";
 type Ctx = { params: { id: string } };
 export async function GET(req: Request, { params }: Ctx) {
@@ -33,6 +33,10 @@ export async function PUT(req: Request, { params }: Ctx) {
     if (evt) {
       const emoji: Record<string, string> = { CONFIRMED: "✅", CANCELLED: "❌", SHIPPED: "🚚", DELIVERED: "📬" };
       notifyAdmin(evt, `${emoji[b.status] || "•"} Order ${before.code} → ${b.status}`, `${before.name} · ৳${Math.round(before.total).toLocaleString("en-IN")}`, before.code).catch(() => {});
+    }
+    // customer cancellation email (only on transition INTO cancelled)
+    if (b.status === "CANCELLED" && before.email) {
+      emailCustomerStatus(before.email, before.name, { code: before.code, total: before.total, area: before.area, courierName: before.courierName }, "cancelled").catch(() => {});
     }
   }
   // restock on cancel/return

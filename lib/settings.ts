@@ -41,6 +41,9 @@ export function publicSettings(s: SettingsMap) {
       metaPixelId: s.integrations?.metaPixelId || process.env.META_PIXEL_ID || "",
       ga4Id: s.integrations?.ga4Id || process.env.GA4_MEASUREMENT_ID || "",
       gtmId: s.integrations?.gtmId || process.env.GTM_ID || "",
+      // Google (Gmail) login — public id only, the secret never leaves the server
+      googleLoginClientId: s.integrations?.googleClientId || process.env.GOOGLE_CLIENT_ID || "",
+      googleLoginEnabled: !!(s.integrations?.googleClientId || process.env.GOOGLE_CLIENT_ID),
     },
     maintenance: s.maintenance,
   };

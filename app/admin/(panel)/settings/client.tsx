@@ -526,6 +526,24 @@ export default function SettingsClient({ groups, user, userCount, hasCourier }: 
             <div className="full"><button className="abtn primary" onClick={() => save("notifications", g.notifications)} disabled={busy}>Save Notifications</button></div>
           </div></div>
 
+          <div className="acard" style={{ marginTop: 16 }}><div className="acard-h"><h3>Google (Gmail) Login — Customers</h3>
+            <span className={"risk-badge " + (g.integrations?.googleClientId ? "risk-LOW" : "risk-HIGH")}>{g.integrations?.googleClientId ? "CONFIGURED" : "NOT CONFIGURED"}</span>
+          </div>
+          <div className="acard-b form-grid">
+            <div className="af full"><label>Google Client ID</label>
+              <input value={g.integrations?.googleClientId || ""} onChange={(e) => setG({ ...g, integrations: { ...g.integrations, googleClientId: e.target.value } })} placeholder="xxxxx.apps.googleusercontent.com" autoCapitalize="none" />
+            </div>
+            <div className="af full"><label>Google Client Secret</label>
+              <input type="password" value={g.integrations?.googleClientSecret || ""} onChange={(e) => setG({ ...g, integrations: { ...g.integrations, googleClientSecret: e.target.value } })} placeholder="GOCSPX-…" autoCapitalize="none" />
+            </div>
+            <div className="full" style={{ fontSize: 12, color: "var(--muted)" }}>
+              Setup (5 min, free): <b>console.cloud.google.com</b> → APIs &amp; Services → Credentials → <b>Create OAuth Client ID</b> (Web application) → Authorized redirect URI e exactly eta din:<br />
+              <b style={{ userSelect: "all" }}>{typeof location !== "undefined" ? location.origin : ""}/api/auth/google/callback</b><br />
+              Tarpor upore ID + Secret boshiye Save korun. Customer-ra login page-e "Continue with Google" dekhte pabe.
+            </div>
+            <div className="full"><button className="abtn primary" onClick={() => save("integrations", g.integrations)} disabled={busy}>Save Integrations</button></div>
+          </div></div>
+
           <WhatsAppCard />
         </>
       )}
