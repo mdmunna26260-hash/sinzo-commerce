@@ -16,12 +16,13 @@ export default async function SettingsPage({ searchParams }: { searchParams: any
   };
   const hasCourier = !!(s.courier?.apiKey && s.courier?.secretKey);
   const userCount = await db.user.count();
+  const collections = await db.collection.findMany({ select: { title: true, slug: true }, orderBy: { id: "asc" } });
   const notificationsCfg = {
     ...s.notifications,
     telegramBotToken: s.notifications?.telegramBotToken ? "••••••••" + s.notifications.telegramBotToken.slice(-4) : "",
     smtp: { ...s.notifications?.smtp, pass: s.notifications?.smtp?.pass ? "••••••••" + s.notifications.smtp.pass.slice(-2) : "" },
   };
-  return <SettingsClient user={user} userCount={userCount} hasCourier={hasCourier} groups={{
+  return <SettingsClient user={user} userCount={userCount} hasCourier={hasCourier} collections={collections} groups={{
     store: s.store, theme: s.theme, shipping: s.shipping, homepage: s.homepage,
     checkout: s.checkout, fraud: s.fraud, seo: s.seo, maintenance: s.maintenance, courier: courierCfg,
     notifications: notificationsCfg,

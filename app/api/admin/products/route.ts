@@ -42,7 +42,8 @@ export async function POST(req: Request) {
       },
       include: { images: true, variants: true },
     });
-    await syncCollection(product.id, "new-arrivals", !!b.isNew);
+    // every new product goes into "new-arrivals" automatically (admin can remove it later from Catalog → ✏️ Edit)
+    await syncCollection(product.id, "new-arrivals", true);
     await syncCollection(product.id, "best-sellers", !!b.isBestSeller);
     await logAudit(g.user.email, "PRODUCT_CREATED", `${product.title} (#${product.id})`);
     return NextResponse.json({ ok: true, product });

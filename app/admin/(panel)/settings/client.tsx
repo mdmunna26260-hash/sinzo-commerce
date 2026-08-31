@@ -178,7 +178,7 @@ const SECTION_LABELS: Record<string, string> = {
   hero: "Hero Banner", values: "Value Props (COD / delivery / returns)", featured: "Featured Collection",
   categories: "Shop by Category", promo: "Promo Banner", bestsellers: "Best Sellers", testimonials: "Reviews",
 };
-function HomepageLayoutTab({ groups, save, busy }: any) {
+function HomepageLayoutTab({ groups, save, busy, collections = [] }: any) {
   const [secs, setSecs] = useState<any[]>(groups.homeSections?.length ? groups.homeSections : [
     { id: "hero", enabled: true }, { id: "values", enabled: true }, { id: "featured", enabled: true },
     { id: "categories", enabled: true }, { id: "promo", enabled: true }, { id: "bestsellers", enabled: true },
@@ -227,7 +227,7 @@ function HomepageLayoutTab({ groups, save, busy }: any) {
   );
 }
 
-export default function SettingsClient({ groups, user, userCount, hasCourier }: any) {
+export default function SettingsClient({ groups, user, userCount, hasCourier, collections = [] }: any) {
   const router = useRouter();
   const [tab, setTab] = useState("Store");
   const [g, setG] = useState<any>(groups);
@@ -356,7 +356,7 @@ export default function SettingsClient({ groups, user, userCount, hasCourier }: 
 
       {tab === "Homepage Layout" && (
         <>
-          <HomepageLayoutTab groups={g} save={save} busy={busy} />
+          <HomepageLayoutTab groups={g} save={save} busy={busy} collections={collections} />
           <div className="acard" style={{ marginTop: 16 }}>
             <div className="acard-h"><h3>Hero Banner</h3></div>
             <div className="acard-b form-grid">
@@ -381,12 +381,12 @@ export default function SettingsClient({ groups, user, userCount, hasCourier }: 
             <div className="acard-b form-grid">
               <div className="af full"><label>Featured collection</label>
                 <select value={g.homepage?.featuredCollection || "new-arrivals"} onChange={(e) => setG({ ...g, homepage: { ...g.homepage, featuredCollection: e.target.value } })}>
-                  <option value="new-arrivals">New Arrivals</option>
-                  <option value="best-sellers">Best Sellers</option>
-                  <option value="sale">Sale</option>
+                  {collections.length > 0
+                    ? collections.map((c: any) => <option key={c.slug} value={c.slug}>{c.title} (/{c.slug})</option>)
+                    : <option value="new-arrivals">New Arrivals</option>}
                 </select>
               </div>
-              <div className="full" style={{ fontSize: 12.5, color: "var(--muted)" }}>Homepage-er "01 Curated for you" section-e kon collection dekhabe seta ekhane set korun.</div>
+              <div className="full" style={{ fontSize: 12.5, color: "var(--muted)" }}>Homepage-er "01 Curated for you" section-e kon collection dekhabe. List ta Categories &amp; Collections page-er sob collection theke ashe — oikhane notun banale ekhane options add hobe.</div>
               <div className="full">{saveBtn("homepage")}</div>
             </div>
           </div>

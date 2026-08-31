@@ -24,6 +24,22 @@ export default function CatalogClient({ categories, collections, products }: any
 
   const [newCol, setNewCol] = useState({ title: "", subtitle: "", productIds: [] as number[] });
 
+  // edit-collection modal state
+  const [editCol, setEditCol] = useState<any>(null); // { id, title, subtitle, productIds[] }
+  const [colBusy, setColBusy] = useState(false);
+  const [colSearch, setColSearch] = useState("");
+
+  const openEditCol = (c: any) => {
+    setEditCol({ id: c.id, title: c.title, subtitle: c.subtitle || "", productIds: [...(c.productIds || [])] });
+    setColSearch("");
+  };
+  const toggleProduct = (pid: number) => {
+    setEditCol((ec: any) => ({
+      ...ec,
+      productIds: ec.productIds.includes(pid) ? ec.productIds.filter((x: number) => x !== pid) : [...ec.productIds, pid],
+    }));
+  };
+
   const api = async (url: string, method: string, body?: any) => {
     const r = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: body ? JSON.stringify(body) : undefined });
     const j = await r.json();
@@ -31,6 +47,22 @@ export default function CatalogClient({ categories, collections, products }: any
     setTimeout(() => setMsg(""), 2200);
     return j;
   };
+
+  const saveCollection = async () => {
+    if (!editCol) return;
+    setColBusy(true);
+    await api("/api/admin/collections/" + editCol.id, "PUT", {
+      title: editCol.title,
+      subtitle: editCol.subtitle,
+      productIds: editCol.productIds,
+    });
+    setColBusy(false);
+    setEditCol(null);
+  };
+
+  const filteredProducts = products.filter((p: any) =>
+    !colSearch || p.title.toLowerCase().includes(colSearch.toLowerCase())
+  );
 
   return (
     <>
@@ -80,7 +112,10 @@ export default function CatalogClient({ categories, collections, products }: any
                   <td><b>{c.title}</b><br /><span style={{ fontSize: 12, color: "var(--muted)" }}>{c.subtitle}</span></td>
                   <td style={{ fontSize: 12, color: "var(--muted)" }}>/{c.slug}</td>
                   <td>{c.productCount}</td>
-                  <td><button className="abtn sm danger" onClick={() => confirm("Delete " + c.title + "?") && api("/api/admin/collections/" + c.id, "DELETE")}>✕</button></td>
+                  <td style={{ whiteSpace: "nowrap" }}>
+                    <button className="abtn sm" title="Edit collection — add/remove products" onClick={() => openEditCol(c)}>✏️</button>{" "}
+                    <button className="abtn sm danger" onClick={() => confirm("Delete " + c.title + "?") && api("/api/admin/collections/" + c.id, "DELETE")}>✕</button>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -94,11 +129,52 @@ export default function CatalogClient({ categories, collections, products }: any
               <select multiple value={newCol.productIds.map(String)} onChange={(e) => setNewCol({ ...newCol, productIds: Array.from(e.target.selectedOptions).map((o) => Number(o.value)) })} style={{ height: 110, border: "1px solid #ddd9d2", borderRadius: 5, padding: 8, fontSize: 13 }}>
                 {products.map((p: any) => <option key={p.id} value={p.id}>{p.title}</option>)}
               </select>
-              <div style={{ fontSize: 12, color: "var(--muted)" }}>Hold Ctrl/Cmd to select multiple products for this new collection.</div>
+              <div style={{ fontSize: 12, color: "var(--muted)" }}>Hold Ctrl/Cmd to select multiple products for this new collection. Notun collection banale Featured Collection dropdown-e auto add hobe.</div>
             </div>
           </div>
         </div>
       </div>
+
+      {/* EDIT COLLECTION MODAL */}
+      {editCol && (
+        <div className="modal-bg" onClick={() => setEditCol(null)}>
+          <div className="modal" style={{ maxWidth: 620 }} onClick={(e) => e.stopPropagation()}>
+            <button className="modal-close" onClick={() => setEditCol(null)} aria-label="Close">×</button>
+            <h3>Edit Collection</h3>
+            <div className="form-grid">
+              <div className="af"><label>Title</label>
+                <input value={editCol.title} onChange={(e) => setEditCol({ ...editCol, title: e.target.value })} />
+              </div>
+              <div className="af"><label>Subtitle</label>
+                <input value={editCol.subtitle} onChange={(e) => setEditCol({ ...editCol, subtitle: e.target.value })} />
+              </div>
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", margin: "16px 0 8px" }}>
+              <b style={{ fontSize: 13.5 }}>Products in this collection: {editCol.productIds.length}</b>
+              <input placeholder="🔍 Search products…" value={colSearch} onChange={(e) => setColSearch(e.target.value)} style={{ border: "1px solid #ddd9d2", padding: "7px 10px", borderRadius: 5, fontSize: 13, width: 200 }} />
+            </div>
+            <div style={{ maxHeight: 300, overflowY: "auto", border: "1px solid #e8e6e1", borderRadius: 6 }}>
+              {filteredProducts.map((p: any) => {
+                const on = editCol.productIds.includes(p.id);
+                return (
+                  <label key={p.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 12px", borderBottom: "1px solid #f1efec", cursor: "pointer", background: on ? "#f6f9f4" : "#fff" }}>
+                    <input type="checkbox" checked={on} onChange={() => toggleProduct(p.id)} style={{ width: 16, height: 16 }} />
+                    <span style={{ fontSize: 13.5 }}>{p.title}</span>
+                    {on && <span className="pill DELIVERED" style={{ marginLeft: "auto" }}>IN</span>}
+                  </label>
+                );
+              })}
+              {filteredProducts.length === 0 && <div style={{ padding: 14, color: "var(--muted)", fontSize: 13 }}>No product matches “{colSearch}”.</div>}
+            </div>
+            <div style={{ display: "flex", gap: 10, marginTop: 18, justifyContent: "flex-end" }}>
+              <button className="abtn" onClick={() => setEditCol(null)}>Cancel</button>
+              <button className="abtn primary" onClick={saveCollection} disabled={colBusy} aria-busy={colBusy || undefined}>
+                {colBusy && <span className="spinner" aria-hidden="true" />} {colBusy ? "Saving…" : "Save Collection"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

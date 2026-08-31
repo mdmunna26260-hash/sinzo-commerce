@@ -19,7 +19,7 @@ export async function POST(req: Request) {
     }
     const passwordStr = String(password || "");
     // look up by exact email (index seek) — never load the whole user table
-    const user = await db.user.findFirst({ where: { email: { equals: lowerEmail, mode: "insensitive" }, active: true } });
+    const user = await db.user.findFirst({ where: { email: lowerEmail, active: true } });
     // always run a bcrypt compare (dummy hash when user missing) → no user-enumeration timing side channel
     const hash = user?.password || "$2a$10$C6UzMDM.H6dfI/f/IKcEeO7ZBkRG0AmUfyV0JbzhX.T1BxJmWjA1u";
     const ok = await bcrypt.compare(passwordStr, hash);
