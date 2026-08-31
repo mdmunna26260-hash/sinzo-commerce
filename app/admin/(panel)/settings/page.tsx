@@ -25,6 +25,6 @@ export default async function SettingsPage({ searchParams }: { searchParams: any
   return <SettingsClient user={user} userCount={userCount} hasCourier={hasCourier} collections={collections} groups={{
     store: s.store, theme: s.theme, shipping: s.shipping, homepage: s.homepage,
     checkout: s.checkout, fraud: s.fraud, seo: s.seo, maintenance: s.maintenance, courier: courierCfg,
-    notifications: notificationsCfg,
+    notifications: notificationsCfg, homeSections: s.homeSections,
   }} />;
 }

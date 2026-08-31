@@ -78,7 +78,7 @@ export default async function HomePage() {
   } as const;
   const featuredCol = await db.collection.findUnique({
     where: { slug: featuredSlug },
-    include: { products: { take: 8, select: colProductSelect } },
+    include: { products: { take: 24, select: colProductSelect } },
   });
   const bestSellers = await db.collection.findUnique({
     where: { slug: "best-sellers" },
@@ -140,8 +140,9 @@ export default async function HomePage() {
       <section className="section container" key="featured">
         <Head no="01" eyebrow="Created for you" title={featuredCol?.title || "New Arrivals"} href={"/collections/" + featuredSlug} />
         <Carousel className="mobile-only">
-          <div className="grid grid-4">{cp(featuredCol).slice(0, 4).map((p: any) => <ProductCard key={p.id} p={p} />)}</div>
-          <div className="grid grid-4">{cp(featuredCol).slice(4, 8).map((p: any) => <ProductCard key={p.id} p={p} />)}</div>
+          {Array.from({ length: Math.max(1, Math.ceil(cp(featuredCol).length / 4)) }, (_, i) => (
+            <div className="grid grid-4" key={"fp" + i}>{cp(featuredCol).slice(i * 4, i * 4 + 4).map((p: any) => <ProductCard key={p.id} p={p} />)}</div>
+          ))}
         </Carousel>
         <div className="desktop-only">
           <div className="grid grid-4">
@@ -153,13 +154,15 @@ export default async function HomePage() {
     categories: (
       <section className="section container" style={{ paddingTop: 0 }} key="categories">
         <Head no="02" eyebrow="Browse" title="Shop by Category" href="/products" />
+        {/* SOB category dekhabe: mobile-e swipeable carousel (3 per page), desktop-e full grid */}
         <Carousel className="mobile-only">
-          <div className="grid grid-3">{cats.slice(0, 3).map((c) => <CatTile key={c.id} c={c} />)}</div>
-          <div className="grid grid-3">{cats.slice(3, 6).map((c) => <CatTile key={c.id} c={c} />)}</div>
+          {Array.from({ length: Math.ceil(cats.length / 3) }, (_, i) => (
+            <div className="grid grid-3" key={"cp" + i}>{cats.slice(i * 3, i * 3 + 3).map((c) => <CatTile key={c.id} c={c} />)}</div>
+          ))}
         </Carousel>
         <div className="desktop-only">
-          <div className="grid grid-3">
-            {cats.slice(0, 3).map((c) => <CatTile key={c.id} c={c} />)}
+          <div className="cat-grid-desktop">
+            {cats.map((c) => <CatTile key={c.id} c={c} />)}
           </div>
         </div>
       </section>

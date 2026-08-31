@@ -965,3 +965,8 @@ a, button, .pcard, .chip, .cat-pill, .size-btn { -webkit-tap-highlight-color: tr
   .admin-main { padding: 14px 10px 80px; }
   .tbl th, .tbl td { padding: 10px 10px; }
 }
+
+/* All categories on desktop: keep tiles a sane size when there are many (wrap instead of stretch) */
+.cat-grid-desktop { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 28px; }
+@media (min-width: 1100px) { .cat-grid-desktop { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+@media (min-width: 1500px) { .cat-grid-desktop { grid-template-columns: repeat(5, minmax(0, 1fr)); } }
