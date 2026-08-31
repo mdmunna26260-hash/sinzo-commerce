@@ -39,6 +39,11 @@ export async function PUT(req: Request) {
     merged = { ...existing };
     for (const [k, v] of Object.entries(value)) {
       if (typeof v === "string" && v.startsWith("••")) continue; // masked — keep old
+      // Test Event Code cleanup: empty/"-" = admin wants it gone (production mode)
+      if (group === "integrations" && k === "metaTestEventCode" && (v === "" || v === "-" || v == null)) {
+        delete merged.metaTestEventCode;
+        continue;
+      }
       (merged as any)[k] = v;
     }
   }

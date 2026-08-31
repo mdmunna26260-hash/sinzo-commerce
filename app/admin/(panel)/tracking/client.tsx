@@ -38,7 +38,7 @@ export default function TrackingClient({ cfg, events, counts, lastEvent }: any) 
           <div className="acard-b form-grid">
             <div className="af full"><label>Pixel ID</label><input value={form.metaPixelId} onChange={(e) => setForm({ ...form, metaPixelId: e.target.value })} placeholder="e.g. 123456789012345" /></div>
             <div className="af full"><label>Access Token (CAPI)</label><input value={form.metaAccessToken} onChange={(e) => setForm({ ...form, metaAccessToken: e.target.value })} placeholder="EAAG… (system user token)" /></div>
-            <div className="af full"><label>Test Event Code (optional)</label><input value={form.metaTestEventCode} onChange={(e) => setForm({ ...form, metaTestEventCode: e.target.value })} placeholder="TEST12345" /></div>
+            <div className="af full"><label>Test Event Code (shudhu testing-er somoy — production e FALI rakhen)</label><input value={form.metaTestEventCode} onChange={(e) => setForm({ ...form, metaTestEventCode: e.target.value })} placeholder="khaali = production mode (recommended)" /></div>
             <div className="full" style={{ fontSize: 12.5, color: "var(--muted)" }}>
               Browser Pixel and server CAPI share the same <code>event_id</code>, so Meta deduplicates events automatically. Events sent: PageView (implicit), ViewContent, AddToCart, InitiateCheckout, AddPaymentInfo, Purchase, Search, Lead.
             </div>
