@@ -971,9 +971,7 @@ a, button, .pcard, .chip, .cat-pill, .size-btn { -webkit-tap-highlight-color: tr
 @media (min-width: 1100px) { .cat-grid-desktop { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
 @media (min-width: 1500px) { .cat-grid-desktop { grid-template-columns: repeat(5, minmax(0, 1fr)); } }
 
-/* Categories: EXACTLY 4 per row on mobile (swipeable pages), balanced tiles */
-.cat-row-4 { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px 8px; }
-.cat-row-4 .ctile-label { padding: 34px 10px 12px; }
-.cat-row-4 .ctile-label h3 { font-size: 13px; }
-.cat-row-4 .ctile-label span { font-size: 9px; letter-spacing: .14em; }
-@media (max-width: 360px) { .cat-row-4 { gap: 8px 6px; } .cat-row-4 .ctile-label h3 { font-size: 12px; } }
+/* Categories mobile: 2 columns × 2 rows per swipe page (4 per page) */
+.cat-row-4 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.cat-row-4 .ctile { aspect-ratio: 4 / 5; }
+@media (max-width: 360px) { .cat-row-4 { gap: 8px; } }

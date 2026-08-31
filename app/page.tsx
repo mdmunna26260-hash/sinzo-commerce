@@ -43,7 +43,6 @@ function CatTile({ c }: { c: any }) {
     <Link className="ctile" href={"/products?category=" + c.slug}>
       <img src={tileSrc} alt={c.name} loading="lazy" decoding="async" />
       <div className="ctile-label"><span>{c.description?.slice(0, 40) || "Collection"}</span><h3>{c.name}</h3></div>
-      <span className="ctile-arrow" aria-hidden>→</span>
     </Link>
   );
 }
