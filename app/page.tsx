@@ -156,8 +156,8 @@ export default async function HomePage() {
         <Head no="02" eyebrow="Browse" title="Shop by Category" href="/products" />
         {/* SOB category dekhabe: mobile-e swipeable carousel (3 per page), desktop-e full grid */}
         <Carousel className="mobile-only">
-          {Array.from({ length: Math.ceil(cats.length / 3) }, (_, i) => (
-            <div className="grid grid-3" key={"cp" + i}>{cats.slice(i * 3, i * 3 + 3).map((c) => <CatTile key={c.id} c={c} />)}</div>
+          {Array.from({ length: Math.ceil(cats.length / 4) }, (_, i) => (
+            <div className="cat-row-4" key={"cp" + i}>{cats.slice(i * 4, i * 4 + 4).map((c) => <CatTile key={c.id} c={c} />)}</div>
           ))}
         </Carousel>
         <div className="desktop-only">
