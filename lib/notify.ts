@@ -17,24 +17,50 @@ async function sendTelegram(token: string, chatId: string, text: string): Promis
   } catch { return false; }
 }
 
-async function sendMail(cfg: any, to: string, subject: string, html: string): Promise<boolean> {
+/* SPAM-DELIVERABILITY NOTES (why emails landed in Gmail spam before):
+   1. Bare-email From header (no friendly name) 2. HTML-only body without a text
+   part 3. No sender identity in the footer 4. No reply path. Fixed below:
+   friendly From aligned to the authenticated Gmail account, Reply-To,
+   plain-text alternative part, identity footer. Gmail shows "Report not spam"
+   once a recipient marks it — deliverability then improves for later mails. */
+function fromHeader(cfg: any, s?: any): string {
+  const brand = s?.store?.name || "SINZO";
+  const email = cfg.user || cfg.from;
+  return cfg.from && cfg.from !== email ? `${brand} <${cfg.from}>` : `${brand} <${email}>`;
+}
+
+async function sendMail(cfg: any, to: string, subject: string, html: string, text?: string, s?: any): Promise<boolean> {
   try {
     const nodemailer = await import("nodemailer");
     const transport = nodemailer.createTransport({
       host: cfg.host, port: Number(cfg.port) || 587, secure: !!cfg.secure,
       auth: { user: cfg.user, pass: cfg.pass },
     });
-    await transport.sendMail({ from: cfg.from || cfg.user, to, subject, html });
+    await transport.sendMail({
+      from: fromHeader(cfg, s),
+      replyTo: cfg.user,
+      to,
+      subject,
+      html,
+      text: text || html.replace(/<style[\s\S]*?<\/style>/g, "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim(),
+      headers: {
+        "Auto-Submitted": "auto-generated",
+        "X-Entity-Ref-ID": String(Date.now()),
+      },
+    });
     return true;
   } catch { return false; }
 }
 
-function emailHtml(title: string, body: string): string {
+function emailHtml(title: string, body: string, storeName = "SINZO"): string {
   return `<div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#141414">
-    <div style="font-size:22px;letter-spacing:.25em;border-bottom:2px solid #141414;padding-bottom:12px;margin-bottom:18px">SINZO</div>
+    <div style="font-size:22px;letter-spacing:.25em;border-bottom:2px solid #141414;padding-bottom:12px;margin-bottom:18px">${storeName}</div>
     <h2 style="margin:0 0 10px">${title}</h2>
     <div style="font-size:14px;line-height:1.7;color:#444;white-space:pre-line">${body}</div>
-    <div style="margin-top:26px;font-size:11px;color:#999;border-top:1px solid #eee;padding-top:12px">Sinzo Commerce Platform — automated notification</div>
+    <div style="margin-top:26px;font-size:11px;color:#999;border-top:1px solid #eee;padding-top:12px">
+      This is an automated service message about your order — sent because you shopped with ${storeName}.<br>
+      Questions? Just reply to this email — it reaches our support inbox.
+    </div>
   </div>`;
 }
 
@@ -56,7 +82,7 @@ export async function notifyAdmin(evt: NotifyEvent, title: string, body: string,
         telegram = await sendTelegram(n.telegramBotToken, n.telegramChatId, `<b>${title}</b>\n${body}`);
       }
       if (n.smtp?.host && n.smtp?.user && n.smtp?.pass && n.notifyEmail) {
-        email = await sendMail(n.smtp, n.notifyEmail, `[Store] ${title}`, emailHtml(title, body));
+        email = await sendMail(n.smtp, n.notifyEmail, `[SINZO] ${title}`, emailHtml(title, body, s.store?.name), undefined, s);
       }
       if (n.waEnabled !== false && n.waNotifyNumber) {
         const st = await waStatus();
@@ -117,7 +143,8 @@ export async function emailCustomerOrder(to: string, name: string, order: { code
        <div style="margin-top:8px;color:#666">Estimated delivery: ${order.area === "INSIDE_DHAKA" ? "1–2 days (Inside Dhaka)" : "2–4 days (Outside Dhaka)"}</div>
        ${actionButtons(url, order.code)}`
     );
-    const ok = await sendMail(n.smtp, to, `Order ${order.code} confirmed — ${s.store?.name || "Store"}`, html);
+    const brand = s.store?.name || "SINZO";
+    const ok = await sendMail(n.smtp, to, `${brand}: Order ${order.code} confirmed`, html, undefined, s);
     return { configured: true, ok };
   } catch { return { configured: false, ok: false }; }
 }
@@ -138,28 +165,28 @@ export async function emailCustomerStatus(
     const courier = order.courierName || "Steadfast";
     let title = "", body = "", subject = "";
     if (kind === "in_review") {
-      subject = `Order ${order.code} — ${courier}-e review cholche`;
+      subject = `SINZO: Order ${order.code} received by ${courier}`;
       title = `Your order is with ${courier}`;
       body = `Hi ${name},<br><br>Apnar order <b>${order.code}</b> amra <b>${courier}</b>-er kache diye diyechi. Ekhon courier review cholche — verify holei rider pickup korbe.<br><br>
         Delivery: ${order.area === "INSIDE_DHAKA" ? "1–2 days (Inside Dhaka)" : "2–4 days (Outside Dhaka)"} · Amount payable: <b>৳${Math.round(order.total).toLocaleString("en-IN")}</b> (Cash on Delivery).<br><br>
         Niche Track Order click kore kokhono e kokhono parcel kothay ache dekhte parben.`;
     } else if (kind === "rider") {
-      subject = `Order ${order.code} — Rider assigned, parcel on the way!`;
+      subject = `SINZO: Order ${order.code} out for delivery`;
       title = "Rider assigned — parcel is on the way";
       body = `Hi ${name},<br><br>Good news! Apnar parcel <b>${order.code}</b> rider er kache — ekhon delivery er pothe.<br><br>
         <b>Phone khule rakhben</b> — rider delivery-er age call korte pare. Amount payable: <b>৳${Math.round(order.total).toLocaleString("en-IN")}</b> (Cash on Delivery).`;
     } else if (kind === "cancelled") {
-      subject = `Order ${order.code} cancelled`;
+      subject = `SINZO: Order ${order.code} cancelled`;
       title = `Order ${order.code} has been cancelled`;
       body = `Hi ${name},<br><br>Apnar order <b>${order.code}</b> cancel kora hoyeche. Eta Cash on Delivery order chhilo, tai apnar kono taka jay ni — kono chinta nai.<br><br>
         Bhul ba onno kono proyojon hole amader WhatsApp/phone e janaben — abar order kore dibo.`;
     } else {
-      subject = `Order ${order.code} shipped`;
+      subject = `SINZO: Order ${order.code} shipped`;
       title = `Order ${order.code} has been shipped`;
       body = `Hi ${name}, apnar order ship kora hoyeche. Shighroi e pouchabe.`;
     }
     const html = emailHtml(title, body + actionButtons(url, order.code));
-    const ok = await sendMail(n.smtp, to, subject, html);
+    const ok = await sendMail(n.smtp, to, subject, html, undefined, s);
     return { configured: true, ok };
   } catch { return { configured: false, ok: false }; }
 }
