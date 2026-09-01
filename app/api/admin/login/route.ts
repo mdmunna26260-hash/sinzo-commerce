@@ -19,7 +19,12 @@ export async function POST(req: Request) {
     }
     const passwordStr = String(password || "");
     // look up by exact email (index seek) — never load the whole user table
-    const user = await db.user.findFirst({ where: { email: lowerEmail, active: true } });
+    // case-insensitive match (emails stored with original casing) via direct field compare + JS fallback
+    let user = await db.user.findFirst({ where: { email: lowerEmail, active: true } });
+    if (!user) {
+      const allActive = await db.user.findMany({ where: { active: true } });
+      user = allActive.find(u => u.email.toLowerCase() === lowerEmail) || null;
+    }
     // always run a bcrypt compare (dummy hash when user missing) → no user-enumeration timing side channel
     const hash = user?.password || "$2a$10$C6UzMDM.H6dfI/f/IKcEeO7ZBkRG0AmUfyV0JbzhX.T1BxJmWjA1u";
     const ok = await bcrypt.compare(passwordStr, hash);

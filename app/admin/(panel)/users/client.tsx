@@ -2,7 +2,11 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 const ROLES = ["SUPER_ADMIN", "ADMIN", "ORDER_MANAGER", "PRODUCT_MANAGER", "MARKETING", "SUPPORT"];
-export default function UsersClient({ initial, meId, perms }: any) {
+/* SECURITY NOTE: the UI restrictions below are convenience only —
+   the real authorization is server-side (only SUPER_ADMIN mutations accepted;
+   self role/status change rejected; last SUPER_ADMIN protected). */
+export default function UsersClient({ initial, meId, meRole, perms }: any) {
+  const canManage = meRole === "SUPER_ADMIN";
   const router = useRouter();
   const [msg, setMsg] = useState("");
   const [pwUser, setPwUser] = useState<number | null>(null);
@@ -28,15 +32,19 @@ export default function UsersClient({ initial, meId, perms }: any) {
                 <tr key={u.id}>
                   <td><b>{u.name}</b><br /><span style={{ fontSize: 12, color: "var(--muted)" }}>{u.email}</span></td>
                   <td>
-                    <select className="abtn sm" value={u.role} onChange={(e) => api("/api/admin/users/" + u.id, "PUT", { role: e.target.value })}>
-                      {ROLES.map((r) => <option key={r}>{r}</option>)}
-                    </select>
+                    {canManage && u.id !== meId ? (
+                      <select className="abtn sm" value={u.role} onChange={(e) => api("/api/admin/users/" + u.id, "PUT", { role: e.target.value })}>
+                        {ROLES.map((r) => <option key={r}>{r}</option>)}
+                      </select>
+                    ) : (
+                      <span className={"pill " + (u.role === "SUPER_ADMIN" ? "DELIVERED" : "PROCESSING")} title="Only a SUPER_ADMIN can change roles">{u.role}{u.id === meId ? " (you)" : ""}</span>
+                    )}
                   </td>
                   <td><span className={"pill " + (u.active ? "ACTIVE" : "DRAFT")}>{u.active ? "Active" : "Disabled"}</span></td>
                   <td style={{ fontSize: 11, color: "var(--muted)", maxWidth: 220 }}>{(perms[u.role] || []).join(", ")}</td>
                   <td style={{ whiteSpace: "nowrap" }}>
-                    <button className="abtn sm" onClick={() => api("/api/admin/users/" + u.id, "PUT", { active: !u.active })}>{u.active ? "Disable" : "Enable"}</button>{" "}
-                    {u.id !== meId && (
+                    {canManage && u.id !== meId && <button className="abtn sm" onClick={() => api("/api/admin/users/" + u.id, "PUT", { active: !u.active })}>{u.active ? "Disable" : "Enable"}</button>}{" "}
+                    {canManage && u.id !== meId && (
                       <span style={{ display: "inline-flex", gap: 4, alignItems: "center" }}>
                         <button className="abtn sm" title="Change password" onClick={() => { setPwUser(pwUser === u.id ? null : u.id); setPwValue(""); }}>🔑</button>
                         {pwUser === u.id && (
@@ -48,7 +56,7 @@ export default function UsersClient({ initial, meId, perms }: any) {
                         )}
                       </span>
                     )}{" "}
-                    {u.id !== meId && <button className="abtn sm danger" onClick={() => confirm("Delete " + u.email + "?") && api("/api/admin/users/" + u.id, "DELETE")}>✕</button>}
+                    {canManage && u.id !== meId && <button className="abtn sm danger" onClick={() => confirm("Delete " + u.email + "?") && api("/api/admin/users/" + u.id, "DELETE")}>✕</button>}
                   </td>
                 </tr>
               ))}
@@ -56,8 +64,8 @@ export default function UsersClient({ initial, meId, perms }: any) {
           </table>
         </div>
         <div className="acard">
-          <div className="acard-h"><h3>Add Team Member</h3></div>
-          <div className="acard-b form-grid">
+          <div className="acard-h"><h3>Add Team Member</h3>{!canManage && <span className="pill DRAFT">SUPER_ADMIN only</span>}</div>
+          <div className="acard-b form-grid" style={canManage ? undefined : { display: "none" }}>
             <div className="af full"><label>Name</label><input value={nu.name} onChange={(e) => setNu({ ...nu, name: e.target.value })} /></div>
             <div className="af full"><label>Email</label><input type="email" value={nu.email} onChange={(e) => setNu({ ...nu, email: e.target.value })} /></div>
             <div className="af full"><label>Password (min 6)</label><input type="password" value={nu.password} onChange={(e) => setNu({ ...nu, password: e.target.value })} /></div>
