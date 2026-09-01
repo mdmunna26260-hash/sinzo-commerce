@@ -187,7 +187,7 @@ export default function CheckoutPage() {
                 <input type="radio" checked={payment === "COD"} readOnly />
                 <div>
                   <b>Cash on Delivery</b>
-                  <div style={{ fontSize: 12.5, color: "var(--muted)" }}>Pay with cash when the parcel arrives at your door.</div>
+                  <div style={{ fontSize: 11.5, color: "var(--muted)" }}>Pay with cash when the parcel arrives.</div>
                 </div>
                 <span className="tag">RECOMMENDED</span>
               </div>
