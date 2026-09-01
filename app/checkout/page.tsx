@@ -180,8 +180,8 @@ export default function CheckoutPage() {
             </div>
           </div>
 
-          <div className="acard" style={{ padding: 26 }}>
-            <h3 style={{ fontFamily: "var(--font-body)", fontSize: 15, fontWeight: 600, marginBottom: 18 }}>Payment Method</h3>
+          <div className="acard" style={{ padding: "18px 20px" }}>
+            <h3 style={{ fontFamily: "var(--font-body)", fontSize: 15, fontWeight: 600, marginBottom: 10 }}>Payment Method</h3>
             {codEnabled && (
               <div className={"pay-opt" + (payment === "COD" ? " active" : "")} onClick={() => setPayment("COD")}>
                 <input type="radio" checked={payment === "COD"} readOnly />

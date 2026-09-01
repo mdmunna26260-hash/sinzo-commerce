@@ -70,7 +70,16 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
   const [buying, setBuying] = useState(false);
   const [adding, setAdding] = useState(false);
 
+  // size sequence maintained: numbers ascending first (28, 30, …40), then letter sizes (S→XL)
   const sizes = Array.from(new Set(product.variants.map((v) => v.size).filter(Boolean))) as string[];
+  const sizeOrder = ["XXS", "XS", "S", "M", "L", "XL", "XXL", "3XL", "4XL"];
+  sizes.sort((a, b) => {
+    const na = Number(a), nb = Number(b);
+    if (!Number.isNaN(na) && !Number.isNaN(nb)) return na - nb;
+    if (!Number.isNaN(na)) return -1;
+    if (!Number.isNaN(nb)) return 1;
+    return sizeOrder.indexOf(a.toUpperCase()) - sizeOrder.indexOf(b.toUpperCase());
+  });
   const colors = Array.from(new Set(product.variants.map((v) => v.color).filter(Boolean))) as string[];
 
   const activeVariant = product.variants.find((v) => (!size || v.size === size) && (!color || v.color === color)) || null;
@@ -181,7 +190,7 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
 
           {sizes.length > 0 && (
             <>
-              <div className="opt-label">Size {(sizeChartHtml || sizeChartImage) && <button className="sizechart-link" onClick={() => setChart(true)}>· Size chart</button>}</div>
+              <div className="opt-label">Size {(sizeChartHtml || sizeChartImage) && <button className="sizechart-link" onClick={() => setChart(true)}>📏 Size chart</button>}</div>
               <div className="sizes">
                 {sizes.map((s) => {
                   const v = product.variants.find((x) => x.size === s && (!color || x.color === color));

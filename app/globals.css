@@ -325,7 +325,11 @@ h1, h2, h3, .serif { font-family: var(--font-head); font-weight: 500; letter-spa
 .field input:focus, .field textarea:focus, .field select:focus { outline: none; border-color: var(--text); }
 .field .err { color: var(--danger); font-size: 12px; margin-top: 5px; }
 .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
-.pay-opt { border: 1px solid var(--line); background: #fff; padding: 16px; display: flex; gap: 12px; align-items: flex-start; margin-bottom: 10px; cursor: pointer; border-radius: var(--radius); }
+.pay-opt { border: 1px solid var(--line); background: #fff; padding: 10px 14px; display: flex; gap: 10px; align-items: center; margin-bottom: 8px; cursor: pointer; border-radius: var(--radius); }
+.pay-opt b { font-size: 14px; }
+.pay-opt > div > div { font-size: 12px; margin-top: 1px; }
+.pay-opt input[type="radio"] { width: 15px; height: 15px; flex: none; }
+.pay-opt .tag { font-size: 9px; padding: 1px 7px; }
 .pay-opt.active { border-color: var(--text); }
 .pay-opt .tag { font-size: 10px; background: var(--accent); color: #fff; padding: 2px 8px; border-radius: 99px; letter-spacing: .08em; margin-left: auto; }
 .trust { display: flex; gap: 18px; flex-wrap: wrap; margin-top: 18px; font-size: 11.5px; color: var(--muted); letter-spacing: .04em; }
