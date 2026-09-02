@@ -13,7 +13,8 @@ COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
 # cap Node heap so `next build` fits in small VPS RAM (2GB, no swap by default)
 ENV NODE_OPTIONS=--max-old-space-size=1024
-RUN npx prisma generate && npm run build
+# production build uses the PostgreSQL schema (same as `npm run build` script)
+RUN npx prisma generate --schema prisma/schema.prod.prisma && npm run build
 
 FROM node:20-bookworm-slim AS runner
 WORKDIR /app
