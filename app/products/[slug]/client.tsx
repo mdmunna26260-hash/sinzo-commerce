@@ -4,7 +4,6 @@ import { useRouter } from "next/navigation";
 import { useCart, useWishlist, trackEvent, toast } from "@/components/store";
 import { imgSrc, imgSrcSet } from "@/components/parts";
 import { warmImage } from "@/components/img-warm";
-import MobileGallery from "@/components/mobile-gallery";
 
 type V = { id: number; size: string | null; color: string | null; stock: number; price: number | null };
 type P = {
@@ -131,16 +130,10 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
       <div className="pdp">
         {/* ---------------- GALLERY ---------------- */}
         <div className="pdp-gallery">
-          {/* MOBILE: swipeable track gallery (touch-first, PacSun-style feel) */}
-          <div className="pdp-gallery-mobile mobile-only">
-            <MobileGallery images={product.images} title={product.title} active={img} onIndexChange={setImg} />
-            {avail <= 0 && <div className="soldout-overlay"><span>Sold Out</span></div>}
-          </div>
-
-          {/* DESKTOP: hover-zoom gallery (unchanged interaction) */}
-          <div className="pdp-gallery-desktop desktop-only">
           <div
             className={"pdp-main-img" + (N <= 1 ? " single" : "")}
+            onTouchStart={onTouchStart}
+            onTouchEnd={(e) => onTouchEnd(e)}
           >
             <img
               src={imgSrc((product.images[img] || product.images[0])?.url, 1000) || (product.images[img] || product.images[0])?.url}
@@ -166,6 +159,8 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
             </button>
             {N > 1 && (
               <>
+                <button className="gal-nav prev" aria-label="Previous image" onClick={prev}>‹</button>
+                <button className="gal-nav next" aria-label="Next image" onClick={next}>›</button>
                 <div className="gal-count">{img + 1} / {N}</div>
               </>
             )}
@@ -181,7 +176,6 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
               ))}
             </div>
           )}
-          </div>
         </div>
 
         {/* ---------------- INFO ---------------- */}
