@@ -2,9 +2,9 @@
 FROM node:20-bookworm-slim AS deps
 WORKDIR /app
 COPY package.json package-lock.json* ./
-# prisma schema needed for the postinstall `prisma generate`
+# prisma schema needed for the postinstall `prisma generate` (use PROD schema: postgresql + correct binaryTargets)
 COPY prisma ./prisma
-RUN npm ci
+RUN npm ci --ignore-scripts && npx prisma generate --schema prisma/schema.prod.prisma
 
 FROM node:20-bookworm-slim AS builder
 WORKDIR /app
