@@ -14,11 +14,13 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
 # cap Node heap so `next build` fits in small VPS RAM (2GB, no swap by default)
-ENV NODE_OPTIONS=--max-old-space-size=1024
+ENV NODE_OPTIONS=--max-old-space-size=614
 # production build uses the PostgreSQL schema (same as `npm run build` script)
 # DATABASE_URL build-arg: static pages prerender from the real DB (same as Vercel builds)
 ARG DATABASE_URL
 ENV DATABASE_URL=$DATABASE_URL
+# minimize build-time memory: no webpack cache, single worker
+ENV WEBPACK_CACHE=false NEXT_PRIVATE_WORKER_THREADS=1
 RUN npx prisma generate --schema prisma/schema.prod.prisma && npm run build
 
 FROM node:20-bookworm-slim AS runner
