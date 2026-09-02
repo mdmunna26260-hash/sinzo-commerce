@@ -12,7 +12,8 @@ import SmartImg from "@/components/smart-img";
 
 // ISR: Cache page for 60s, then revalidate in background
 // First visitor after expiry: gets cached page (fast), fresh page renders in background
-export const revalidate = 60;
+export const dynamic = "force-dynamic";
+// runtime caching via CDN headers keeps it fast; skip build-time DB (small VPS)
 
 const DEFAULT_SECTIONS = [
   { id: "hero", enabled: true }, { id: "values", enabled: true }, { id: "featured", enabled: true },

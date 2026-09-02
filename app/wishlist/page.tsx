@@ -4,7 +4,7 @@ import { getCategories } from "@/lib/catalog";
 import { db } from "@/lib/db";
 import WishlistClient from "./client";
 
-export const revalidate = 300;
+export const dynamic = "force-dynamic";
 export const metadata = { title: "Wishlist" };
 
 export default async function WishlistPage() {

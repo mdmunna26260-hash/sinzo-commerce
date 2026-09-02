@@ -9,8 +9,8 @@ import ProductPageClient from "./client";
 import ProductPageReviewForm from "./review-form";
 import Link from "next/link";
 
-export const revalidate = 60;
-export const dynamicParams = true; // new products render on-demand
+export const dynamic = "force-dynamic";
+// runtime caching via CDN keeps fast; skip build-time prerender (small VPS RAM)
 
 export async function generateMetadata({ params }: { params: { slug: string } }) {
   const p = await db.product.findUnique({ where: { slug: params.slug }, include: { images: true } });
