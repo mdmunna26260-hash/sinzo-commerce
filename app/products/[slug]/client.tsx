@@ -119,6 +119,12 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
     toast("Added to cart ✓");
     setTimeout(() => setAdding(false), 450); // brief confirmation state
   };
+  // Mobile swipe gallery is enabled ONLY on Vercel deploys (not on VPS)
+  const [vercelOnly, setVercelOnly] = useState(false);
+  useEffect(() => {
+    setVercelOnly(/vercel\.app$/.test(window.location.hostname));
+  }, []);
+
   const buyNow = () => {
     if (buying || adding) return;
     setBuying(true);
@@ -131,14 +137,17 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
       <div className="pdp">
         {/* ---------------- GALLERY ---------------- */}
         <div className="pdp-gallery">
-          {/* MOBILE: swipeable track gallery (touch-first, PacSun-style feel) */}
+          {/* MOBILE: swipeable gallery — Vercel deployment ONLY (user preference).
+              VPS (sinzooffcial.com) keeps the original gallery. */}
+          {vercelOnly && (
           <div className="pdp-gallery-mobile mobile-only">
             <MobileGallery images={product.images} title={product.title} active={img} onIndexChange={setImg} />
             {avail <= 0 && <div className="soldout-overlay"><span>Sold Out</span></div>}
           </div>
+          )}
 
           {/* DESKTOP: hover-zoom gallery (unchanged interaction) */}
-          <div className="pdp-gallery-desktop desktop-only">
+          <div className={"pdp-gallery-desktop desktop-only" + (vercelOnly ? " vercel-split" : "")}>
           <div
             className={"pdp-main-img" + (N <= 1 ? " single" : "")}
           >

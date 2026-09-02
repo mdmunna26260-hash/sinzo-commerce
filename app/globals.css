@@ -1109,3 +1109,7 @@ a, button, .pcard, .chip, .cat-pill, .size-btn { -webkit-tap-highlight-color: tr
   .mgal-dots button { width: 6px; height: 6px; }
   .mgal-dots button.on { width: 16px; }
 }
+
+/* Gallery split (Vercel mobile swipe only): display rules at line 1024 handle
+   mobile/desktop visibility — .vercel-split class is set client-side when the
+   hostname is *.vercel.app so the swipe gallery renders only there */
