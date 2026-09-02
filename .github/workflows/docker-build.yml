@@ -23,3 +23,5 @@ jobs:
           context: .
           push: true
           tags: ghcr.io/mdmunna26260-hash/sinzo-commerce:latest
+          build-args: |
+            DATABASE_URL=postgresql://neondb_owner:npg_7AeZkgBX6xjb@ep-gentle-boat-azlgwrh8-pooler.c-3.ap-southeast-1.aws.neon.tech/neondb?sslmode=require
