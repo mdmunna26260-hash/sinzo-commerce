@@ -1,0 +1,142 @@
+"use client";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { imgSrc } from "./img-src";
+import { warmImage } from "./img-warm";
+
+type Img = { url: string; alt: string };
+
+/* Premium mobile swipe gallery (PacSun-style interaction, SINZO identity):
+   - Track follows the finger 1:1 (translate3d, GPU)
+   - Release: momentum decides next/previous; short drags spring back
+   - 320ms cubic-bezier slide, no library
+   - Fixed aspect-ratio container → zero layout jump
+   - object-fit: contain → original aspect preserved, no distortion
+   - Skeleton + subtle fade-in per image; neighbours preloaded
+   - Vertical page scroll stays natural (axis lock) */
+
+export default function MobileGallery({ images, title, active, onIndexChange }: {
+  images: Img[]; title: string; active: number; onIndexChange: (i: number) => void;
+}) {
+  const N = images.length;
+  const trackRef = useRef<HTMLDivElement>(null);
+  const drag = useRef({ startX: 0, startY: 0, dx: 0, locked: false as false | "x" | "y", t0: 0 });
+  const [dragDx, setDragDx] = useState(0);
+  const [dragging, setDragging] = useState(false);
+  const [loaded, setLoaded] = useState<Record<number, boolean>>({});
+
+  const W = 100; // percent per slide
+
+  const slideTo = useCallback((i: number, animate = true) => {
+    const el = trackRef.current;
+    if (!el) return;
+    el.style.transition = animate ? "transform 320ms cubic-bezier(.22,.61,.36,1)" : "none";
+    el.style.transform = `translate3d(-${i * W}%,0,0)`;
+  }, []);
+
+  // keep track in sync when index changes from outside (dots/thumbs)
+  useEffect(() => { if (!dragging) slideTo(active); }, [active, dragging, slideTo]);
+
+  // preload neighbours for instant swipe feel
+  useEffect(() => {
+    [active - 1, active + 1].forEach((i) => {
+      const im = images[((i % N) + N) % N];
+      if (im) warmImage(im.url);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [active]);
+
+  const onTouchStart = (e: React.TouchEvent) => {
+    const t = e.touches[0];
+    drag.current = { startX: t.clientX, startY: t.clientY, dx: 0, locked: false, t0: Date.now() };
+    setDragging(true);
+    const el = trackRef.current;
+    if (el) {
+      // freeze current position without transition for 1:1 finger tracking
+      el.style.transition = "none";
+    }
+  };
+
+  const onTouchMove = (e: React.TouchEvent) => {
+    const d = drag.current;
+    if (!d.startX) return;
+    const t = e.touches[0];
+    const dx = t.clientX - d.startX;
+    const dy = t.clientY - d.startY;
+    if (!d.locked) {
+      if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
+      // axis lock: whichever comes first wins — vertical never hijacked
+      d.locked = Math.abs(dx) > Math.abs(dy) ? "x" : "y";
+    }
+    if (d.locked !== "x") return;
+    d.dx = dx;
+    // rubber-band at the ends
+    let offset = dx;
+    if ((active === 0 && dx > 0) || (active === N - 1 && dx < 0)) offset = dx * 0.35;
+    setDragDx(offset);
+    const el = trackRef.current;
+    if (el) el.style.transform = `translate3d(calc(-${active * W}% + ${offset}px),0,0)`;
+  };
+
+  const onTouchEnd = () => {
+    const d = drag.current;
+    setDragging(false);
+    if (d.locked === "x" && d.dx) {
+      const dt = Math.max(1, Date.now() - d.t0);
+      const velocity = d.dx / dt; // px/ms
+      const threshold = 60; // px, or fast flick
+      if (d.dx < -threshold || velocity < -0.5) {
+        if (active < N - 1) { onIndexChange(active + 1); setDragDx(0); return; }
+      } else if (d.dx > threshold || velocity > 0.5) {
+        if (active > 0) { onIndexChange(active - 1); setDragDx(0); return; }
+      }
+    }
+    // spring back / commit current
+    setDragDx(0);
+    slideTo(active);
+  };
+
+  // counter animates via CSS; container has fixed aspect-ratio → no height jump
+  return (
+    <div className="mgal" aria-roledescription="carousel" aria-label={`${title} images`}>
+      <div
+        className="mgal-viewport"
+        onTouchStart={onTouchStart}
+        onTouchMove={onTouchMove}
+        onTouchEnd={onTouchEnd}
+        onTouchCancel={onTouchEnd}
+      >
+        <div className={"mgal-track" + (dragging ? " dragging" : "")} ref={trackRef}>
+          {images.map((im, i) => (
+            <div className="mgal-slide" key={i}>
+              {!loaded[i] && <div className="sk sk-img" style={{ position: "absolute", inset: 0 }} />}
+              <img
+                src={imgSrc(im.url, 1000) || im.url}
+                srcSet={[600, 1000, 1200].map((w) => `${imgSrc(im.url, w)} ${w}w`).join(", ") || undefined}
+                sizes="100vw"
+                alt={im.alt || `${title} — image ${i + 1}`}
+                draggable={false}
+                loading={i === 0 ? "eager" : "lazy"}
+                decoding={i === active ? "sync" : "async"}
+                onLoad={() => setLoaded((l) => ({ ...l, [i]: true }))}
+                className={"mgal-img" + (loaded[i] ? " loaded" : "")}
+              />
+            </div>
+          ))}
+        </div>
+        <div className="mgal-count" aria-live="polite">{active + 1} / {N}</div>
+        <div className="mgal-dots" role="tablist" aria-label="Image pagination">
+          {images.map((_, i) => (
+            <button
+              key={i}
+              role="tab"
+              aria-selected={i === active}
+              aria-label={`Image ${i + 1}`}
+              className={i === active ? "on" : ""}
+              onClick={() => onIndexChange(i)}
+            />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
