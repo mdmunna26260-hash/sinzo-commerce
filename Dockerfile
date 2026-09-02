@@ -9,7 +9,8 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
-# For production, switch prisma/schema.prisma provider to "postgresql" first
+# cap Node heap so `next build` fits in small VPS RAM (2GB, no swap by default)
+ENV NODE_OPTIONS=--max-old-space-size=1024
 RUN npx prisma generate && npm run build
 
 FROM node:20-alpine AS runner
