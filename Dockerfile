@@ -5,7 +5,7 @@ WORKDIR /app
 COPY package.json package-lock.json* ./
 # prisma schema needed for the postinstall `prisma generate` (use PROD schema: postgresql + correct binaryTargets)
 COPY prisma ./prisma
-RUN npm ci --ignore-scripts && npx prisma generate --schema prisma/schema.prod.prisma
+RUN echo "=== STEP: npm ci starting ===" && npm ci --ignore-scripts && echo "=== npm ci done ===" && npx prisma generate --schema prisma/schema.prod.prisma && echo "=== prisma generate done ==="
 
 FROM node:20-bookworm-slim AS builder
 RUN apt-get update -qq && apt-get install -y -qq openssl && rm -rf /var/lib/apt/lists/*
