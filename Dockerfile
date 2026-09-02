@@ -1,5 +1,6 @@
 # Production container (see docker-compose.yml for full stack with PostgreSQL)
 FROM node:20-bookworm-slim AS deps
+RUN apt-get update -qq && apt-get install -y -qq openssl ca-certificates && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY package.json package-lock.json* ./
 # prisma schema needed for the postinstall `prisma generate` (use PROD schema: postgresql + correct binaryTargets)
@@ -7,6 +8,7 @@ COPY prisma ./prisma
 RUN npm ci --ignore-scripts && npx prisma generate --schema prisma/schema.prod.prisma
 
 FROM node:20-bookworm-slim AS builder
+RUN apt-get update -qq && apt-get install -y -qq openssl && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
@@ -17,6 +19,7 @@ ENV NODE_OPTIONS=--max-old-space-size=1024
 RUN npx prisma generate --schema prisma/schema.prod.prisma && npm run build
 
 FROM node:20-bookworm-slim AS runner
+RUN apt-get update -qq && apt-get install -y -qq openssl && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 ENV NODE_ENV=production
 COPY --from=builder /app/.next ./.next
