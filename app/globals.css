@@ -1021,15 +1021,6 @@ a, button, .pcard, .chip, .cat-pill, .size-btn { -webkit-tap-highlight-color: tr
 }
 
 /* ---------- Mobile swipe gallery (PDP) — premium, library-free ---------- */
-.pdp-gallery-mobile { display: none; }
-@media (max-width: 899px) {
-  .pdp-gallery-mobile { display: block; }
-  .pdp-gallery-desktop { display: none; }
-}
-@media (min-width: 900px) {
-  .pdp-gallery-mobile { display: none; }
-}
-
 .mgal-viewport {
   position: relative;
   overflow: hidden;
