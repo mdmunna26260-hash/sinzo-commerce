@@ -1,4 +1,5 @@
 "use client";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useCart } from "./store";
@@ -65,10 +66,33 @@ const ITEMS = [
 export default function BottomNav() {
   const pathname = usePathname();
   const { count } = useCart();
+  /* shrink on scroll down, expand on scroll up */
+  const [compact, setCompact] = useState(false);
+  const lastY = useRef(0);
+
+  useEffect(() => {
+    lastY.current = window.scrollY;
+    let ticking = false;
+    const onScroll = () => {
+      if (ticking) return;
+      ticking = true;
+      requestAnimationFrame(() => {
+        const y = window.scrollY;
+        if (Math.abs(y - lastY.current) < 12) { ticking = false; return; }
+        if (y > lastY.current && y > 100) setCompact(true);
+        else if (y < lastY.current) setCompact(false);
+        lastY.current = y;
+        ticking = false;
+      });
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
   if (pathname.startsWith("/admin")) return null;
 
   return (
-    <nav className="tabbar" aria-label="Main navigation">
+    <nav className={"tabbar" + (compact ? " compact" : "")} aria-label="Main navigation">
       {ITEMS.map((item) => {
         const active = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
         return (
