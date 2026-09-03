@@ -362,37 +362,6 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
         </section>
       )}
 
-      {/* bottom navigation (Liquid Glass) on Vercel; original sticky ATC on VPS */}
-      {vercelOnly ? (
-      <nav className="bottom-nav glass" aria-label="Quick navigation">
-        <Link href="/" className="bn-item" aria-label="Home">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/></svg>
-          <span>Home</span>
-        </Link>
-        <Link href="/products" className="bn-item" aria-label="All Products">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
-          <span>Products</span>
-        </Link>
-        <Link href="/cart" className="bn-item bn-cart" aria-label="Cart">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
-          <span>Cart</span>
-          {cartCount > 0 && <span className="bn-badge">{cartCount}</span>}
-        </Link>
-        <Link href="/track" className="bn-item" aria-label="Track Order">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
-          <span>Track</span>
-        </Link>
-      </nav>
-      ) : (
-      <div className="sticky-atc">
-        <div>
-          <div style={{ fontSize: 16, fontWeight: 600 }}>৳{price.toLocaleString("en-IN")}</div>
-          <div style={{ fontSize: 11, color: avail > 0 ? "var(--ok)" : "var(--danger)" }}>{avail > 0 ? "In stock" : "Sold out"}</div>
-        </div>
-        <button className="btn" disabled={avail <= 0 || adding} aria-busy={adding || undefined} onClick={addLine}>
-          {adding && <span className="spinner" aria-hidden="true" />}<span style={adding ? { marginLeft: 8 } : undefined}>{adding ? "Adding…" : "Add to Cart"}</span>
-        </button>
-      </div>
       )}
 
       {/* size chart modal */}
