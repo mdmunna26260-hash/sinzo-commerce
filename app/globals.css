@@ -1368,17 +1368,17 @@ a, button, .pcard, .chip, .cat-pill, .size-btn { -webkit-tap-highlight-color: tr
   display: flex;
   align-items: center;
   justify-content: space-around;
-  width: min(380px, calc(100vw - 24px));
-  padding: 6px 10px;
-  border-radius: 26px;
-  background: rgba(255, 255, 255, 0.85);
-  -webkit-backdrop-filter: blur(16px) saturate(1.6);
-  backdrop-filter: blur(16px) saturate(1.6);
-  border: 1px solid rgba(0, 0, 0, 0.06);
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.10), 0 1px 3px rgba(0, 0, 0, 0.05);
+  width: min(370px, calc(100vw - 28px));
+  padding: 8px 6px;
+  border-radius: 28px;
+  background: rgba(22, 22, 24, 0.82);
+  -webkit-backdrop-filter: blur(18px) saturate(1.6);
+  backdrop-filter: blur(18px) saturate(1.6);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  box-shadow: 0 6px 32px rgba(0, 0, 0, 0.30), inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-  .tabbar { background: rgba(255, 255, 255, 0.97) !important; -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
+  .tabbar { background: rgba(28, 28, 30, 0.97) !important; -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
 }
 
 .tab-item {
@@ -1386,21 +1386,20 @@ a, button, .pcard, .chip, .cat-pill, .size-btn { -webkit-tap-highlight-color: tr
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 10px 16px;
+  padding: 10px 14px;
   border-radius: 18px;
-  color: var(--text);
+  color: rgba(255, 255, 255, 0.48);
   text-decoration: none;
   transition: background 200ms ease, color 200ms ease, transform 150ms ease;
   -webkit-tap-highlight-color: transparent;
 }
 .tab-item:active { transform: scale(0.92); }
 
-/* active: filled light-gray rounded pill behind the icon */
+/* active: filled dark gray rounded pill (like iOS Phone app) */
 .tab-item.active {
-  background: rgba(0, 0, 0, 0.06);
-  color: var(--text);
+  background: rgba(255, 255, 255, 0.14);
+  color: #ffffff;
 }
-.tab-item:not(.active) { color: rgba(0, 0, 0, 0.42); }
 
 .tab-icon {
   position: relative;
@@ -1412,19 +1411,20 @@ a, button, .pcard, .chip, .cat-pill, .size-btn { -webkit-tap-highlight-color: tr
 
 .tab-badge {
   position: absolute;
-  top: -4px;
+  top: -5px;
   right: -8px;
   background: #EF4444;
   color: #fff;
   font-size: 9px;
   font-weight: 700;
-  min-width: 15px;
-  height: 15px;
+  min-width: 16px;
+  height: 16px;
   border-radius: 99px;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 0 4px;
+  border: 1.5px solid rgba(22, 22, 24, 0.8);
 }
 
 /* hide on desktop + admin */
@@ -1432,7 +1432,6 @@ a, button, .pcard, .chip, .cat-pill, .size-btn { -webkit-tap-highlight-color: tr
   .tabbar { display: none; }
 }
 body:has(.admin-body) .tabbar { display: none !important; }
-/* page bottom padding so bar never covers content */
 body { padding-bottom: calc(64px + env(safe-area-inset-bottom, 0px)); }
 @media (min-width: 900px) { body { padding-bottom: 0; } }
 body:has(.admin-body) { padding-bottom: 0 !important; }
