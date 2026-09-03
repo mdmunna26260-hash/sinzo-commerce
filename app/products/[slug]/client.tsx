@@ -77,35 +77,23 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
       else if (sw.dx > 55 || vel > 0.5) dir = -1;    // prev
     }
     swipe.current = { x0: 0, y0: 0, dx: 0, locked: false, t0: 0 };
-    if (dir !== 0) {
-      const target = ((img + dir) % N + N) % N;
-      if (target === img) { // at end — spring back
-        if (el) { el.style.transition = "transform 260ms cubic-bezier(.22,.61,.36,1)"; el.style.transform = "translate3d(0,0,0)"; }
-        return;
-      }
+    if (dir !== 0 && img + dir >= 0 && img + dir < N) {
+      const target = img + dir;
+      // preload target before slide → no white flash
       warmImage(product.images[target]?.url);
-      // slide out
+      setImg(target);
+      // slide container from edge into place (280ms, no opacity change = no flash)
       if (el) {
-        el.style.transition = "transform 240ms cubic-bezier(.22,.61,.36,1), opacity 240ms ease";
-        el.style.transform = `translate3d(${dir * -55}%,0,0)`;
-        el.style.opacity = "0.35";
-      }
-      setTimeout(() => {
-        setImg(target);
-        // slide in from opposite side (DOM writes after render, rAF x2)
+        el.style.transition = "none";
+        el.style.transform = `translate3d(${dir * 40}%,0,0)`;
         requestAnimationFrame(() => {
-          const el2 = mainRef.current;
-          if (!el2) return;
-          el2.style.transition = "none";
-          el2.style.transform = `translate3d(${dir * 55}%,0,0)`;
-          el2.style.opacity = "0.35";
           requestAnimationFrame(() => {
-            el2.style.transition = "transform 280ms cubic-bezier(.22,.61,.36,1), opacity 280ms ease";
-            el2.style.transform = "translate3d(0,0,0)";
-            el2.style.opacity = "1";
+            if (!mainRef.current) return;
+            mainRef.current.style.transition = "transform 300ms cubic-bezier(.22,.61,.36,1)";
+            mainRef.current.style.transform = "translate3d(0,0,0)";
           });
         });
-      }, 240);
+      }
     } else if (el && sw.locked === "x") {
       // spring back to current
       el.style.transition = "transform 260ms cubic-bezier(.22,.61,.36,1)";
