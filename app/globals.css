@@ -1039,6 +1039,8 @@ a, button, .pcard, .chip, .cat-pill, .size-btn { -webkit-tap-highlight-color: tr
   border-radius: var(--radius);
   touch-action: pan-y;           /* vertical page scroll stays natural; horizontal is ours */
 }
+.mgal-slide { overflow: hidden; }
+.mgal-img { object-fit: cover; } /* fills edge-to-edge — no blank bars top/bottom */
 .mgal-track {
   display: flex;
   height: 100%;
@@ -1056,7 +1058,7 @@ a, button, .pcard, .chip, .cat-pill, .size-btn { -webkit-tap-highlight-color: tr
 .mgal-img {
   width: 100%;
   height: 100%;
-  object-fit: contain;           /* original aspect ratio, never distorted */
+  object-fit: cover;      /* fills edge-to-edge — zero blank space top/bottom */
   user-select: none;
   -webkit-user-drag: none;
   opacity: 0;
