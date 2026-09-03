@@ -1,7 +1,6 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
 import { useCart } from "./store";
 
 /* Instagram-style compact icon tab bar — light glass pill, active = filled gray pill.
@@ -66,13 +65,6 @@ const ITEMS = [
 export default function BottomNav() {
   const pathname = usePathname();
   const { count } = useCart();
-  const [visible, setVisible] = useState(false);
-
-  useEffect(() => {
-    setVisible(/vercel\.app$/.test(window.location.hostname));
-  }, []);
-
-  if (!visible) return null;
   if (pathname.startsWith("/admin")) return null;
 
   return (
