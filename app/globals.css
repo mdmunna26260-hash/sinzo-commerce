@@ -1115,3 +1115,234 @@ a, button, .pcard, .chip, .cat-pill, .size-btn { -webkit-tap-highlight-color: tr
 /* Gallery split (Vercel mobile swipe only): display rules at line 1024 handle
    mobile/desktop visibility — .vercel-split class is set client-side when the
    hostname is *.vercel.app so the swipe gallery renders only there */
+
+/* ================================================================
+   LIQUID GLASS — Apple-inspired frosted UI (subtle, selective)
+   Only small/fixed elements get backdrop-filter. Never global.
+   Fallback provided for browsers without backdrop-filter.
+   ================================================================ */
+
+/* base glass tokens */
+.glass {
+  background: rgba(255, 255, 255, 0.62);
+  -webkit-backdrop-filter: blur(12px) saturate(1.4);
+  backdrop-filter: blur(12px) saturate(1.4);
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.07), inset 0 1px 0 rgba(255, 255, 255, 0.65);
+}
+
+/* LOW-END FALLBACK: no blur support → solid near-white, still premium */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .glass,
+  .glass-strong {
+    background: rgba(255, 255, 255, 0.96) !important;
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  }
+}
+
+/* darker glass for dark surfaces (announce bar etc.) */
+.glass-dark {
+  background: rgba(20, 20, 20, 0.55);
+  -webkit-backdrop-filter: blur(12px) saturate(1.3);
+  backdrop-filter: blur(12px) saturate(1.3);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+/* ---------- 1. MOBILE STICKY HEADER ---------- */
+@media (max-width: 899px) {
+  .header {
+    background: rgba(250, 249, 247, 0.68);
+    -webkit-backdrop-filter: blur(12px) saturate(1.4);
+    backdrop-filter: blur(12px) saturate(1.4);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.5);
+    box-shadow: 0 1px 12px rgba(0, 0, 0, 0.04);
+  }
+  /* logo & icons stay sharp and dark */
+  .header .logo,
+  .header .icon-btn { color: var(--text); opacity: 1; }
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  @media (max-width: 899px) {
+    .header { background: rgba(250, 249, 247, 0.97); -webkit-backdrop-filter: none; backdrop-filter: none; }
+  }
+}
+
+/* ---------- 2. STICKY ADD TO CART — floating glass pill ---------- */
+@media (max-width: 899px) {
+  .sticky-atc {
+    left: 10px;
+    right: 10px;
+    bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+    background: rgba(255, 255, 255, 0.60);
+    -webkit-backdrop-filter: blur(14px) saturate(1.5);
+    backdrop-filter: blur(14px) saturate(1.5);
+    border: 1px solid rgba(255, 255, 255, 0.60);
+    border-radius: 18px;
+    box-shadow: 0 6px 28px rgba(0, 0, 0, 0.10), inset 0 1px 0 rgba(255, 255, 255, 0.70);
+    padding: 10px 14px;
+    gap: 10px;
+    align-items: center;
+  }
+  /* price & stock readable on glass */
+  .sticky-atc > div > div:first-child { font-size: 15px; font-weight: 700; }
+  .sticky-atc > div > div:last-child { font-size: 10.5px; }
+  /* ATC button stays solid dark — premium contrast against glass */
+  .sticky-atc .btn { border-radius: 14px; min-height: 42px; font-size: 11px; }
+  /* page bottom padding so bar never covers content */
+  .pdp { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)) !important; }
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  @media (max-width: 899px) {
+    .sticky-atc { background: rgba(255, 255, 255, 0.97) !important; -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
+  }
+}
+
+/* ---------- 3. PRODUCT IMAGE CONTROLS — small glass circles ---------- */
+/* wishlist heart on PDP */
+.pdp-actions .btn-outline:last-of-type,
+.pdp-wish-btn {
+  background: rgba(255, 255, 255, 0.55) !important;
+  -webkit-backdrop-filter: blur(10px) saturate(1.4);
+  backdrop-filter: blur(10px) saturate(1.4);
+  border: 1px solid rgba(255, 255, 255, 0.55) !important;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06);
+}
+
+/* gal-zoom / gal-nav glass circles (desktop + mobile) */
+.gal-zoom,
+.gal-nav {
+  background: rgba(255, 255, 255, 0.55) !important;
+  -webkit-backdrop-filter: blur(10px) saturate(1.4);
+  backdrop-filter: blur(10px) saturate(1.4);
+  border: 1px solid rgba(255, 255, 255, 0.55) !important;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06);
+  transition: transform 200ms ease, background 200ms ease;
+}
+.gal-zoom:hover,
+.gal-nav:hover { background: rgba(255, 255, 255, 0.8) !important; transform: scale(1.05); }
+
+/* counter capsule */
+.gal-count,
+.mgal-count {
+  background: rgba(255, 255, 255, 0.60) !important;
+  -webkit-backdrop-filter: blur(10px) saturate(1.4);
+  backdrop-filter: blur(10px) saturate(1.4);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+}
+
+/* gallery dots subtle */
+.mgal-dots button {
+  background: rgba(20, 20, 20, 0.18);
+  backdrop-filter: none;
+}
+.mgal-dots button.on { background: var(--text); }
+
+/* ---------- 5. SIZE / COLOR SELECTOR — subtle glass on active ---------- */
+.size-btn,
+.color-dot {
+  transition: background 200ms ease, border-color 200ms ease, transform 200ms ease, box-shadow 200ms ease;
+}
+.size-btn.active {
+  background: rgba(20, 20, 20, 0.92);
+  border-color: rgba(20, 20, 20, 0.92);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  transform: translateY(-1px);
+}
+.color-dot.active {
+  box-shadow: 0 0 0 2px var(--bg), 0 2px 12px rgba(0, 0, 0, 0.14);
+  transform: translateY(-1px);
+}
+
+/* ---------- 6. MODALS / DRAWERS / OVERLAYS — frosted panel ---------- */
+.modal,
+.fdrawer,
+.search-panel,
+.notif-panel {
+  background: rgba(255, 255, 255, 0.88) !important;
+  -webkit-backdrop-filter: blur(14px) saturate(1.4);
+  backdrop-filter: blur(14px) saturate(1.4);
+  border: 1px solid rgba(255, 255, 255, 0.60) !important;
+  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.12) !important;
+}
+.modal-bg {
+  background: rgba(20, 20, 20, 0.35) !important;
+  -webkit-backdrop-filter: blur(3px);
+  backdrop-filter: blur(3px);
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .modal,
+  .fdrawer,
+  .search-panel,
+  .notif-panel {
+    background: rgba(255, 255, 255, 0.98) !important;
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+  }
+  .modal-bg { background: rgba(20, 20, 20, 0.45) !important; -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
+}
+
+/* smooth modal open (transform+opacity only) */
+.modal { animation: glassIn 220ms cubic-bezier(.22,.61,.36,1) both; }
+@keyframes glassIn {
+  from { opacity: 0; transform: scale(0.97) translateY(6px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) { .modal { animation: none; } }
+
+/* search overlay backdrop frosted */
+.search-overlay {
+  background: rgba(20, 20, 20, 0.30) !important;
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+}
+
+/* ---------- 8. REVIEW — star pick + submit hover ---------- */
+.stars-pick span { transition: transform 180ms ease, color 180ms ease; }
+.stars-pick span:hover { transform: scale(1.15); }
+.review-form .btn:hover { transform: translateY(-1px); box-shadow: 0 4px 16px rgba(0,0,0,.10); }
+
+/* ---------- 7. FLOATING UI (reusable small glass circles/pills) ---------- */
+.fglass {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  min-width: 42px;
+  border-radius: 99px;
+  background: rgba(255, 255, 255, 0.55);
+  -webkit-backdrop-filter: blur(10px) saturate(1.4);
+  backdrop-filter: blur(10px) saturate(1.4);
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06);
+  transition: background 200ms ease, transform 200ms ease;
+}
+.fglass:hover { background: rgba(255, 255, 255, 0.82); transform: translateY(-1px); }
+.fglass:active { transform: scale(0.96); }
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .fglass { background: rgba(255,255,255,0.96) !important; -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
+}
+
+/* cart drawer glass (mobile slide-in) */
+@media (max-width: 899px) {
+  .fdrawer {
+    background: rgba(255, 255, 255, 0.92) !important;
+    -webkit-backdrop-filter: blur(14px) saturate(1.4);
+    backdrop-filter: blur(14px) saturate(1.4);
+    border-left: 1px solid rgba(255, 255, 255, 0.5) !important;
+  }
+  .fdrawer-head,
+  .fdrawer-foot { background: transparent !important; }
+}
+
+/* containment: glass elements don't repaint the whole page */
+.glass, .fglass, .sticky-atc, .header, .gal-zoom, .gal-nav, .gal-count, .mgal-count {
+  contain: layout style;
+}
+
+/* safe-area for iOS notch on header (mobile) */
+@media (max-width: 899px) {
+  .header { padding-top: env(safe-area-inset-top, 0px); }
+}
