@@ -362,8 +362,6 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
         </section>
       )}
 
-      )}
-
       {/* size chart modal */}
       {chart && (sizeChartImage || sizeChartHtml) && (
         <div className="modal-bg sizechart-bg" onClick={() => setChart(false)}>
