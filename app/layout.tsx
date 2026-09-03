@@ -4,6 +4,7 @@ import RevealInit from "@/components/reveal";
 import PageViewTracker from "@/components/pageview";
 import PageTransition from "@/components/page-transition";
 import { CartProvider } from "@/components/store";
+import BottomNav from "@/components/bottom-nav";
 import { getSettings, publicSettings } from "@/lib/settings";
 
 export const viewport: Viewport = {
@@ -81,6 +82,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       <body>
         <CartProvider>
         {children}
+        <BottomNav />
         </CartProvider>
         <RevealInit />
         <PageViewTracker />
