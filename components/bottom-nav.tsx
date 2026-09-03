@@ -4,12 +4,15 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useCart } from "./store";
 
+/* Instagram-style compact icon tab bar — light glass pill, active = filled gray pill.
+   Vercel-only, mobile only, all pages (except admin). */
+
 const ITEMS = [
   {
     href: "/",
     label: "Home",
     icon: (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
         <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
         <path d="M9 22V12h6v10" />
       </svg>
@@ -17,9 +20,9 @@ const ITEMS = [
   },
   {
     href: "/products",
-    label: "Products",
+    label: "Shop",
     icon: (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
         <rect x="3" y="3" width="7" height="7" rx="1" />
         <rect x="14" y="3" width="7" height="7" rx="1" />
         <rect x="14" y="14" width="7" height="7" rx="1" />
@@ -31,7 +34,7 @@ const ITEMS = [
     href: "/cart",
     label: "Cart",
     icon: (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
         <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" />
         <path d="M3 6h18" />
         <path d="M16 10a4 4 0 0 1-8 0" />
@@ -42,7 +45,7 @@ const ITEMS = [
     href: "/track",
     label: "Track",
     icon: (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
         <circle cx="12" cy="12" r="10" />
         <path d="M12 6v6l4 2" />
       </svg>
@@ -52,7 +55,7 @@ const ITEMS = [
     href: "/account",
     label: "Account",
     icon: (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
         <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
         <circle cx="12" cy="7" r="4" />
       </svg>
@@ -82,13 +85,12 @@ export default function BottomNav() {
             href={item.href}
             className={"tab-item" + (active ? " active" : "")}
             aria-current={active ? "page" : undefined}
+            aria-label={item.label}
           >
-            <span className="tab-bubble" aria-hidden="true" />
             <span className="tab-icon">
               {item.icon}
               {item.href === "/cart" && count > 0 && <span className="tab-badge">{count > 99 ? "99+" : count}</span>}
             </span>
-            <span className="tab-label">{item.label}</span>
           </Link>
         );
       })}
