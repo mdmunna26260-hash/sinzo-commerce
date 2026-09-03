@@ -139,6 +139,7 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
         <div className="pdp-gallery">
           {/* MOBILE: swipeable gallery — Vercel deployment ONLY (user preference).
               VPS (sinzooffcial.com) keeps the original gallery. */}
+          {/* MOBILE swipe gallery — Vercel only */}
           {vercelOnly && (
           <div className="pdp-gallery-mobile mobile-only">
             <MobileGallery images={product.images} title={product.title} active={img} onIndexChange={setImg} />
@@ -146,8 +147,8 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
           </div>
           )}
 
-          {/* DESKTOP: hover-zoom gallery (unchanged interaction) */}
-          <div className={"pdp-gallery-desktop desktop-only" + (vercelOnly ? " vercel-split" : "")}>
+          {/* ORIGINAL gallery — always rendered; on Vercel mobile it's hidden by CSS when swipe gallery is active */}
+          <div className={"pdp-gallery-desktop" + (vercelOnly ? " hide-on-mobile" : "")}>
           <div
             className={"pdp-main-img" + (N <= 1 ? " single" : "")}
           >
