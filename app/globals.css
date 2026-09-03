@@ -1363,22 +1363,22 @@ a, button, .pcard, .chip, .cat-pill, .size-btn { -webkit-tap-highlight-color: tr
   position: fixed;
   left: 50%;
   transform: translateX(-50%);
-  bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+  bottom: calc(16px + env(safe-area-inset-bottom, 0px));
   z-index: 45;
   display: flex;
   align-items: center;
   justify-content: space-around;
-  width: min(370px, calc(100vw - 28px));
-  padding: 8px 6px;
+  width: min(340px, calc(100vw - 32px));
+  padding: 0 4px;
   border-radius: 28px;
   background: rgba(255, 255, 255, 0.72);
-  -webkit-backdrop-filter: blur(18px) saturate(1.6);
-  backdrop-filter: blur(18px) saturate(1.6);
-  border: 1px solid rgba(0, 0, 0, 0.06);
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.10), inset 0 1px 0 rgba(255, 255, 255, 0.60);
+  -webkit-backdrop-filter: blur(20px) saturate(1.8);
+  backdrop-filter: blur(20px) saturate(1.8);
+  border: 1px solid rgba(255, 255, 255, 0.50);
+  box-shadow: 0 2px 20px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.04);
 }
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-  .tabbar { background: rgba(255, 255, 255, 0.97) !important; -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
+  .tabbar { background: rgba(255, 255, 255, 0.96) !important; -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
 }
 
 .tab-item {
@@ -1386,18 +1386,18 @@ a, button, .pcard, .chip, .cat-pill, .size-btn { -webkit-tap-highlight-color: tr
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 10px 14px;
-  border-radius: 18px;
+  padding: 12px 18px;
+  border-radius: 22px;
   color: rgba(0, 0, 0, 0.35);
   text-decoration: none;
-  transition: background 200ms ease, color 200ms ease, transform 150ms ease;
+  transition: background 220ms ease, color 220ms ease, transform 150ms ease;
   -webkit-tap-highlight-color: transparent;
 }
-.tab-item:active { transform: scale(0.92); }
+.tab-item:active { transform: scale(0.90); }
 
-/* active: filled dark gray rounded pill (like iOS Phone app) */
+/* active: filled light-gray rounded pill behind icon */
 .tab-item.active {
-  background: rgba(0, 0, 0, 0.06);
+  background: rgba(0, 0, 0, 0.07);
   color: var(--text);
 }
 
@@ -1412,7 +1412,7 @@ a, button, .pcard, .chip, .cat-pill, .size-btn { -webkit-tap-highlight-color: tr
 .tab-badge {
   position: absolute;
   top: -5px;
-  right: -8px;
+  right: -9px;
   background: #EF4444;
   color: #fff;
   font-size: 9px;
@@ -1424,7 +1424,6 @@ a, button, .pcard, .chip, .cat-pill, .size-btn { -webkit-tap-highlight-color: tr
   align-items: center;
   justify-content: center;
   padding: 0 4px;
-  border: 1.5px solid rgba(255, 255, 255, 0.85);
 }
 
 /* hide on desktop + admin */
@@ -1432,6 +1431,7 @@ a, button, .pcard, .chip, .cat-pill, .size-btn { -webkit-tap-highlight-color: tr
   .tabbar { display: none; }
 }
 body:has(.admin-body) .tabbar { display: none !important; }
+/* page bottom padding so bar never covers content */
 body { padding-bottom: calc(64px + env(safe-area-inset-bottom, 0px)); }
 @media (min-width: 900px) { body { padding-bottom: 0; } }
 body:has(.admin-body) { padding-bottom: 0 !important; }
