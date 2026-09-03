@@ -1338,7 +1338,10 @@ a, button, .pcard, .chip, .cat-pill, .size-btn { -webkit-tap-highlight-color: tr
   .header { padding-top: env(safe-area-inset-top, 0px); }
 }
 
-/* Vercel-only split: when swipe gallery is active (Vercel), original gallery hides on mobile */
+
+/* Vercel-only gallery wrapper: display:contents keeps grid children working
+   (pdps-gallery grid expects .thumbs and .pdp-main-img as direct children) */
+.pdp-gallery-desktop { display: contents; }
 @media (max-width: 899px) {
   .pdp-gallery-desktop.hide-on-mobile { display: none; }
 }
