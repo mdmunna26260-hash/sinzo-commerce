@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCart, useWishlist, trackEvent, toast } from "@/components/store";
 import { imgSrc, imgSrcSet } from "@/components/parts";
@@ -15,7 +16,7 @@ type P = {
 };
 
 export default function ProductPageClient({ product, sizeChartHtml, sizeChartImage }: { product: P; sizeChartHtml: string | null; sizeChartImage: string | null }) {
-  const { add } = useCart();
+  const { add, count: cartCount } = useCart();
   const router = useRouter();
   const wishlist = useWishlist();
   const N = product.images.length;
@@ -27,6 +28,90 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
   const [lbZoom, setLbZoom] = useState(false);
   const [hoverZoom, setHoverZoom] = useState(false);
   const touch = useRef<{ x: number; y: number } | null>(null);
+
+  /* ---------- mobile swipe-to-slide on main gallery image ----------
+     Finger tracks 1:1 (translate3d), axis-locked so vertical scroll works.
+     Release: momentum decides slide to next/prev; short drag springs back.
+     Slide-out → swap → slide-in from opposite side (260ms, premium easing). */
+  const mainRef = useRef<HTMLDivElement>(null);
+  const swipe = useRef({ x0: 0, y0: 0, dx: 0, locked: false as false | "x" | "y", t0: 0 });
+
+  const onMainTouchStart = (e: React.TouchEvent) => {
+    if (N < 2) return;
+    const t = e.touches[0];
+    swipe.current = { x0: t.clientX, y0: t.clientY, dx: 0, locked: false, t0: Date.now() };
+  };
+
+  const onMainTouchMove = (e: React.TouchEvent) => {
+    const sw = swipe.current;
+    if (!sw.x0 || N < 2) return;
+    const t = e.touches[0];
+    const dx = t.clientX - sw.x0;
+    const dy = t.clientY - sw.y0;
+    if (!sw.locked) {
+      if (Math.abs(dx) < 10 && Math.abs(dy) < 10) return;
+      sw.locked = Math.abs(dx) > Math.abs(dy) ? "x" : "y";
+      if (sw.locked === "x") {
+        const el = mainRef.current;
+        if (el) el.style.transition = "none";
+      }
+    }
+    if (sw.locked !== "x") return;
+    sw.dx = dx;
+    // rubber-band at first/last
+    let off = dx;
+    if ((img === 0 && dx > 0) || (img === N - 1 && dx < 0)) off = dx * 0.35;
+    const el = mainRef.current;
+    if (el) el.style.transform = `translate3d(${off}px,0,0)`;
+  };
+
+  const onMainTouchEnd = () => {
+    const sw = swipe.current;
+    if (!sw.x0) return;
+    const el = mainRef.current;
+    const dt = Math.max(1, Date.now() - sw.t0);
+    const vel = sw.dx / dt;
+    let dir = 0;
+    if (sw.locked === "x") {
+      if (sw.dx < -55 || vel < -0.5) dir = 1;        // next
+      else if (sw.dx > 55 || vel > 0.5) dir = -1;    // prev
+    }
+    swipe.current = { x0: 0, y0: 0, dx: 0, locked: false, t0: 0 };
+    if (dir !== 0) {
+      const target = ((img + dir) % N + N) % N;
+      if (target === img) { // at end — spring back
+        if (el) { el.style.transition = "transform 260ms cubic-bezier(.22,.61,.36,1)"; el.style.transform = "translate3d(0,0,0)"; }
+        return;
+      }
+      warmImage(product.images[target]?.url);
+      // slide out
+      if (el) {
+        el.style.transition = "transform 240ms cubic-bezier(.22,.61,.36,1), opacity 240ms ease";
+        el.style.transform = `translate3d(${dir * -55}%,0,0)`;
+        el.style.opacity = "0.35";
+      }
+      setTimeout(() => {
+        setImg(target);
+        // slide in from opposite side (DOM writes after render, rAF x2)
+        requestAnimationFrame(() => {
+          const el2 = mainRef.current;
+          if (!el2) return;
+          el2.style.transition = "none";
+          el2.style.transform = `translate3d(${dir * 55}%,0,0)`;
+          el2.style.opacity = "0.35";
+          requestAnimationFrame(() => {
+            el2.style.transition = "transform 280ms cubic-bezier(.22,.61,.36,1), opacity 280ms ease";
+            el2.style.transform = "translate3d(0,0,0)";
+            el2.style.opacity = "1";
+          });
+        });
+      }, 240);
+    } else if (el && sw.locked === "x") {
+      // spring back to current
+      el.style.transition = "transform 260ms cubic-bezier(.22,.61,.36,1)";
+      el.style.transform = "translate3d(0,0,0)";
+    }
+  };
 
   /* Instant swap, no fade-gate: the <img> element keeps displaying the previous
      bitmap while the new src downloads (browser-native behaviour), so tapping a
@@ -150,7 +235,12 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
           {/* ORIGINAL gallery — always rendered; on Vercel mobile it's hidden by CSS when swipe gallery is active */}
           <div className={"pdp-gallery-desktop" + (vercelOnly ? " hide-on-mobile" : "")}>
           <div
+            ref={mainRef}
             className={"pdp-main-img" + (N <= 1 ? " single" : "")}
+            onTouchStart={onMainTouchStart}
+            onTouchMove={onMainTouchMove}
+            onTouchEnd={onMainTouchEnd}
+            onTouchCancel={onMainTouchEnd}
           >
             <img
               src={imgSrc((product.images[img] || product.images[0])?.url, 1000) || (product.images[img] || product.images[0])?.url}
@@ -272,7 +362,28 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
         </section>
       )}
 
-      {/* sticky mobile add-to-cart */}
+      {/* bottom navigation (Liquid Glass) on Vercel; original sticky ATC on VPS */}
+      {vercelOnly ? (
+      <nav className="bottom-nav glass" aria-label="Quick navigation">
+        <Link href="/" className="bn-item" aria-label="Home">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/></svg>
+          <span>Home</span>
+        </Link>
+        <Link href="/products" className="bn-item" aria-label="All Products">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+          <span>Products</span>
+        </Link>
+        <Link href="/cart" className="bn-item bn-cart" aria-label="Cart">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+          <span>Cart</span>
+          {cartCount > 0 && <span className="bn-badge">{cartCount}</span>}
+        </Link>
+        <Link href="/track" className="bn-item" aria-label="Track Order">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+          <span>Track</span>
+        </Link>
+      </nav>
+      ) : (
       <div className="sticky-atc">
         <div>
           <div style={{ fontSize: 16, fontWeight: 600 }}>৳{price.toLocaleString("en-IN")}</div>
@@ -282,6 +393,7 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
           {adding && <span className="spinner" aria-hidden="true" />}<span style={adding ? { marginLeft: 8 } : undefined}>{adding ? "Adding…" : "Add to Cart"}</span>
         </button>
       </div>
+      )}
 
       {/* size chart modal */}
       {chart && (sizeChartImage || sizeChartHtml) && (

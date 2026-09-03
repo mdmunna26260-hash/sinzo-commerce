@@ -63,6 +63,20 @@ function AdminDashLink() {
 export function Header({ storeName, categories }: { storeName: string; categories: { name: string; slug: string }[] }) {
   const { count } = useCart();
   const path = usePathname();
+  /* hide header on scroll down, show on scroll up (product page + all pages) */
+  const [hid, setHid] = useState(false);
+  const lastY = useRef(0);
+  useEffect(() => {
+    lastY.current = window.scrollY;
+    const onScroll = () => {
+      const y = window.scrollY;
+      if (Math.abs(y - lastY.current) < 8) return; // ignore tiny scrolls
+      setHid(y > lastY.current && y > 120);
+      lastY.current = y;
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -94,7 +108,7 @@ export function Header({ storeName, categories }: { storeName: string; categorie
 
   return (
     <>
-      <header className="header">
+      <header className={"header" + (hid ? " hid" : "")}>
         <div className="container header-inner">
           <button className="burger icon-btn" aria-label="Menu" onClick={() => setOpen(!open)}>
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
@@ -118,10 +132,7 @@ export function Header({ storeName, categories }: { storeName: string; categorie
             <Link prefetch href="/wishlist" className="icon-btn" aria-label="Wishlist">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21.2l7.8-7.8 1-1a5.5 5.5 0 0 0 0-7.8z"/></svg>
             </Link>
-            <Link prefetch href="/cart" className="icon-btn" aria-label="Cart">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
-              {count > 0 && <span className="cart-count">{count}</span>}
-            </Link>
+
           </div>
         </div>
         <nav className={"mobile-nav" + (open ? " open" : "")}>
