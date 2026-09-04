@@ -3,6 +3,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { useCart, trackEvent } from "./store";
+import ThemeToggle from "./theme-toggle";
 
 export type HeaderCfg = { storeName: string; announcement?: string; categories: { name: string; slug: string }[] };
 
@@ -129,6 +130,7 @@ export function Header({ storeName, categories }: { storeName: string; categorie
             <Link prefetch href="/wishlist" className="icon-btn" aria-label="Wishlist">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21.2l7.8-7.8 1-1a5.5 5.5 0 0 0 0-7.8z"/></svg>
             </Link>
+            <ThemeToggle />
 
           </div>
         </div>
