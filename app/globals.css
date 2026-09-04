@@ -1383,7 +1383,7 @@ a, button, .pcard, .chip, .cat-pill, .size-btn { -webkit-tap-highlight-color: tr
 .tabbar.compact {
   width: min(310px, calc(100vw - 48px));
   padding: 0 2px;
-  transform: translateX(-50%) scale(0.94);
+  transform: translateX(-50%);
   bottom: calc(10px + env(safe-area-inset-bottom, 0px));
 }
 .tabbar.compact .tab-item { padding: 10px 15px; }
@@ -1402,9 +1402,10 @@ a, button, .pcard, .chip, .cat-pill, .size-btn { -webkit-tap-highlight-color: tr
   color: rgba(0, 0, 0, 0.35);
   text-decoration: none;
   transition: background 120ms ease, color 120ms ease, transform 80ms ease;
+  touch-action: pan-x pan-y;
   -webkit-tap-highlight-color: transparent;
 }
-.tab-item:active { transform: scale(0.94); }
+.tab-item:active { transform: scale(0.98); }
 
 /* active: filled light-gray rounded pill behind icon */
 .tab-item.active {
