@@ -29,7 +29,8 @@ export default function Filters({ cats, sizes = [], mobileOpen, onClose }: {
 
   const body = (
     <>
-      <h3>Categories</h3>
+      <h3 id="flt-cat">Categories</h3>
+      <div role="radiogroup" aria-labelledby="flt-cat">
       <label><input type="radio" name="fcat" checked={!get("category")} onChange={() => push({ category: undefined })} />All</label>
       {cats.map((c) => (
         <label key={c.slug}>
@@ -37,6 +38,7 @@ export default function Filters({ cats, sizes = [], mobileOpen, onClose }: {
           {c.name}
         </label>
       ))}
+      </div>
       <h3>Price (৳)</h3>
       <form className="price-row" onSubmit={(e) => {
         e.preventDefault();
