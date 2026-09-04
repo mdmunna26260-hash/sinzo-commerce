@@ -564,6 +564,7 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 13.5px; }
   .mobile-only { display: none !important; }
   /* wrapper only — never combine with .grid on the same element */
   .desktop-only { display: block; }
+  .grid.desktop-only { display: grid; }
 }
 .grid.mobile-only { display: grid !important; }
 
@@ -1338,7 +1339,7 @@ a, button, .pcard, .chip, .cat-pill, .size-btn { -webkit-tap-highlight-color: tr
 
 /* Vercel-only gallery wrapper: display:contents keeps grid children working
    (pdps-gallery grid expects .thumbs and .pdp-main-img as direct children) */
-.pdp-gallery-desktop { display: contents; }
+
 @media (max-width: 899px) {
   .pdp-gallery-desktop.hide-on-mobile { display: none; }
 }
