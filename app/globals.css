@@ -1344,6 +1344,8 @@ a, button, .pcard, .chip, .cat-pill, .size-btn { -webkit-tap-highlight-color: tr
   .pdp-gallery-desktop.hide-on-mobile { display: none; }
 }
 
+.pdp-gallery-desktop { display: contents; }
+
 /* PDP main image: smooth swipe-slide (mobile touch) */
 @media (max-width: 899px) {
   .pdp-main-img { will-change: transform; }
