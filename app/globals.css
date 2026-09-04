@@ -1401,10 +1401,10 @@ a, button, .pcard, .chip, .cat-pill, .size-btn { -webkit-tap-highlight-color: tr
   border-radius: 22px;
   color: rgba(0, 0, 0, 0.35);
   text-decoration: none;
-  transition: background 220ms ease, color 220ms ease, transform 150ms ease;
+  transition: background 120ms ease, color 120ms ease, transform 80ms ease;
   -webkit-tap-highlight-color: transparent;
 }
-.tab-item:active { transform: scale(0.90); }
+.tab-item:active { transform: scale(0.94); }
 
 /* active: filled light-gray rounded pill behind icon */
 .tab-item.active {
