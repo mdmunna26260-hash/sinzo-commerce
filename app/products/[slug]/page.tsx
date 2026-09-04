@@ -4,6 +4,7 @@ import { getSettings, publicSettings } from "@/lib/settings";
 import { getCategories } from "@/lib/catalog";
 import { Header, Footer, Announcement } from "@/components/chrome";
 import { ProductCard } from "@/components/parts";
+import RelatedCarousel from "@/components/related-carousel";
 import { imgSrc } from "@/components/img-src";
 import ProductPageClient from "./client";
 import ProductPageReviewForm from "./review-form";
@@ -101,25 +102,7 @@ export default async function PDP({ params, searchParams }: { params: { slug: st
         {/* Related */}
         <section className="section" style={{ paddingTop: 20 }}>
           <div className="section-head"><div><div className="eyebrow">Keep browsing</div><h2>You may also like</h2></div></div>
-          {/* MOBILE: 2×2 swipeable carousel (scroll-snap, max 3 pages of 4) */}
-          <div className="rel-carousel mobile-only">
-            <div className="rel-scroll">
-              {Array.from({ length: Math.ceil(Math.min(related.length, 40) / 4) }, (_, pi) => (
-                <div className="rel-page" key={pi}>
-                  {related.slice(pi * 4, pi * 4 + 4).map((r) => (
-                    <ProductCard key={r.id} p={{ id: r.id, title: r.title, slug: r.slug, price: r.price, comparePrice: r.comparePrice, image: r.images?.[0]?.url, stock: r.stock, badge: r.badge, isNew: r.isNew, isBestSeller: r.isBestSeller }} />
-                  ))}
-                </div>
-              ))}
-            </div>
-            {Math.ceil(Math.min(related.length, 40) / 4) > 1 && (
-              <div className="rel-dots">
-                {Array.from({ length: Math.ceil(Math.min(related.length, 40) / 4) }, (_, pi) => (
-                  <span key={pi} className={"rel-dot" + (pi === 0 ? " on" : "")} />
-                ))}
-              </div>
-            )}
-          </div>
+          <RelatedCarousel items={related.slice(0, 40)} />
 
           {/* DESKTOP: 4-col grid */}
           <div className="grid grid-4 desktop-only">
