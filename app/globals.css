@@ -1606,6 +1606,10 @@ input::placeholder, textarea::placeholder { color: #b0aaa1; }
   .rel-page { gap: 10px 8px; }
   .rel-arrow { width: 32px; height: 32px; }
 }
+
+
+/* Related carousel on desktop: wider, same 2x2 swipe */
 @media (min-width: 900px) {
-  .rel-carousel { display: none !important; }
+  .rel-scroll { max-width: 1200px; margin: 0 auto; }
+  .rel-page { gap: 24px 20px; }
 }
