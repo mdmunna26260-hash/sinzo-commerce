@@ -1608,8 +1608,15 @@ input::placeholder, textarea::placeholder { color: #b0aaa1; }
 }
 
 
-/* Related carousel on desktop: wider, same 2x2 swipe */
 @media (min-width: 900px) {
-  .rel-scroll { max-width: 1200px; margin: 0 auto; }
-  .rel-page { gap: 24px 20px; }
+  .rel-carousel { display: none !important; }
+}
+
+/* PDP related products on desktop: compact card size (not huge) */
+@media (min-width: 900px) {
+  .pdp .grid-4 { gap: 20px 16px; }
+  .pdp .grid-4 .pcard-title { font-size: 13px; }
+  .pdp .grid-4 .price b { font-size: 13px; }
+  .pdp .grid-4 .pcard-img { aspect-ratio: 3 / 4; }
+  .pdp section:last-of-type .section-head { margin-bottom: 18px; }
 }
