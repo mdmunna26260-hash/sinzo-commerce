@@ -38,10 +38,10 @@ export default async function PDP({ params, searchParams }: { params: { slug: st
   const relSelect = { id: true, title: true, slug: true, price: true, comparePrice: true, stock: true, badge: true, isNew: true, isBestSeller: true, categoryId: true, images: { select: { url: true, alt: true }, take: 1 } } as const;
   const related = await db.product.findMany({
     where: { status: "ACTIVE", categoryId: p.categoryId, id: { not: p.id } },
-    select: relSelect, take: 4,
+    select: relSelect, take: 40,
   });
   if (related.length < 4) {
-    const extra = await db.product.findMany({ where: { status: "ACTIVE", id: { notIn: [p.id, ...related.map((r) => r.id)] } }, select: relSelect, take: 4 - related.length });
+    const extra = await db.product.findMany({ where: { status: "ACTIVE", id: { notIn: [p.id, ...related.map((r) => r.id)] } }, select: relSelect, take: 40 - related.length });
     related.push(...extra);
   }
   const avgRating = p.reviews.length ? p.reviews.reduce((a, r) => a + r.rating, 0) / p.reviews.length : 0;
@@ -104,7 +104,7 @@ export default async function PDP({ params, searchParams }: { params: { slug: st
           {/* MOBILE: 2×2 swipeable carousel (scroll-snap, max 3 pages of 4) */}
           <div className="rel-carousel mobile-only">
             <div className="rel-scroll">
-              {Array.from({ length: Math.ceil(Math.min(related.length, 12) / 4) }, (_, pi) => (
+              {Array.from({ length: Math.ceil(Math.min(related.length, 40) / 4) }, (_, pi) => (
                 <div className="rel-page" key={pi}>
                   {related.slice(pi * 4, pi * 4 + 4).map((r) => (
                     <ProductCard key={r.id} p={{ id: r.id, title: r.title, slug: r.slug, price: r.price, comparePrice: r.comparePrice, image: r.images?.[0]?.url, stock: r.stock, badge: r.badge, isNew: r.isNew, isBestSeller: r.isBestSeller }} />
@@ -112,9 +112,9 @@ export default async function PDP({ params, searchParams }: { params: { slug: st
                 </div>
               ))}
             </div>
-            {Math.ceil(Math.min(related.length, 12) / 4) > 1 && (
+            {Math.ceil(Math.min(related.length, 40) / 4) > 1 && (
               <div className="rel-dots">
-                {Array.from({ length: Math.ceil(Math.min(related.length, 12) / 4) }, (_, pi) => (
+                {Array.from({ length: Math.ceil(Math.min(related.length, 40) / 4) }, (_, pi) => (
                   <span key={pi} className={"rel-dot" + (pi === 0 ? " on" : "")} />
                 ))}
               </div>

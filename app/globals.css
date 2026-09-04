@@ -565,7 +565,7 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 13.5px; }
   /* wrapper only — never combine with .grid on the same element */
   .desktop-only { display: block; }
 }
-.grid.desktop-only, .grid.mobile-only { display: grid !important; }
+.grid.mobile-only { display: grid !important; }
 
 /* ---------- home carousel ---------- */
 .crs { position: relative; margin: 0 -24px; } /* full-bleed inside container */
