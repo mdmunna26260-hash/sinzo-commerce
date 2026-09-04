@@ -1574,26 +1574,37 @@ input::placeholder, textarea::placeholder { color: #b0aaa1; }
   gap: 14px 10px;
   padding: 0 2px;
 }
-.rel-dots {
+.rel-arrows {
   display: flex;
+  align-items: center;
   justify-content: center;
-  gap: 7px;
+  gap: 12px;
   padding: 10px 0 4px;
 }
-.rel-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 99px;
-  background: rgba(0,0,0,.15);
-  transition: background 200ms ease, width 200ms ease;
+.rel-arrow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--text);
+  cursor: pointer;
+  transition: background 180ms ease, opacity 180ms ease;
 }
-.rel-dot.on {
-  background: var(--text);
-  width: 18px;
+.rel-arrow:hover { background: var(--bg); }
+.rel-arrow:disabled { opacity: 0.25; cursor: default; }
+.rel-page-num {
+  font-size: 12px;
+  color: var(--muted);
+  min-width: 48px;
+  text-align: center;
 }
 @media (max-width: 360px) {
   .rel-page { gap: 10px 8px; }
-  .rel-dots { gap: 6px; }
+  .rel-arrow { width: 32px; height: 32px; }
 }
 @media (min-width: 900px) {
   .rel-carousel { display: none !important; }

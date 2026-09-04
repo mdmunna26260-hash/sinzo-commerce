@@ -8,7 +8,7 @@ import { ProductCard } from "@/components/parts";
 
 type Item = {
   id: number; title: string; slug: string; price: number;
-  comparePrice: number | null; image?: string; stock: number;
+  comparePrice: number | null; image?: string; images?: { url: string }[]; stock: number;
   badge?: string | null; isNew?: boolean; isBestSeller?: boolean;
 };
 
@@ -44,7 +44,7 @@ export default function RelatedCarousel({ items }: { items: Item[] }) {
                 key={r.id}
                 p={{
                   id: r.id, title: r.title, slug: r.slug, price: r.price,
-                  comparePrice: r.comparePrice, image: r.image, stock: r.stock,
+                  comparePrice: r.comparePrice, image: r.images?.[0]?.url || r.image, stock: r.stock,
                   badge: r.badge, isNew: r.isNew, isBestSeller: r.isBestSeller,
                 }}
               />
@@ -53,15 +53,14 @@ export default function RelatedCarousel({ items }: { items: Item[] }) {
         ))}
       </div>
       {totalPages > 1 && (
-        <div className="rel-dots">
-          {pages.map((_, pi) => (
-            <button
-              key={pi}
-              className={"rel-dot" + (pi === page ? " on" : "")}
-              onClick={() => goTo(pi)}
-              aria-label={"Page " + (pi + 1)}
-            />
-          ))}
+        <div className="rel-arrows">
+          <button className="rel-arrow" onClick={() => goTo(page - 1)} disabled={page === 0} aria-label="Previous">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+          </button>
+          <span className="rel-page-num">{page + 1} / {totalPages}</span>
+          <button className="rel-arrow" onClick={() => goTo(page + 1)} disabled={page >= totalPages - 1} aria-label="Next">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+          </button>
         </div>
       )}
     </div>
