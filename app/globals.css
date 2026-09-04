@@ -600,8 +600,7 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 13.5px; }
 .fdrawer-bg.open .fdrawer { box-shadow: -20px 0 60px rgba(0,0,0,.15); }
 
 /* ---------- #2 related products horizontal slider (mobile) ---------- */
-.related-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px 10px; }
-@media (min-width: 900px) { .related-grid { grid-template-columns: repeat(4, 1fr); gap: 24px 20px; } }
+
 
 /* ---------- #4 footer: compact horizontal on mobile ---------- */
 @media (max-width: 640px) {
@@ -1554,3 +1553,48 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 .thumbs img, .search-results img { border-radius: 4px; }
 /* input placeholder color */
 input::placeholder, textarea::placeholder { color: #b0aaa1; }
+
+/* ---------- Related products: 2×2 swipeable carousel (mobile) ---------- */
+.rel-carousel { display: block; }
+.rel-scroll {
+  display: flex;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  -webkit-overflow-scrolling: touch;
+}
+.rel-scroll::-webkit-scrollbar { display: none; }
+.rel-page {
+  flex: 0 0 100%;
+  min-width: 100%;
+  scroll-snap-align: start;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px 10px;
+  padding: 0 2px;
+}
+.rel-dots {
+  display: flex;
+  justify-content: center;
+  gap: 7px;
+  padding: 10px 0 4px;
+}
+.rel-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 99px;
+  background: rgba(0,0,0,.15);
+  transition: background 200ms ease, width 200ms ease;
+}
+.rel-dot.on {
+  background: var(--text);
+  width: 18px;
+}
+@media (max-width: 360px) {
+  .rel-page { gap: 10px 8px; }
+  .rel-dots { gap: 6px; }
+}
+@media (min-width: 900px) {
+  .rel-carousel { display: none !important; }
+}
