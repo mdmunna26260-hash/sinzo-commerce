@@ -600,10 +600,8 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 13.5px; }
 .fdrawer-bg.open .fdrawer { box-shadow: -20px 0 60px rgba(0,0,0,.15); }
 
 /* ---------- #2 related products horizontal slider (mobile) ---------- */
-.related-scroll { display: flex; gap: 10px; overflow-x: auto; scroll-snap-type: x proximity; padding: 2px 24px 8px; margin: 0 -24px; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
-.related-scroll::-webkit-scrollbar { display: none; }
-.related-scroll .rs-card { flex: 0 0 46vw; max-width: 200px; scroll-snap-align: start; }
-@media (min-width: 900px) { .related-scroll { display: none !important; } }
+.related-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px 10px; }
+@media (min-width: 900px) { .related-grid { grid-template-columns: repeat(4, 1fr); gap: 24px 20px; } }
 
 /* ---------- #4 footer: compact horizontal on mobile ---------- */
 @media (max-width: 640px) {

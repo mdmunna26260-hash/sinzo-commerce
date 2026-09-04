@@ -101,13 +101,13 @@ export default async function PDP({ params, searchParams }: { params: { slug: st
         {/* Related */}
         <section className="section" style={{ paddingTop: 20 }}>
           <div className="section-head"><div><div className="eyebrow">Keep browsing</div><h2>You may also like</h2></div></div>
-          <div className="related-scroll mobile-only">
+          {/* MOBILE: 2-col grid like "You may also like" (screenshot) */}
+          <div className="related-grid mobile-only">
             {related.map((r) => (
-              <div className="rs-card" key={r.id}>
-                <ProductCard p={{ id: r.id, title: r.title, slug: r.slug, price: r.price, comparePrice: r.comparePrice, image: r.images?.[0]?.url, stock: r.stock, badge: r.badge, isNew: r.isNew, isBestSeller: r.isBestSeller }} />
-              </div>
+              <ProductCard key={r.id} p={{ id: r.id, title: r.title, slug: r.slug, price: r.price, comparePrice: r.comparePrice, image: r.images?.[0]?.url, stock: r.stock, badge: r.badge, isNew: r.isNew, isBestSeller: r.isBestSeller }} />
             ))}
           </div>
+          {/* DESKTOP: 4-col grid */}
           <div className="grid grid-4 desktop-only">
             {related.map((r) => (
               <ProductCard key={r.id} p={{ id: r.id, title: r.title, slug: r.slug, price: r.price, comparePrice: r.comparePrice, image: r.images?.[0]?.url, stock: r.stock, badge: r.badge, isNew: r.isNew, isBestSeller: r.isBestSeller }} />
