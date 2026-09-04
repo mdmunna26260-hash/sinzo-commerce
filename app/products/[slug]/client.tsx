@@ -235,7 +235,7 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
               srcSet={imgSrcSet((product.images[img] || product.images[0])?.url, [600, 1000, 1200])}
               sizes="(max-width: 900px) 100vw, 45vw"
               alt={product.images[img]?.alt || product.title}
-              className={"pdp-img" + (hoverZoom && avail > 0 ? " hz" : "")}
+              className={"pdp-img" + (hoverZoom ? " hz" : "")}
               fetchPriority="high"
               onError={(e) => { (e.currentTarget as HTMLImageElement).style.opacity = "0"; }}
               style={hoverZoom ? { transformOrigin: "50% 50%" } : undefined}
