@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useCart, useWishlist, trackEvent, toast } from "@/components/store";
 import { imgSrc, imgSrcSet } from "@/components/parts";
 import { warmImage } from "@/components/img-warm";
+import { trackRecentlyViewed } from "@/components/recently-viewed";
 import MobileGallery from "@/components/mobile-gallery";
 
 type V = { id: number; size: string | null; color: string | null; stock: number; price: number | null };
@@ -156,6 +157,23 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
   });
   const colors = Array.from(new Set(product.variants.map((v) => v.color).filter(Boolean))) as string[];
 
+  // Size recommendation
+  const [showSizeRec, setShowSizeRec] = useState(false);
+  const [recHeight, setRecHeight] = useState("");
+  const [recWeight, setRecWeight] = useState("");
+  const recommendedSize = (() => {
+    if (!recHeight || !recWeight) return null;
+    const h = Number(recHeight), w = Number(recWeight);
+    if (!h || !w) return null;
+    // Simple BD size logic based on height + weight
+    if (h < 155 && w < 55) return "S";
+    if (h < 163 && w < 62) return w < 50 ? "S" : "M";
+    if (h < 170 && w < 70) return w < 58 ? "M" : "L";
+    if (h < 178 && w < 80) return w < 68 ? "L" : "XL";
+    if (h < 185) return w < 85 ? "XL" : "XXL";
+    return "XXL";
+  })();
+
   const activeVariant = product.variants.find((v) => (!size || v.size === size) && (!color || v.color === color)) || null;
   const avail = activeVariant ? activeVariant.stock : product.variants.length ? 0 : product.stock;
   const price = activeVariant?.price || product.price;
@@ -163,7 +181,8 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
 
   useEffect(() => {
     window.scrollTo(0, 0);
-  }, []);
+    trackRecentlyViewed({ id: product.id, slug: product.slug, title: product.title, image: product.images[0]?.url, price: product.price });
+  }, [product.id]);
 
   // Idle-warm the rest of the gallery ~1.5s after load → swiping photos is instant
   useEffect(() => {
@@ -296,6 +315,33 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
                 })}
               </div>
             </>
+          )}
+          {sizes.length > 0 && (
+            <div style={{ marginTop: -4, marginBottom: 8 }}>
+              <button type="button" onClick={() => setShowSizeRec(!showSizeRec)} style={{ background: "none", border: "none", color: "var(--accent)", fontSize: 12, cursor: "pointer", padding: 0, textDecoration: "underline" }}>
+                📐 Not sure? Get size recommendation
+              </button>
+              {showSizeRec && (
+                <div style={{ background: "#f8f7f5", padding: 14, borderRadius: 8, marginTop: 8, display: "grid", gap: 10 }}>
+                  <div style={{ display: "flex", gap: 10 }}>
+                    <div style={{ flex: 1 }}>
+                      <label style={{ fontSize: 11, color: "var(--muted)", display: "block", marginBottom: 4 }}>Height (cm)</label>
+                      <input type="number" value={recHeight} onChange={(e) => setRecHeight(e.target.value)} placeholder="165" style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 4, fontSize: 14 }} />
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <label style={{ fontSize: 11, color: "var(--muted)", display: "block", marginBottom: 4 }}>Weight (kg)</label>
+                      <input type="number" value={recWeight} onChange={(e) => setRecWeight(e.target.value)} placeholder="62" style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 4, fontSize: 14 }} />
+                    </div>
+                  </div>
+                  {recommendedSize && (
+                    <div style={{ fontSize: 13 }}>
+                      Recommended: <b style={{ color: "var(--accent)", fontSize: 16 }}>{recommendedSize}</b>
+                      {sizes.includes(recommendedSize) ? " ✓ available" : " (not in stock for this product)"}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           )}
           {colors.length > 0 && (
             <>

@@ -8,6 +8,7 @@ import RelatedCarousel from "@/components/related-carousel";
 import { imgSrc } from "@/components/img-src";
 import ProductPageClient from "./client";
 import ProductPageReviewForm from "./review-form";
+import RecentlyViewedServer from "@/components/recently-viewed-server";
 import Link from "next/link";
 
 export const dynamic = "force-dynamic";
@@ -130,6 +131,8 @@ export default async function PDP({ params, searchParams }: { params: { slug: st
           </div>
         </section>
       </div>
+      <RecentlyViewedServer currentId={p.id} />
+
       <Footer cfg={{ ...cfg, _nav: { categories: cats.map((c) => ({ name: c.name, slug: c.slug })) } }} />
     </>
   );

@@ -1676,3 +1676,29 @@ input::placeholder, textarea::placeholder { color: #b0aaa1; }
   color: var(--danger) !important;
 }
 .mini-del span { color: var(--danger); }
+
+/* ---------- Recently Viewed strip ---------- */
+.recent-strip {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+  padding: 4px 0;
+}
+.recent-strip::-webkit-scrollbar { display: none; }
+.recent-card {
+  flex: 0 0 140px;
+  text-decoration: none;
+  color: var(--text);
+}
+.recent-card img {
+  width: 140px;
+  height: 186px;
+  object-fit: cover;
+  border-radius: var(--radius);
+  background: #eee9e2;
+}
+.recent-info { padding: 8px 0; }
+.recent-title { font-size: 12.5px; line-height: 1.3; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.recent-price { font-size: 12.5px; font-weight: 600; margin-top: 2px; }

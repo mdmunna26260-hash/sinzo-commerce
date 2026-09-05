@@ -111,7 +111,7 @@ export async function POST(req: Request) {
     const order = await db.order.create({
       data: {
         code: "TEMP", name: String(name).trim(), phone: cleanPhone, email: email || null,
-        address: String(address).trim(), area, notes: notes || null,
+        address: String(address).trim(), area, notes: body.giftWrap ? (notes ? notes + ' | ' : '') + '🎁 GIFT WRAP requested' : notes || null,
         subtotal, discount, deliveryFee, total,
         couponCode: appliedCode, paymentMethod: paymentMethod || "COD", paymentStatus: "PENDING",
         status: risk.level === "HIGH" ? "ON_HOLD" : "PENDING",

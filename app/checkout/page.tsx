@@ -26,6 +26,8 @@ export default function CheckoutPage() {
   const [errors, setErrors] = useState<any>({});
   const [busy, setBusy] = useState(false);
   const [cbusy, setCBusy] = useState(false);
+  const [giftWrap, setGiftWrap] = useState(false);
+  const GIFT_WRAP_PRICE = 50;
   const [payment, setPayment] = useState("COD");
 
   const discount = applied ? applied.discount : 0;
@@ -115,6 +117,7 @@ export default function CheckoutPage() {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...form, phone: normalizeBDPhone(form.phone), paymentMethod: payment,
+      giftWrap,
           couponCode: applied?.code || null, purchaseEventId: eventId,
           attribution: captureAttribution(),
           items: lines.map((l) => ({ productId: l.productId, variantId: l.variantId || null, qty: l.qty })),
@@ -178,6 +181,17 @@ export default function CheckoutPage() {
               <label>Order Notes (optional)</label>
               <input value={form.notes} onChange={(e) => set("notes", e.target.value)} placeholder="Any special instruction" />
             </div>
+          </div>
+
+          <div className="acard" style={{ padding: "14px 18px", marginBottom: 8 }}>
+            <label style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }}>
+              <input type="checkbox" checked={giftWrap} onChange={(e) => setGiftWrap(e.target.checked)} style={{ width: 16, height: 16 }} />
+              <div style={{ flex: 1 }}>
+                <b style={{ fontSize: 13.5 }}>🎁 Gift Wrap</b>
+                <div style={{ fontSize: 11.5, color: "var(--muted)" }}>Premium packaging + gift note</div>
+              </div>
+              <b style={{ fontSize: 13 }}>+৳{GIFT_WRAP_PRICE}</b>
+            </label>
           </div>
 
           <div className="acard" style={{ padding: "16px 18px", marginBottom: 8 }}>
