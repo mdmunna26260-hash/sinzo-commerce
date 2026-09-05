@@ -66,6 +66,7 @@ export default function PushOptIn({ phone, code, variant = "card" }: { phone?: s
         } catch {}
       }
       await fetch("/api/push", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ subscription: sub.toJSON(), phone: sendPhone }) });
+      try { localStorage.removeItem("sz_push_off"); } catch {}
       setState("on");
       toast("Order updates on ✓");
     } catch {
@@ -83,6 +84,7 @@ export default function PushOptIn({ phone, code, variant = "card" }: { phone?: s
         await sub.unsubscribe().catch(() => {});
       }
     } catch {}
+    try { localStorage.setItem("sz_push_off", "1"); } catch {}
     setState("off");
     toast("Order updates off");
   };

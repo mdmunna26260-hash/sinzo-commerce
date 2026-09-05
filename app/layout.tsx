@@ -6,6 +6,7 @@ import PageTransition from "@/components/page-transition";
 import { CartProvider } from "@/components/store";
 import BottomNav from "@/components/bottom-nav";
 import PushRegister from "@/components/push-register";
+import PushAuto from "@/components/push-auto";
 import { getSettings, publicSettings } from "@/lib/settings";
 
 export const viewport: Viewport = {
@@ -86,6 +87,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <BottomNav />
         </CartProvider>
         <PushRegister />
+        <PushAuto />
         <RevealInit />
         <PageViewTracker />
         <PageTransition />
