@@ -9,7 +9,7 @@ import { imgSrc } from "@/components/parts";
 declare global { interface Window { __SZ_SHIPPING?: any; __SZ_CHECKOUT?: any } }
 
 export default function CheckoutPage() {
-  const { lines, subtotal, clear, ready } = useCart();
+  const { lines, subtotal, clear, ready, setQty, remove } = useCart();
   const router = useRouter();
   const cfg = useMemo(() => {
     try { return JSON.parse(document.getElementById("sz-cfg")?.textContent || "{}"); } catch { return {}; }
@@ -206,9 +206,19 @@ export default function CheckoutPage() {
               <img src={imgSrc(l.image, 300) || l.image} alt="" width={52} height={66} loading="lazy" decoding="async" />
               <div style={{ flex: 1 }}>
                 <div className="m">{l.title}</div>
-                <div className="s">{[l.size, l.color].filter(Boolean).join(" · ")} × {l.qty}</div>
+                <div className="s">{[l.size, l.color].filter(Boolean).join(" · ")}</div>
+                <div className="mini-qty">
+                  <button type="button" onClick={() => setQty(l.key, l.qty - 1)} aria-label="Decrease">−</button>
+                  <span>{l.qty}</span>
+                  <button type="button" onClick={() => setQty(l.key, l.qty + 1)} aria-label="Increase">+</button>
+                </div>
               </div>
-              <div style={{ fontSize: 13.5, fontWeight: 600 }}>৳{(l.price * l.qty).toLocaleString("en-IN")}</div>
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
+                <button type="button" className="mini-del" onClick={() => remove(l.key)} aria-label="Remove item">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M3 6h18M8 6V4a1 1 0 011-1h6a1 1 0 011 1v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6h14z"/></svg>
+                </button>
+                <div style={{ fontSize: 13.5, fontWeight: 600 }}>৳{(l.price * l.qty).toLocaleString("en-IN")}</div>
+              </div>
             </div>
           ))}
           <div style={{ marginTop: 14 }}>
