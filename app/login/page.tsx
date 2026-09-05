@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { getCfg } from "@/components/store";
+import { getCfg, setTrackingPhone } from "@/components/store";
 
 const GOOGLE_ERRORS: Record<string, string> = {
   google_not_configured: "Google login ekhono configure kora hoy nai — admin panel e Client ID/Secret dite hobe.",
@@ -34,6 +34,7 @@ export default function CustomerLoginPage() {
       const r = await fetch("/api/auth/" + mode, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) });
       const j = await r.json();
       if (r.ok && j.ok) {
+        if (form.phone) setTrackingPhone(form.phone); // Meta advanced matching from now on
         if (j.token) document.cookie = `sz_customer_fb=${j.token}; path=/; max-age=2592000; SameSite=Lax`;
         try {
           const probe = await fetch("/api/auth/me");

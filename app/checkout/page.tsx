@@ -57,6 +57,12 @@ export default function CheckoutPage() {
       } catch {}
     })();
   }, []);
+  // guest phone typed → cache for Meta advanced matching (InitiateCheckout etc.)
+  useEffect(() => {
+    const p = form.phone.replace(/[\s-]/g, "");
+    if (/^01[3-9]\d{8}$/.test(p)) setTrackingPhone(p);
+  }, [form.phone]);
+
   useEffect(() => {
     if (lines.length === 0) return;
     // capture as abandoned ONLY after customer fills phone + name + address
