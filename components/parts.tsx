@@ -1,5 +1,6 @@
 import Link from "next/link";
 import WishHeart from "./wish-heart";
+import CompareBtn from "./compare-btn";
 import CardImg from "./card-img";
 
 export { imgSrc, imgSrcSet } from "./img-src";
@@ -28,6 +29,7 @@ export function ProductCard({ p, wish }: { p: CardProduct; wish?: boolean }) {
           {p.badge && <span className={"badge badge-" + p.badge}>{BADGE_LABELS[p.badge] || p.badge}</span>}
         </div>
         <WishHeart id={p.id} />
+        <CompareBtn id={p.id} img={p.image || null} />
         {p.stock <= 0 && <div className="soldout-overlay"><span>Sold Out</span></div>}
         {wish ? <div className="pcard-quick"><button type="button">In your wishlist</button></div> : null}
       </div>

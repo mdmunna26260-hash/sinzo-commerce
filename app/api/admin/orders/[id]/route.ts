@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { requirePerm } from "@/lib/admin-guard";
 import { logAudit } from "@/lib/auth";
 import { notifyAdmin, emailCustomerStatus } from "@/lib/notify";
+import { sendPushToPhones } from "@/lib/webpush";
 export const dynamic = "force-dynamic";
 type Ctx = { params: { id: string } };
 export async function GET(req: Request, { params }: Ctx) {
@@ -37,6 +38,17 @@ export async function PUT(req: Request, { params }: Ctx) {
     // customer cancellation email (only on transition INTO cancelled)
     if (b.status === "CANCELLED" && before.email) {
       emailCustomerStatus(before.email, before.name, { code: before.code, total: before.total, area: before.area, courierName: before.courierName }, "cancelled").catch(() => {});
+    }
+    // web push to the customer's devices (order updates)
+    const pushMap: Record<string, { t: string; b: string }> = {
+      CONFIRMED: { t: "Order confirmed ✓", b: `Apnar order ${before.code} confirm hoyeche. Shighroi dispatch hobe.` },
+      SHIPPED: { t: "Parcel shipped", b: `Order ${before.code} courier-te pathano hoyeche. Track korun.` },
+      DELIVERED: { t: "Delivered", b: `Order ${before.code} deliver hoyeche. Dhonnobad!` },
+      CANCELLED: { t: "Order cancelled", b: `Order ${before.code} cancel kora hoyeche.` },
+    };
+    const pm = pushMap[b.status];
+    if (pm) {
+      sendPushToPhones([before.phone], { title: pm.t, body: pm.b, url: `/track?code=${before.code}`, tag: before.code }).catch(() => {});
     }
   }
   // restock on cancel/return

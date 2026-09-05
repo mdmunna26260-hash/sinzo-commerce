@@ -193,6 +193,45 @@ export function useWishlist() {
   return { ids, toggle, has: (id: number) => ids.includes(id) };
 }
 
+/* ============ Compare (guest, localStorage, max 4) ============ */
+const COMPARE_KEY = "sz_compare_v1";
+export const COMPARE_MAX = 4;
+let memoryCompare: number[] | null = null;
+function loadCompare(): number[] {
+  if (memoryCompare) return memoryCompare;
+  try {
+    const parsed = JSON.parse(localStorage.getItem(COMPARE_KEY) || "[]");
+    memoryCompare = Array.isArray(parsed) ? parsed.filter((x) => typeof x === "number") : [];
+  } catch { memoryCompare = []; }
+  return memoryCompare!;
+}
+function saveCompare(ids: number[]) {
+  memoryCompare = ids;
+  try { localStorage.setItem(COMPARE_KEY, JSON.stringify(ids)); } catch {}
+}
+export function useCompare() {
+  const [ids, setIds] = useState<number[]>([]);
+  useEffect(() => {
+    setIds([...loadCompare()]);
+    const h = () => setIds([...loadCompare()]);
+    window.addEventListener("sz_compare_changed", h);
+    return () => window.removeEventListener("sz_compare_changed", h);
+  }, []);
+  const commit = (next: number[]) => {
+    saveCompare(next);
+    setIds([...next]);
+    window.dispatchEvent(new Event("sz_compare_changed"));
+  };
+  const toggle = (id: number): boolean => {
+    const cur = loadCompare();
+    if (cur.includes(id)) { commit(cur.filter((x) => x !== id)); return true; }
+    if (cur.length >= COMPARE_MAX) { toast(`Compare full — max ${COMPARE_MAX} products`); return false; }
+    commit([...cur, id]);
+    return true;
+  };
+  return { ids, toggle, has: (id: number) => ids.includes(id), clear: () => commit([]) };
+}
+
 /* ============ Toast ============ */
 export function toast(msg: string) {
   const t = document.createElement("div");

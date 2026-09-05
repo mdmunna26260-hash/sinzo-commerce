@@ -130,7 +130,31 @@ model Customer {
   tags      String?
   password  String? // set = registered account (phone = login id)
   orders    Order[]
+  addresses Address[]
   createdAt DateTime @default(now())
+}
+
+model Address {
+  id         Int      @id @default(autoincrement())
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  customerId Int
+  label      String   @default("Home") // Home | Office | Other
+  name       String
+  phone      String
+  address    String
+  area       String   @default("INSIDE_DHAKA") // INSIDE_DHAKA | OUTSIDE_DHAKA
+  isDefault  Boolean  @default(false)
+  createdAt  DateTime @default(now())
+}
+
+model PushSubscription {
+  id        Int      @id @default(autoincrement())
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  phone     String? // linked customer phone (order updates)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Order {

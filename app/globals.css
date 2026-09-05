@@ -1702,3 +1702,98 @@ input::placeholder, textarea::placeholder { color: #b0aaa1; }
 .recent-info { padding: 8px 0; }
 .recent-title { font-size: 12.5px; line-height: 1.3; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .recent-price { font-size: 12.5px; font-weight: 600; margin-top: 2px; }
+
+/* ================================================================
+   PRODUCT COMPARE — card toggle, floating bar, comparison table
+   ================================================================ */
+.pcard-cmp { position: absolute; top: 10px; right: 54px; left: auto; width: 36px; height: 36px; border-radius: 99px; background: transparent; border: none; color: var(--text); display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 3; opacity: 0; transform: translateY(-3px); transition: opacity .22s ease, transform .22s ease, color .2s ease; filter: drop-shadow(0 1px 3px rgba(0,0,0,.35)); }
+.pcard:hover .pcard-cmp, .pcard-cmp.on { opacity: 1; transform: none; }
+.pcard-cmp.on { color: var(--accent); }
+@media (hover: none) { .pcard-cmp { opacity: 1; transform: none; } }
+@media (max-width: 899px) { .pcard-cmp { width: 40px; height: 40px; right: 58px; } }
+.pdp-cmp.on { border-color: var(--accent); }
+
+/* floating compare bar */
+.cmp-bar {
+  position: fixed; left: 50%; transform: translateX(-50%);
+  bottom: calc(88px + env(safe-area-inset-bottom, 0px));
+  z-index: 44;
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 10px 8px 12px;
+  background: rgba(255, 255, 255, 0.86);
+  -webkit-backdrop-filter: blur(18px) saturate(1.6);
+  backdrop-filter: blur(18px) saturate(1.6);
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  border-radius: 22px;
+  box-shadow: 0 6px 28px rgba(0, 0, 0, 0.14), 0 1px 3px rgba(0, 0, 0, 0.06);
+  animation: fadeup .25s ease;
+  max-width: calc(100vw - 24px);
+}
+@media (min-width: 900px) {
+  .cmp-bar { left: auto; right: 26px; transform: none; bottom: 26px; }
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .cmp-bar { background: rgba(255, 255, 255, 0.97); }
+}
+.cmp-bar-thumbs { display: flex; align-items: center; gap: 6px; }
+.cmp-thumb { position: relative; display: inline-flex; }
+.cmp-thumb img { width: 30px; height: 38px; object-fit: cover; border-radius: 6px; background: #eee9e2; }
+.cmp-thumb i, .cmp-thumb.empty i { width: 30px; height: 38px; border-radius: 6px; background: rgba(0,0,0,.05); border: 1px dashed rgba(0,0,0,.14); display: inline-block; }
+.cmp-thumb-x { position: absolute; top: -6px; right: -6px; width: 16px; height: 16px; border-radius: 99px; background: var(--text); color: #fff; border: none; font-size: 11px; line-height: 1; display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; }
+.cmp-bar-go { border: none; background: var(--text); color: var(--bg); font-size: 12.5px; font-weight: 600; letter-spacing: .03em; padding: 9px 16px; border-radius: 99px; cursor: pointer; white-space: nowrap; transition: transform .15s ease; }
+.cmp-bar-go:active { transform: scale(.97); }
+.cmp-bar-go:disabled { opacity: .45; cursor: not-allowed; }
+.cmp-bar-clear { border: none; background: none; color: var(--muted); font-size: 13px; cursor: pointer; padding: 4px; }
+
+/* comparison table */
+.cmp-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; border: 1px solid var(--line); border-radius: var(--radius, 10px); background: #fff; }
+.cmp-table { width: 100%; border-collapse: collapse; min-width: 560px; }
+.cmp-table th, .cmp-table td { padding: 14px 16px; border-bottom: 1px solid var(--line); vertical-align: top; font-size: 14px; text-align: left; }
+.cmp-table tr:last-child th, .cmp-table tr:last-child td { border-bottom: none; }
+.cmp-table .cmp-rowlabel { font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); font-weight: 600; white-space: nowrap; width: 110px; background: #fbfaf8; }
+.cmp-imgcell { position: relative; }
+.cmp-imgcell img { width: 120px; height: 150px; object-fit: cover; border-radius: 8px; background: #eee9e2; }
+.cmp-noimg { display: inline-block; width: 120px; height: 150px; border-radius: 8px; background: #eee9e2; }
+.cmp-remove { position: absolute; top: 8px; left: 100px; width: 24px; height: 24px; border-radius: 99px; background: var(--text); color: #fff; border: none; font-size: 12px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+.cmp-title { font-weight: 600; color: var(--text); text-decoration: none; display: inline-block; max-width: 200px; line-height: 1.4; }
+.cmp-title:hover { text-decoration: underline; }
+.cmp-desc { font-size: 13px; color: var(--muted); max-width: 220px; line-height: 1.55; }
+.cmp-colors { display: inline-flex; align-items: center; gap: 5px; flex-wrap: wrap; }
+.cmp-colors i { width: 14px; height: 14px; border-radius: 99px; display: inline-block; border: 1px solid rgba(0,0,0,.12); }
+.cmp-actions { display: flex; flex-direction: column; gap: 8px; }
+.cmp-actions .btn { width: 100%; text-align: center; }
+@media (max-width: 640px) {
+  .cmp-table .cmp-rowlabel { position: sticky; left: 0; z-index: 1; }
+  .cmp-imgcell img, .cmp-noimg { width: 100px; height: 125px; }
+  .cmp-remove { left: 80px; }
+}
+
+/* ================================================================
+   SAVED DELIVERY ADDRESSES — checkout picker + account book
+   ================================================================ */
+.addr-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; }
+.addr-chip { border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; cursor: pointer; background: #fff; transition: border-color .18s ease, box-shadow .18s ease; position: relative; }
+.addr-chip:hover { border-color: #c9c4bb; }
+.addr-chip.active { border-color: var(--text); box-shadow: 0 0 0 1px var(--text) inset; }
+.addr-chip-top { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+.addr-chip-top b { font-size: 13px; }
+.addr-chip-top .tag { font-size: 9px; padding: 2px 7px; }
+.addr-chip-meta { font-size: 11.5px; color: var(--muted); margin-bottom: 3px; }
+.addr-chip-txt { font-size: 12px; color: var(--muted); line-height: 1.45; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.addr-chip.addnew { display: flex; flex-direction: column; justify-content: center; text-align: center; border-style: dashed; color: var(--muted); min-height: 84px; }
+.addr-chip.addnew b { font-size: 13px; color: var(--text); }
+.saveaddr-row { display: flex; align-items: center; gap: 8px; margin: -4px 0 14px; cursor: pointer; }
+
+/* account address cards */
+.acct-addr-top { display: flex; align-items: center; gap: 10px; }
+.acct-addr-top .tag { font-size: 9px; padding: 2px 8px; }
+.acct-addr-actions { display: flex; gap: 8px; margin-top: 10px; }
+.linklike { background: none; border: none; color: var(--accent); font-size: 11.5px; cursor: pointer; padding: 0; text-decoration: underline; }
+
+/* ================================================================
+   WEB PUSH OPT-IN
+   ================================================================ */
+.push-optin { display: flex; align-items: center; gap: 12px; background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 13px 16px; color: var(--text); }
+.push-optin.done { justify-content: center; font-size: 13px; color: var(--muted); gap: 8px; }
+.push-optin.done b { color: var(--ok); }
+.push-row { display: flex; align-items: center; gap: 12px; background: #f8f7f5; border-radius: 10px; padding: 12px 14px; margin-bottom: 14px; }

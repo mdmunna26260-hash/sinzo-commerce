@@ -1,14 +1,16 @@
 import Link from "next/link";
 import PurchaseTracker from "./tracker";
+import PushOptIn from "@/components/push-optin";
 
 export const metadata = { title: "Order Confirmed" };
 
-export default function SuccessPage({ searchParams }: { searchParams: { code?: string; total?: string; eid?: string; ids?: string; num?: string } }) {
+export default function SuccessPage({ searchParams }: { searchParams: { code?: string; total?: string; eid?: string; ids?: string; num?: string; ph?: string } }) {
   const code = searchParams.code || "";
   const total = searchParams.total || "";
   const eid = searchParams.eid || "";
   const ids = (searchParams.ids || "").split(",").filter(Boolean);
   const num = parseInt(searchParams.num || "0", 10) || 0;
+  const ph = searchParams.ph || "";
   return (
     <div className="success-wrap">
       {eid && <PurchaseTracker eid={eid} total={Number(total) || 0} ids={ids} num={num} />}
@@ -30,6 +32,9 @@ export default function SuccessPage({ searchParams }: { searchParams: { code?: s
         )}
         <Link className="btn" href={"/track?code=" + code}>Track Order</Link>
         <Link className="btn btn-outline" href="/products">Continue Shopping</Link>
+      </div>
+      <div style={{ maxWidth: 420, margin: "22px auto 0" }}>
+        <PushOptIn phone={ph} code={code} />
       </div>
     </div>
   );
