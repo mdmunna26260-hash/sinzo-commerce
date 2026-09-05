@@ -4,7 +4,7 @@ import { db } from "./db";
    Dev SQLite gets them via `prisma db push`, but production databases
    (VPS PostgreSQL / Vercel) may not be migrated manually before deploy.
    These CREATE TABLE IF NOT EXISTS statements are idempotent and match the
-   Prisma schema exactly, so new features work immediately after deploy.
+   Prisma schema exactly, so push notifications work immediately after deploy.
    Runs at most once per server process. */
 let done: Promise<void> | null = null;
 
@@ -19,20 +19,6 @@ async function run(): Promise<void> {
   const isPg = (process.env.DATABASE_URL || "").startsWith("postgres");
   if (isPg) {
     await db.$executeRawUnsafe(
-      `CREATE TABLE IF NOT EXISTS "Address" (
-        "id" SERIAL PRIMARY KEY,
-        "customerId" INTEGER NOT NULL,
-        "label" TEXT NOT NULL DEFAULT 'Home',
-        "name" TEXT NOT NULL DEFAULT '',
-        "phone" TEXT NOT NULL DEFAULT '',
-        "address" TEXT NOT NULL,
-        "area" TEXT NOT NULL DEFAULT 'INSIDE_DHAKA',
-        "isDefault" BOOLEAN NOT NULL DEFAULT false,
-        "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        CONSTRAINT "Address_customerId_fkey" FOREIGN KEY ("customerId") REFERENCES "Customer"("id") ON DELETE CASCADE ON UPDATE CASCADE
-      )`
-    );
-    await db.$executeRawUnsafe(
       `CREATE TABLE IF NOT EXISTS "PushSubscription" (
         "id" SERIAL PRIMARY KEY,
         "endpoint" TEXT NOT NULL,
@@ -44,20 +30,6 @@ async function run(): Promise<void> {
       )`
     );
   } else {
-    await db.$executeRawUnsafe(
-      `CREATE TABLE IF NOT EXISTS "Address" (
-        "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
-        "customerId" INTEGER NOT NULL,
-        "label" TEXT NOT NULL DEFAULT 'Home',
-        "name" TEXT NOT NULL DEFAULT '',
-        "phone" TEXT NOT NULL DEFAULT '',
-        "address" TEXT NOT NULL,
-        "area" TEXT NOT NULL DEFAULT 'INSIDE_DHAKA',
-        "isDefault" BOOLEAN NOT NULL DEFAULT false,
-        "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        CONSTRAINT "Address_customerId_fkey" FOREIGN KEY ("customerId") REFERENCES "Customer"("id") ON DELETE CASCADE ON UPDATE CASCADE
-      )`
-    );
     await db.$executeRawUnsafe(
       `CREATE TABLE IF NOT EXISTS "PushSubscription" (
         "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,

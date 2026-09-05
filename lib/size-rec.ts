@@ -1,17 +1,29 @@
-/* Size recommendation engine — PRODUCT-AWARE.
-   Golden rule: a size may ONLY be recommended if it exists in the product's
-   configured sizes. No hardcoded XL fallback — when the data can't support a
-   confident pick, we return "uncertain" and the UI shows the size-chart
-   fallback message instead. */
+/* Size recommendation — EXACT RULE-BASED SYSTEM.
+   Rules (height in total inches, weight kg, inclusive ranges):
+
+   5'4"–5'6" : 42-49 → P28/S · 50-60 → P32/M · 61-71 → P34/L · 72-80 → P36/XL · 81-85 → P38/XXXL
+   5'7"–5'9" : 42-49 → P28(-) · 51-59 → P30/M · 60-70 → P32/L · 71-80 → P34/XL · 81-90 → P36/XXL · 91-95 → P38/XXXL · 96-100 → P40/4XL
+   5'10"–6'0": 50-72 → P32/L · 73-80 → P34/XL
+
+   Anything outside the table → "uncertain" (UI shows the size-chart fallback).
+   The recommendation is ONLY shown if the size exists in the product's
+   configured sizes (a safe one-step alternative may be offered when the rule
+   size is missing). Numeric products get pants numbers; alphabetic products
+   get letters. Never mixed. Never a hardcoded XL. */
 
 export type SizeSystem = "numeric" | "alpha" | "custom";
 
 export type RecResult =
   | { status: "ok"; size: string; note?: "closest" }
-  | { status: "oos"; size: string; alt?: string }
+  | { status: "oos"; size: string }
   | { status: "uncertain" };
 
-export const SIZE_ORDER = ["XXS", "XS", "S", "M", "L", "XL", "XXL", "3XL", "XXXL", "4XL"];
+/* alphabetic universe in ascending order (3XL ≡ XXXL) */
+export const ALPHA_ORDER = ["XS", "S", "M", "L", "XL", "XXL", "XXXL", "4XL"];
+
+export function normAlpha(s: string): string {
+  return s.trim().toUpperCase().replace(/^3XL$/, "XXXL");
+}
 
 /* ---------- classify the product's sizing system from its ACTUAL sizes ---------- */
 export function classifySizeSystem(sizes: string[]): SizeSystem {
@@ -19,138 +31,128 @@ export function classifySizeSystem(sizes: string[]): SizeSystem {
   if (!list.length) return "custom";
   const nums = list.filter((s) => /^\d{1,3}$/.test(s));
   if (nums.length >= 2 && nums.length >= list.length * 0.6) return "numeric";
-  const letters = list.filter((s) => SIZE_ORDER.includes(s.toUpperCase()));
+  const letters = list.filter((s) => ALPHA_ORDER.includes(normAlpha(s)));
   if (letters.length >= list.length * 0.6) return "alpha";
   return "custom";
 }
 
-/* ---------- numeric (pants/trousers) waist estimate, in inches ----------
-   50kg → 28 · +2 inch per 7kg · tall (≥178) +0.5 · short (≤155) −0.5.
-   If the product's size chart has real waist measurements, those values are
-   used for matching instead of the nominal size number (see recommendSize). */
-export function estimateWaist(heightCm: number, weightKg: number): number {
-  let waist = 28 + ((weightKg - 50) * 2) / 7;
-  if (heightCm >= 178) waist += 0.5;
-  else if (heightCm <= 155) waist -= 0.5;
-  return Math.min(46, Math.max(24, waist));
+/* ---------- the rule table ---------- */
+type Band = { lo: number; hi: number; pants: string; alpha?: string };
+type Rule = { minIn: number; maxIn: number; bands: Band[] };
+
+const RULES: Rule[] = [
+  {
+    minIn: 64, maxIn: 66, // 5'4" – 5'6"
+    bands: [
+      { lo: 42, hi: 49, pants: "28", alpha: "S" },
+      { lo: 50, hi: 60, pants: "32", alpha: "M" },
+      { lo: 61, hi: 71, pants: "34", alpha: "L" },
+      { lo: 72, hi: 80, pants: "36", alpha: "XL" },
+      { lo: 81, hi: 85, pants: "38", alpha: "XXXL" },
+    ],
+  },
+  {
+    minIn: 67, maxIn: 69, // 5'7" – 5'9"
+    bands: [
+      { lo: 42, hi: 49, pants: "28" }, // alphabetic not defined in the rules for this row
+      { lo: 51, hi: 59, pants: "30", alpha: "M" },
+      { lo: 60, hi: 70, pants: "32", alpha: "L" },
+      { lo: 71, hi: 80, pants: "34", alpha: "XL" },
+      { lo: 81, hi: 90, pants: "36", alpha: "XXL" },
+      { lo: 91, hi: 95, pants: "38", alpha: "XXXL" },
+      { lo: 96, hi: 100, pants: "40", alpha: "4XL" },
+    ],
+  },
+  {
+    minIn: 70, maxIn: 72, // 5'10" – 6'0"
+    bands: [
+      { lo: 50, hi: 72, pants: "32", alpha: "L" },
+      { lo: 73, hi: 80, pants: "34", alpha: "XL" },
+    ],
+  },
+];
+
+/* rule lookup — height is normalized to whole inches so a CM input like
+   170cm (66.93in) lands on 5'7" exactly like a manual FT/IN entry */
+export function ruleFor(heightCm: number, weightKg: number): { pants: string; alpha?: string } | null {
+  const totalIn = Math.round(heightCm / 2.54);
+  for (const rule of RULES) {
+    if (totalIn < rule.minIn || totalIn > rule.maxIn) continue;
+    for (const b of rule.bands) {
+      if (weightKg >= b.lo && weightKg <= b.hi) return { pants: b.pants, alpha: b.alpha };
+    }
+    return null; // height covered, weight outside every band → undefined range
+  }
+  return null; // height outside all rule ranges
 }
 
-/* ---------- alphabetic target index in SIZE_ORDER (0..9) ----------
-   Height points + BMI points, with safety floors for extreme builds. */
-export function alphaTargetIndex(heightCm: number, weightKg: number): number {
-  const bmi = weightKg / Math.pow(heightCm / 100, 2);
-  const hPts = heightCm < 158 ? 0 : heightCm < 165 ? 1 : heightCm < 172 ? 2 : heightCm < 179 ? 3 : 4;
-  const bPts = bmi < 18.5 ? 0 : bmi < 22 ? 1 : bmi < 26 ? 2 : bmi < 30 ? 3 : 4;
-  let idx = 2 + Math.floor((hPts + bPts) / 2);
-  if (bPts === 2 && bmi >= 25) idx += 1; // upper-normal build (BMI 25–26) → size up
-  if (bmi >= 35) idx = Math.max(idx, 6); // XXL floor
-  else if (bmi >= 30) idx = Math.max(idx, 5); // XL floor
-  if (bmi < 17) idx = Math.min(idx, 2); // very slim → S cap
-  if (weightKg >= 95) idx = Math.max(idx, 6);
-  else if (weightKg >= 85) idx = Math.max(idx, 5);
-  if (weightKg < 40 && heightCm < 160) idx = Math.min(idx, 3);
-  return Math.min(SIZE_ORDER.length - 1, Math.max(0, idx));
-}
-
-/* ---------- main recommendation ----------
-   Returns ONLY sizes from `sizes` (the product's configured options).
-   Stock status is reported separately; an out-of-stock pick comes with the
-   closest in-stock alternative when one is confidently near. */
+/* ---------- main recommendation ---------- */
 export function recommendSize(opts: {
   heightCm: number;
   weightKg: number;
-  sizes: string[];
-  stockMap?: Record<string, number>;
-  waistChart?: Record<string, number>; // size → real waist measurement (from product size chart)
+  sizes: string[]; // the product's configured sizes
+  stockMap?: Record<string, number>; // size → stock
 }): RecResult {
   const { heightCm: h, weightKg: w, sizes } = opts;
   const stockMap = opts.stockMap || {};
-  const waistChart = opts.waistChart || {};
   if (!sizes.length) return { status: "uncertain" };
-  const stockOf = (s: string) => stockMap[s] ?? 0;
+
+  const rule = ruleFor(h, w);
+  if (!rule) return { status: "uncertain" };
+
   const sys = classifySizeSystem(sizes);
+  const stockOf = (s: string) => stockMap[s] ?? 0;
 
-  /* NUMERIC — pants/trousers/jeans: return a waist number, NEVER a letter */
+  /* NUMERIC pants → only a number, never a letter */
   if (sys === "numeric") {
-    const values = sizes
-      .map((s) => ({ s, v: waistChart[s] ?? parseFloat(s) }))
-      .filter((x) => Number.isFinite(x.v));
-    if (!values.length) return { status: "uncertain" };
-    const waist = estimateWaist(h, w);
-    let best = values[0];
-    let bestD = Math.abs(best.v - waist);
-    for (const it of values) {
-      const d = Math.abs(it.v - waist);
-      if (d < bestD - 1e-9 || (Math.abs(d - bestD) <= 1e-9 && it.v > best.v)) {
-        best = it;
-        bestD = d;
-      }
-    }
-    if (bestD > 3.5) return { status: "uncertain" }; // this product's size run doesn't cover the body
-    if (stockOf(best.s) > 0) return { status: "ok", size: best.s, note: bestD > 1.51 ? "closest" : undefined };
-    let alt: string | undefined;
-    let altD = 3.001;
-    for (const it of values) {
-      if (it.s === best.s || stockOf(it.s) <= 0) continue;
-      const d = Math.abs(it.v - waist);
-      if (d < altD) {
-        alt = it.s;
-        altD = d;
-      }
-    }
-    return { status: "oos", size: best.s, alt };
+    const want = rule.pants;
+    const nums = sizes
+      .map((s) => ({ s, v: parseFloat(s) }))
+      .filter((x) => Number.isFinite(x.v))
+      .sort((a, b) => a.v - b.v);
+    const exact = nums.find((x) => x.v === parseFloat(want));
+    if (exact) return stockOf(exact.s) > 0 ? { status: "ok", size: exact.s } : { status: "oos", size: exact.s };
+    // exact size not configured → only a SAFE alternative (size UP, within 4 waist units)
+    if (parseFloat(want) < nums[0].v && nums[0].v - parseFloat(want) <= 4)
+      return stockOf(nums[0].s) > 0 ? { status: "ok", size: nums[0].s, note: "closest" } : { status: "oos", size: nums[0].s };
+    const next = nums.find((x) => x.v > parseFloat(want));
+    if (next && next.v - parseFloat(want) <= 4)
+      return stockOf(next.s) > 0 ? { status: "ok", size: next.s, note: "closest" } : { status: "oos", size: next.s };
+    return { status: "uncertain" }; // e.g. 40-body vs a 28-30-only run → do NOT guess
   }
 
-  /* ALPHABETIC — S/M/L/XL: return one of the product's actual letters */
+  /* ALPHABETIC shirt → only a letter from the rules */
   if (sys === "alpha") {
-    const idx = alphaTargetIndex(h, w);
-    const idxOf = (s: string) => SIZE_ORDER.indexOf(s.trim().toUpperCase());
-    let best: string | null = null;
-    let bestD = 99;
-    for (const s of sizes) {
-      const si = idxOf(s);
-      if (si === -1) continue;
-      const d = Math.abs(si - idx);
-      if (d < bestD) {
-        best = s;
-        bestD = d;
-      }
+    const want = rule.alpha ? normAlpha(rule.alpha) : null;
+    if (!want) return { status: "uncertain" }; // rules define no letter for this combo
+    const idxOf = (s: string) => ALPHA_ORDER.indexOf(normAlpha(s));
+    const items = sizes
+      .map((s) => ({ s, i: idxOf(s) }))
+      .filter((x) => x.i >= 0)
+      .sort((a, b) => a.i - b.i);
+    const exact = items.find((x) => normAlpha(x.s) === want);
+    if (exact) return stockOf(exact.s) > 0 ? { status: "ok", size: exact.s } : { status: "oos", size: exact.s };
+    // missing letter → only a SAFE alternative: one step up when the rule size sits below the range or in a single-size gap
+    if (wantIdx(want) < items[0].i) {
+      const alt = items[0];
+      if (alt.i - wantIdx(want) === 1) return stockOf(alt.s) > 0 ? { status: "ok", size: alt.s, note: "closest" } : { status: "oos", size: alt.s };
+      return { status: "uncertain" };
     }
-    if (!best || bestD > 2) return { status: "uncertain" };
-    if (stockOf(best) > 0) return { status: "ok", size: best, note: bestD === 2 ? "closest" : undefined };
-    let alt: string | undefined;
-    let altD = 2.001;
-    for (const s of sizes) {
-      if (s === best || stockOf(s) <= 0) continue;
-      const si = idxOf(s);
-      if (si === -1) continue;
-      const d = Math.abs(si - idx);
-      if (d < altD) {
-        alt = s;
-        altD = d;
-      }
-    }
-    return { status: "oos", size: best, alt };
+    if (wantIdx(want) > items[items.length - 1].i) return { status: "uncertain" };
+    const next = items.find((x) => x.i > wantIdx(want));
+    if (next && next.i - wantIdx(want) === 1)
+      return stockOf(next.s) > 0 ? { status: "ok", size: next.s, note: "closest" } : { status: "oos", size: next.s };
+    return { status: "uncertain" };
   }
 
-  /* CUSTOM sizes — only attempt when there's a run wide enough to position in */
-  if (sizes.length >= 4) {
-    const bmi = w / Math.pow(h / 100, 2);
-    const rank = Math.min(1, Math.max(0, (bmi - 16) / 22)) * 0.6 + Math.min(1, Math.max(0, (h - 145) / 45)) * 0.4;
-    const idx = Math.min(sizes.length - 1, Math.max(0, Math.round(rank * (sizes.length - 1))));
-    const s = sizes[idx];
-    if (!s) return { status: "uncertain" };
-    if (stockOf(s) > 0) return { status: "ok", size: s, note: "closest" };
-    const alt = sizes.find((x, i) => Math.abs(i - idx) === 1 && stockOf(x) > 0);
-    return { status: "oos", size: s, alt };
-  }
-
-  return { status: "uncertain" };
+  return { status: "uncertain" }; // custom / unrecognized size system → size-chart fallback
 }
 
-/* ---------- input validation (CM + FT/IN + weight) ----------
-   Empty relevant fields → incomplete (gentle hint, no errors).
-   Filled-but-invalid → clear error message, no calculation. */
+function wantIdx(norm: string): number {
+  return ALPHA_ORDER.indexOf(norm);
+}
+
+/* ---------- input validation (FT/IN default + CM + weight) ---------- */
 export type RecInputErrors = { height?: string; feet?: string; inches?: string; weight?: string };
 
 export function validateRecInput(opts: {
@@ -166,9 +168,7 @@ export function validateRecInput(opts: {
   let weightKg: number | null = null;
 
   if (unit === "cm") {
-    if (cm.trim() === "") {
-      /* incomplete, handled below */
-    } else {
+    if (cm.trim() !== "") {
       const v = Number(cm);
       if (!Number.isFinite(v) || v <= 0) errors.height = "Enter a valid height (100–230 cm)";
       else if (v < 100 || v > 230) errors.height = "Height must be between 100 and 230 cm";
@@ -187,17 +187,13 @@ export function validateRecInput(opts: {
       if (!Number.isFinite(i) || i < 0 || i > 11) errors.inches = "Inches must be between 0 and 11";
     }
     if (!ftEmpty && !errors.feet && !errors.inches) {
-      const f = Number(ft);
-      const i = inEmpty ? 0 : Number(inch);
-      const hv = f * 30.48 + i * 2.54;
+      const hv = Number(ft) * 30.48 + (inEmpty ? 0 : Number(inch)) * 2.54;
       if (hv < 100 || hv > 230) errors.feet = "Enter a realistic height";
       else heightCm = Math.round(hv * 10) / 10;
     }
   }
 
-  if (wt.trim() === "") {
-    /* incomplete */
-  } else {
+  if (wt.trim() !== "") {
     const v = Number(wt);
     if (!Number.isFinite(v) || v <= 0) errors.weight = "Enter a valid weight (20–250 kg)";
     else if (v < 20 || v > 250) errors.weight = "Weight must be between 20 and 250 kg";

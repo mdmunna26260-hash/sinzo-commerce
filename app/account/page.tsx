@@ -12,10 +12,7 @@ export const metadata = { title: "My Account" };
 export default async function AccountPage({ searchParams }: { searchParams: { ct?: string } }) {
   const session = (await getCustomerSessionFromRequest()) || verifyCustomerToken(searchParams?.ct);
   if (!session) redirect("/login");
-  const [customer, addresses] = await Promise.all([
-    db.customer.findUnique({ where: { id: session.id } }),
-    db.address.findMany({ where: { customerId: session.id }, orderBy: [{ isDefault: "desc" }, { id: "desc" }] }).catch(() => []),
-  ]);
+  const customer = await db.customer.findUnique({ where: { id: session.id } });
   if (!customer) redirect("/login");
   const orders = await db.order.findMany({ where: { phone: customer.phone }, include: { items: true }, orderBy: { id: "desc" }, take: 50 });
   const s = await getSettings();
@@ -29,7 +26,6 @@ export default async function AccountPage({ searchParams }: { searchParams: { ct
       <AccountClient
         customer={{ name: customer.name, phone: customer.phone, email: customer.email, address: customer.address, area: customer.area }}
         token={searchParams?.ct || ""}
-        addresses={addresses.map((a) => ({ id: a.id, label: a.label, name: a.name, phone: a.phone, address: a.address, area: a.area, isDefault: a.isDefault }))}
         orders={orders.map((o) => ({
           code: o.code, status: o.status, total: o.total, paymentMethod: o.paymentMethod, paymentStatus: o.paymentStatus,
           createdAt: o.createdAt.toISOString(), itemCount: o.items.reduce((a, i) => a + i.qty, 0),

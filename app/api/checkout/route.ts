@@ -91,7 +91,8 @@ export async function POST(req: Request) {
     const feeBase = area === "INSIDE_DHAKA" ? Number(shipCfg.insideDhaka ?? 80) : Number(shipCfg.outsideDhaka ?? 140);
     const freeT = Number(shipCfg.freeShippingThreshold ?? 0);
     const deliveryFee = freeship || (freeT > 0 && subtotal - discount >= freeT) ? 0 : feeBase;
-    const total = Math.max(0, subtotal - discount) + deliveryFee;
+    const giftWrapFee = body.giftWrap ? 60 : 0; // gift wrap charge, added to grand total
+    const total = Math.max(0, subtotal - discount) + deliveryFee + giftWrapFee;
 
     // --- fraud / risk ---
     const ip = getClientIp(req);
@@ -111,7 +112,7 @@ export async function POST(req: Request) {
     const order = await db.order.create({
       data: {
         code: "TEMP", name: String(name).trim(), phone: cleanPhone, email: email || null,
-        address: String(address).trim(), area, notes: body.giftWrap ? (notes ? notes + ' | ' : '') + '🎁 GIFT WRAP requested' : notes || null,
+        address: String(address).trim(), area, notes: body.giftWrap ? (notes ? notes + ' | ' : '') + '🎁 GIFT WRAP (+৳60)' : notes || null,
         subtotal, discount, deliveryFee, total,
         couponCode: appliedCode, paymentMethod: paymentMethod || "COD", paymentStatus: "PENDING",
         status: risk.level === "HIGH" ? "ON_HOLD" : "PENDING",

@@ -2,13 +2,12 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCart, useWishlist, useCompare, trackEvent, toast } from "@/components/store";
+import { useCart, useWishlist, trackEvent, toast } from "@/components/store";
 import { imgSrc, imgSrcSet } from "@/components/parts";
 import { warmImage } from "@/components/img-warm";
 import { trackRecentlyViewed } from "@/components/recently-viewed";
 import MobileGallery from "@/components/mobile-gallery";
 import SizeRecommendation from "@/components/size-rec";
-import { rememberCompareMeta } from "@/components/compare-btn";
 
 type V = { id: number; size: string | null; color: string | null; stock: number; price: number | null };
 type P = {
@@ -22,7 +21,6 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
   const { add, count: cartCount } = useCart();
   const router = useRouter();
   const wishlist = useWishlist();
-  const cmp = useCompare();
   const N = product.images.length;
 
   // ---------- gallery state ----------
@@ -309,7 +307,7 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
             </>
           )}
           {sizes.length > 0 && (
-            <SizeRecommendation sizes={sizes} stockMap={sizeStock} sizeChartHtml={sizeChartHtml} categoryName={product.categoryName} />
+            <SizeRecommendation sizes={sizes} stockMap={sizeStock} />
           )}
           {colors.length > 0 && (
             <>
@@ -345,17 +343,6 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
             </button>
             <button className="btn btn-outline glass" style={{ flex: "0 0 auto", minWidth: 0, padding: "13px 16px" }} onClick={() => wishlist.toggle(product.id)} aria-label="Wishlist">
               <svg width="18" height="18" viewBox="0 0 24 24" fill={wishlist.has(product.id) ? "currentColor" : "none"} stroke="currentColor" strokeWidth="1.5"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21.2l7.8-7.8 1-1a5.5 5.5 0 0 0 0-7.8z"/></svg>
-            </button>
-            <button className={"btn btn-outline glass pdp-cmp" + (cmp.has(product.id) ? " on" : "")} style={{ flex: "0 0 auto", minWidth: 0, padding: "13px 16px", color: cmp.has(product.id) ? "var(--accent)" : undefined }}
-              title={cmp.has(product.id) ? "Remove from compare" : "Add to compare"}
-              aria-label={cmp.has(product.id) ? "Remove from compare" : "Add to compare"}
-              onClick={() => {
-                const wasOn = cmp.has(product.id);
-                if (!wasOn) rememberCompareMeta(product.id, product.images[0]?.url || null);
-                const ok = cmp.toggle(product.id);
-                if (ok) toast(wasOn ? "Removed from compare" : "Added to compare ✓");
-              }}>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M12 6v13"/><path d="M6 9l-3 6h6z"/><path d="M18 9l-3 6h6z"/></svg>
             </button>
           </div>
 

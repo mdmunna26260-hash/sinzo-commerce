@@ -27,21 +27,16 @@ export default function CheckoutPage() {
   const [busy, setBusy] = useState(false);
   const [cbusy, setCBusy] = useState(false);
   const [giftWrap, setGiftWrap] = useState(false);
-  const GIFT_WRAP_PRICE = 50;
+  const GIFT_WRAP_PRICE = 60;
   const [payment, setPayment] = useState("COD");
-
-  // ---- saved address book (logged-in customers) ----
-  const [addresses, setAddresses] = useState<any[]>([]);
-  const [selectedAddr, setSelectedAddr] = useState<number | "new">("new");
-  const [loggedIn, setLoggedIn] = useState(false);
-  const [saveAddr, setSaveAddr] = useState(true);
 
   const discount = applied ? applied.discount : 0;
   const ship = applied?.freeship || subtotal - discount >= freeT ? 0 : form.area === "INSIDE_DHAKA" ? inside : outside;
-  const total = Math.max(0, subtotal - discount) + ship;
+  const giftFee = giftWrap ? GIFT_WRAP_PRICE : 0;
+  const total = Math.max(0, subtotal - discount) + ship + giftFee;
 
   useEffect(() => {
-    // prefill from customer account (cookie or ?ct= token) + saved address book
+    // prefill from customer account (cookie or ?ct= token)
     (async () => {
       try {
         const ct = new URLSearchParams(location.search).get("ct");
@@ -50,31 +45,14 @@ export default function CheckoutPage() {
         if (!r.ok) return;
         const j = await r.json();
         const c = j.customer || {};
-        const book: any[] = Array.isArray(j.addresses) ? j.addresses : [];
-        setLoggedIn(true);
-        setAddresses(book);
-        const def = book.find((a) => a.isDefault) || book[0];
-        if (def) {
-          setSelectedAddr(def.id);
-          setSaveAddr(false);
-          setForm((f) => ({
-            ...f,
-            name: f.name || def.name || c.name || "",
-            phone: f.phone || def.phone || c.phone || "",
-            email: f.email || c.email || "",
-            address: def.address || c.address || "",
-            area: def.area === "OUTSIDE_DHAKA" ? "OUTSIDE_DHAKA" : c.area === "OUTSIDE_DHAKA" ? "OUTSIDE_DHAKA" : f.area,
-          }));
-        } else {
-          setForm((f) => ({
-            ...f,
-            name: f.name || c.name || "",
-            phone: f.phone || c.phone || "",
-            email: f.email || c.email || "",
-            address: f.address || c.address || "",
-            area: c.area === "OUTSIDE_DHAKA" ? "OUTSIDE_DHAKA" : f.area,
-          }));
-        }
+        setForm((f) => ({
+          ...f,
+          name: f.name || c.name || "",
+          phone: f.phone || c.phone || "",
+          email: f.email || c.email || "",
+          address: f.address || c.address || "",
+          area: c.area === "OUTSIDE_DHAKA" ? "OUTSIDE_DHAKA" : f.area,
+        }));
       } catch {}
     })();
   }, []);
@@ -107,19 +85,6 @@ export default function CheckoutPage() {
 
   const set = (k: string, v: string) => setForm((f) => ({ ...f, [k]: v }));
 
-  const ctToken = () => { try { return new URLSearchParams(location.search).get("ct") || ""; } catch { return ""; } };
-
-  const pickAddress = (a: any) => {
-    setSelectedAddr(a.id);
-    setForm((f) => ({ ...f, name: a.name || f.name, phone: a.phone || f.phone, address: a.address, area: a.area === "OUTSIDE_DHAKA" ? "OUTSIDE_DHAKA" : "INSIDE_DHAKA" }));
-    setErrors((e: any) => ({ ...e, address: undefined, name: undefined, phone: undefined }));
-  };
-  const startNewAddress = () => {
-    setSelectedAddr("new");
-    setSaveAddr(true);
-    setForm((f) => ({ ...f, address: "" }));
-    setErrors((e: any) => ({ ...e, address: undefined }));
-  };
 
   const applyCoupon = async () => {
     if (!coupon.trim() || cbusy || busy) return;
@@ -162,16 +127,6 @@ export default function CheckoutPage() {
       });
       const j = await r.json();
       if (r.ok) {
-        // save to address book (logged-in + new address + opted in) — non-blocking for UX
-        if (loggedIn && saveAddr && selectedAddr === "new" && form.address.trim().length >= 10) {
-          const dup = addresses.find((a) => a.address.trim() === form.address.trim() && a.phone === normalizeBDPhone(form.phone));
-          if (!dup) {
-            await fetch("/api/addresses", {
-              method: "POST", headers: { "Content-Type": "application/json", ...(ctToken() ? { Authorization: "Bearer " + ctToken() } : {}) },
-              body: JSON.stringify({ name: form.name.trim(), phone: normalizeBDPhone(form.phone), address: form.address.trim(), area: form.area, label: "Other" }),
-            }).catch(() => {});
-          }
-        }
         clear();
         const ids = [...new Set(lines.map((l) => String(l.productId)))].join(",");
         const num = lines.reduce((s, l) => s + l.qty, 0);
@@ -194,26 +149,6 @@ export default function CheckoutPage() {
         <div>
           <div className="acard" style={{ padding: 26, marginBottom: 20 }}>
             <h3 style={{ fontFamily: "var(--font-body)", fontSize: 15, fontWeight: 600, marginBottom: 18 }}>Delivery Information</h3>
-            {addresses.length > 0 && (
-              <div className="addr-list" style={{ marginBottom: 18 }}>
-                {addresses.map((a) => (
-                  <div key={a.id} className={"addr-chip" + (selectedAddr === a.id ? " active" : "")} role="button" tabIndex={0}
-                    onClick={() => pickAddress(a)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); pickAddress(a); } }}>
-                    <div className="addr-chip-top">
-                      <b>{a.label}</b>
-                      {a.isDefault && <span className="tag">DEFAULT</span>}
-                    </div>
-                    <div className="addr-chip-meta">{a.name} · {a.phone}</div>
-                    <div className="addr-chip-txt">{a.address}</div>
-                  </div>
-                ))}
-                <div className={"addr-chip addnew" + (selectedAddr === "new" ? " active" : "")} role="button" tabIndex={0}
-                  onClick={startNewAddress} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); startNewAddress(); } }}>
-                  <b>+ New address</b>
-                  <div className="addr-chip-txt">Different address diye pathate chan?</div>
-                </div>
-              </div>
-            )}
             <div className="field-row">
               <div className="field">
                 <label>Full Name *</label>
@@ -231,12 +166,6 @@ export default function CheckoutPage() {
               <textarea value={form.address} onChange={(e) => set("address", e.target.value)} placeholder="House / Road / Area, Thana, City" rows={2} style={{ minHeight: 0, resize: "vertical" }} />
               {errors.address && <div className="err">{errors.address}</div>}
             </div>
-            {loggedIn && selectedAddr === "new" && (
-              <label className="saveaddr-row">
-                <input type="checkbox" checked={saveAddr} onChange={(e) => setSaveAddr(e.target.checked)} style={{ width: 15, height: 15 }} />
-                <span style={{ fontSize: 12.5, color: "var(--muted)" }}>Save this address to my address book</span>
-              </label>
-            )}
             <div className="field-row">
               <div className="field">
                 <label>Delivery Zone</label>
@@ -313,6 +242,7 @@ export default function CheckoutPage() {
             <div className="sum-row"><span>Subtotal</span><span>৳{subtotal.toLocaleString("en-IN")}</span></div>
             {discount > 0 && <div className="sum-row" style={{ color: "var(--ok)" }}><span>Discount ({applied.code})</span><span>−৳{discount.toLocaleString("en-IN")}</span></div>}
             <div className="sum-row"><span>Delivery</span><span>{ship === 0 ? "Free" : "৳" + ship}</span></div>
+            {giftWrap && <div className="sum-row"><span>Gift Wrap</span><span>+৳{GIFT_WRAP_PRICE}</span></div>}
             <div className="sum-row total"><span>Total</span><span>৳{total.toLocaleString("en-IN")}</span></div>
           </div>
           <div className="coupon-row">
