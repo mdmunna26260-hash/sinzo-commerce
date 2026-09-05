@@ -20,7 +20,7 @@ function authHeaders(cfg: { apiKey: string; secretKey: string }) {
 export async function createConsignment(order: any): Promise<{ ok: boolean; configured: boolean; data?: any; error?: string }> {
   const cfg = await steadfastCfg();
   if (!cfg.configured) return { ok: false, configured: false, error: "Not Configured: add Steadfast API Key & Secret in Admin > Settings > Courier" };
-  const codAmount = Math.max(0, Math.round((order.total - order.deliveryFee > 0 ? order.total - order.deliveryFee : order.total)));
+  const codAmount = Math.max(0, Math.round(order.total));
   const body = {
     invoice: order.code,
     recipient_name: order.name,
