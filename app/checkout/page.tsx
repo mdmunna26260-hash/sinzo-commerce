@@ -180,8 +180,8 @@ export default function CheckoutPage() {
             </div>
           </div>
 
-          <div className="acard" style={{ padding: "18px 20px" }}>
-            <h3 style={{ fontFamily: "var(--font-body)", fontSize: 15, fontWeight: 600, marginBottom: 10 }}>Payment Method</h3>
+          <div className="acard" style={{ padding: "16px 18px", marginBottom: 8 }}>
+            <h3 style={{ fontFamily: "var(--font-body)", fontSize: 14, fontWeight: 600, marginBottom: 8 }}>Payment Method</h3>
             {codEnabled && (
               <div className={"pay-opt" + (payment === "COD" ? " active" : "")} onClick={() => setPayment("COD")}>
                 <input type="radio" checked={payment === "COD"} readOnly />
@@ -215,7 +215,8 @@ export default function CheckoutPage() {
               </div>
               <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
                 <button type="button" className="mini-del" onClick={() => remove(l.key)} aria-label="Remove item">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M3 6h18M8 6V4a1 1 0 011-1h6a1 1 0 011 1v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6h14z"/></svg>
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M3 6h18M8 6V4a1 1 0 011-1h6a1 1 0 011 1v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6h14z"/></svg>
+                  <span style={{ fontSize: 10.5, marginLeft: 2 }}>Remove</span>
                 </button>
                 <div style={{ fontSize: 13.5, fontWeight: 600 }}>৳{(l.price * l.qty).toLocaleString("en-IN")}</div>
               </div>

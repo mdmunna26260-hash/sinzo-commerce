@@ -1664,3 +1664,15 @@ input::placeholder, textarea::placeholder { color: #b0aaa1; }
   align-self: flex-start;
 }
 .mini-del:hover { color: var(--danger); }
+
+/* checkout: compact between sections */
+.checkout-layout { gap: 20px; }
+
+/* mini-del red color + Remove text */
+.mini-del {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: var(--danger) !important;
+}
+.mini-del span { color: var(--danger); }
