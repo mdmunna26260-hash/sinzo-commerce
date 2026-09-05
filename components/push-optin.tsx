@@ -2,9 +2,13 @@
 import { useEffect, useState } from "react";
 import { toast } from "./store";
 
-/* Web Push opt-in.
-   variant="card"  → order success page (slim card with Enable button)
-   variant="row"   → account page (compact row with on/off toggle) */
+/* Browser push opt-in.
+   variant="card" → order success page. With autoAsk, the NATIVE permission
+   prompt fires automatically on mount (the Place-Order click milliseconds
+   earlier still counts as a user gesture, so the browser allows it).
+   User just taps Allow → subscribed. If the browser refuses to show the
+   prompt, the card with the Enable button remains as fallback (old behaviour).
+   variant="row" → account page toggle (manual only, age jemon chilo). */
 
 function urlBase64ToUint8Array(base64String: string): Uint8Array {
   const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
@@ -17,43 +21,15 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
 
 type State = "loading" | "unsupported" | "denied" | "off" | "on" | "busy";
 
-export default function PushOptIn({ phone, code, variant = "card" }: { phone?: string; code?: string; variant?: "card" | "row" }) {
+export default function PushOptIn({ phone, code, variant = "card", autoAsk = false }: { phone?: string; code?: string; variant?: "card" | "row"; autoAsk?: boolean }) {
   const [state, setState] = useState<State>("loading");
 
-  useEffect(() => {
-    (async () => {
-      if (typeof window === "undefined") return;
-      if (!("serviceWorker" in navigator) || !("PushManager" in window) || !("Notification" in window)) return setState("unsupported");
-      if (Notification.permission === "denied") return setState("denied");
-      try {
-        const reg = await navigator.serviceWorker.ready;
-        const sub = await reg.pushManager.getSubscription();
-        if (sub) {
-          const r = await fetch("/api/push?endpoint=" + encodeURIComponent(sub.endpoint));
-          const j = await r.json().catch(() => ({}));
-          if (j.subscribed) {
-            // keep phone fresh (e.g. just-logged-in)
-            const p = phone || "";
-            await fetch("/api/push", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ subscription: sub.toJSON(), phone: p }) }).catch(() => {});
-            return setState("on");
-          }
-        }
-      } catch {}
-      if (Notification.permission === "granted") { setState("off"); return; }
-      setState("off");
-    })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const enable = async () => {
-    if (state === "busy" || state === "on") return;
-    setState("busy");
+  /* shared: subscribe this browser + link the phone (account or order phone) */
+  const subscribeNow = async (): Promise<boolean> => {
     try {
-      const perm = await Notification.requestPermission();
-      if (perm !== "granted") { setState("denied"); return; }
       const reg = await navigator.serviceWorker.ready;
       const { publicKey } = await fetch("/api/push").then((r) => r.json());
-      if (!publicKey) throw new Error("no key");
+      if (!publicKey) return false;
       let sub = await reg.pushManager.getSubscription();
       if (!sub) {
         sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(publicKey) as any });
@@ -67,8 +43,68 @@ export default function PushOptIn({ phone, code, variant = "card" }: { phone?: s
       }
       await fetch("/api/push", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ subscription: sub.toJSON(), phone: sendPhone }) });
       try { localStorage.removeItem("sz_push_off"); } catch {}
-      setState("on");
-      toast("Order updates on ✓");
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
+  useEffect(() => {
+    (async () => {
+      if (typeof window === "undefined") return;
+      if (!("serviceWorker" in navigator) || !("PushManager" in window) || !("Notification" in window)) return setState("unsupported");
+      if (Notification.permission === "denied") return setState("denied");
+      let off = false;
+      try { off = localStorage.getItem("sz_push_off") === "1"; } catch {}
+
+      // already subscribed on this device?
+      try {
+        const reg = await navigator.serviceWorker.ready;
+        const sub = await reg.pushManager.getSubscription();
+        if (sub) {
+          const r = await fetch("/api/push?endpoint=" + encodeURIComponent(sub.endpoint));
+          const j = await r.json().catch(() => ({}));
+          if (j.subscribed) {
+            // keep the phone fresh (e.g. just-logged-in / new order phone)
+            const p = phone || "";
+            if (p) await fetch("/api/push", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ subscription: sub.toJSON(), phone: p }) }).catch(() => {});
+            return setState("on");
+          }
+        }
+      } catch {}
+
+      if (Notification.permission === "granted") return setState("off"); // Enable works instantly, no prompt
+      if (off) return setState("off"); // user turned it off from account settings
+
+      // permission still "default":
+      if (autoAsk) {
+        // fires the native prompt right away — the Place-Order tap from
+        // milliseconds ago is still valid user activation in the browser.
+        // state stays "loading" (hidden) while the prompt is open.
+        const p = await Notification.requestPermission().catch(() => "default");
+        if (p === "granted") {
+          const ok = await subscribeNow();
+          setState(ok ? "on" : "off");
+          if (ok) toast("Order update notifications on ✓");
+        } else {
+          setState("off"); // prompt blocked / dismissed → manual card fallback
+        }
+        return;
+      }
+      setState("off");
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const enable = async () => {
+    if (state === "busy" || state === "on") return;
+    setState("busy");
+    try {
+      const perm = await Notification.requestPermission();
+      if (perm !== "granted") { setState("denied"); return; }
+      const ok = await subscribeNow();
+      setState(ok ? "on" : "off");
+      if (ok) toast("Order update notifications on ✓");
     } catch {
       setState("off");
       toast("Could not enable notifications");
