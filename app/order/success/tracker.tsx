@@ -1,12 +1,14 @@
 "use client";
 import { useEffect } from "react";
-import { trackEvent } from "@/components/store";
+import { trackEvent, setTrackingPhone, enhancePixelMatch } from "@/components/store";
 
 /* Fires the Meta Purchase pixel (+ GA4) ONCE on the thank-you page with the SAME
    event_id the server used for Conversions API — accurate + deduplicated. */
-export default function PurchaseTracker({ eid, total, ids, num }: { eid: string; total: number; ids: string[]; num: number }) {
+export default function PurchaseTracker({ eid, total, ids, num, phone }: { eid: string; total: number; ids: string[]; num: number; phone?: string }) {
   useEffect(() => {
     if (!eid) return;
+    // advanced matching: known order phone → this Purchase gets ph + external_id
+    if (phone) { setTrackingPhone(phone); enhancePixelMatch(phone); }
     try {
       const key = "sz_purchase_" + eid;
       if (sessionStorage.getItem(key)) return;

@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 // Receives browser events: logs them and forwards to Meta CAPI with the SAME event_id (dedup).
 export async function POST(req: Request) {
   try {
-    const { name, eventId, url, data, fbp, fbc } = await req.json();
+    const { name, eventId, url, data, fbp, fbc, phone } = await req.json();
     if (!name) return NextResponse.json({ error: "missing name" }, { status: 400 });
     const s = envFallback(await getSettings());
     const pixel = s.integrations?.metaPixelId;
@@ -18,7 +18,7 @@ export async function POST(req: Request) {
     if (pixel && token && ["ViewContent", "AddToCart", "InitiateCheckout", "AddPaymentInfo", "Purchase", "Search", "Lead"].includes(name)) {
       capi = await sendCapi({
         eventName: name, eventId: eventId || `srv_${Date.now().toString(36)}`,
-        eventSourceUrl: url, userData: { clientIp: getClientIp(req), userAgent: ua, fbp, fbc },
+        eventSourceUrl: url, userData: { clientIp: getClientIp(req), userAgent: ua, fbp, fbc, phone: phone || undefined, externalId: phone || undefined },
         customData: data ? { currency: data.currency || "BDT", value: data.value, content_type: data.content_type, content_ids: data.content_ids, contents: data.contents, search_string: data.search_string } : undefined,
       });
     }

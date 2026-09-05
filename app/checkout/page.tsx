@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCart, trackEvent, toast, captureAttribution, newEventId } from "@/components/store";
+import { useCart, trackEvent, toast, captureAttribution, newEventId, setTrackingPhone } from "@/components/store";
 import { normalizeBDPhone, isValidBDPhone } from "@/lib/phone";
 import { imgSrc } from "@/components/parts";
 
@@ -45,6 +45,7 @@ export default function CheckoutPage() {
         if (!r.ok) return;
         const j = await r.json();
         const c = j.customer || {};
+        if (c.phone) setTrackingPhone(c.phone);
         setForm((f) => ({
           ...f,
           name: f.name || c.name || "",

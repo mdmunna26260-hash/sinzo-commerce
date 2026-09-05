@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import PushOptIn from "@/components/push-optin";
+import { setTrackingPhone } from "@/components/store";
 
 const STATUSES = ["PENDING", "CONFIRMED", "PROCESSING", "PACKED", "SHIPPED", "DELIVERED", "CANCELLED", "RETURNED", "ON_HOLD"];
 const money = (n: number) => "৳" + Math.round(n).toLocaleString("en-IN");
@@ -11,6 +12,8 @@ const money = (n: number) => "৳" + Math.round(n).toLocaleString("en-IN");
 export default function AccountClient({ customer, orders, token }: { customer: any; orders: any[]; token: string }) {
   const router = useRouter();
   const [tab, setTab] = useState<"orders" | "profile">("orders");
+  // cache phone once → Meta advanced matching on every event
+  if (customer?.phone) setTrackingPhone(customer.phone);
   const tempPhone = !/^01[3-9]\d{8}$/.test(customer.phone || ""); // Google-login accounts start with a temp id
   const [profile, setProfile] = useState({ name: customer.name || "", email: customer.email || "", phone: tempPhone ? "" : customer.phone, address: customer.address || "", area: customer.area || "INSIDE_DHAKA", currentPassword: "", newPassword: "" });
   const [msg, setMsg] = useState("");

@@ -12,6 +12,33 @@ function genEventId(): string {
 export function newEventId(): string {
   return genEventId();
 }
+
+/* ---- Advanced matching cache ----
+   The customer phone is cached in localStorage the moment we know it
+   (login / checkout prefill / order-success) and then:
+   1. fbq('init', pixel, { ph, external_id, country }) → Meta advanced matching
+   2. forwarded to /api/track/event → CAPI ph + external_id (same persona) */
+export function getTrackingPhone(): string {
+  try { return localStorage.getItem("sz_user_phone") || ""; } catch { return ""; }
+}
+export function setTrackingPhone(phone: string) {
+  const p = String(phone || "").replace(/[^0-9]/g, "");
+  if (!/^01[3-9]\d{8}$/.test(p)) return;
+  try { localStorage.setItem("sz_user_phone", p); } catch {}
+  enhancePixelMatch(p);
+}
+/* Re-init the pixel with advanced matching data (safe to call any time —
+   Meta merges it; the NEXT events get the enriched match keys). */
+export function enhancePixelMatch(phone?: string) {
+  try {
+    const p = phone || getTrackingPhone();
+    if (!p) return;
+    const pixel = getCfg()?.integrations?.metaPixelId;
+    const w = window as any;
+    if (!pixel || !w.fbq) return;
+    w.fbq("init", pixel, { ph: p, external_id: p, country: "bd" });
+  } catch {}
+}
 function getCookie(n: string): string | undefined {
   const m = document.cookie.match(new RegExp("(?:^|; )" + n + "=([^;]*)"));
   return m ? decodeURIComponent(m[1]) : undefined;
@@ -58,7 +85,11 @@ export function trackEvent(name: string, data?: Record<string, any>, opts?: { ev
           const s = document.createElement("script"); s.id = "meta-pixel"; s.async = true; s.src = "https://connect.facebook.net/en_US/fbevents.js";
           document.head.appendChild(s);
         }
-        w.fbq("init", pixel); w.fbq.loaded = true;
+        const cachedPhone = getTrackingPhone();
+        // advanced matching: known customer → richer event match quality
+        if (cachedPhone) w.fbq("init", pixel, { ph: cachedPhone, external_id: cachedPhone, country: "bd" });
+        else w.fbq("init", pixel);
+        w.fbq.loaded = true;
       }
       const std = ["PageView", "ViewContent", "Search", "AddToCart", "InitiateCheckout", "AddPaymentInfo", "Purchase", "Lead", "CompleteRegistration"];
       const metaName = std.includes(name) ? name : "Custom" + name.replace(/\s/g, "");
@@ -85,7 +116,7 @@ export function trackEvent(name: string, data?: Record<string, any>, opts?: { ev
   try {
     fetch("/api/track/event", {
       method: "POST", headers: { "Content-Type": "application/json" }, keepalive: true,
-      body: JSON.stringify({ name, eventId, url: location.href, data, fbp: getCookie("_fbp"), fbc: getFbc() }),
+      body: JSON.stringify({ name, eventId, url: location.href, data, fbp: getCookie("_fbp"), fbc: getFbc(), phone: getTrackingPhone() || undefined }),
     }).catch(() => {});
   } catch {}
   return eventId;

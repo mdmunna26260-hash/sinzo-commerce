@@ -145,7 +145,7 @@ export async function POST(req: Request) {
       eventName: "Purchase",
       eventId: purchaseEventId || `srv_purchase_${order.id}`,
       eventSourceUrl: req.headers.get("referer") || undefined,
-      userData: { phone: cleanPhone, clientIp: ip, userAgent: req.headers.get("user-agent") || undefined, externalId: String(customer.id) },
+      userData: { phone: cleanPhone, email: email || undefined, name: String(name || ""), clientIp: ip, userAgent: req.headers.get("user-agent") || undefined, externalId: cleanPhone },
       customData: { currency: "BDT", value: total, content_type: "product", num_items: orderItems.reduce((a, i) => a + i.qty, 0), contents: orderItems.map((i) => ({ id: String(i.productId), quantity: i.qty, item_price: i.price })) },
     }).catch(() => {});
 
