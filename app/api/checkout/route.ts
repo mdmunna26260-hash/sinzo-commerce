@@ -119,7 +119,7 @@ export async function POST(req: Request) {
         riskLevel: risk.level, riskFlags: risk.flags.join(", ") || null,
         source: detectSource(attribution), attribution: attribution ? JSON.stringify(attribution) : null,
         ip, customerId: customer.id,
-        items: { create: orderItems.map((i) => ({ productId: i.productId, title: i.title, variant: i.variant, price: i.price, qty: i.qty, image: i.image })) },
+        items: { create: orderItems.map((i) => ({ productId: i.productId, variantId: i.variantId, title: i.title, variant: i.variant, price: i.price, qty: i.qty, image: i.image })) },
       },
     });
     const code = orderCode(order.id);

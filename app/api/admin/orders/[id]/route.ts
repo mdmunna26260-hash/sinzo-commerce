@@ -57,6 +57,10 @@ export async function PUT(req: Request, { params }: Ctx) {
     for (const i of items) {
       if (i.productId) {
         await db.product.update({ where: { id: i.productId }, data: { stock: { increment: i.qty } } }).catch(() => {});
+        // exact variant restock (variantId persisted on new orders)
+        if (i.variantId) {
+          await db.productVariant.update({ where: { id: i.variantId }, data: { stock: { increment: i.qty } } }).catch(() => {});
+        }
         await db.inventoryMovement.create({ data: { productId: i.productId, delta: i.qty, reason: b.status === "CANCELLED" ? "CANCEL" : "RETURN", ref: before.code } }).catch(() => {});
       }
     }
