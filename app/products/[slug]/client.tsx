@@ -18,7 +18,7 @@ type P = {
 };
 
 export default function ProductPageClient({ product, sizeChartHtml, sizeChartImage }: { product: P; sizeChartHtml: string | null; sizeChartImage: string | null }) {
-  const { add, count: cartCount } = useCart();
+  const { add } = useCart();
   const router = useRouter();
   const wishlist = useWishlist();
   const N = product.images.length;

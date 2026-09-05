@@ -4,7 +4,6 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import PushOptIn from "@/components/push-optin";
-import { isValidBDPhone } from "@/lib/phone";
 
 const STATUSES = ["PENDING", "CONFIRMED", "PROCESSING", "PACKED", "SHIPPED", "DELIVERED", "CANCELLED", "RETURNED", "ON_HOLD"];
 const money = (n: number) => "৳" + Math.round(n).toLocaleString("en-IN");

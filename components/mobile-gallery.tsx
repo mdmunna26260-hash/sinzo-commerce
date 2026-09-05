@@ -36,6 +36,16 @@ export default function MobileGallery({ images, title, active, onIndexChange }: 
   // keep track in sync when index changes from outside (dots/thumbs)
   useEffect(() => { if (!dragging) slideTo(active); }, [active, dragging, slideTo]);
 
+  // keep the active thumbnail scrolled into view (strip scrolls, page never jumps)
+  const thumbsRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const strip = thumbsRef.current;
+    if (!strip) return;
+    const el = strip.children[active] as HTMLElement | undefined;
+    if (!el) return;
+    strip.scrollTo({ left: el.offsetLeft - strip.clientWidth / 2 + el.clientWidth / 2, behavior: "smooth" });
+  }, [active]);
+
   // preload neighbours for instant swipe feel
   useEffect(() => {
     [active - 1, active + 1].forEach((i) => {
@@ -137,6 +147,32 @@ export default function MobileGallery({ images, title, active, onIndexChange }: 
           ))}
         </div>
       </div>
+
+      {/* thumbnail strip — tap to jump, active highlighted, auto-centred */}
+      {N > 1 && (
+        <div className="mgal-thumbs" ref={thumbsRef} role="tablist" aria-label="Image thumbnails">
+          {images.map((im, i) => (
+            <button
+              key={i}
+              role="tab"
+              aria-selected={i === active}
+              aria-label={`Image ${i + 1}`}
+              className={i === active ? "on" : ""}
+              onClick={() => onIndexChange(i)}
+            >
+              <img
+                src={imgSrc(im.url, 300) || im.url}
+                alt=""
+                loading={Math.abs(i - active) <= 1 ? "eager" : "lazy"}
+                decoding="async"
+                width={56}
+                height={70}
+                draggable={false}
+              />
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

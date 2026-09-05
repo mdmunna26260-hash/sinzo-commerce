@@ -55,19 +55,10 @@ h1, h2, h3, .serif { font-family: var(--font-head); font-weight: 500; letter-spa
 .header-actions { display: flex; align-items: center; gap: 18px; }
 .icon-btn { position: relative; background: none; border: none; padding: 6px; color: var(--text); display: inline-flex; }
 .icon-btn:hover { color: var(--accent); }
-.cart-count { position: absolute; top: -2px; right: -4px; background: var(--accent); color: #fff; font-size: 10px; min-width: 16px; height: 16px; border-radius: 99px; display: flex; align-items: center; justify-content: center; padding: 0 4px; }
 .burger { display: none; background: none; border: none; }
 .mobile-nav { display: none; flex-direction: column; border-top: 1px solid var(--line); padding: 12px 24px 20px; gap: 14px; background: var(--bg); }
 .mobile-nav a { font-size: 13px; letter-spacing: .14em; text-transform: uppercase; }
 
-/* search */
-.search-wrap { position: relative; }
-.search-input { border: 1px solid var(--line); background: transparent; padding: 9px 14px; width: 210px; border-radius: var(--radius); font-size: 13px; }
-.search-input:focus { outline: none; border-color: var(--text); }
-.search-pop { position: absolute; top: 110%; right: 0; width: 330px; background: #fff; border: 1px solid var(--line); border-radius: var(--radius); box-shadow: 0 12px 40px rgba(0,0,0,.08); z-index: 60; overflow: hidden; }
-.search-pop a { display: flex; gap: 12px; padding: 10px 14px; align-items: center; border-bottom: 1px solid var(--line); font-size: 13px; }
-.search-pop a:hover { background: var(--bg); }
-.search-pop img { width: 38px; height: 48px; object-fit: cover; }
 .search-hint { padding: 12px 14px; font-size: 12px; color: var(--muted); }
 
 /* ---------- Hero ---------- */
@@ -119,10 +110,6 @@ h1, h2, h3, .serif { font-family: var(--font-head); font-weight: 500; letter-spa
 /* promo banner */
 .promo { position: relative; overflow: hidden; }
 .promo img { width: 100%; height: 420px; object-fit: cover; }
-.promo-box { position: absolute; inset: 0; display: flex; align-items: center; }
-.promo-inner { background: rgba(250,249,247,.94); padding: 44px 48px; max-width: 460px; margin-left: 6vw; }
-.promo-inner h3 { font-size: 32px; margin: 8px 0 10px; }
-.promo-inner p { color: var(--muted); margin-bottom: 22px; }
 
 /* value props */
 .values { border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
@@ -222,9 +209,7 @@ h1, h2, h3, .serif { font-family: var(--font-head); font-weight: 500; letter-spa
 .pdp-main-img.single { grid-column: 1 / -1; }
 .pdp-main-img .pdp-img { width: 100%; height: 100%; object-fit: cover; opacity: 1; transition: transform .3s ease; }
 
-
-.pdp-main-img .pdp-img.hz { transform: scale(1.9); cursor: crosshair; transition: transform .12s ease-out; }
-.gal-nav { display: none !important; } /* arrows hidden — swipe + thumbnails + lightbox handle navigation */
+.pdp-main-img .pdp-img.hz { transform: scale(1.9); cursor: crosshair; transition: transform .12s ease-out; } /* arrows hidden — swipe + thumbnails + lightbox handle navigation */
 .gal-count { position: absolute; bottom: 12px; left: 12px; background: rgba(255,255,255,.92); font-size: 11px; letter-spacing: .12em; padding: 4px 12px; border-radius: 99px; z-index: 3; color: var(--text); }
 .gal-zoom { position: absolute; top: 12px; right: 12px; width: 40px; height: 40px; border-radius: 99px; background: rgba(255,255,255,.94); border: 1px solid var(--line); color: var(--text); display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 3; transition: background .2s ease, transform .2s ease; }
 .gal-zoom:hover { background: #fff; transform: scale(1.06); }
@@ -246,7 +231,6 @@ h1, h2, h3, .serif { font-family: var(--font-head); font-weight: 500; letter-spa
   .pdp-gallery { display: flex; flex-direction: column; }
   .thumbs { flex-direction: row; overflow-x: auto; padding-bottom: 4px; }
   .thumbs button { flex: 0 0 60px; }
-  .gal-nav { opacity: 1; width: 36px; height: 36px; font-size: 20px; }
 }
 .pdp-info h1 { font-size: clamp(26px, 3vw, 36px); margin: 10px 0 6px; }
 .pdp-price { font-size: 22px; display: flex; gap: 14px; align-items: baseline; margin: 14px 0; }
@@ -293,11 +277,6 @@ h1, h2, h3, .serif { font-family: var(--font-head); font-weight: 500; letter-spa
 .stars-pick { display: flex; gap: 6px; font-size: 24px; cursor: pointer; user-select: none; }
 .stars-pick span { color: #d8d2c8; }
 .stars-pick span.on { color: var(--accent); }
-
-/* sticky mobile atc */
-.sticky-atc { position: fixed; bottom: 0; left: 0; right: 0; background: rgba(255,255,255,.97); border-top: 1px solid var(--line); padding: 12px 16px; z-index: 40; display: none; gap: 12px; align-items: center; }
-.sticky-atc .btn { flex: 1; }
-@media (max-width: 900px) { .sticky-atc { display: flex; } }
 
 /* ---------- Cart ---------- */
 .cart-layout { display: grid; grid-template-columns: 1.6fr 1fr; gap: 48px; align-items: start; padding: 44px 0 80px; }
@@ -353,12 +332,6 @@ h1, h2, h3, .serif { font-family: var(--font-head); font-weight: 500; letter-spa
 /* ---------- Track page ---------- */
 .track-wrap { max-width: 560px; margin: 0 auto; padding: 70px 24px 110px; }
 .timeline { margin-top: 30px; border: 1px solid var(--line); background: #fff; border-radius: var(--radius); padding: 28px; }
-.tl-step { display: flex; gap: 16px; padding: 10px 0; align-items: flex-start; }
-.tl-dot { width: 14px; height: 14px; border-radius: 99px; border: 2px solid var(--line); margin-top: 4px; flex: none; }
-.tl-step.done .tl-dot { background: var(--ok); border-color: var(--ok); }
-.tl-step.done b { color: var(--text); }
-.tl-step b { font-size: 13.5px; letter-spacing: .06em; text-transform: uppercase; }
-.tl-step small { color: var(--muted); display: block; }
 
 /* ---------- toast ---------- */
 .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: var(--text); color: var(--bg); padding: 13px 26px; font-size: 13px; letter-spacing: .04em; z-index: 100; border-radius: 99px; animation: fadeup .25s ease; box-shadow: 0 10px 30px rgba(0,0,0,.18); }
@@ -417,7 +390,6 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 13.5px; }
 .af textarea { min-height: 110px; resize: vertical; }
 .af input:focus, .af select:focus, .af textarea:focus { outline: none; border-color: var(--text); }
 .cfg-note { background: #faf3e0; border: 1px solid #eadfbe; color: #7a611c; padding: 12px 16px; border-radius: 6px; font-size: 13px; margin-bottom: 16px; }
-.cfg-ok { background: #e7f2ec; border: 1px solid #c4dfd0; color: var(--ok); }
 .login-wrap { min-height: 100vh; display: flex; align-items: center; justify-content: center; background: #14161a; padding: 20px; }
 .login-card { background: #fff; border-radius: 10px; padding: 44px 40px; width: 100%; max-width: 400px; }
 .login-card .logo { font-size: 22px; text-align: center; display: block; margin-bottom: 8px; }
@@ -445,7 +417,9 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 13.5px; }
   .kpis { grid-template-columns: repeat(2, 1fr); }
 }
 @media (max-width: 900px) {
-  .nav, .search-wrap.desktop { display: none; }
+
+  .nav { display: none; }
+
   .burger { display: inline-flex; }
   .mobile-nav.open { display: flex; }
   .pdp { grid-template-columns: 1fr; gap: 30px; padding-top: 20px; }
@@ -454,7 +428,6 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 13.5px; }
   .hero-img { height: 64vh; }
   .hero-overlay { background: linear-gradient(180deg, transparent 30%, rgba(250,249,247,.92) 78%); align-items: flex-end; }
   .hero-content { padding: 0 24px 40px; max-width: 100%; }
-  .promo-inner { margin: 0 20px; padding: 30px; }
   .values-inner { grid-template-columns: 1fr 1fr; }
 }
 @media (max-width: 640px) {
@@ -470,7 +443,6 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 13.5px; }
   .cart-row { grid-template-columns: 72px 1fr; }
   .cart-row img { width: 72px; height: 92px; }
   .cart-row > div:last-child { grid-column: 2; }
-  .search-input { width: 130px; }
   .newsletter form { flex-direction: column; gap: 10px; }
   .newsletter button { padding: 13px; }
 }
@@ -538,8 +510,6 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 13.5px; }
   .pdp-price { font-size: 19px; }
   .pdp-info h1 { font-size: 24px; }
   .btn { min-height: 44px; }
-  .sticky-atc { padding: 10px 12px; }
-  .sticky-atc .btn { padding: 12px 10px; font-size: 11px; }
   .gal-zoom { width: 34px; height: 34px; top: 8px; right: 8px; }
   .gal-count { font-size: 10px; padding: 3px 9px; bottom: 8px; left: 8px; }
   .thumbs button { flex: 0 0 54px; }
@@ -602,7 +572,6 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 13.5px; }
 
 /* ---------- #2 related products horizontal slider (mobile) ---------- */
 
-
 /* ---------- #4 footer: compact horizontal on mobile ---------- */
 @media (max-width: 640px) {
   .footer { padding: 34px 0 22px; }
@@ -647,8 +616,6 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 13.5px; }
   /* modals full-screen */
   .modal { max-width: 100% !important; max-height: 96vh; border-radius: 0; padding: 22px 16px 30px; }
   .modal-bg { padding: 0; align-items: stretch; }
-  /* tables: readable horizontal scroll with hint */
-  .tbl-scroll-hint { display: block; }
   /* chart smaller */
   .bar-chart { height: 130px; }
   /* settings tabs scroll horizontally */
@@ -660,7 +627,6 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 13.5px; }
   .tbl th:first-child, .tbl td:first-child { position: sticky; left: 0; background: #fff; z-index: 1; }
   .tbl tr:hover td:first-child { background: #fbfaf8; }
 }
-.tbl-scroll-hint { display: none; font-size: 11px; color: var(--muted); padding: 6px 14px 0; }
 
 /* ---------- desktop density: smaller product cards on big screens ---------- */
 /* Home grids: controlled card width, spec breakpoints */
@@ -678,7 +644,6 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 13.5px; }
 .cat-pills::-webkit-scrollbar { display: none; }
 .cat-pill { flex: 0 0 auto; border: 1px solid var(--line); background: #fff; border-radius: 99px; padding: 8px 18px; font-size: 12.5px; letter-spacing: .06em; color: var(--text); white-space: nowrap; }
 .cat-pill.active { background: var(--text); color: var(--bg); border-color: var(--text); }
-.filters.side .filters-inner { font-size: 13px; }
 .filters.side h3 { margin: 18px 0 8px; }
 .filters.side label { padding: 4px 0; font-size: 13px; }
 
@@ -718,11 +683,6 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 13.5px; }
 @media (hover: none) { .pcard-heart { opacity: 1; transform: none; } }
 .pcard-colors { display: inline-flex; gap: 4px; flex: none; }
 .pcard-colors i { width: 9px; height: 9px; border-radius: 99px; border: 1px solid rgba(0,0,0,.18); display: inline-block; }
-
-/* category tile arrow */
-.ctile-arrow { position: absolute; right: 14px; bottom: 16px; width: 36px; height: 36px; border-radius: 99px; background: #fff; color: var(--text); display: flex; align-items: center; justify-content: center; opacity: 0; transform: translateY(4px); transition: all .28s ease; z-index: 2; }
-.ctile:hover .ctile-arrow { opacity: 1; transform: none; }
-@media (hover: none) { .ctile-arrow { opacity: 1; } }
 
 /* promo split (editorial) */
 .promo-split { display: grid; grid-template-columns: 1.15fr 1fr; background: #fff; border: 1px solid var(--line); }
@@ -1095,15 +1055,18 @@ a, button, .pcard, .chip, .cat-pill, .size-btn { -webkit-tap-highlight-color: tr
   background: var(--text);
   width: 20px;
 }
+
+/* thumbnail strip under the mobile swipe gallery */
+.mgal-thumbs { display: flex; gap: 8px; overflow-x: auto; padding: 10px 16px 2px; scrollbar-width: none; -webkit-overflow-scrolling: touch; scroll-padding: 0 16px; }
+.mgal-thumbs::-webkit-scrollbar { display: none; }
+.mgal-thumbs button { flex: 0 0 auto; width: 56px; height: 70px; border-radius: 8px; overflow: hidden; border: 1.5px solid var(--line); padding: 0; background: #eee9e2; cursor: pointer; opacity: .7; transition: border-color .2s ease, opacity .2s ease, box-shadow .2s ease; }
+.mgal-thumbs button.on { border-color: var(--text); opacity: 1; box-shadow: 0 0 0 1px var(--text) inset; }
+.mgal-thumbs button img { width: 100%; height: 100%; object-fit: cover; display: block; -webkit-user-drag: none; user-select: none; }
 @media (max-width: 360px) {
   .mgal-count { bottom: 10px; left: 10px; }
   .mgal-dots button { width: 6px; height: 6px; }
   .mgal-dots button.on { width: 16px; }
 }
-
-/* Gallery split (Vercel mobile swipe only): display rules at line 1024 handle
-   mobile/desktop visibility — .vercel-split class is set client-side when the
-   hostname is *.vercel.app so the swipe gallery renders only there */
 
 /* ================================================================
    LIQUID GLASS — Apple-inspired frosted UI (subtle, selective)
@@ -1122,21 +1085,12 @@ a, button, .pcard, .chip, .cat-pill, .size-btn { -webkit-tap-highlight-color: tr
 
 /* LOW-END FALLBACK: no blur support → solid near-white, still premium */
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-  .glass,
-  .glass-strong {
+  .glass {
     background: rgba(255, 255, 255, 0.96) !important;
     -webkit-backdrop-filter: none !important;
     backdrop-filter: none !important;
     box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
   }
-}
-
-/* darker glass for dark surfaces (announce bar etc.) */
-.glass-dark {
-  background: rgba(20, 20, 20, 0.55);
-  -webkit-backdrop-filter: blur(12px) saturate(1.3);
-  backdrop-filter: blur(12px) saturate(1.3);
-  border: 1px solid rgba(255, 255, 255, 0.12);
 }
 
 /* ---------- 1. MOBILE STICKY HEADER ---------- */
@@ -1158,40 +1112,9 @@ a, button, .pcard, .chip, .cat-pill, .size-btn { -webkit-tap-highlight-color: tr
   }
 }
 
-/* ---------- 2. STICKY ADD TO CART — floating glass pill ---------- */
-@media (max-width: 899px) {
-  .sticky-atc {
-    left: 10px;
-    right: 10px;
-    bottom: calc(10px + env(safe-area-inset-bottom, 0px));
-    background: rgba(255, 255, 255, 0.60);
-    -webkit-backdrop-filter: blur(14px) saturate(1.5);
-    backdrop-filter: blur(14px) saturate(1.5);
-    border: 1px solid rgba(255, 255, 255, 0.60);
-    border-radius: 18px;
-    box-shadow: 0 6px 28px rgba(0, 0, 0, 0.10), inset 0 1px 0 rgba(255, 255, 255, 0.70);
-    padding: 10px 14px;
-    gap: 10px;
-    align-items: center;
-  }
-  /* price & stock readable on glass */
-  .sticky-atc > div > div:first-child { font-size: 15px; font-weight: 700; }
-  .sticky-atc > div > div:last-child { font-size: 10.5px; }
-  /* ATC button stays solid dark — premium contrast against glass */
-  .sticky-atc .btn { border-radius: 14px; min-height: 42px; font-size: 11px; }
-  /* page bottom padding so bar never covers content */
-  .pdp { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)) !important; }
-}
-@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-  @media (max-width: 899px) {
-    .sticky-atc { background: rgba(255, 255, 255, 0.97) !important; -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
-  }
-}
-
 /* ---------- 3. PRODUCT IMAGE CONTROLS — small glass circles ---------- */
 /* wishlist heart on PDP */
-.pdp-actions .btn-outline:last-of-type,
-.pdp-wish-btn {
+.pdp-actions .btn-outline:last-of-type {
   background: rgba(255, 255, 255, 0.55) !important;
   -webkit-backdrop-filter: blur(10px) saturate(1.4);
   backdrop-filter: blur(10px) saturate(1.4);
@@ -1199,9 +1122,7 @@ a, button, .pcard, .chip, .cat-pill, .size-btn { -webkit-tap-highlight-color: tr
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06);
 }
 
-/* gal-zoom / gal-nav glass circles (desktop + mobile) */
-.gal-zoom,
-.gal-nav {
+.gal-zoom {
   background: rgba(255, 255, 255, 0.55) !important;
   -webkit-backdrop-filter: blur(10px) saturate(1.4);
   backdrop-filter: blur(10px) saturate(1.4);
@@ -1209,8 +1130,6 @@ a, button, .pcard, .chip, .cat-pill, .size-btn { -webkit-tap-highlight-color: tr
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06);
   transition: transform 200ms ease, background 200ms ease;
 }
-.gal-zoom:hover,
-.gal-nav:hover { background: rgba(255, 255, 255, 0.8) !important; transform: scale(1.05); }
 
 /* counter capsule */
 .gal-count,
@@ -1292,28 +1211,6 @@ a, button, .pcard, .chip, .cat-pill, .size-btn { -webkit-tap-highlight-color: tr
 .stars-pick span:hover { transform: scale(1.15); }
 .review-form .btn:hover { transform: translateY(-1px); box-shadow: 0 4px 16px rgba(0,0,0,.10); }
 
-/* ---------- 7. FLOATING UI (reusable small glass circles/pills) ---------- */
-.fglass {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 42px;
-  height: 42px;
-  min-width: 42px;
-  border-radius: 99px;
-  background: rgba(255, 255, 255, 0.55);
-  -webkit-backdrop-filter: blur(10px) saturate(1.4);
-  backdrop-filter: blur(10px) saturate(1.4);
-  border: 1px solid rgba(255, 255, 255, 0.55);
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06);
-  transition: background 200ms ease, transform 200ms ease;
-}
-.fglass:hover { background: rgba(255, 255, 255, 0.82); transform: translateY(-1px); }
-.fglass:active { transform: scale(0.96); }
-@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-  .fglass { background: rgba(255,255,255,0.96) !important; -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
-}
-
 /* cart drawer glass (mobile slide-in) */
 @media (max-width: 899px) {
   .fdrawer {
@@ -1327,7 +1224,7 @@ a, button, .pcard, .chip, .cat-pill, .size-btn { -webkit-tap-highlight-color: tr
 }
 
 /* containment: glass elements don't repaint the whole page */
-.glass, .fglass, .sticky-atc, .header, .gal-zoom, .gal-nav, .gal-count, .mgal-count {
+.glass, .header, .gal-zoom, .gal-count, .mgal-count {
   contain: layout style;
 }
 
@@ -1335,7 +1232,6 @@ a, button, .pcard, .chip, .cat-pill, .size-btn { -webkit-tap-highlight-color: tr
 @media (max-width: 899px) {
   .header { padding-top: env(safe-area-inset-top, 0px); }
 }
-
 
 /* Vercel-only gallery wrapper: display:contents keeps grid children working
    (pdps-gallery grid expects .thumbs and .pdp-main-img as direct children) */
@@ -1609,7 +1505,6 @@ input::placeholder, textarea::placeholder { color: #b0aaa1; }
   .rel-page { gap: 10px 8px; }
   .rel-arrow { width: 32px; height: 32px; }
 }
-
 
 @media (min-width: 900px) {
   .rel-carousel { display: none !important; }
