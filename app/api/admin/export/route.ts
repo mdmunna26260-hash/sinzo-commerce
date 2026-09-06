@@ -10,7 +10,17 @@ export async function GET(req: Request) {
   if ("res" in g) return g.res;
   let rows: any[][] = [];
   if (type === "orders") {
-    const orders = await db.order.findMany({ include: { items: true }, orderBy: { id: "desc" } });
+    // skip poison rows instead of failing the whole export
+    let orders: any[] = [];
+    try {
+      orders = await db.order.findMany({ include: { items: true }, orderBy: { id: "desc" } });
+    } catch {
+      const ids = await db.order.findMany({ select: { id: true }, orderBy: { id: "desc" } });
+      for (const { id } of ids) {
+        try { orders.push(await db.order.findUnique({ where: { id }, include: { items: true } })); } catch {}
+      }
+      orders = orders.filter(Boolean);
+    }
     rows = [["Code", "Date", "Name", "Phone", "Address", "Area", "Items", "Subtotal", "Discount", "Delivery", "Total", "Payment", "Status", "Risk", "Source"]];
     for (const o of orders) rows.push([o.code, o.createdAt.toISOString(), o.name, o.phone, o.address, o.area, o.items.map((i) => `${i.title} x${i.qty}`).join("; "), o.subtotal, o.discount, o.deliveryFee, o.total, o.paymentMethod + "/" + o.paymentStatus, o.status, o.riskLevel, o.source]);
   } else if (type === "products") {
