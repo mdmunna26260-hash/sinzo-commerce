@@ -11,6 +11,9 @@ import { notifyAdmin, emailCustomerOrder, whatsappCustomerOrder } from "@/lib/no
 export const dynamic = "force-dynamic";
 
 export async function POST(req: Request) {
+  // safety: make sure newer columns (OrderItem.variantId etc.) exist before writing
+  const { ensureExtraTables } = await import("@/lib/db-ensure");
+  await ensureExtraTables().catch(() => {});
   try {
     const body = await req.json();
     const { name, phone, email, address, area, notes, paymentMethod, couponCode, purchaseEventId, attribution } = body;
