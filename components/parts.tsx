@@ -28,6 +28,15 @@ export function ProductCard({ p, wish }: { p: CardProduct; wish?: boolean }) {
           {p.badge && <span className={"badge badge-" + p.badge}>{BADGE_LABELS[p.badge] || p.badge}</span>}
         </div>
         <WishHeart id={p.id} />
+        {/* available sizes — small chips ON the image (S M L XL XXL / 28 30 32…) */}
+        {p.stock > 0 && p.sizes && p.sizes.length > 0 && (
+          <div className="pcard-sizes">
+            {p.sizes.slice(0, 5).map((s) => (
+              <i key={s}>{s}</i>
+            ))}
+            {p.sizes.length > 5 && <em className="pcard-sizes-more">+{p.sizes.length - 5}</em>}
+          </div>
+        )}
         {p.stock <= 0 && <div className="soldout-overlay"><span>Sold Out</span></div>}
         {wish ? <div className="pcard-quick"><button type="button">In your wishlist</button></div> : null}
       </div>
@@ -43,14 +52,6 @@ export function ProductCard({ p, wish }: { p: CardProduct; wish?: boolean }) {
             </span>
           )}
         </div>
-        {p.sizes && p.sizes.length > 0 && (
-          <div className="pcard-sizes">
-            {p.sizes.slice(0, 6).map((s) => (
-              <i key={s}>{s}</i>
-            ))}
-            {p.sizes.length > 6 && <em className="pcard-sizes-more">+{p.sizes.length - 6}</em>}
-          </div>
-        )}
         <div className="price">
           <b>৳{p.price.toLocaleString("en-IN")}</b>
           {p.comparePrice && p.comparePrice > p.price && (<><s>৳{p.comparePrice.toLocaleString("en-IN")}</s><span className="off">Save ৳{(p.comparePrice - p.price).toLocaleString("en-IN")}</span></>)}

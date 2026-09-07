@@ -728,9 +728,10 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 13.5px; }
 .inf-spinner { width: 26px; height: 26px; border: 2px solid var(--line); border-top-color: var(--text); border-radius: 99px; animation: szspin .8s linear infinite; }
 @keyframes szspin { to { transform: rotate(360deg); } }
 .inf-end { text-align: center; color: var(--muted); font-size: 12px; letter-spacing: .12em; padding: 30px 0 6px; text-transform: uppercase; }
-.pcard-sizes { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
-.pcard-sizes i { font-style: normal; font-size: 10.5px; line-height: 1; color: var(--muted); border: 1px solid var(--line); border-radius: 5px; padding: 3px 6px; background: #faf9f7; }
-.pcard-sizes-more { font-style: normal; font-size: 10.5px; color: var(--muted); align-self: center; }
+/* size chips ON the product image (bottom strip) */
+.pcard-sizes { position: absolute; left: 8px; right: 8px; bottom: 8px; z-index: 2; display: flex; flex-wrap: nowrap; gap: 4px; overflow: hidden; }
+.pcard-sizes i { font-style: normal; font-size: 9.5px; line-height: 1; color: var(--text); background: rgba(255, 255, 255, 0.92); -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px); border-radius: 5px; padding: 4px 0; flex: 1 0 auto; min-width: 0; text-align: center; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08); }
+.pcard-sizes-more { font-style: normal; font-size: 9.5px; line-height: 1; color: var(--text); background: rgba(255, 255, 255, 0.92); border-radius: 5px; padding: 4px 6px; text-align: center; flex: none; }
 
 .badge-trending { background: rgba(255,255,255,.85); backdrop-filter: blur(4px); border: 1.5px solid var(--danger); color: var(--danger); }
 .badge-hot { background: rgba(255,255,255,.85); backdrop-filter: blur(4px); border: 1.5px solid #ff6b35; color: #ff6b35; }
