@@ -11,9 +11,10 @@ import { notifyAdmin, emailCustomerOrder, whatsappCustomerOrder } from "@/lib/no
 export const dynamic = "force-dynamic";
 
 export async function POST(req: Request) {
-  // safety: make sure newer columns (OrderItem.variantId etc.) exist before writing
+  // safety: make sure newer columns (Order.channel, OrderItem.variantId etc.) exist before writing
   const { ensureExtraTables } = await import("@/lib/db-ensure");
   await ensureExtraTables().catch(() => {});
+  const { deployChannel } = await import("@/lib/deploy-channel");
   try {
     const body = await req.json();
     const { name, phone, email, address, area, notes, paymentMethod, couponCode, purchaseEventId, attribution } = body;
@@ -121,6 +122,7 @@ export async function POST(req: Request) {
         status: risk.level === "HIGH" ? "ON_HOLD" : "PENDING",
         riskLevel: risk.level, riskFlags: risk.flags.join(", ") || null,
         source: detectSource(attribution), attribution: attribution ? JSON.stringify(attribution) : null,
+        channel: deployChannel(),
         ip, customerId: customer.id,
         items: { create: orderItems.map((i) => ({ productId: i.productId, variantId: i.variantId, title: i.title, variant: i.variant, price: i.price, qty: i.qty, image: i.image })) },
       },

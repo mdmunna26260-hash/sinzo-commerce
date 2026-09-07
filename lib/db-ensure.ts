@@ -17,6 +17,12 @@ export function ensureExtraTables(): Promise<void> {
 
 async function run(): Promise<void> {
   const isPg = (process.env.DATABASE_URL || "").startsWith("postgres");
+  // Order.channel (order isolation between VPS and Vercel deployments)
+  await db
+    .$executeRawUnsafe(isPg
+      ? `ALTER TABLE "Order" ADD COLUMN IF NOT EXISTS "channel" TEXT NOT NULL DEFAULT 'vps'`
+      : `ALTER TABLE "Order" ADD COLUMN "channel" TEXT NOT NULL DEFAULT 'vps'`)
+    .catch(() => {});
   // OrderItem.variantId (variant-aware restock) — safe for existing tables
   await db
     .$executeRawUnsafe(isPg

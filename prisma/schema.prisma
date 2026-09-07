@@ -164,6 +164,7 @@ model Order {
   riskLevel     String      @default("LOW") // LOW | MEDIUM | HIGH | CRITICAL
   riskFlags     String?
   source        String?     // Facebook | Instagram | Google | Direct | Organic | Referral | Unknown
+  channel       String      @default("vps") // deployment that received the order: vps | vercel (order isolation per website)
   attribution   String?     // JSON: utm*, fbclid, fbp, fbc
   ip            String?
   adminNote     String?

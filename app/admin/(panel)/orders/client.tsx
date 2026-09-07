@@ -8,7 +8,7 @@ import { useRouter } from "next/navigation";
 type O = {
   id: number; code: string; name: string; phone: string; area: string; total: number;
   status: string; paymentStatus: string; paymentMethod: string; riskLevel: string;
-  source?: string | null; courierName?: string | null; courierConsignmentId?: string | null;
+  channel?: string | null; source?: string | null; courierName?: string | null; courierConsignmentId?: string | null;
   courierStatus?: string | null; createdAt: string; items: { title: string; qty: number; variant?: string | null }[];
 };
 const STATUSES = ["PENDING", "CONFIRMED", "PROCESSING", "PACKED", "SHIPPED", "DELIVERED", "CANCELLED", "RETURNED", "ON_HOLD"];
@@ -93,7 +93,7 @@ export default function OrdersClient({ initial }: { initial: O[] }) {
               {list.map((o) => (
                 <tr key={o.id} style={{ cursor: "pointer" }} onClick={() => openOrder(o.id)}>
                   <td onClick={(e) => e.stopPropagation()}><input type="checkbox" checked={sel.has(o.id)} onChange={() => toggle(o.id)} /></td>
-                  <td><Link href={withToken("/admin/orders/" + o.id)} onClick={(e) => e.stopPropagation()}><b>{o.code}</b></Link></td>
+                  <td><Link href={withToken("/admin/orders/" + o.id)} onClick={(e) => e.stopPropagation()}><b>{o.code}</b></Link>{o.channel && o.channel !== "vps" && <span title="Order onugroho onno website theke (Vercel)" style={{ marginLeft: 6, fontSize: 9.5, fontWeight: 700, letterSpacing: ".06em", color: "#8a6d3b", background: "#f5ecd9", borderRadius: 99, padding: "2px 7px", verticalAlign: "middle" }}>{o.channel.toUpperCase()}</span>}</td>
                   <td>{o.name}<br />
                     <span style={{ color: "var(--muted)", fontSize: 12, display: "inline-flex", alignItems: "center", gap: 4 }}>
                       {o.phone}

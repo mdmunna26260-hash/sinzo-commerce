@@ -35,6 +35,8 @@ services:
       SESSION_SECRET: ${SESSION_SECRET:?set in .env}
       NEXT_PUBLIC_SITE_URL: ${SITE_URL:-https://sinzooffcial.com}
       NODE_ENV: production
+      # order isolation: this deployment only shows/manages its own orders
+      DEPLOY_CHANNEL: vps
       # Next.js memory cap inside the container (leave headroom for spikes + swap)
       NODE_OPTIONS: --max-old-space-size=768
     volumes: [uploads:/app/public/uploads]

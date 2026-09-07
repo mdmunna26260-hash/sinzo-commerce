@@ -17,6 +17,12 @@ export async function GET(req: Request) {
   const sp = new URL(req.url).searchParams;
   const where: any = {};
   const status = sp.get("status"); const q = sp.get("q"); const payment = sp.get("payment"); const source = sp.get("source");
+  // ORDER ISOLATION: each deployment's admin panel sees only its own channel's
+  // orders (VPS and Vercel may share a database). ?channel=all overrides.
+  const { deployChannel } = await import("@/lib/deploy-channel");
+  const channelFilter = sp.get("channel") || "own";
+  if (channelFilter === "own") where.channel = deployChannel();
+  else if (channelFilter === "vps" || channelFilter === "vercel") where.channel = channelFilter;
   if (status) where.status = status;
   if (payment) where.paymentStatus = payment;
   if (source) where.source = source;

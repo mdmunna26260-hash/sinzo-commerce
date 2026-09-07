@@ -20,6 +20,7 @@ services:
       SESSION_SECRET: ${SESSION_SECRET:?set in .env}
       NEXT_PUBLIC_SITE_URL: ${SITE_URL:-http://localhost:3000}
       REDIS_URL: redis://redis:6379
+      DEPLOY_CHANNEL: vps
     ports: ["3000:3000"]
     volumes: [uploads:/app/public/uploads]
 volumes:
