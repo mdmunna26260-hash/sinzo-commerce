@@ -17,7 +17,7 @@ type P = {
   variants: V[]; categoryName?: string;
 };
 
-export default function ProductPageClient({ product, sizeChartHtml, sizeChartImage }: { product: P; sizeChartHtml: string | null; sizeChartImage: string | null }) {
+export default function ProductPageClient({ product, sizeChartHtml, sizeChartImage, soldCount }: { product: P; sizeChartHtml: string | null; sizeChartImage: string | null; soldCount?: number | null }) {
   const { add } = useCart();
   const router = useRouter();
   const wishlist = useWishlist();
@@ -289,6 +289,13 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
             <b>৳{price.toLocaleString("en-IN")}</b>
             {product.comparePrice && product.comparePrice > price && (<><s>৳{product.comparePrice.toLocaleString("en-IN")}</s><span className="off">{off}% OFF</span></>)}
           </div>
+          {soldCount != null && soldCount > 0 && (
+            <div className="pdp-sold" style={{ display: "flex", alignItems: "center", gap: 6, margin: "-2px 0 6px" }}>
+              <span style={{ fontSize: 12, fontWeight: 700, color: "var(--accent)", background: "rgba(154,123,79,.10)", padding: "4px 10px", borderRadius: 99 }}>
+                Sold: {soldCount.toLocaleString("en-IN")}
+              </span>
+            </div>
+          )}
           {product.shortDesc && <p className="pdp-desc">{product.shortDesc}</p>}
 
           {sizes.length > 0 && (

@@ -17,6 +17,12 @@ export function ensureExtraTables(): Promise<void> {
 
 async function run(): Promise<void> {
   const isPg = (process.env.DATABASE_URL || "").startsWith("postgres");
+  // Product.soldCount (optional "Sold: N" badge) — safe for existing tables
+  await db
+    .$executeRawUnsafe(isPg
+      ? `ALTER TABLE "Product" ADD COLUMN IF NOT EXISTS "soldCount" INTEGER`
+      : `ALTER TABLE "Product" ADD COLUMN "soldCount" INTEGER`)
+    .catch(() => {});
   // OrderItem.variantId (variant-aware restock) — safe for existing tables
   await db
     .$executeRawUnsafe(isPg

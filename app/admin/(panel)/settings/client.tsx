@@ -339,6 +339,14 @@ export default function SettingsClient({ groups, user, userCount, hasCourier, co
               <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 4 }}>Notun upload gulo ei ratio-te automatic crop hobe. Save Theme chapun.</div>
             </div>
             <div className="af"><label>Container width (px)</label><input type="number" value={g.theme?.containerWidth ?? 1280} onChange={(e) => setG({ ...g, theme: { ...g.theme, containerWidth: Number(e.target.value) } })} /></div>
+            <div className="af full"><label>Dark mode (customers er jonno)</label>
+              <select value={g.theme?.darkMode || "system"} onChange={(e) => setG({ ...g, theme: { ...g.theme, darkMode: e.target.value } })}>
+                <option value="system">System (device setting follow korbe — recommended)</option>
+                <option value="light">Always Light (dark mode OFF)</option>
+                <option value="dark">Always Dark</option>
+              </select>
+              <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 4 }}>Prothom thekei dark mode thakbe mane "System"/"Always Dark" select korun. Save Theme chapun.</div>
+            </div>
             <div className="af full"><label>Announcement bar text</label><input value={g.homepage?.announcement || ""} onChange={(e) => setG({ ...g, homepage: { ...g.homepage, announcement: e.target.value } })} /></div>
             <div className="af full"><label>Hero headline (supports line breaks)</label><textarea style={{ minHeight: 60 }} value={g.homepage?.heroTitle || ""} onChange={(e) => setG({ ...g, homepage: { ...g.homepage, heroTitle: e.target.value } })} /></div>
             <div className="af full"><label>Hero subtitle</label><input value={g.homepage?.heroSubtitle || ""} onChange={(e) => setG({ ...g, homepage: { ...g.homepage, heroSubtitle: e.target.value } })} /></div>

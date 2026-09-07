@@ -78,6 +78,7 @@ export default async function PDP({ params, searchParams }: { params: { slug: st
         </div>
         <ProductPageClient
           sizeChartImage={p.sizeChartImage || null}
+          soldCount={p.soldCount ?? null}
           product={{
             id: p.id, title: p.title, slug: p.slug, price: p.price, comparePrice: p.comparePrice,
             shortDesc: p.shortDesc, description: p.description, sku: p.sku, stock: totalStock, lowStock: p.lowStock,

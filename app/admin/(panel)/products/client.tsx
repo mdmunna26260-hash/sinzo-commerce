@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 type V = { id?: number; size: string; color: string; sku: string; price: string; stock: string };
 type P = any;
 
-const EMPTY: any = { title: "", slug: "", shortDesc: "", description: "", sku: "", price: "", comparePrice: "", cost: "", stock: "0", lowStock: "5", status: "ACTIVE", featured: false, isNew: false, isBestSeller: false, badge: '', sizeChartImage: "", tags: "", categoryId: "", images: [], variants: [] };
+const EMPTY: any = { title: "", slug: "", shortDesc: "", description: "", sku: "", price: "", comparePrice: "", cost: "", stock: "0", lowStock: "5", soldCount: "", status: "ACTIVE", featured: false, isNew: false, isBestSeller: false, badge: '', sizeChartImage: "", tags: "", categoryId: "", images: [], variants: [] };
 function DescriptionEditor({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   const ref = useRef<HTMLTextAreaElement>(null);
   const wrap = (before: string, after: string) => {
@@ -96,6 +96,7 @@ export default function ProductsClient({ initial, categories }: { initial: P[]; 
       ...EMPTY, ...p, badge,
     price: String(p.price), comparePrice: p.comparePrice != null ? String(p.comparePrice) : "",
     cost: p.cost != null ? String(p.cost) : "", stock: String(p.stock), lowStock: String(p.lowStock),
+    soldCount: p.soldCount != null ? String(p.soldCount) : "",
     variants: p.variants.map((v: any) => ({ ...v, size: v.size || "", color: v.color || "", sku: v.sku || "", price: v.price != null ? String(v.price) : "", stock: String(v.stock) })),
   }); };
 
@@ -149,6 +150,7 @@ export default function ProductsClient({ initial, categories }: { initial: P[]; 
       ...edit,
       price: Number(edit.price), comparePrice: edit.comparePrice ? Number(edit.comparePrice) : null,
       cost: edit.cost ? Number(edit.cost) : null, stock: Number(edit.stock || 0), lowStock: Number(edit.lowStock || 5),
+      soldCount: edit.soldCount === "" || edit.soldCount == null ? null : Math.max(0, Number(edit.soldCount)),
       categoryId: edit.categoryId ? Number(edit.categoryId) : null,
       variants: (edit.variants || []).map((v: any) => ({ ...v, price: v.price ? Number(v.price) : null, stock: Number(v.stock || 0) })),
     };
@@ -255,6 +257,10 @@ export default function ProductsClient({ initial, categories }: { initial: P[]; 
               <div className="af"><label>SKU</label><input value={edit.sku} onChange={(e) => setEdit({ ...edit, sku: e.target.value })} /></div>
               <div className="af"><label>Stock</label><input type="number" value={edit.stock} onChange={(e) => setEdit({ ...edit, stock: e.target.value })} /></div>
               <div className="af"><label>Low-stock alert at</label><input type="number" value={edit.lowStock} onChange={(e) => setEdit({ ...edit, lowStock: e.target.value })} /></div>
+              <div className="af full"><label>Sold count (product page e "Sold: N" dekhabe)</label>
+                <input type="number" value={edit.soldCount} onChange={(e) => setEdit({ ...edit, soldCount: e.target.value })} placeholder="khaali = dekhabe na" />
+                <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 4 }}>Number dile product page e <b>Sold: 230</b> style e dekhabe. Khaali rakhle kuchu dekhabe na.</div>
+              </div>
               <div className="af"><label>Category</label>
                 <select value={edit.categoryId} onChange={(e) => setEdit({ ...edit, categoryId: e.target.value })}>
                   <option value="">— None —</option>

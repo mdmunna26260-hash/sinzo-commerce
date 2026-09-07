@@ -29,6 +29,7 @@ export async function PUT(req: Request, { params }: Ctx) {
     const before = await db.product.findUnique({ where: { id }, include: { images: true } });
     if (!before) return NextResponse.json({ error: "Not found" }, { status: 404 });
     const data: any = {
+      soldCount: b.soldCount === "" || b.soldCount == null ? null : Math.max(0, Number(b.soldCount)),
       title: b.title, shortDesc: b.shortDesc || null, description: b.description || null,
       sku: b.sku || null, barcode: b.barcode || null,
       price: Number(b.price) || 0, comparePrice: b.comparePrice ? Number(b.comparePrice) : null,
