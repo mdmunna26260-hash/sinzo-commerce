@@ -17,6 +17,25 @@ const BADGE_LABELS: Record<string, string> = {
   limited: "LIMITED",
 };
 
+/* serial order: numeric ascending first (28, 30, 32…), then S → M → L → XL → XXL → … */
+const SIZE_SEQ = ["XXS", "XS", "S", "M", "L", "XL", "XXL", "XXXL", "4XL"];
+function sizeRank(s: string): number {
+  const u = s.trim().toUpperCase().replace(/^3XL$/, "XXXL");
+  const i = SIZE_SEQ.indexOf(u);
+  return i === -1 ? 999 : i;
+}
+export function sortSizes(sizes: string[]): string[] {
+  return [...sizes].sort((a, b) => {
+    const na = Number(a), nb = Number(b);
+    if (!Number.isNaN(na) && !Number.isNaN(nb)) return na - nb;
+    if (!Number.isNaN(na)) return -1;
+    if (!Number.isNaN(nb)) return 1;
+    const ra = sizeRank(a), rb = sizeRank(b);
+    if (ra !== rb) return ra - rb;
+    return a.localeCompare(b);
+  });
+}
+
 export function ProductCard({ p, wish }: { p: CardProduct; wish?: boolean }) {
   const off = p.comparePrice && p.comparePrice > p.price ? Math.round((1 - p.price / p.comparePrice) * 100) : 0;
   return (
@@ -28,15 +47,6 @@ export function ProductCard({ p, wish }: { p: CardProduct; wish?: boolean }) {
           {p.badge && <span className={"badge badge-" + p.badge}>{BADGE_LABELS[p.badge] || p.badge}</span>}
         </div>
         <WishHeart id={p.id} />
-        {/* available sizes — small chips ON the image (S M L XL XXL / 28 30 32…) */}
-        {p.stock > 0 && p.sizes && p.sizes.length > 0 && (
-          <div className="pcard-sizes">
-            {p.sizes.slice(0, 5).map((s) => (
-              <i key={s}>{s}</i>
-            ))}
-            {p.sizes.length > 5 && <em className="pcard-sizes-more">+{p.sizes.length - 5}</em>}
-          </div>
-        )}
         {p.stock <= 0 && <div className="soldout-overlay"><span>Sold Out</span></div>}
         {wish ? <div className="pcard-quick"><button type="button">In your wishlist</button></div> : null}
       </div>
@@ -52,6 +62,9 @@ export function ProductCard({ p, wish }: { p: CardProduct; wish?: boolean }) {
             </span>
           )}
         </div>
+        {p.sizes && p.sizes.length > 0 && (
+          <div className="pcard-sizes">Size: {sortSizes(p.sizes).join(", ")}</div>
+        )}
         <div className="price">
           <b>৳{p.price.toLocaleString("en-IN")}</b>
           {p.comparePrice && p.comparePrice > p.price && (<><s>৳{p.comparePrice.toLocaleString("en-IN")}</s><span className="off">Save ৳{(p.comparePrice - p.price).toLocaleString("en-IN")}</span></>)}
