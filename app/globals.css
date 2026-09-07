@@ -535,6 +535,7 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 13.5px; }
   /* wrapper only — never combine with .grid on the same element */
   .desktop-only { display: block; }
   .grid.desktop-only { display: grid; }
+  .icon-btn.desktop-only { display: inline-flex; }
 }
 .grid.mobile-only { display: grid !important; }
 
@@ -1291,9 +1292,11 @@ a, button, .pcard, .chip, .cat-pill, .size-btn { -webkit-tap-highlight-color: tr
 .tab-item {
   position: relative;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 12px 18px;
+  gap: 3px;
+  padding: 8px 16px;
   border-radius: 22px;
   color: rgba(0, 0, 0, 0.35);
   text-decoration: none;
@@ -1301,6 +1304,9 @@ a, button, .pcard, .chip, .cat-pill, .size-btn { -webkit-tap-highlight-color: tr
   touch-action: pan-x pan-y;
   -webkit-tap-highlight-color: transparent;
 }
+.tab-label { font-size: 9.5px; line-height: 1; letter-spacing: .05em; font-weight: 500; }
+.tabbar.compact .tab-label { display: none; }
+.tabbar.compact .tab-item { gap: 0; }
 .tab-item:active { transform: scale(0.98); }
 
 /* active: filled light-gray rounded pill behind icon */
@@ -1424,7 +1430,7 @@ body:has(.admin-body) { padding-bottom: 0 !important; }
   .footer a { font-size: 12.5px; padding: 2px 0; }
 
   /* nav pill: slightly wider active state for easier tap */
-  .tab-item { padding: 9px 15px; }
+  .tab-item { padding: 7px 13px; }
 
   /* modals: bottom-sheet style on mobile */
   .modal {
@@ -1605,3 +1611,74 @@ input::placeholder, textarea::placeholder { color: #b0aaa1; }
 .push-optin.done { justify-content: center; font-size: 13px; color: var(--muted); gap: 8px; }
 .push-optin.done b { color: var(--ok); }
 .push-row { display: flex; align-items: center; gap: 12px; background: #f8f7f5; border-radius: 10px; padding: 12px 14px; margin-bottom: 14px; }
+
+
+/* ================================================================
+   HEADER CART (desktop) — count badge on the bag icon
+   ================================================================ */
+.cart-badge { position: absolute; top: 0; right: -2px; background: var(--accent); color: #fff; font-size: 9.5px; font-weight: 700; min-width: 15px; height: 15px; border-radius: 99px; display: flex; align-items: center; justify-content: center; padding: 0 3px; }
+
+/* ================================================================
+   PUSH NUDGE — compact opt-in card (25s + 40% scroll)
+   ================================================================ */
+.push-nudge {
+  position: fixed;
+  left: 12px;
+  right: 12px;
+  bottom: calc(92px + env(safe-area-inset-bottom, 0px));
+  z-index: 46;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 34px 14px 14px;
+  background: rgba(255, 255, 255, 0.92);
+  -webkit-backdrop-filter: blur(18px) saturate(1.6);
+  backdrop-filter: blur(18px) saturate(1.6);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  border-radius: 16px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.14), 0 1px 3px rgba(0, 0, 0, 0.05);
+  animation: fadeup .3s ease;
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .push-nudge { background: rgba(255, 255, 255, 0.98); }
+}
+@media (min-width: 900px) {
+  .push-nudge { left: auto; right: 24px; bottom: 24px; width: 340px; }
+}
+.push-nudge-x {
+  position: absolute; top: 6px; right: 8px;
+  width: 26px; height: 26px; border-radius: 99px;
+  border: none; background: none; color: var(--muted);
+  font-size: 16px; line-height: 1; cursor: pointer; padding: 0;
+  display: flex; align-items: center; justify-content: center;
+}
+.push-nudge-x:hover { color: var(--text); }
+.push-nudge-icon {
+  position: relative; flex: none;
+  width: 38px; height: 38px; border-radius: 12px;
+  background: var(--text); color: #fff;
+  display: flex; align-items: center; justify-content: center;
+}
+.push-nudge-icon i {
+  position: absolute; top: -2px; right: -2px;
+  width: 9px; height: 9px; border-radius: 99px;
+  background: var(--accent); border: 2px solid #fff;
+}
+.push-nudge-body { flex: 1; min-width: 0; display: grid; gap: 3px; }
+.push-nudge-body b { font-size: 13.5px; }
+.push-nudge-body > span { font-size: 12px; color: var(--muted); line-height: 1.45; }
+.push-nudge-actions { display: flex; align-items: center; gap: 12px; margin-top: 7px; }
+.push-nudge-go {
+  display: inline-flex; align-items: center;
+  border: none; background: var(--text); color: var(--bg);
+  font-size: 12px; font-weight: 600; letter-spacing: .02em;
+  padding: 8px 16px; border-radius: 99px; cursor: pointer;
+  transition: transform .15s ease;
+}
+.push-nudge-go:active { transform: scale(.97); }
+.push-nudge-go:disabled { opacity: .6; cursor: wait; }
+.push-nudge-later {
+  border: none; background: none; color: var(--muted);
+  font-size: 11.5px; cursor: pointer; padding: 4px 2px;
+  text-decoration: underline; text-underline-offset: 3px;
+}

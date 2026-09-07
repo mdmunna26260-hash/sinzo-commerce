@@ -34,7 +34,7 @@ export default function SuccessPage({ searchParams }: { searchParams: { code?: s
         <Link className="btn btn-outline" href="/products">Continue Shopping</Link>
       </div>
       <div style={{ maxWidth: 420, margin: "22px auto 0" }}>
-        <PushOptIn phone={ph} code={code} autoAsk />
+        <PushOptIn phone={ph} code={code} />
       </div>
     </div>
   );

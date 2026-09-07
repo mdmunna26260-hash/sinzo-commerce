@@ -3,12 +3,10 @@ import { useEffect, useState } from "react";
 import { toast } from "./store";
 
 /* Browser push opt-in.
-   variant="card" → order success page. With autoAsk, the NATIVE permission
-   prompt fires automatically on mount (the Place-Order click milliseconds
-   earlier still counts as a user gesture, so the browser allows it).
-   User just taps Allow → subscribed. If the browser refuses to show the
-   prompt, the card with the Enable button remains as fallback (old behaviour).
-   variant="row" → account page toggle (manual only, age jemon chilo). */
+   variant="card" → order success page: manual Enable button (the global
+   PushNudge popup handles the sitewide ask — the native permission prompt is
+   NEVER fired automatically on page load).
+   variant="row" → account page ON/OFF toggle. */
 
 function urlBase64ToUint8Array(base64String: string): Uint8Array {
   const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
@@ -21,7 +19,7 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
 
 type State = "loading" | "unsupported" | "denied" | "off" | "on" | "busy";
 
-export default function PushOptIn({ phone, code, variant = "card", autoAsk = false }: { phone?: string; code?: string; variant?: "card" | "row"; autoAsk?: boolean }) {
+export default function PushOptIn({ phone, code, variant = "card" }: { phone?: string; code?: string; variant?: "card" | "row" }) {
   const [state, setState] = useState<State>("loading");
 
   /* shared: subscribe this browser + link the phone (account or order phone) */
@@ -73,24 +71,9 @@ export default function PushOptIn({ phone, code, variant = "card", autoAsk = fal
         }
       } catch {}
 
-      if (Notification.permission === "granted") return setState("off"); // Enable works instantly, no prompt
       if (off) return setState("off"); // user turned it off from account settings
-
-      // permission still "default":
-      if (autoAsk) {
-        // fires the native prompt right away — the Place-Order tap from
-        // milliseconds ago is still valid user activation in the browser.
-        // state stays "loading" (hidden) while the prompt is open.
-        const p = await Notification.requestPermission().catch(() => "default");
-        if (p === "granted") {
-          const ok = await subscribeNow();
-          setState(ok ? "on" : "off");
-          if (ok) toast("Order update notifications on ✓");
-        } else {
-          setState("off"); // prompt blocked / dismissed → manual card fallback
-        }
-        return;
-      }
+      // permission "default" or "granted" → the manual Enable button handles it
+      // (native prompt fires only from the user's click — never automatically)
       setState("off");
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps

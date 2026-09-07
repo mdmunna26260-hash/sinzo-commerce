@@ -107,6 +107,7 @@ export default function BottomNav() {
               {item.icon}
               {item.href === "/cart" && count > 0 && <span className="tab-badge">{count > 99 ? "99+" : count}</span>}
             </span>
+            <span className="tab-label">{item.label}</span>
           </Link>
         );
       })}
