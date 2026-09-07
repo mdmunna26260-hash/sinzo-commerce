@@ -17,7 +17,15 @@ export default async function TrackingPage({ searchParams }: { searchParams: any
     gtmId: s.integrations?.gtmId || "",
   };
   const last = events[0];
-  return <TrackingClient cfg={cfg} events={events.map((e) => ({ id: e.id, name: e.name, eventId: e.eventId, source: e.source, ok: e.ok, error: e.error, createdAt: e.createdAt.toISOString() }))}
+  const eventsOut = events.map((e) => {
+    let matchKeys: string[] = [];
+    try {
+      const pl = JSON.parse(e.payload || "{}");
+      if (Array.isArray(pl.matchKeys)) matchKeys = pl.matchKeys;
+    } catch {}
+    return { id: e.id, name: e.name, eventId: e.eventId, source: e.source, ok: e.ok, error: e.error, createdAt: e.createdAt.toISOString(), matchKeys };
+  });
+  return <TrackingClient cfg={cfg} events={eventsOut}
     counts={counts.map((c) => ({ name: c.name, count: c._count._all }))}
     lastEvent={last ? { name: last.name, at: last.createdAt.toISOString(), ok: last.ok } : null} />;
 }

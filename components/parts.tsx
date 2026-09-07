@@ -44,7 +44,12 @@ export function ProductCard({ p, wish }: { p: CardProduct; wish?: boolean }) {
           )}
         </div>
         {p.sizes && p.sizes.length > 0 && (
-          <div className="pcard-sizes">Size: {p.sizes.join(", ")}</div>
+          <div className="pcard-sizes">
+            {p.sizes.slice(0, 6).map((s) => (
+              <i key={s}>{s}</i>
+            ))}
+            {p.sizes.length > 6 && <em className="pcard-sizes-more">+{p.sizes.length - 6}</em>}
+          </div>
         )}
         <div className="price">
           <b>৳{p.price.toLocaleString("en-IN")}</b>

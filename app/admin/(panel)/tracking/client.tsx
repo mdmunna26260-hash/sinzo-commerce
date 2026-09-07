@@ -68,14 +68,15 @@ export default function TrackingClient({ cfg, events, counts, lastEvent }: any) 
           <div className="acard">
             <div className="acard-h"><h3>Recent Tracking Events</h3></div>
             <table className="tbl">
-              <thead><tr><th>Event</th><th>Source</th><th>Event ID</th><th>Result</th><th>Time</th></tr></thead>
+              <thead><tr><th>Event</th><th>Source</th><th>Event ID</th><th>Match keys</th><th>Result</th><th>Time</th></tr></thead>
               <tbody>
-                {events.length === 0 && <tr><td colSpan={5} style={{ color: "var(--muted)", padding: 24 }}>No events yet — browse the storefront to generate some.</td></tr>}
+                {events.length === 0 && <tr><td colSpan={6} style={{ color: "var(--muted)", padding: 24 }}>No events yet — browse the storefront to generate some.</td></tr>}
                 {events.map((e: any) => (
                   <tr key={e.id}>
                     <td><b>{e.name}</b></td>
                     <td style={{ fontSize: 12 }}>{e.source}</td>
                     <td style={{ fontSize: 11, maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis" }}>{e.eventId || "—"}</td>
+                    <td style={{ fontSize: 11, color: "var(--muted)" }}>{e.matchKeys && e.matchKeys.length ? e.matchKeys.slice(0, 5).join(", ") : "—"}</td>
                     <td>{e.ok ? <span className="pill DELIVERED">OK</span> : <span title={e.error || ""} className="pill FAILED">ERR</span>}</td>
                     <td style={{ fontSize: 12 }}><FmtDate iso={e.createdAt} mode="time" /></td>
                   </tr>
