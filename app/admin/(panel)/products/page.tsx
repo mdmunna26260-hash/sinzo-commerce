@@ -7,6 +7,9 @@ export const metadata = { title: "Products" };
 
 export default async function AdminProducts({ searchParams }: { searchParams: any }) {
   await requireAdmin(searchParams);
+  // make sure newer columns (Product.soldCount etc.) exist before querying
+  const { ensureExtraTables } = await import("@/lib/db-ensure");
+  await ensureExtraTables().catch(() => {});
   const products = await db.product.findMany({ include: { images: true, variants: true, category: true }, orderBy: [{ position: "asc" }, { id: "desc" }] });
   const categories = await db.category.findMany({ orderBy: { name: "asc" } });
   const data = products.map((p) => ({

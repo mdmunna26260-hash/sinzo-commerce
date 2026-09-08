@@ -20,6 +20,9 @@ export async function GET(req: Request) {
   return NextResponse.json({ products });
 }
 export async function POST(req: Request) {
+  // make sure newer columns (Product.soldCount etc.) exist before writing
+  const { ensureExtraTables } = await import("@/lib/db-ensure");
+  await ensureExtraTables().catch(() => {});
   const g = await requirePerm("products", req);
   if ("res" in g) return g.res;
   try {
@@ -34,6 +37,7 @@ export async function POST(req: Request) {
         sku: b.sku || null, barcode: b.barcode || null,
         price: Number(b.price) || 0, comparePrice: b.comparePrice ? Number(b.comparePrice) : null,
         cost: b.cost ? Number(b.cost) : null, stock: Number(b.stock) || 0, lowStock: Number(b.lowStock) || 5,
+        soldCount: b.soldCount === "" || b.soldCount == null ? null : Math.max(0, Number(b.soldCount)),
         status: b.status || "ACTIVE", featured: !!b.featured, tags: b.tags || null,
         sizeChartImage: b.sizeChartImage || null, badge: b.badge || null, isNew: !!b.isNew, isBestSeller: !!b.isBestSeller,
         categoryId: b.categoryId ? Number(b.categoryId) : null,

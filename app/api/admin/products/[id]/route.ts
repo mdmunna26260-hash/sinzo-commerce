@@ -21,6 +21,9 @@ export async function GET(req: Request, { params }: Ctx) {
   return NextResponse.json({ product: p });
 }
 export async function PUT(req: Request, { params }: Ctx) {
+  // make sure newer columns (Product.soldCount etc.) exist before writing
+  const { ensureExtraTables } = await import("@/lib/db-ensure");
+  await ensureExtraTables().catch(() => {});
   const g = await requirePerm("products", req);
   if ("res" in g) return g.res;
   try {
@@ -29,6 +32,7 @@ export async function PUT(req: Request, { params }: Ctx) {
     const before = await db.product.findUnique({ where: { id }, include: { images: true } });
     if (!before) return NextResponse.json({ error: "Not found" }, { status: 404 });
     const data: any = {
+      soldCount: b.soldCount === "" || b.soldCount == null ? null : Math.max(0, Number(b.soldCount)),
       title: b.title, shortDesc: b.shortDesc || null, description: b.description || null,
       sku: b.sku || null, barcode: b.barcode || null,
       price: Number(b.price) || 0, comparePrice: b.comparePrice ? Number(b.comparePrice) : null,

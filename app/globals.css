@@ -1254,6 +1254,104 @@ a, button, .pcard, .chip, .cat-pill, .size-btn { -webkit-tap-highlight-color: tr
 .header.hid { transform: translateY(-110%); }
 
 /* ================================================================
+   iOS LIQUID GLASS SYSTEM — Apple-style frosted glass across the site
+   (translucent layered surfaces, saturated blur, hairline borders,
+   spring-ish transitions; respects prefers-reduced-transparency)
+   ================================================================ */
+:root {
+  --glass-bg: rgba(255, 255, 255, 0.62);
+  --glass-bg-strong: rgba(255, 255, 255, 0.78);
+  --glass-border: rgba(255, 255, 255, 0.55);
+  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.10), inset 0 1px 0 rgba(255, 255, 255, 0.65);
+  --glass-blur: saturate(1.8) blur(20px);
+}
+html { -webkit-font-smoothing: antialiased; scroll-behavior: smooth; }
+/* universal frosted surfaces */
+.glass, .header, .modal, .lightbox, .push-nudge, .cmp-bar,
+.search-panel, .fdrawer, .mobile-nav, .sizechart-modal, .notif-panel {
+  background: var(--glass-bg) !important;
+  -webkit-backdrop-filter: var(--glass-blur) !important;
+  backdrop-filter: var(--glass-blur) !important;
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+}
+.modal, .sizechart-modal, .search-panel, .notif-panel, .fdrawer { background: var(--glass-bg-strong) !important; }
+/* hairline dividers like iOS */
+.acard, .pcard, .summary, .admin-side { border-color: rgba(0, 0, 0, 0.06); }
+/* iOS spring-y interactive elements */
+.btn, .abtn, .chip, .tab-item, .icon-btn {
+  transition: transform .18s cubic-bezier(.34,1.56,.64,1), background .2s ease, color .2s ease, box-shadow .2s ease;
+}
+.btn:active, .abtn:active, .chip:active, .tab-item:active, .icon-btn:active { transform: scale(.955); }
+/* iOS-style card lift on hover (pointer devices) */
+@media (hover: hover) {
+  .pcard:hover { box-shadow: 0 12px 32px rgba(0, 0, 0, 0.10); transform: translateY(-2px); }
+  .pcard { transition: transform .3s cubic-bezier(.22,.61,.36,1), box-shadow .3s ease; }
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .glass, .header, .modal, .lightbox, .push-nudge, .search-panel, .fdrawer, .mobile-nav, .sizechart-modal, .notif-panel {
+    background: rgba(255, 255, 255, 0.97) !important;
+  }
+}
+@media (prefers-reduced-transparency: reduce) {
+  :root { --glass-bg: rgba(255, 255, 255, 0.98); --glass-bg-strong: #ffffff; --glass-blur: none; }
+}
+
+/* ================================================================
+   DARK MODE — auto (system) + manual override via <html data-theme>
+   Default is LIGHT; pages without explicit preference follow system.
+   ================================================================ */
+:root {
+  --dm-bg: #0e0d0c;
+  --dm-surface: #171513;
+  --dm-card: #1c1a18;
+  --dm-text: #f0eee9;
+  --dm-muted: #a8a29a;
+  --dm-line: rgba(255, 255, 255, 0.10);
+  --dm-accent: #c8a15f;
+}
+html[data-theme="dark"] {
+  --bg: var(--dm-bg);
+  --text: var(--dm-text);
+  --muted: var(--dm-muted);
+  --line: var(--dm-line);
+  --accent: var(--dm-accent);
+  --glass-bg: rgba(23, 21, 19, 0.62);
+  --glass-bg-strong: rgba(28, 26, 24, 0.82);
+  --glass-border: rgba(255, 255, 255, 0.10);
+  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  color-scheme: dark;
+}
+html[data-theme="dark"] body { background: var(--dm-bg); }
+html[data-theme="dark"] .pcard, html[data-theme="dark"] .acard { background: var(--dm-card); }
+html[data-theme="dark"] .pcard-sizes { color: var(--dm-muted); }
+html[data-theme="dark"] .announce { background: #f0eee9; color: #141414; }
+html[data-theme="dark"] .pcard-quick button { background: rgba(28, 26, 24, 0.9); color: var(--dm-text); }
+html[data-theme="dark"] .search-hint, html[data-theme="dark"] .empty h3 { color: var(--dm-text); }
+html[data-theme="dark"] .footer { background: var(--dm-surface); border-color: var(--dm-line); }
+html[data-theme="dark"] img { opacity: 0.92; }
+html[data-theme="dark"] .glass,
+html[data-theme="dark"] .header,
+html[data-theme="dark"] .modal,
+html[data-theme="dark"] .lightbox,
+html[data-theme="dark"] .push-nudge,
+html[data-theme="dark"] .search-panel,
+html[data-theme="dark"] .fdrawer,
+html[data-theme="dark"] .mobile-nav {
+  background: var(--glass-bg) !important;
+  border-color: var(--glass-border);
+}
+html[data-theme="dark"] .tabbar { background: rgba(23, 21, 19, 0.72) !important; border-color: rgba(255, 255, 255, 0.08); }
+html[data-theme="dark"] .tab-item { color: rgba(255, 255, 255, 0.45); }
+html[data-theme="dark"] .tab-item.active { background: rgba(255, 255, 255, 0.14); color: #fff; }
+html[data-theme="dark"] .skeleton, html[data-theme="dark"] .sk { background: linear-gradient(90deg, #1c1a18 25%, #26231f 50%, #1c1a18 75%); }
+html[data-theme="dark"] .toast { background: #f0eee9; color: #141414; }
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  html[data-theme="dark"] .glass, html[data-theme="dark"] .header,
+  html[data-theme="dark"] .modal, html[data-theme="dark"] .push-nudge { background: rgba(23, 21, 19, 0.98) !important; }
+}
+
+/* ================================================================
    FLOATING TAB BAR — light glass, icon-only, compact (Instagram style)
    ================================================================ */
 .tabbar {
