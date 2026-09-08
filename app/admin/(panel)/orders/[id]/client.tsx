@@ -173,6 +173,74 @@ export default function OrderDetailClient({ initial }: { initial: Order }) {
   const [edit, setEdit] = useState({ name: o.name, phone: o.phone, address: o.address });
   const [editing, setEditing] = useState(false);
 
+  /* ---- item editing state ---- */
+  const [itemsEd, setItemsEd] = useState<any[] | null>(null); // null = view mode
+  const [deliveryEd, setDeliveryEd] = useState<string>("");
+  const [totalEd, setTotalEd] = useState<string>("");
+  const [totalTouched, setTotalTouched] = useState(false);
+  const [picker, setPicker] = useState<{ open: boolean; rowIdx: number | null }>({ open: false, rowIdx: null });
+  const [pq, setPq] = useState("");
+  const [pRes, setPRes] = useState<any[] | null>(null);
+  const [pBusy, setPBusy] = useState(false);
+  const [pickSel, setPickSel] = useState<{ productId: number; variantId: number | null; qty: string } | null>(null);
+
+  const startItemsEdit = () => {
+    setItemsEd(o.items.map((i: any) => ({ ...i })));
+    setDeliveryEd(String(Math.round(o.deliveryFee || 0)));
+    setTotalEd(String(Math.round(o.total || 0)));
+    setTotalTouched(false);
+  };
+  const cancelItemsEdit = () => { setItemsEd(null); setPicker({ open: false, rowIdx: null }); setPickSel(null); setPRes(null); setPq(""); };
+  const liveSubtotal = (itemsEd ?? o.items).reduce((s: number, i: any) => s + (Number(i.price) || 0) * (Number(i.qty) || 0), 0);
+  const computedTotal = Math.max(0, liveSubtotal - (o.discount || 0) + (Number(deliveryEd) || 0));
+  const shownTotal = totalTouched ? (Number(totalEd) || 0) : computedTotal;
+
+  const openPicker = (rowIdx: number | null) => {
+    setPicker({ open: true, rowIdx });
+    setPq(""); setPRes(null); setPickSel(null);
+    setTimeout(() => { const el = document.getElementById("ordpick-q"); el?.focus(); }, 50);
+  };
+  const searchPicker = async () => {
+    setPBusy(true);
+    try {
+      const r = await afetch("/api/admin/products" + (pq.trim() ? "?q=" + encodeURIComponent(pq.trim()) : ""));
+      const j = await r.json();
+      setPRes((j.products || []).slice(0, 12));
+    } catch { setPRes([]); }
+    setPBusy(false);
+  };
+  const applyPickRow = (prod: any, v: any, qtyStr: string) => {
+    const row = {
+      productId: prod.id, variantId: v?.id ?? null,
+      title: prod.title, variant: v ? [v.size, v.color].filter(Boolean).join(" · ") : null,
+      image: prod.images?.[0]?.url || null, price: v?.price != null ? Number(v.price) : Number(prod.price),
+      qty: Math.max(1, Number(qtyStr) || 1),
+    };
+    if (picker.rowIdx != null) {
+      // replace that row's product (drop its id → server removes old + adds new)
+      setItemsEd((cur) => (cur || []).map((x, i) => (i === picker.rowIdx ? { ...row } : x)));
+    } else {
+      setItemsEd((cur) => [...(cur || []), { ...row }]);
+    }
+    setPicker({ open: false, rowIdx: null }); setPickSel(null); setPRes(null); setPq("");
+  };
+  const applyPickFor = (prod: any, v: any, qtyStr: string) => applyPickRow(prod, v, qtyStr);
+  const saveItems = async () => {
+    if (!itemsEd || itemsEd.length === 0) { setMsg("Order e at least ekta item thakte hobe"); return; }
+    const body: any = {
+      items: itemsEd.map((i) => ({ id: i.id, productId: i.productId, variantId: i.variantId ?? null, price: Number(i.price) || 0, qty: Number(i.qty) || 1 })),
+      deliveryFee: Number(deliveryEd) || 0,
+      total: shownTotal,
+    };
+    setBusy(true); setMsg("");
+    const r = await afetch("/api/admin/orders/" + o.id, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    const j = await r.json();
+    if (r.ok) { setItemsEd(null); setMsg("Items updated ✓ — totals synced"); router.refresh(); }
+    else setMsg(j.error || "Item update failed");
+    setBusy(false);
+    setTimeout(() => setMsg(""), 4000);
+  };
+
   const copy = async (label: string, text: string) => {
     const ok = await copyText(text);
     setMsg(ok ? `📋 ${label} copied ✓` : "Copy failed");
@@ -283,25 +351,86 @@ export default function OrderDetailClient({ initial }: { initial: Order }) {
       <div style={{ display: "grid", gridTemplateColumns: "1.6fr 1fr", gap: 16, alignItems: "start" }}>
         <div>
           <div className="acard" style={{ marginBottom: 16 }}>
-            <div className="acard-h"><h3>Items</h3></div>
-            <table className="tbl">
-              <thead><tr><th>Product</th><th>Variant</th><th>Price</th><th>Qty</th><th>Total</th></tr></thead>
-              <tbody>
-                {o.items.map((i: any) => (
-                  <tr key={i.id}>
-                    <td>{i.image && <img src={i.image} alt="" style={{ display: "inline", marginRight: 10, verticalAlign: "middle" }} />}{i.title}</td>
-                    <td>{i.variant || "—"}</td>
-                    <td>{money(i.price)}</td><td>{i.qty}</td><td><b>{money(i.price * i.qty)}</b></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            <div className="acard-b" style={{ borderTop: "1px solid #eeedea" }}>
-              <div className="sum-row"><span>Subtotal</span><span>{money(o.subtotal)}</span></div>
-              {o.discount > 0 && <div className="sum-row"><span>Discount {o.couponCode ? `(${o.couponCode})` : ""}</span><span>−{money(o.discount)}</span></div>}
-              <div className="sum-row"><span>Delivery ({o.area === "INSIDE_DHAKA" ? "Inside Dhaka" : "Outside Dhaka"})</span><span>{money(o.deliveryFee)}</span></div>
-              <div className="sum-row total"><span>Total {o.paymentMethod === "COD" ? "(COD)" : ""}</span><span>{money(o.total)}</span></div>
+            <div className="acard-h">
+              <h3>Items</h3>
+              {!itemsEd
+                ? <button className="abtn sm" onClick={startItemsEdit}>✏️ Edit items</button>
+                : <div style={{ display: "flex", gap: 8 }}>
+                    <button className="abtn sm primary" onClick={saveItems} disabled={busy} aria-busy={busy || undefined}>{busy && <span className="spinner" aria-hidden="true" />}Save items</button>
+                    <button className="abtn sm" onClick={cancelItemsEdit} disabled={busy}>Cancel</button>
+                  </div>}
             </div>
+
+            {!itemsEd ? (
+              <>
+                <table className="tbl">
+                  <thead><tr><th>Product</th><th>Variant</th><th>Price</th><th>Qty</th><th>Total</th></tr></thead>
+                  <tbody>
+                    {o.items.map((i: any) => (
+                      <tr key={i.id}>
+                        <td>{i.image && <img src={i.image} alt="" style={{ display: "inline", marginRight: 10, verticalAlign: "middle" }} />}{i.title}</td>
+                        <td>{i.variant || "—"}</td>
+                        <td>{money(i.price)}</td><td>{i.qty}</td><td><b>{money(i.price * i.qty)}</b></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <div className="acard-b" style={{ borderTop: "1px solid #eeedea" }}>
+                  <div className="sum-row"><span>Subtotal</span><span>{money(o.subtotal)}</span></div>
+                  {o.discount > 0 && <div className="sum-row"><span>Discount {o.couponCode ? `(${o.couponCode})` : ""}</span><span>−{money(o.discount)}</span></div>}
+                  <div className="sum-row"><span>Delivery ({o.area === "INSIDE_DHAKA" ? "Inside Dhaka" : "Outside Dhaka"})</span><span>{money(o.deliveryFee)}</span></div>
+                  <div className="sum-row total"><span>Total {o.paymentMethod === "COD" ? "(COD)" : ""}</span><span>{money(o.total)}</span></div>
+                </div>
+              </>
+            ) : (
+              <div className="acard-b">
+                <div style={{ fontSize: 12, color: "var(--muted)", marginBottom: 10 }}>
+                  Item add / remove / qty-price change korun. Product change korle ager product er stock ferot hobe, notun product er stock kata hobe. Save items na chaple kichu save hobe na.
+                </div>
+                <table className="tbl">
+                  <thead><tr><th>Product</th><th>Variant</th><th>Price</th><th>Qty</th><th>Total</th><th></th></tr></thead>
+                  <tbody>
+                    {itemsEd.map((i: any, idx: number) => (
+                      <tr key={i.id ?? "new-" + idx}>
+                        <td>
+                          {i.image && <img src={i.image} alt="" style={{ display: "inline", marginRight: 8, verticalAlign: "middle", width: 30, height: 38, objectFit: "cover", borderRadius: 3 }} />}
+                          <span style={{ verticalAlign: "middle" }}>{i.title}</span>
+                        </td>
+                        <td style={{ fontSize: 12.5 }}>{i.variant || "—"}</td>
+                        <td><input type="number" min={0} value={i.price} onChange={(e) => setItemsEd((cur) => (cur || []).map((x, k) => (k === idx ? { ...x, price: e.target.value } : x)))} style={{ width: 82, padding: "6px 8px" }} /></td>
+                        <td><input type="number" min={1} value={i.qty} onChange={(e) => setItemsEd((cur) => (cur || []).map((x, k) => (k === idx ? { ...x, qty: e.target.value } : x)))} style={{ width: 60, padding: "6px 8px" }} /></td>
+                        <td><b>{money((Number(i.price) || 0) * (Number(i.qty) || 0))}</b></td>
+                        <td style={{ whiteSpace: "nowrap" }}>
+                          <button className="abtn sm" title="Change product" onClick={() => openPicker(idx)}>↻</button>{" "}
+                          <button className="abtn sm danger" title="Remove item" onClick={() => setItemsEd((cur) => (cur || []).filter((_, k) => k !== idx))}>✕</button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <div style={{ marginTop: 10 }}>
+                  <button className="abtn" onClick={() => openPicker(null)}>+ Add product</button>
+                </div>
+                <div className="sum-row" style={{ marginTop: 14 }}><span>Subtotal</span><span>{money(liveSubtotal)}</span></div>
+                {o.discount > 0 && <div className="sum-row"><span>Discount {o.couponCode ? `(${o.couponCode})` : ""}</span><span>−{money(o.discount)}</span></div>}
+                <div className="sum-row">
+                  <span>Delivery ({o.area === "INSIDE_DHAKA" ? "Inside Dhaka" : "Outside Dhaka"})</span>
+                  <input type="number" min={0} value={deliveryEd} onChange={(e) => setDeliveryEd(e.target.value)} style={{ width: 90, padding: "6px 8px", textAlign: "right" }} />
+                </div>
+                <div className="sum-row total">
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+                    Grand Total {o.paymentMethod === "COD" ? "(COD)" : ""}
+                    {totalTouched && <button className="linklike" onClick={() => { setTotalTouched(false); setTotalEd(String(Math.round(computedTotal))); }}>auto</button>}
+                  </span>
+                  <input type="number" min={0} value={totalTouched ? totalEd : String(Math.round(computedTotal))}
+                    onChange={(e) => { setTotalTouched(true); setTotalEd(e.target.value); }}
+                    style={{ width: 110, padding: "7px 9px", textAlign: "right", fontWeight: 700 }} />
+                </div>
+                {totalTouched && Number(totalEd) !== computedTotal && (
+                  <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 4 }}>⚠ Manual total — auto hishebe {money(computedTotal)} hoto</div>
+                )}
+              </div>
+            )}
           </div>
 
           <div className="acard">
@@ -389,6 +518,59 @@ export default function OrderDetailClient({ initial }: { initial: Order }) {
           </div>
         </div>
       </div>
+
+      {/* ---- product picker overlay (item editing) ---- */}
+      {picker.open && (
+        <div className="modal-bg" onClick={() => setPicker({ open: false, rowIdx: null })}>
+          <div className="modal" style={{ width: "min(560px, 94vw)", maxHeight: "82vh", overflow: "auto" }} onClick={(e) => e.stopPropagation()}>
+            <button className="modal-close" onClick={() => setPicker({ open: false, rowIdx: null })} aria-label="Close">×</button>
+            <h3 style={{ fontFamily: "var(--font-head)", marginBottom: 4 }}>{picker.rowIdx != null ? "Change product" : "Add product"}</h3>
+            <div style={{ fontSize: 12.5, color: "var(--muted)", marginBottom: 12 }}>
+              {picker.rowIdx != null ? "Ei row er product replace hobe (ager product er stock ferot hobe)" : "Order e notun product add hobe (stock kata hobe)"}
+            </div>
+            <form style={{ display: "flex", gap: 8, marginBottom: 12 }} onSubmit={(e) => { e.preventDefault(); searchPicker(); }}>
+              <input id="ordpick-q" placeholder="Product khunje din (title / SKU)…" value={pq} onChange={(e) => setPq(e.target.value)} style={{ flex: 1, padding: "9px 12px", border: "1px solid #ddd9d2", borderRadius: 5 }} autoCapitalize="none" />
+              <button className="abtn primary" type="submit" disabled={pBusy} aria-busy={pBusy || undefined}>{pBusy ? "…" : "Search"}</button>
+            </form>
+            {pRes === null && <div style={{ fontSize: 13, color: "var(--muted)", padding: "10px 0" }}>Search chapun — sob active product dekhajabe.</div>}
+            {pRes !== null && pRes.length === 0 && <div style={{ fontSize: 13, color: "var(--muted)", padding: "10px 0" }}>Kichu pay nai — onno keyword try korun.</div>}
+            {pRes !== null && pRes.map((prod) => {
+              const vs = (prod.variants || []).filter((v: any) => v.stock > 0);
+              const sel = pickSel?.productId === prod.id ? pickSel : null;
+              const chosen = sel ? (prod.variants || []).find((x: any) => x.id === sel.variantId) || vs[0] || null : null;
+              return (
+                <div key={prod.id} style={{ border: "1px solid #eeedea", borderRadius: 8, padding: 12, marginBottom: 10 }}>
+                  <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                    {prod.images?.[0] && <img src={prod.images[0].url} alt="" style={{ width: 38, height: 48, objectFit: "cover", borderRadius: 4 }} />}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <b style={{ fontSize: 13.5 }}>{prod.title}</b>
+                      <div style={{ fontSize: 12, color: "var(--muted)" }}>৳{Number(prod.price).toLocaleString("en-IN")} · stock {prod.stock} · {vs.length} variant in stock</div>
+                    </div>
+                    {(!sel && vs.length === 0) ? (
+                      <button className="abtn sm primary" onClick={() => { setPickSel({ productId: prod.id, variantId: null, qty: "1" }); applyPickFor(prod, null, "1"); }}>Select + Add</button>
+                    ) : (
+                      <button className={"abtn sm" + (sel ? " primary" : "")} onClick={() => setPickSel({ productId: prod.id, variantId: vs[0]?.id ?? null, qty: "1" })}>{sel ? "Selected ✓" : "Select"}</button>
+                    )}
+                  </div>
+                  {sel && (
+                    <div style={{ marginTop: 10, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", borderTop: "1px solid #f1efec", paddingTop: 10 }}>
+                      {vs.length > 0 && (
+                        <select value={sel.variantId ?? ""} onChange={(e) => setPickSel({ ...sel, variantId: Number(e.target.value) || null })} style={{ padding: "8px 10px", border: "1px solid #ddd9d2", borderRadius: 5, flex: 1, minWidth: 150 }}>
+                          {vs.map((v: any) => (
+                            <option key={v.id} value={v.id}>{[v.size, v.color].filter(Boolean).join(" · ") || "Default"} — ৳{Number(v.price ?? prod.price).toLocaleString("en-IN")} ({v.stock} pc)</option>
+                          ))}
+                        </select>
+                      )}
+                      <input type="number" min={1} value={sel.qty} onChange={(e) => setPickSel({ ...sel, qty: e.target.value })} style={{ width: 64, padding: "8px 10px", border: "1px solid #ddd9d2", borderRadius: 5 }} aria-label="Quantity" />
+                      <button className="abtn primary" onClick={() => applyPickRow(prod, chosen, sel.qty)}>{picker.rowIdx != null ? "Replace" : "Add to order"}</button>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </>
   );
 }

@@ -16,7 +16,14 @@ export const dynamic = "force-dynamic";
 export async function GET(req: Request) {
   const g = await requirePerm("products", req);
   if ("res" in g) return g.res;
-  const products = await db.product.findMany({ include: { images: true, variants: true, category: true }, orderBy: [{ position: "asc" }, { id: "desc" }] });
+  // optional ?q= filter (used by the order item picker; plain listing when absent)
+  const q = new URL(req.url).searchParams.get("q")?.trim();
+  const products = await db.product.findMany({
+    where: q ? { OR: [{ title: { contains: q } }, { sku: { contains: q } }, { tags: { contains: q } }] } : undefined,
+    include: { images: true, variants: true, category: true },
+    orderBy: [{ position: "asc" }, { id: "desc" }],
+    take: q ? 12 : undefined,
+  });
   return NextResponse.json({ products });
 }
 export async function POST(req: Request) {
