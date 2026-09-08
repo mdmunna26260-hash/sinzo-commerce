@@ -142,7 +142,8 @@ export default function ProductsClient({ initial, categories }: { initial: P[]; 
     soldCount: p.soldCount != null ? String(p.soldCount) : "",
     colorGroupId: p.colorGroupId != null ? String(p.colorGroupId) : "",
     colorName: p.colorName || "",
-    colorImage: p.colorImage || "",
+    // auto: color thumbnail defaults to the product's main image (admin can replace/remove)
+    colorImage: p.colorImage || (p.images && p.images[0] ? p.images[0].url : ""),
     variants: p.variants.map((v: any) => ({ ...v, size: v.size || "", color: v.color || "", sku: v.sku || "", price: v.price != null ? String(v.price) : "", stock: String(v.stock), image: v.image || "" })),
   }); };
 
@@ -169,7 +170,15 @@ export default function ProductsClient({ initial, categories }: { initial: P[]; 
       const j = await r.json();
       if (r.ok) urls.push(j.url); else alert(j.error || "Upload failed: " + file.name);
     }
-    if (urls.length) { setEdit((e: any) => ({ ...e, images: [...e.images, ...urls] })); setMsg(urls.length + " image added ✓"); setTimeout(() => setMsg(""), 2500); }
+    if (urls.length) {
+      setEdit((e: any) => ({
+        ...e,
+        images: [...e.images, ...urls],
+        // first gallery image doubles as the color swatch until admin sets/removes it
+        colorImage: e.colorImage || (e.images.length === 0 ? urls[0] : e.colorImage),
+      }));
+      setMsg(urls.length + " image added ✓"); setTimeout(() => setMsg(""), 2500);
+    }
     setBusy(false);
   };
   const uploadChart = async (file: File) => {
