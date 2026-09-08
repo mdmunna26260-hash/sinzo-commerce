@@ -40,11 +40,26 @@ export default async function PDP({ params, searchParams }: { params: { slug: st
   if (p.colorGroupId) {
     const fam = await db.product.findMany({
       where: { colorGroupId: p.colorGroupId, status: "ACTIVE", id: { not: p.id } },
-      select: { id: true, slug: true, colorName: true, colorImage: true },
+      select: {
+        id: true, slug: true, colorName: true, colorImage: true,
+        // cover image + linked variant images → warmed on the CURRENT color's
+        // page so switching colors feels instant (all in this same indexed query)
+        images: { orderBy: { position: "asc" }, take: 3, select: { url: true } },
+        variants: { where: { image: { not: null } }, select: { image: true }, take: 3 },
+      },
       orderBy: { id: "asc" },
       take: 12,
     });
-    colorFamily = fam;
+    colorFamily = fam.map((f) => ({
+      id: f.id,
+      slug: f.slug,
+      colorName: f.colorName,
+      colorImage: f.colorImage,
+      warmImages: [
+        ...f.images.map((i) => i.url),
+        ...f.variants.map((v) => v.image!).filter(Boolean),
+      ].slice(0, 4),
+    }));
   }
 
   await db.product.update({ where: { id: p.id }, data: { views: { increment: 1 } } }).catch(() => {});

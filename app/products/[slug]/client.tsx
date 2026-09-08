@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCart, useWishlist, trackEvent, toast } from "@/components/store";
 import { imgSrc, imgSrcSet } from "@/components/parts";
-import { warmImage } from "@/components/img-warm";
+import { warmImage, warmWhenIdle } from "@/components/img-warm";
 import { trackRecentlyViewed } from "@/components/recently-viewed";
 import MobileGallery from "@/components/mobile-gallery";
 import SizeRecommendation from "@/components/size-rec";
@@ -17,7 +17,8 @@ type P = {
   variants: V[]; categoryName?: string; colorName?: string | null; colorImage?: string | null;
 };
 
-type ColorFamilyItem = { id: number; slug: string; colorName: string | null; colorImage: string | null };
+
+type ColorFamilyItem = { id: number; slug: string; colorName: string | null; colorImage: string | null; warmImages?: string[] };
 
 export default function ProductPageClient({ product, sizeChartHtml, sizeChartImage, soldCount, colorFamily = [] }: { product: P; sizeChartHtml: string | null; sizeChartImage: string | null; soldCount?: number | null; colorFamily?: ColorFamilyItem[] }) {
   const { add } = useCart();
@@ -200,6 +201,23 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [product.id]);
 
+  /* Linked color family: idle-warm each sibling color's images + prefetch its
+     PDP route, staggered (~0.8s apart, after the page settles). Clicking a
+     color thumbnail then opens an already-cached page instantly. */
+  useEffect(() => {
+    if (!colorFamily.length) return;
+    const timers: any[] = [];
+    colorFamily.forEach((c, i) => {
+      timers.push(setTimeout(() => {
+        try { router.prefetch("/products/" + c.slug); } catch {}
+        for (const im of c.warmImages || []) warmWhenIdle(im, 100);
+        warmWhenIdle(c.colorImage, 100);
+      }, 2500 + i * 800));
+    });
+    return () => timers.forEach(clearTimeout);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [colorFamily.length]);
+
   useEffect(() => {
     trackEvent("ViewContent", {
       value: price, currency: "BDT", content_name: product.title,
@@ -338,6 +356,8 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
                   <Link
                     key={c.id}
                     href={"/products/" + c.slug}
+                    onPointerEnter={() => { for (const im of c.warmImages || []) warmImage(im); if (c.colorImage) warmImage(c.colorImage); }}
+                    onTouchStart={() => { for (const im of c.warmImages || []) warmImage(im); if (c.colorImage) warmImage(c.colorImage); }}
                     className="color-swatch"
                     role="option"
                     aria-selected="false"
