@@ -16,6 +16,9 @@ type SP = { q?: string; category?: string; min?: string; max?: string; size?: st
 export const metadata = { title: "Shop All" };
 
 export default async function ProductsPage({ searchParams }: { searchParams: SP }) {
+  // ensure newer columns exist before the listing queries run
+  const { ensureExtraTables } = await import("@/lib/db-ensure");
+  await ensureExtraTables().catch(() => {});
   const s = await getSettings();
   const cfg = publicSettings(s);
   const cats = await getCategories();

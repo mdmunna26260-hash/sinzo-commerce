@@ -29,6 +29,34 @@ async function run(): Promise<void> {
       ? `ALTER TABLE "ProductVariant" ADD COLUMN IF NOT EXISTS "image" TEXT`
       : `ALTER TABLE "ProductVariant" ADD COLUMN "image" TEXT`)
     .catch(() => {});
+  // Color groups (linked color products) + Product color fields
+  await db
+    .$executeRawUnsafe(isPg
+      ? `CREATE TABLE IF NOT EXISTS "ColorGroup" (
+          "id" SERIAL PRIMARY KEY,
+          "name" TEXT NOT NULL,
+          "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )`
+      : `CREATE TABLE IF NOT EXISTS "ColorGroup" (
+          "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+          "name" TEXT NOT NULL,
+          "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )`)
+    .catch(() => {});
+  await db.$executeRawUnsafe(`CREATE UNIQUE INDEX IF NOT EXISTS "ColorGroup_name_key" ON "ColorGroup"("name")`).catch(() => {});
+  const productCols: [string, string, string][] = [
+    ["colorGroupId", isPg ? "INTEGER" : "INTEGER", ""],
+    ["colorName", isPg ? "TEXT" : "TEXT", ""],
+    ["colorImage", isPg ? "TEXT" : "TEXT", ""],
+  ];
+  for (const [col, type] of productCols) {
+    await db
+      .$executeRawUnsafe(isPg
+        ? `ALTER TABLE "Product" ADD COLUMN IF NOT EXISTS "${col}" ${type}`
+        : `ALTER TABLE "Product" ADD COLUMN "${col}" ${type}`)
+      .catch(() => {});
+  }
+  await db.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "Product_colorGroupId_idx" ON "Product"("colorGroupId")`).catch(() => {});
   // Product.soldCount (optional "Sold: N" badge) — safe for existing tables
   await db
     .$executeRawUnsafe(isPg

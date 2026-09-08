@@ -25,6 +25,9 @@ export async function generateMetadata({ params }: { params: { slug: string } })
 }
 
 export default async function PDP({ params, searchParams }: { params: { slug: string }; searchParams?: any }) {
+  // ensure newer columns (colorGroupId, soldCount, variant image etc.) exist before querying
+  const { ensureExtraTables } = await import("@/lib/db-ensure");
+  await ensureExtraTables().catch(() => {});
   const p = await db.product.findUnique({
     where: { slug: params.slug },
     include: { images: { orderBy: { position: "asc" }, select: { url: true, alt: true, position: true } }, variants: true, category: true,
