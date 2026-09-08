@@ -3,28 +3,49 @@ import { useEffect, useState } from "react";
 
 /* Admin-only error boundary.
    Most common cause on phones: a deploy happened while the tab was open —
-   the cached page references old JS chunks that no longer exist → hydration/
-   navigation throws. One automatic hard reload (cache-busting _r= param)
-   recovers silently. If it keeps failing, this card shows the REAL error
-   message (collapsible) so the exact cause is visible on the phone. */
+   the cached page references old JS chunks that no longer exist, or the
+   session data is gone. Behaviour:
+   1. The error is reported to /api/client-error (server-side log, visible in
+      Admin → Tracking) so the exact cause is known without the phone console.
+   2. One automatic hard reload (cache-busting _r=) recovers stale-chunk crashes.
+   3. If it keeps failing, this card shows the REAL error message + a direct
+      "Login page" escape (expired-session loops) and the raw error text. */
+function report(err: any, url: string) {
+  try {
+    fetch("/api/client-error", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      keepalive: true,
+      body: JSON.stringify({
+        message: err?.message || "unknown",
+        stack: err?.stack || "",
+        digest: err?.digest,
+        url,
+      }),
+    }).catch(() => {});
+  } catch {}
+}
+
 export default function AdminError({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
   const [details, setDetails] = useState("");
+  const [attempts, setAttempts] = useState(0);
 
   useEffect(() => {
     console.error("Admin client error:", error);
-    const msg = [error?.message, error?.digest ? "digest: " + error.digest : "", error?.stack?.split("\n").slice(1, 4).join("\n")]
-      .filter(Boolean).join("\n");
+    const url = typeof location !== "undefined" ? location.pathname + location.search : "";
+    report(error, url);
+    const msg = [error?.message, error?.digest ? "digest: " + error.digest : ""].filter(Boolean).join(" · ");
     setDetails(msg || "Unknown error");
 
-    let attempts: string[] = [];
-    try { attempts = JSON.parse(sessionStorage.getItem("sz_admin_err_reload") || "[]"); } catch {}
+    let keys: string[] = [];
+    try { keys = JSON.parse(sessionStorage.getItem("sz_admin_err_reload") || "[]"); } catch {}
     const key = error?.digest || error?.message?.slice(0, 80) || "unknown";
-    if (!attempts.includes(key)) {
+    if (!keys.includes(key)) {
       try {
-        attempts.push(key);
-        sessionStorage.setItem("sz_admin_err_reload", JSON.stringify(attempts.slice(-3)));
+        keys.push(key);
+        sessionStorage.setItem("sz_admin_err_reload", JSON.stringify(keys.slice(-3)));
+        setAttempts(keys.length);
       } catch {}
-      // hard reload: bypass caches so stale old-build HTML/chunks are replaced
       try {
         if (!location.search.includes("_r=")) {
           const u = new URL(window.location.href);
@@ -34,28 +55,39 @@ export default function AdminError({ error, reset }: { error: Error & { digest?:
         }
       } catch {}
       window.location.reload();
+    } else {
+      setAttempts(keys.length);
     }
   }, [error]);
 
   return (
-    <div style={{ minHeight: "70vh", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
-      <div style={{ textAlign: "center", maxWidth: 460 }}>
-        <div style={{ fontSize: 11, letterSpacing: ".18em", color: "var(--muted)", marginBottom: 8 }}>OOPS</div>
-        <h1 style={{ fontSize: 24, margin: "0 0 10px", fontFamily: "var(--font-head)" }}>Admin panel load hote pare nai</h1>
-        <p style={{ color: "var(--muted)", fontSize: 14, marginBottom: 18 }}>
-          Page reload hoyeche kintu somossa thakche. Niche error detail dekhachhe — ei message ta pathio.
-        </p>
-        <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap", marginBottom: 18 }}>
-          <button className="abtn primary" onClick={() => { try { sessionStorage.removeItem("sz_admin_err_reload"); } catch {} window.location.reload(); }}>Try Again</button>
-          <button className="abtn" onClick={() => { try { sessionStorage.removeItem("sz_admin_err_reload"); } catch {} window.location.href = "/admin/login"; }}>Login page</button>
-          <a className="abtn" href="/">Storefront</a>
+    <div style={{ minHeight: "70vh", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+      <div style={{ width: "100%", maxWidth: 480 }}>
+        <div style={{ textAlign: "center", marginBottom: 16 }}>
+          <div style={{ fontSize: 11, letterSpacing: ".18em", color: "var(--muted)", marginBottom: 8 }}>OOPS</div>
+          <h1 style={{ fontSize: 22, margin: "0 0 10px", fontFamily: "var(--font-head)" }}>Admin panel load hote pare nai</h1>
+          <p style={{ color: "var(--muted)", fontSize: 13.5, marginBottom: 16 }}>
+            {attempts > 1
+              ? "Auto-reload try korechilo, kintu somossa thakche. Niche 'Login page' diye abar login korun — beshirbhag khetre etei thik hoye jay."
+              : "Page auto-reload hoyechilo. Ekhon-o somossa thakle error detail niche dekhachhe."}
+          </p>
+        </div>
+        <div style={{ display: "grid", gap: 10, marginBottom: 16 }}>
+          <a className="abtn primary" style={{ textAlign: "center", padding: 13 }} href="/admin/login">🔑 Login page e jan</a>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+            <button className="abtn" onClick={() => { try { sessionStorage.removeItem("sz_admin_err_reload"); sessionStorage.removeItem("sz_admin_token"); document.cookie = "sz_session_fb=; path=/; max-age=0"; } catch {} window.location.href = "/admin/login"; }}>🔄 Clear session + login</button>
+            <button className="abtn" onClick={() => { try { sessionStorage.removeItem("sz_admin_err_reload"); } catch {} window.location.reload(); }}>↻ Reload page</button>
+          </div>
         </div>
         <div style={{ textAlign: "left", background: "#fff5f2", border: "1px solid #f0d7d0", borderRadius: 8, padding: 12 }}>
-          <div style={{ fontSize: 11, letterSpacing: ".14em", color: "var(--danger)", marginBottom: 6 }}>ERROR DETAIL (pathiyo):</div>
+          <div style={{ fontSize: 11, letterSpacing: ".14em", color: "var(--danger)", marginBottom: 6 }}>ERROR DETAIL (ei box ta screenshot pathio):</div>
           <pre style={{ fontSize: 11, whiteSpace: "pre-wrap", wordBreak: "break-word", margin: 0, color: "#7a2e1f", fontFamily: "monospace" }}>{details || "…"}</pre>
-          <div style={{ marginTop: 8, fontSize: 11, color: "var(--muted)" }}>
+          <div style={{ marginTop: 8, fontSize: 11, color: "var(--muted)", wordBreak: "break-all" }}>
             URL: {typeof location !== "undefined" ? location.pathname + location.search : ""}
           </div>
+        </div>
+        <div style={{ textAlign: "center", marginTop: 14 }}>
+          <a className="abtn" href="/">Storefront</a>
         </div>
       </div>
     </div>

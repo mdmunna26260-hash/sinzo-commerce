@@ -2,6 +2,14 @@
 /* Root-level error boundary — catches errors that app/error.tsx cannot
    (errors thrown in the root layout / outside page error boundaries). */
 export default function GlobalError({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
+  if (typeof window !== "undefined") {
+    try {
+      fetch("/api/client-error", {
+        method: "POST", headers: { "Content-Type": "application/json" }, keepalive: true,
+        body: JSON.stringify({ message: error?.message || "unknown (global)", stack: error?.stack || "", digest: error?.digest, url: location.pathname + location.search }),
+      }).catch(() => {});
+    } catch {}
+  }
   return (
     <html lang="en">
       <body style={{ fontFamily: "system-ui, sans-serif", background: "#faf9f7", minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
