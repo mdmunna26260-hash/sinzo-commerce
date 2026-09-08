@@ -6,6 +6,40 @@ import { useRouter } from "next/navigation";
 type V = { id?: number; size: string; color: string; sku: string; price: string; stock: string };
 type P = any;
 
+/* Linked color-variant image cell: upload (or paste URL) an image for this
+   variant; selecting that color on the PDP shows this image first. */
+function VariantImgCell({ v, i, setEdit }: { v: any; i: number; setEdit: any }) {
+  const [up, setUp] = useState(false);
+  const setImg = (url: string) => {
+    setEdit((e: any) => { const vs = [...e.variants]; vs[i] = { ...v, image: url }; return { ...e, variants: vs }; });
+  };
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+      {v.image ? (
+        <div style={{ position: "relative" }}>
+          <img src={v.image} alt="" style={{ width: 30, height: 38, objectFit: "cover", borderRadius: 3, border: "1px solid #ddd" }} />
+          <button type="button" title="Remove image" onClick={() => setImg("")} style={{ position: "absolute", top: -7, right: -7, width: 16, height: 16, borderRadius: 99, border: "none", background: "#b3392f", color: "#fff", fontSize: 10, cursor: "pointer" }}>✕</button>
+        </div>
+      ) : null}
+      <label className="abtn sm" style={{ cursor: "pointer" }} title="Upload color image">
+        {up ? "…" : "⬆"}
+        <input type="file" accept="image/*" style={{ display: "none" }} onChange={async (e) => {
+          const f = e.target.files?.[0];
+          if (!f) return;
+          setUp(true);
+          try {
+            const fd = new FormData(); fd.append("file", f);
+            const r = await fetch("/api/admin/upload", { method: "POST", body: fd });
+            const j = await r.json();
+            if (j.url) setImg(j.url); else alert(j.error || "Upload failed");
+          } catch { alert("Upload failed"); }
+          setUp(false);
+        }} />
+      </label>
+    </div>
+  );
+}
+
 const EMPTY: any = { title: "", slug: "", shortDesc: "", description: "", sku: "", price: "", comparePrice: "", cost: "", stock: "0", lowStock: "5", soldCount: "", status: "ACTIVE", featured: false, isNew: false, isBestSeller: false, badge: '', sizeChartImage: "", tags: "", categoryId: "", images: [], variants: [] };
 function DescriptionEditor({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   const ref = useRef<HTMLTextAreaElement>(null);
@@ -97,7 +131,7 @@ export default function ProductsClient({ initial, categories }: { initial: P[]; 
     price: String(p.price), comparePrice: p.comparePrice != null ? String(p.comparePrice) : "",
     cost: p.cost != null ? String(p.cost) : "", stock: String(p.stock), lowStock: String(p.lowStock),
     soldCount: p.soldCount != null ? String(p.soldCount) : "",
-    variants: p.variants.map((v: any) => ({ ...v, size: v.size || "", color: v.color || "", sku: v.sku || "", price: v.price != null ? String(v.price) : "", stock: String(v.stock) })),
+    variants: p.variants.map((v: any) => ({ ...v, size: v.size || "", color: v.color || "", sku: v.sku || "", price: v.price != null ? String(v.price) : "", stock: String(v.stock), image: v.image || "" })),
   }); };
 
   const genVariants = (kind: "alpha" | "numeric") => {
@@ -307,12 +341,14 @@ export default function ProductsClient({ initial, categories }: { initial: P[]; 
               </span>
             </div>
             {(edit.variants || []).map((v: any, i: number) => (
-              <div key={i} style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1.3fr .8fr .8fr auto", gap: 8, marginBottom: 8 }}>
+              <div key={i} style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1.3fr .8fr .8fr auto auto", gap: 8, marginBottom: 8, alignItems: "center" }}>
                 <input placeholder="Size" value={v.size} onChange={(e) => { const vs = [...edit.variants]; vs[i] = { ...v, size: e.target.value }; setEdit({ ...edit, variants: vs }); }} />
                 <input placeholder="Color" value={v.color} onChange={(e) => { const vs = [...edit.variants]; vs[i] = { ...v, color: e.target.value }; setEdit({ ...edit, variants: vs }); }} />
                 <input placeholder="SKU" value={v.sku} onChange={(e) => { const vs = [...edit.variants]; vs[i] = { ...v, sku: e.target.value }; setEdit({ ...edit, variants: vs }); }} />
                 <input placeholder="Price" type="number" value={v.price} onChange={(e) => { const vs = [...edit.variants]; vs[i] = { ...v, price: e.target.value }; setEdit({ ...edit, variants: vs }); }} />
                 <input placeholder="Stock" type="number" value={v.stock} onChange={(e) => { const vs = [...edit.variants]; vs[i] = { ...v, stock: e.target.value }; setEdit({ ...edit, variants: vs }); }} />
+                {/* linked color image: oi color select korle PDP gallery ei image dekhabe */}
+                <VariantImgCell v={v} i={i} setEdit={setEdit} />
                 <button className="abtn sm danger" type="button" onClick={() => setEdit({ ...edit, variants: edit.variants.filter((_: any, x: number) => x !== i) })}>✕</button>
               </div>
             ))}

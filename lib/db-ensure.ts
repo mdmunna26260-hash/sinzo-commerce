@@ -23,6 +23,12 @@ async function run(): Promise<void> {
       ? `ALTER TABLE "Order" ADD COLUMN IF NOT EXISTS "channel" TEXT NOT NULL DEFAULT 'vps'`
       : `ALTER TABLE "Order" ADD COLUMN "channel" TEXT NOT NULL DEFAULT 'vps'`)
     .catch(() => {});
+  // ProductVariant.image (linked color variants)
+  await db
+    .$executeRawUnsafe(isPg
+      ? `ALTER TABLE "ProductVariant" ADD COLUMN IF NOT EXISTS "image" TEXT`
+      : `ALTER TABLE "ProductVariant" ADD COLUMN "image" TEXT`)
+    .catch(() => {});
   // Product.soldCount (optional "Sold: N" badge) — safe for existing tables
   await db
     .$executeRawUnsafe(isPg

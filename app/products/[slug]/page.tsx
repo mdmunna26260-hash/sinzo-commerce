@@ -82,8 +82,14 @@ export default async function PDP({ params, searchParams }: { params: { slug: st
           product={{
             id: p.id, title: p.title, slug: p.slug, price: p.price, comparePrice: p.comparePrice,
             shortDesc: p.shortDesc, description: p.description, sku: p.sku, stock: totalStock, lowStock: p.lowStock,
-            images: p.images.map((i) => ({ url: i.url, alt: i.alt || p.title })),
-            variants: p.variants.filter((v) => v.stock > 0).map((v) => ({ id: v.id, size: v.size, color: v.color, stock: v.stock, price: v.price })),
+            // gallery = product images + any linked variant (color) images appended
+            images: [
+              ...p.images.map((i) => ({ url: i.url, alt: i.alt || p.title })),
+              ...Array.from(new Set(p.variants.filter((v) => v.stock > 0 && v.image && !p.images.some((i) => i.url === v.image)).map((v) => v.image!)))
+                .filter(Boolean)
+                .map((u) => ({ url: u, alt: `${p.title}` })),
+            ],
+            variants: p.variants.filter((v) => v.stock > 0).map((v) => ({ id: v.id, size: v.size, color: v.color, stock: v.stock, price: v.price, image: v.image || null })),
             categoryName: (p as any).category?.name,
           }}
           sizeChartHtml={(p as any).category?.sizeChart || null}

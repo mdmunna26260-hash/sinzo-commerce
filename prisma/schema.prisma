@@ -117,6 +117,7 @@ model ProductVariant {
   stock     Int     @default(0)
   barcode   String?
   productId Int
+  image     String? // linked color image — selecting this color shows this image first in the gallery
   product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
 }
 

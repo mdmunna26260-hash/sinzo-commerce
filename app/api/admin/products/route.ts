@@ -49,7 +49,7 @@ export async function POST(req: Request) {
         sizeChartImage: b.sizeChartImage || null, badge: b.badge || null, isNew: !!b.isNew, isBestSeller: !!b.isBestSeller,
         categoryId: b.categoryId ? Number(b.categoryId) : null,
         images: { create: (b.images || []).map((u: string, i: number) => ({ url: u, position: i, alt: b.title })) },
-        variants: { create: (b.variants || []).map((v: any) => ({ size: v.size || null, color: v.color || null, sku: v.sku || null, price: v.price ? Number(v.price) : null, stock: Number(v.stock) || 0 })) },
+        variants: { create: (b.variants || []).map((v: any) => ({ size: v.size || null, color: v.color || null, sku: v.sku || null, price: v.price ? Number(v.price) : null, stock: Number(v.stock) || 0, image: v.image || null })) },
       },
       include: { images: true, variants: true },
     });

@@ -9,7 +9,7 @@ import { trackRecentlyViewed } from "@/components/recently-viewed";
 import MobileGallery from "@/components/mobile-gallery";
 import SizeRecommendation from "@/components/size-rec";
 
-type V = { id: number; size: string | null; color: string | null; stock: number; price: number | null };
+type V = { id: number; size: string | null; color: string | null; stock: number; price: number | null; image?: string | null };
 type P = {
   id: number; title: string; slug: string; price: number; comparePrice: number | null;
   shortDesc?: string | null; description?: string | null; sku?: string | null;
@@ -163,6 +163,23 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
   for (const s of sizes) {
     sizeStock[s] = product.variants.find((x) => x.size === s && (!color || x.color === color))?.stock || 0;
   }
+
+  /* Linked color variants: if the selected color has a linked image, jump the
+     gallery to it (prepended at position 0 of the gallery data below). */
+  const colorImageMap = (() => {
+    const m = new Map<string, string>();
+    for (const v of product.variants) {
+      if (v.color && v.image && !m.has(v.color.toLowerCase())) m.set(v.color.toLowerCase(), v.image);
+    }
+    return m;
+  })();
+  const showColorImage = (c: string) => {
+    const url = colorImageMap.get(c.toLowerCase());
+    if (url) {
+      const i = product.images.findIndex((im) => im.url === url);
+      if (i >= 0) { warmImage(product.images[i]?.url); setImg(i); }
+    }
+  };
 
   const activeVariant = product.variants.find((v) => (!size || v.size === size) && (!color || v.color === color)) || null;
   const avail = activeVariant ? activeVariant.stock : product.variants.length ? 0 : product.stock;
@@ -323,7 +340,7 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
                 {colors.map((c) => (
                   <button key={c} title={c} aria-label={c} className={"color-dot" + (color === c ? " active" : "")}
                     style={{ background: c.toLowerCase() === "white" || c.toLowerCase() === "off-white" || c.toLowerCase() === "cream" ? "#f4f0e8" : c.toLowerCase() }}
-                    onClick={() => { setColor(c); setQty(1); }} />
+                    onClick={() => { setColor(c); setQty(1); showColorImage(c); }} />
                 ))}
               </div>
             </>

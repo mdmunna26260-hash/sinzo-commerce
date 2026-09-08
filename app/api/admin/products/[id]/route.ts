@@ -62,8 +62,8 @@ export async function PUT(req: Request, { params }: Ctx) {
     const keepIds = vs.filter((v) => v.id).map((v) => Number(v.id));
     await db.productVariant.deleteMany({ where: { productId: id, id: { notIn: keepIds } } });
     for (const v of vs) {
-      if (v.id) await db.productVariant.update({ where: { id: Number(v.id) }, data: { size: v.size || null, color: v.color || null, sku: v.sku || null, price: v.price ? Number(v.price) : null, stock: Number(v.stock) || 0 } });
-      else await db.productVariant.create({ data: { productId: id, size: v.size || null, color: v.color || null, sku: v.sku || null, price: v.price ? Number(v.price) : null, stock: Number(v.stock) || 0 } });
+      if (v.id) await db.productVariant.update({ where: { id: Number(v.id) }, data: { size: v.size || null, color: v.color || null, sku: v.sku || null, price: v.price ? Number(v.price) : null, stock: Number(v.stock) || 0, image: v.image || null } });
+      else await db.productVariant.create({ data: { productId: id, size: v.size || null, color: v.color || null, sku: v.sku || null, price: v.price ? Number(v.price) : null, stock: Number(v.stock) || 0, image: v.image || null } });
     }
     await syncCollection(id, "new-arrivals", !!b.isNew);
     await syncCollection(id, "best-sellers", !!b.isBestSeller);
