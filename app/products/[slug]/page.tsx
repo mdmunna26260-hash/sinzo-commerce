@@ -10,12 +10,32 @@ import ProductPageClient from "./client";
 import ProductPageReviewForm from "./review-form";
 import RecentlyViewedServer from "@/components/recently-viewed-server";
 import Link from "next/link";
+import { cache } from "react";
 
 export const dynamic = "force-dynamic";
 // runtime caching via CDN keeps fast; skip build-time prerender (small VPS RAM)
 
+/* TASK 01 (F2): generateMetadata and the page both need the product. React's
+   cache() dedupes the two calls into ONE database query per request.
+   Selects only the fields the PDP renders (was: full rows for variants/reviews). */
+const getProductBySlug = cache(async (slug: string) =>
+  db.product.findUnique({
+    where: { slug },
+    select: {
+      id: true, title: true, slug: true, price: true, comparePrice: true,
+      shortDesc: true, description: true, sku: true, stock: true, lowStock: true,
+      status: true, sizeChartImage: true, soldCount: true, categoryId: true,
+      images: { orderBy: { position: "asc" }, select: { url: true, alt: true } },
+      variants: { select: { id: true, size: true, color: true, stock: true, price: true } },
+      category: { select: { name: true, sizeChart: true } },
+      reviews: { where: { status: "APPROVED" }, orderBy: { createdAt: "desc" },
+        select: { id: true, name: true, rating: true, text: true, createdAt: true, verified: true, featured: true } },
+    },
+  })
+);
+
 export async function generateMetadata({ params }: { params: { slug: string } }) {
-  const p = await db.product.findUnique({ where: { slug: params.slug }, include: { images: true } });
+  const p = await getProductBySlug(params.slug);
   if (!p) return { title: "Product not found" };
   return {
     title: p.title,
@@ -25,11 +45,7 @@ export async function generateMetadata({ params }: { params: { slug: string } })
 }
 
 export default async function PDP({ params, searchParams }: { params: { slug: string }; searchParams?: any }) {
-  const p = await db.product.findUnique({
-    where: { slug: params.slug },
-    include: { images: { orderBy: { position: "asc" }, select: { url: true, alt: true, position: true } }, variants: true, category: true,
-      reviews: { where: { status: "APPROVED" }, orderBy: { createdAt: "desc" } } },
-  });
+  const p = await getProductBySlug(params.slug);
   if (!p || p.status === "ARCHIVED") notFound();
 
   await db.product.update({ where: { id: p.id }, data: { views: { increment: 1 } } }).catch(() => {});
@@ -84,9 +100,9 @@ export default async function PDP({ params, searchParams }: { params: { slug: st
             shortDesc: p.shortDesc, description: p.description, sku: p.sku, stock: totalStock, lowStock: p.lowStock,
             images: p.images.map((i) => ({ url: i.url, alt: i.alt || p.title })),
             variants: p.variants.filter((v) => v.stock > 0).map((v) => ({ id: v.id, size: v.size, color: v.color, stock: v.stock, price: v.price })),
-            categoryName: (p as any).category?.name,
+            categoryName: p.category?.name,
           }}
-          sizeChartHtml={(p as any).category?.sizeChart || null}
+          sizeChartHtml={p.category?.sizeChart || null}
         />
         {/* Reviews */}
         <section className="reviews">

@@ -1,19 +1,43 @@
 import { db } from "@/lib/db";
+import { unstable_cache } from "next/cache";
 import { getSettings, publicSettings } from "@/lib/settings";
 import { getCategories } from "@/lib/catalog";
 import { Header, Footer, Announcement } from "@/components/chrome";
-import { ProductCard } from "@/components/parts";
 import { ProductGridSkeleton, Skeleton } from "@/components/loading-ui";
 import { Suspense } from "react";
 import ShopLayout from "./shop-layout";
 import InfiniteGrid from "./infinite-grid";
 import Link from "next/link";
+import { PAGE_SIZE, listProducts } from "@/lib/product-listing";
 
 export const dynamic = "force-dynamic";
 
 type SP = { q?: string; category?: string; min?: string; max?: string; size?: string; color?: string; avail?: string; sort?: string; onsale?: string };
 
 export const metadata = { title: "Shop All" };
+
+/* TASK 01: filter-independent aggregates (category counts + size facets) are
+   cached for 60s instead of two DB scans on every visit. Auto-refreshes;
+   admin product saves also revalidate the tag (see /api/admin/products). */
+const getListingAggregates = unstable_cache(
+  async () => {
+    const catCounts = await db.product.groupBy({ by: ["categoryId"], where: { status: "ACTIVE" }, _count: { _all: true } });
+    const vsRows = await db.productVariant.findMany({
+      where: { stock: { gt: 0 }, product: { status: "ACTIVE" } },
+      select: { size: true }, distinct: ["size"],
+    });
+    const allSizes = vsRows.map((v) => v.size).filter((s): s is string => !!s)
+      .sort((a, b) => (/^\d+$/.test(a) && /^\d+$/.test(b) ? Number(a) - Number(b) : a.localeCompare(b)));
+    const countMap = new Map(catCounts.map((c) => [c.categoryId, c._count._all]));
+    return {
+      countMap: Array.from(countMap.entries()) as [number, number][],
+      activeTotal: catCounts.reduce((a, c) => a + c._count._all, 0),
+      allSizes,
+    };
+  },
+  ["listing-aggregates-v1"],
+  { revalidate: 60, tags: ["listing-aggregates"] }
+);
 
 export default async function ProductsPage({ searchParams }: { searchParams: SP }) {
   const s = await getSettings();
@@ -28,16 +52,8 @@ export default async function ProductsPage({ searchParams }: { searchParams: SP 
     if (slug) params.set("category", slug);
     return "/products" + (params.toString() ? "?" + params.toString() : "");
   };
-  const catCounts = await db.product.groupBy({ by: ["categoryId"], where: { status: "ACTIVE" }, _count: { _all: true } });
-  const countMap = new Map(catCounts.map((c) => [c.categoryId, c._count._all]));
-  const activeTotal = catCounts.reduce((a, c) => a + c._count._all, 0);
-  // real variant sizes across active products (natural sort: 28…40, then S…XL)
-  const vsRows = await db.productVariant.findMany({
-    where: { stock: { gt: 0 }, product: { status: "ACTIVE" } },
-    select: { size: true }, distinct: ["size"],
-  });
-  const allSizes = vsRows.map((v) => v.size).filter((s): s is string => !!s)
-    .sort((a, b) => (/^\d+$/.test(a) && /^\d+$/.test(b) ? Number(a) - Number(b) : a.localeCompare(b)));
+  const agg = await getListingAggregates();
+  const countMap = new Map(agg.countMap);
 
   return (
     <>
@@ -51,7 +67,7 @@ export default async function ProductsPage({ searchParams }: { searchParams: SP 
 
         {/* quick category pills — always visible, never re-loads */}
         <div className="cat-pills">
-          <Link className={"cat-pill" + (!sp.category ? " active" : "")} href={qpill(undefined)}>All{activeTotal ? ` (${activeTotal})` : ""}</Link>
+          <Link className={"cat-pill" + (!sp.category ? " active" : "")} href={qpill(undefined)}>All{agg.activeTotal ? ` (${agg.activeTotal})` : ""}</Link>
           {cats.map((c) => (
             <Link key={c.slug} className={"cat-pill" + (sp.category === c.slug ? " active" : "")} href={qpill(c.slug)}>{c.name}{countMap.get(c.id) ? ` (${countMap.get(c.id)})` : ""}</Link>
           ))}
@@ -60,7 +76,7 @@ export default async function ProductsPage({ searchParams }: { searchParams: SP 
         {/* Only the RESULTS area enters a loading state when filters/search/sort
             change — header, pills, filter controls all stay mounted (no flash). */}
         <Suspense key={JSON.stringify(sp)} fallback={<ResultsFallback />}>
-          <Results sp={sp} cats={cats} sizes={allSizes} />
+          <Results sp={sp} cats={cats} sizes={agg.allSizes} />
         </Suspense>
       </div>
       <Footer cfg={{ ...cfg, _nav: { categories: cats.map((c) => ({ name: c.name, slug: c.slug })) } }} />
@@ -81,59 +97,16 @@ function ResultsFallback() {
   );
 }
 
-/* The data-dependent part: products query + toolbar/filters + grid */
+/* The data-dependent part: one indexed DB query (filter + sort + paginate in
+   the DATABASE, take PAGE_SIZE) + toolbar/filters + grid.
+  TASK 01: previously this loaded the ENTIRE matching catalog into Node and
+   filtered size/color in memory — now the database does all of it. */
 async function Results({ sp, cats, sizes }: { sp: SP; cats: { id: number; name: string; slug: string }[]; sizes: string[] }) {
-  const where: any = { status: "ACTIVE" };
-  if (sp.q) {
-    const q = sp.q.trim();
-    where.OR = [
-      { title: { contains: q } }, { description: { contains: q } }, { shortDesc: { contains: q } },
-      { tags: { contains: q } }, { sku: { contains: q } },
-    ];
-  }
-  if (sp.category) {
-    const c = cats.find((x) => x.slug === sp.category);
-    if (c) where.categoryId = c.id;
-  }
-  if (sp.min || sp.max) {
-    where.price = {};
-    if (sp.min) where.price.gte = parseFloat(sp.min);
-    if (sp.max) where.price.lte = parseFloat(sp.max);
-  }
-  if (sp.onsale === "1") where.comparePrice = { not: null, gt: 0 };
-  if (sp.avail === "1") where.stock = { gt: 0 };
-
-  const orderBy: any =
-    sp.sort === "price_asc" ? { price: "asc" } :
-    sp.sort === "price_desc" ? { price: "desc" } :
-    sp.sort === "popular" ? { views: "desc" } :
-    sp.sort === "new" ? { createdAt: "desc" } :
-    sp.sort === "oldest" ? { createdAt: "asc" } :
-    [{ position: "asc" }, { id: "desc" }]; // default = admin drag&drop order
-
-  const totalMatching = await db.product.count({ where });
-  // select only card fields — descriptions/tags/sku stay on the server,
-  // keeping the transferred page payload small on mobile connections
-  let products = await db.product.findMany({
-    where, orderBy,
-    select: {
-      id: true, title: true, slug: true, price: true, comparePrice: true, stock: true,
-      badge: true, isNew: true, isBestSeller: true,
-      category: { select: { name: true } },
-      images: { select: { url: true }, orderBy: { position: "asc" }, take: 1 },
-      variants: { select: { size: true, color: true, stock: true } },
-    },
-  });
-
-  if (sp.size) {
-    products = products.filter((p) => p.variants.some((v) => v.size === sp.size && v.stock > 0));
-  }
-  if (sp.color) {
-    products = products.filter((p) => p.variants.some((v) => (v.color || "").toLowerCase() === sp.color!.toLowerCase() && v.stock > 0));
-  }
+  const activeCat = cats.find((x) => x.slug === sp.category);
+  const { total, products, hasMore } = await listProducts(sp, 1, activeCat?.id);
 
   const activeChips: { label: string; patch: Record<string, string | undefined> }[] = [];
-  if (sp.category && cats.find((c) => c.slug === sp.category)) activeChips.push({ label: cats.find((c) => c.slug === sp.category)!.name, patch: { category: undefined } });
+  if (sp.category && activeCat) activeChips.push({ label: activeCat.name, patch: { category: undefined } });
   if (sp.size) activeChips.push({ label: "Size " + sp.size, patch: { size: undefined } });
   if (sp.min) activeChips.push({ label: "৳" + sp.min + "+", patch: { min: undefined } });
   if (sp.max) activeChips.push({ label: "≤ ৳" + sp.max, patch: { max: undefined } });
@@ -148,7 +121,7 @@ async function Results({ sp, cats, sizes }: { sp: SP; cats: { id: number; name: 
   };
 
   return (
-    <ShopLayout count={totalMatching} cats={cats.map((c) => ({ name: c.name, slug: c.slug }))} sizes={sizes}>
+    <ShopLayout count={total} cats={cats.map((c) => ({ name: c.name, slug: c.slug }))} sizes={sizes}>
       {activeChips.length > 0 && (
         <div className="chips">
           {activeChips.map((c) => (
@@ -165,13 +138,13 @@ async function Results({ sp, cats, sizes }: { sp: SP; cats: { id: number; name: 
           <br /><Link className="btn btn-outline" href="/products">Clear filters</Link>
         </div>
       ) : (
-        <InfiniteGrid products={products.map((p) => ({
-          id: p.id, title: p.title, slug: p.slug, price: p.price, comparePrice: p.comparePrice,
-          image: p.images?.[0]?.url, categoryName: p.category?.name, stock: Math.max(p.stock, p.variants.reduce((s, v) => s + v.stock, 0)),
-          isNew: p.isNew, isBestSeller: p.isBestSeller, badge: p.badge,
-          colors: Array.from(new Set(p.variants.filter((v) => v.stock > 0 && v.color).map((v) => v.color!))),
-          sizes: [...new Set(p.variants.filter((v) => v.stock > 0 && v.size).map((v) => v.size!))].sort(),
-        }))} />
+        <InfiniteGrid
+          products={products}
+          total={total}
+          hasMore={hasMore}
+          sp={{ q: sp.q, category: sp.category, min: sp.min, max: sp.max, size: sp.size, color: sp.color, avail: sp.avail, sort: sp.sort, onsale: sp.onsale }}
+          pageSize={PAGE_SIZE}
+        />
       )}
     </ShopLayout>
   );
