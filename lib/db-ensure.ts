@@ -36,28 +36,6 @@ async function run(): Promise<void> {
       : `ALTER TABLE "OrderItem" ADD COLUMN "variantId" INTEGER`)
     .catch(() => {});
   if (isPg) {
-    /* TASK 01 performance indexes (listing filters/sorts + search).
-       Prisma's db push creates these on fresh databases; these IF NOT EXISTS
-       statements add them to the already-running production database. */
-    const idx: [string, string][] = [
-      ["Product_status_position_id_idx", `CREATE INDEX IF NOT EXISTS "Product_status_position_id_idx" ON "Product"("status","position","id")`],
-      ["Product_status_price_idx", `CREATE INDEX IF NOT EXISTS "Product_status_price_idx" ON "Product"("status","price")`],
-      ["Product_status_views_idx", `CREATE INDEX IF NOT EXISTS "Product_status_views_idx" ON "Product"("status","views")`],
-      ["Product_status_createdAt_idx", `CREATE INDEX IF NOT EXISTS "Product_status_createdAt_idx" ON "Product"("status","createdAt")`],
-      ["Product_status_categoryId_idx", `CREATE INDEX IF NOT EXISTS "Product_status_categoryId_idx" ON "Product"("status","categoryId")`],
-      ["ProductVariant_productId_idx", `CREATE INDEX IF NOT EXISTS "ProductVariant_productId_idx" ON "ProductVariant"("productId")`],
-      ["ProductVariant_size_stock_idx", `CREATE INDEX IF NOT EXISTS "ProductVariant_size_stock_idx" ON "ProductVariant"("size","stock")`],
-      ["ProductImage_productId_idx", `CREATE INDEX IF NOT EXISTS "ProductImage_productId_idx" ON "ProductImage"("productId")`],
-    ];
-    for (const [, sql] of idx) await db.$executeRawUnsafe(sql).catch(() => {});
-    /* trigram indexes: make LIKE '%q%' search (title/tags/sku/shortDesc/description)
-       index-assisted instead of a sequential scan. One-time extension create. */
-    await db.$executeRawUnsafe(`CREATE EXTENSION IF NOT EXISTS pg_trgm`).catch(() => {});
-    for (const col of ["title", "tags", "sku", "shortDesc", "description"]) {
-      await db.$executeRawUnsafe(
-        `CREATE INDEX IF NOT EXISTS "Product_${col}_trgm_idx" ON "Product" USING gin ("${col}" gin_trgm_ops)`
-      ).catch(() => {});
-    }
     await db.$executeRawUnsafe(
       `CREATE TABLE IF NOT EXISTS "PushSubscription" (
         "id" SERIAL PRIMARY KEY,

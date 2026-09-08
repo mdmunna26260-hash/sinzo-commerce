@@ -50,7 +50,6 @@ export async function POST(req: Request) {
     await syncCollection(product.id, "new-arrivals", true);
     await syncCollection(product.id, "best-sellers", !!b.isBestSeller);
     await logAudit(g.user.email, "PRODUCT_CREATED", `${product.title} (#${product.id})`);
-      try { const { revalidateTag, revalidatePath } = await import("next/cache"); revalidateTag("listing-aggregates"); revalidatePath("/products"); } catch {}
-return NextResponse.json({ ok: true, product });
+    return NextResponse.json({ ok: true, product });
   } catch (e: any) { return NextResponse.json({ error: e?.message || "Server error" }, { status: 500 }); }
 }

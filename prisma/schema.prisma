@@ -87,12 +87,6 @@ model Product {
   isBestSeller   Boolean          @default(false) // -> Best Sellers collection + badge
   createdAt   DateTime           @default(now())
   updatedAt   DateTime           @updatedAt
-
-  @@index([status, position, id])
-  @@index([status, price])
-  @@index([status, views])
-  @@index([status, createdAt])
-  @@index([status, categoryId])
 }
 
 model Notification {
@@ -112,8 +106,6 @@ model ProductImage {
   position  Int     @default(0)
   productId Int
   product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
-
-  @@index([productId])
 }
 
 model ProductVariant {
@@ -126,9 +118,6 @@ model ProductVariant {
   barcode   String?
   productId Int
   product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
-
-  @@index([productId])
-  @@index([size, stock])
 }
 
 model Customer {

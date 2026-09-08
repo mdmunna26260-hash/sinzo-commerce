@@ -68,8 +68,7 @@ export async function PUT(req: Request, { params }: Ctx) {
     await syncCollection(id, "new-arrivals", !!b.isNew);
     await syncCollection(id, "best-sellers", !!b.isBestSeller);
     await logAudit(g.user.email, "PRODUCT_UPDATED", `${b.title} (#${id}) price: ${before.price} → ${b.price}`);
-      try { const { revalidateTag, revalidatePath } = await import("next/cache"); revalidateTag("listing-aggregates"); revalidatePath("/products"); } catch {}
-return NextResponse.json({ ok: true });
+    return NextResponse.json({ ok: true });
   } catch (e: any) { return NextResponse.json({ error: e?.message || "Server error" }, { status: 500 }); }
 }
 export async function DELETE(req: Request, { params }: Ctx) {
