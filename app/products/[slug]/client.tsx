@@ -14,10 +14,12 @@ type P = {
   id: number; title: string; slug: string; price: number; comparePrice: number | null;
   shortDesc?: string | null; description?: string | null; sku?: string | null;
   stock: number; lowStock: number; images: { url: string; alt: string }[];
-  variants: V[]; categoryName?: string;
+  variants: V[]; categoryName?: string; colorName?: string | null; colorImage?: string | null;
 };
 
-export default function ProductPageClient({ product, sizeChartHtml, sizeChartImage, soldCount }: { product: P; sizeChartHtml: string | null; sizeChartImage: string | null; soldCount?: number | null }) {
+type ColorFamilyItem = { id: number; slug: string; colorName: string | null; colorImage: string | null };
+
+export default function ProductPageClient({ product, sizeChartHtml, sizeChartImage, soldCount, colorFamily = [] }: { product: P; sizeChartHtml: string | null; sizeChartImage: string | null; soldCount?: number | null; colorFamily?: ColorFamilyItem[] }) {
   const { add } = useCart();
   const router = useRouter();
   const wishlist = useWishlist();
@@ -314,6 +316,42 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
             </div>
           )}
           {product.shortDesc && <p className="pdp-desc">{product.shortDesc}</p>}
+
+          {/* ---- COLOR FAMILY selector (linked products, real navigation) ---- */}
+          {colorFamily.length > 0 && (
+            <div className="color-family">
+              <div className="opt-label">Color {product.colorName ? <span style={{ textTransform: "none", letterSpacing: 0 }}>— {product.colorName}</span> : null}</div>
+              <div className="color-family-row" role="listbox" aria-label="Color">
+                <Link
+                  href={"/products/" + product.slug}
+                  className="color-swatch active"
+                  role="option"
+                  aria-selected="true"
+                  aria-label={`${product.colorName || product.title} (current)`}
+                  title={`${product.colorName || product.title} (current)`}
+                >
+                  {product.colorImage
+                    ? <img src={imgSrc(product.colorImage, 300) || product.colorImage} alt={product.colorName || product.title} width={44} height={44} loading="lazy" decoding="async" />
+                    : <span className="color-swatch-fallback" aria-hidden>{(product.colorName || "?").slice(0, 1)}</span>}
+                </Link>
+                {colorFamily.map((c) => (
+                  <Link
+                    key={c.id}
+                    href={"/products/" + c.slug}
+                    className="color-swatch"
+                    role="option"
+                    aria-selected="false"
+                    aria-label={`${c.colorName || c.slug}`}
+                    title={c.colorName || c.slug}
+                  >
+                    {c.colorImage
+                      ? <img src={imgSrc(c.colorImage, 300) || c.colorImage} alt={c.colorName || c.slug} width={44} height={44} loading="lazy" decoding="async" />
+                      : <span className="color-swatch-fallback" aria-hidden>{(c.colorName || "?").slice(0, 1)}</span>}
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
 
           {sizes.length > 0 && (
             <>

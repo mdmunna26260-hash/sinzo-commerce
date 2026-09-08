@@ -1682,3 +1682,36 @@ input::placeholder, textarea::placeholder { color: #b0aaa1; }
   font-size: 11.5px; cursor: pointer; padding: 4px 2px;
   text-decoration: underline; text-underline-offset: 3px;
 }
+
+/* ================================================================
+   COLOR FAMILY SELECTOR — linked color products (circular swatches)
+   ================================================================ */
+.color-family { margin: 2px 0 14px; }
+.color-family-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.color-swatch {
+  position: relative;
+  width: 44px;
+  height: 44px;
+  border-radius: 99px;
+  overflow: hidden;
+  border: 1.5px solid var(--line);
+  padding: 0;
+  background: #eee9e2;
+  cursor: pointer;
+  transition: border-color .2s ease, box-shadow .2s ease, transform .15s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.color-swatch img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.color-swatch:hover { transform: scale(1.06); }
+.color-swatch.active {
+  border: 2px solid var(--text);
+  box-shadow: 0 0 0 3px var(--bg), 0 0 0 4.5px var(--text);
+}
+.color-swatch:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.color-swatch-fallback { font-size: 15px; font-weight: 700; color: var(--muted); }
+@media (max-width: 600px) {
+  .color-swatch { width: 40px; height: 40px; }
+  .color-family-row { gap: 10px; }
+}

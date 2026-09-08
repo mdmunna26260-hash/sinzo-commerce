@@ -89,8 +89,21 @@ model Product {
   badge          String?
   isNew          Boolean          @default(false) // -> New Arrivals collection + badge
   isBestSeller   Boolean          @default(false) // -> Best Sellers collection + badge
+  colorGroupId Int?              // linked color family (null = standalone product)
+  colorName    String?           // this product's color label (e.g. Black) for the selector
+  colorImage   String?           // circular swatch thumbnail in the color selector
+  colorGroup   ColorGroup?       @relation(fields: [colorGroupId], references: [id], onDelete: SetNull)
   createdAt   DateTime           @default(now())
   updatedAt   DateTime           @updatedAt
+
+  @@index([colorGroupId])
+}
+
+model ColorGroup {
+  id        Int       @id @default(autoincrement())
+  name      String    @unique
+  createdAt DateTime  @default(now())
+  products  Product[]
 }
 
 model Notification {

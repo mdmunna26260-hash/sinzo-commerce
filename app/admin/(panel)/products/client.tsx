@@ -40,7 +40,7 @@ function VariantImgCell({ v, i, setEdit }: { v: any; i: number; setEdit: any }) 
   );
 }
 
-const EMPTY: any = { title: "", slug: "", shortDesc: "", description: "", sku: "", price: "", comparePrice: "", cost: "", stock: "0", lowStock: "5", soldCount: "", status: "ACTIVE", featured: false, isNew: false, isBestSeller: false, badge: '', sizeChartImage: "", tags: "", categoryId: "", images: [], variants: [] };
+const EMPTY: any = { title: "", slug: "", shortDesc: "", description: "", sku: "", price: "", comparePrice: "", cost: "", stock: "0", lowStock: "5", soldCount: "", status: "ACTIVE", featured: false, isNew: false, isBestSeller: false, badge: '', sizeChartImage: "", tags: "", categoryId: "", images: [], variants: [], colorGroupId: "", colorName: "", colorImage: "" };
 function DescriptionEditor({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   const ref = useRef<HTMLTextAreaElement>(null);
   const wrap = (before: string, after: string) => {
@@ -83,6 +83,14 @@ export default function ProductsClient({ initial, categories }: { initial: P[]; 
   const router = useRouter();
   const [q, setQ] = useState("");
   const [edit, setEdit] = useState<any | null>(null);
+  const [colorGroups, setColorGroups] = useState<any[]>([]);
+
+  const loadColorGroups = () => {
+    afetch("/api/admin/color-groups")
+      .then((r) => r.json())
+      .then((j) => setColorGroups(j.groups || []))
+      .catch(() => {});
+  };
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
   const [slugTouched, setSlugTouched] = useState(false);
@@ -121,9 +129,10 @@ export default function ProductsClient({ initial, categories }: { initial: P[]; 
     persistOrder(next);
   };
 
-  const openNew = () => { setSlugTouched(false); setEdit({ ...EMPTY }); };
+  const openNew = () => { setSlugTouched(false); setEdit({ ...EMPTY }); loadColorGroups(); };
   const openEdit = (p: P) => {
     setSlugTouched(true);
+    loadColorGroups();
     // Map old isNew/isBestSeller to badge for backwards compatibility
     const badge = p.badge || (p.isBestSeller ? "hot" : p.isNew ? "new" : "");
     setEdit({
@@ -131,6 +140,9 @@ export default function ProductsClient({ initial, categories }: { initial: P[]; 
     price: String(p.price), comparePrice: p.comparePrice != null ? String(p.comparePrice) : "",
     cost: p.cost != null ? String(p.cost) : "", stock: String(p.stock), lowStock: String(p.lowStock),
     soldCount: p.soldCount != null ? String(p.soldCount) : "",
+    colorGroupId: p.colorGroupId != null ? String(p.colorGroupId) : "",
+    colorName: p.colorName || "",
+    colorImage: p.colorImage || "",
     variants: p.variants.map((v: any) => ({ ...v, size: v.size || "", color: v.color || "", sku: v.sku || "", price: v.price != null ? String(v.price) : "", stock: String(v.stock), image: v.image || "" })),
   }); };
 
@@ -185,6 +197,9 @@ export default function ProductsClient({ initial, categories }: { initial: P[]; 
       price: Number(edit.price), comparePrice: edit.comparePrice ? Number(edit.comparePrice) : null,
       cost: edit.cost ? Number(edit.cost) : null, stock: Number(edit.stock || 0), lowStock: Number(edit.lowStock || 5),
       soldCount: edit.soldCount === "" || edit.soldCount == null ? null : Math.max(0, Number(edit.soldCount)),
+      colorGroupId: edit.colorGroupId ? Number(edit.colorGroupId) : null,
+      colorName: edit.colorName ? String(edit.colorName).trim().slice(0, 40) : null,
+      colorImage: edit.colorImage || null,
       categoryId: edit.categoryId ? Number(edit.categoryId) : null,
       variants: (edit.variants || []).map((v: any) => ({ ...v, price: v.price ? Number(v.price) : null, stock: Number(v.stock || 0) })),
     };
@@ -352,6 +367,77 @@ export default function ProductsClient({ initial, categories }: { initial: P[]; 
                 <button className="abtn sm danger" type="button" onClick={() => setEdit({ ...edit, variants: edit.variants.filter((_: any, x: number) => x !== i) })}>✕</button>
               </div>
             ))}
+
+            {/* ---- COLOR GROUP (linked color products) ---- */}
+            <div className="af full" style={{ marginTop: 18, borderTop: "1px solid #eeedea", paddingTop: 14 }}>
+              <label style={{ fontWeight: 600, fontSize: 13.5 }}>Color Group (linked color products)</label>
+              <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 4, marginBottom: 10 }}>
+                Ek rokom product er different color alada product hishebe thakbe (alada URL, stock, size) — kintu product page e circular color thumbnail diye linked thakbe. Khali rakhle kono link hobe na.
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 8 }}>
+                <select
+                  value={edit.colorGroupId || ""}
+                  onChange={(e) => setEdit({ ...edit, colorGroupId: e.target.value })}
+                >
+                  <option value="">— No color group (standalone) —</option>
+                  {(colorGroups || []).map((cg: any) => (
+                    <option key={cg.id} value={String(cg.id)}>{cg.name} ({(cg.products || []).length} color{((cg.products || []).length) === 1 ? "" : "s"})</option>
+                  ))}
+                </select>
+                <button type="button" className="abtn" onClick={() => {
+                  const name = prompt("Notun color group er naam din (e.g. Double Vest Khadi Shirt):");
+                  if (!name || name.trim().length < 2) return;
+                  fetch("/api/admin/color-groups", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: name.trim() }) })
+                    .then((r) => r.json())
+                    .then((j) => {
+                      if (!j.group) { alert(j.error || "Failed"); return; }
+                      setColorGroups((cur: any[]) => [{ ...j.group, products: [] }, ...(cur || [])]);
+                      setEdit((e: any) => ({ ...e, colorGroupId: String(j.group.id) }));
+                      alert("Color group created ✓ — ekhon ei group er onno product gulote same group select korun.");
+                    })
+                    .catch(() => alert("Failed"));
+                }}>+ New group</button>
+              </div>
+              {edit.colorGroupId && (
+                <div style={{ marginTop: 12, display: "grid", gridTemplateColumns: "1fr auto", gap: 8, alignItems: "start" }}>
+                  <div>
+                    <label style={{ fontSize: 12, color: "var(--muted)" }}>This product's color label (thumbnail er niche / alt text e dekhabe)</label>
+                    <input value={edit.colorName || ""} onChange={(e) => setEdit({ ...edit, colorName: e.target.value })} placeholder="e.g. Black" style={{ width: "100%", marginTop: 4 }} />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 12, color: "var(--muted)" }}>Color thumbnail (circular swatch)</label>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4 }}>
+                      {edit.colorImage ? (
+                        <div style={{ position: "relative" }}>
+                          <img src={edit.colorImage} alt="" style={{ width: 44, height: 44, borderRadius: 99, objectFit: "cover", border: "2px solid #ddd" }} />
+                          <button type="button" onClick={() => setEdit({ ...edit, colorImage: "" })} style={{ position: "absolute", top: -6, right: -6, width: 18, height: 18, borderRadius: 99, border: "none", background: "#b3392f", color: "#fff", fontSize: 11, cursor: "pointer" }}>✕</button>
+                        </div>
+                      ) : <div style={{ width: 44, height: 44, borderRadius: 99, border: "1px dashed #ccc" }} />}
+                      <label className="abtn sm" style={{ cursor: "pointer" }}>
+                        ⬆ Upload
+                        <input type="file" accept="image/*" style={{ display: "none" }} onChange={async (e) => {
+                          const f = e.target.files?.[0];
+                          if (!f) return;
+                          try {
+                            const fd = new FormData(); fd.append("file", f);
+                            const r = await fetch("/api/admin/upload", { method: "POST", body: fd });
+                            const j = await r.json();
+                            if (j.url) setEdit({ ...edit, colorImage: j.url }); else alert(j.error || "Upload failed");
+                          } catch { alert("Upload failed"); }
+                        }} />
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              )}
+              {edit.colorGroupId && (
+                <div style={{ marginTop: 10, fontSize: 12.5, color: "var(--muted)" }}>
+                  {(colorGroups || []).find((cg: any) => String(cg.id) === String(edit.colorGroupId))?.products?.length
+                    ? "Linked products: " + (colorGroups || []).find((cg: any) => String(cg.id) === String(edit.colorGroupId))!.products.map((pp: any) => pp.colorName || pp.title).join(", ")
+                    : "Ei group e ekhono onno product nai — onno color product gulote ei group select korlei linked hobe."}
+                </div>
+              )}
+            </div>
 
             <div className="af full" style={{ marginTop: 16 }}>
               <label>Size chart image (optional — product page-er "Size chart" button e dekhabe)</label>

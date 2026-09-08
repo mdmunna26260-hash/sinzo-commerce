@@ -33,6 +33,9 @@ export async function PUT(req: Request, { params }: Ctx) {
     if (!before) return NextResponse.json({ error: "Not found" }, { status: 404 });
     const data: any = {
       soldCount: b.soldCount === "" || b.soldCount == null ? null : Math.max(0, Number(b.soldCount)),
+      colorGroupId: b.colorGroupId ? Number(b.colorGroupId) : null,
+      colorName: b.colorName ? String(b.colorName).trim().slice(0, 40) : null,
+      colorImage: b.colorImage || null,
       title: b.title, shortDesc: b.shortDesc || null, description: b.description || null,
       sku: b.sku || null, barcode: b.barcode || null,
       price: Number(b.price) || 0, comparePrice: b.comparePrice ? Number(b.comparePrice) : null,

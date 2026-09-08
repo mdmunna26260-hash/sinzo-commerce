@@ -32,6 +32,18 @@ export default async function PDP({ params, searchParams }: { params: { slug: st
   });
   if (!p || p.status === "ARCHIVED") notFound();
 
+  // TASK: color family — DB-side query on indexed colorGroupId, selector fields only
+  let colorFamily: { id: number; slug: string; colorName: string | null; colorImage: string | null }[] = [];
+  if (p.colorGroupId) {
+    const fam = await db.product.findMany({
+      where: { colorGroupId: p.colorGroupId, status: "ACTIVE", id: { not: p.id } },
+      select: { id: true, slug: true, colorName: true, colorImage: true },
+      orderBy: { id: "asc" },
+      take: 12,
+    });
+    colorFamily = fam;
+  }
+
   await db.product.update({ where: { id: p.id }, data: { views: { increment: 1 } } }).catch(() => {});
 
   const s = await getSettings();
@@ -90,9 +102,12 @@ export default async function PDP({ params, searchParams }: { params: { slug: st
                 .map((u) => ({ url: u, alt: `${p.title}` })),
             ],
             variants: p.variants.filter((v) => v.stock > 0).map((v) => ({ id: v.id, size: v.size, color: v.color, stock: v.stock, price: v.price, image: v.image || null })),
-            categoryName: (p as any).category?.name,
+            categoryName: p.category?.name,
+            colorName: p.colorName,
+            colorImage: p.colorImage,
           }}
-          sizeChartHtml={(p as any).category?.sizeChart || null}
+          sizeChartHtml={p.category?.sizeChart || null}
+          colorFamily={colorFamily}
         />
         {/* Reviews */}
         <section className="reviews">
