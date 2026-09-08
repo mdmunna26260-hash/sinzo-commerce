@@ -14,10 +14,7 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 5,
   viewportFit: "cover",
-  themeColor: [
-    { media: "(prefers-color-scheme: dark)", color: "#0e0d0c" },
-    { media: "(prefers-color-scheme: light)", color: "#faf9f7" },
-  ],
+  themeColor: "#faf9f7",
 };
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -74,11 +71,6 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     <html lang="en">
       <head>
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `(function(){try{var pref=${JSON.stringify(theme.darkMode || "system")};var t=localStorage.getItem("sz_theme");var m=window.matchMedia("(prefers-color-scheme: dark)").matches;var d=pref==="dark"?true:pref==="light"?false:(t?t==="dark":m);document.documentElement.setAttribute("data-theme",d?"dark":"light");}catch(e){}})();`,
-          }}
-        />
         <style dangerouslySetInnerHTML={{ __html: cssVars }} />
         <link rel="manifest" href="/manifest.webmanifest" />
         <link rel="icon" href="/icon-192.png" sizes="192x192" type="image/png" />
