@@ -20,7 +20,40 @@ type P = {
 
 type ColorFamilyItem = { id: number; slug: string; colorName: string | null; colorImage: string | null; warmImages?: string[] };
 
-export default function ProductPageClient({ product, sizeChartHtml, sizeChartImage, soldCount, colorFamily = [] }: { product: P; sizeChartHtml: string | null; sizeChartImage: string | null; soldCount?: number | null; colorFamily?: ColorFamilyItem[] }) {
+function Countdown({ ends }: { ends: string }) {
+  const [left, setLeft] = useState<number | null>(null);
+  useEffect(() => {
+    const end = new Date(ends).getTime();
+    const tick = () => {
+      const d = end - Date.now();
+      setLeft(d > 0 ? d : 0);
+    };
+    tick();
+    const iv = setInterval(tick, 1000);
+    return () => clearInterval(iv);
+  }, [ends]);
+  if (left == null || left <= 0) return null;
+  const h = Math.floor(left / 3600000);
+  const m = Math.floor((left % 3600000) / 60000);
+  const s = Math.floor((left % 60000) / 1000);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const unit = (v: number, l: string) => (
+    <span style={{ textAlign: "center" }}>
+      <b style={{ display: "block", fontSize: 16, fontVariantNumeric: "tabular-nums", minWidth: 30 }}>{pad(v)}</b>
+      <i style={{ fontStyle: "normal", fontSize: 9, letterSpacing: ".1em", color: "var(--muted)" }}>{l}</i>
+    </span>
+  );
+  return (
+    <div style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "#fdf0ee", border: "1px solid #f3d9d3", borderRadius: 10, padding: "8px 14px", margin: "0 0 10px" }}>
+      <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: ".1em", color: "var(--danger)", textTransform: "uppercase" }}>Sale ends</span>
+      <span style={{ display: "inline-flex", gap: 6 }}>
+        {unit(h, "HRS")}{unit(m, "MIN")}{unit(s, "SEC")}
+      </span>
+    </div>
+  );
+}
+
+export default function ProductPageClient({ product, sizeChartHtml, sizeChartImage, soldCount, saleEnds, colorFamily = [] }: { product: P; sizeChartHtml: string | null; sizeChartImage: string | null; soldCount?: number | null; saleEnds?: string | null; colorFamily?: ColorFamilyItem[] }) {
   const { add } = useCart();
   const router = useRouter();
   const wishlist = useWishlist();
@@ -322,6 +355,9 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
         <div className="pdp-info">
           {product.categoryName && <div className="eyebrow">{product.categoryName}</div>}
           <h1>{product.title}</h1>
+          {saleEnds && product.comparePrice && product.comparePrice > price && new Date(saleEnds).getTime() > Date.now() && (
+            <Countdown ends={saleEnds} />
+          )}
           <div className="pdp-price">
             <b>৳{price.toLocaleString("en-IN")}</b>
             {product.comparePrice && product.comparePrice > price && (<><s>৳{product.comparePrice.toLocaleString("en-IN")}</s><span className="off">{off}% OFF</span></>)}

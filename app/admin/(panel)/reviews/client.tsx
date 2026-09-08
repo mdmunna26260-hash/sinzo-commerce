@@ -32,7 +32,19 @@ export default function ReviewsClient({ initial }: { initial: any[] }) {
                 <td style={{ fontSize: 13 }}>{r.product?.title}</td>
                 <td>{r.name}<br /><span style={{ fontSize: 12, color: "var(--muted)" }}>{r.phone || ""}{r.verified ? " · ✓ verified" : ""}</span></td>
                 <td style={{ color: "#9a7b4f", letterSpacing: 2 }}>{"★".repeat(r.rating)}</td>
-                <td style={{ maxWidth: 380 }}>{r.text}</td>
+                <td style={{ maxWidth: 380 }}>
+                  {r.text}
+                  {(() => {
+                    let ph: string[] = [];
+                    try { ph = JSON.parse(r.photos || "[]"); } catch {}
+                    if (!ph.length) return null;
+                    return (
+                      <div style={{ display: "flex", gap: 6, marginTop: 8, flexWrap: "wrap" }}>
+                        {ph.map((u) => <img key={u} src={u} alt="" style={{ width: 46, height: 46, objectFit: "cover", borderRadius: 6, border: "1px solid #ddd" }} />)}
+                      </div>
+                    );
+                  })()}
+                </td>
                 <td><span className={"pill " + r.status}>{r.status}</span></td>
                 <td style={{ whiteSpace: "nowrap" }}>
                   {r.status !== "APPROVED" && <button className="abtn sm" onClick={() => act(r.id, { status: "APPROVED" })}>✓ Approve</button>}{" "}

@@ -6,7 +6,7 @@ import { afetch, copyText } from "@/lib/afetch";
 const money = (n: number) => "৳" + Math.round(n).toLocaleString("en-IN");
 const STATUS_PILL: Record<string, string> = { OPEN: "PENDING", RECOVERED: "SHIPPED", CONVERTED: "DELIVERED" };
 
-export default function MarketingClient({ abandoned, subscribers, sources, push }: any) {
+export default function MarketingClient({ abandoned, subscribers, sources, push, recCouponInit, recSettings }: any) {
   const router = useRouter();
   const [items, setItems] = useState(abandoned);
   const [busy, setBusy] = useState(false);
@@ -20,6 +20,26 @@ export default function MarketingClient({ abandoned, subscribers, sources, push 
   const [pushTestPhone, setPushTestPhone] = useState("");
   const [pushBusy, setPushBusy] = useState(false);
   const [pushMsg, setPushMsg] = useState("");
+
+  // ---- abandoned recovery ----
+  const [recCoupon, setRecCoupon] = useState(recCouponInit || "");
+  const [recBusy, setRecBusy] = useState(false);
+  const [recMsg, setRecMsg] = useState("");
+  const saveRecCoupon = async () => {
+    setRecBusy(true);
+    const r = await afetch("/api/admin/settings", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ group: "marketing", value: { ...(recSettings || {}), recoveryCoupon: recCoupon.trim() } }) });
+    setRecMsg(r.ok ? "Coupon saved ✓" : "Failed");
+    setRecBusy(false);
+    setTimeout(() => setRecMsg(""), 2500);
+  };
+  const runRecovery = async () => {
+    if (!confirm("Ekhon recovery pass chalaben? 45min+ purano, email-ase, emnei-sob abandoned checkout e 1ta kore email jabe.")) return;
+    setRecBusy(true); setRecMsg("Running…");
+    const r = await afetch("/api/admin/abandoned-recover", { method: "POST" });
+    const j = await r.json().catch(() => ({}));
+    setRecMsg(r.ok ? `✓ Sent: ${j.sent} · skipped: ${j.skipped} · failed: ${j.failed}` : (j.error || "Failed"));
+    setRecBusy(false);
+  };
 
   const open = items.filter((a: any) => a.status === "OPEN");
   const recovered = items.filter((a: any) => a.status !== "OPEN");
@@ -135,7 +155,7 @@ export default function MarketingClient({ abandoned, subscribers, sources, push 
                 {items.map((a: any) => (
                   <>
                   <tr key={a.id} className="abandoned-row" style={{ cursor: "pointer" }} onClick={() => setExpanded(expanded === a.id ? null : a.id)} title="Tap for details">
-                    <td style={{ fontSize: 12.5 }}>{new Date(a.updatedAt).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</td>
+                    <td style={{ fontSize: 12.5 }}>{new Date(a.updatedAt).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}{a.recoveryEmailedAt ? <div style={{ color: "var(--ok)", fontSize: 10.5 }}>✉ emailed</div> : null}</td>
                     <td style={{ fontSize: 12.5 }}>{a.cart.map((i: any) => i.title + " ×" + i.qty).join(", ").slice(0, 80)}</td>
                     <td><b>{money(a.total)}</b></td>
                     <td><span className={"pill " + (STATUS_PILL[a.status] || "PENDING")}>{a.status}</span></td>
@@ -177,6 +197,7 @@ export default function MarketingClient({ abandoned, subscribers, sources, push 
                             {a.name || a.phone || a.address ? (
                               <div style={{ fontSize: 13.5, display: "grid", gap: 8 }}>
                                 {a.name && <div><b>{a.name}</b></div>}
+                                {a.email && <div style={{ fontSize: 12.5 }}>✉ {a.email}</div>}
                                 {a.phone && (
                                   <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
                                     📞 <b>{a.phone}</b>
@@ -225,6 +246,34 @@ export default function MarketingClient({ abandoned, subscribers, sources, push 
               {subscribers.length === 0 && <span style={{ color: "var(--muted)" }}>No subscribers yet.</span>}
               {subscribers.map((s: any) => <div key={s.id} style={{ padding: "5px 0", borderBottom: "1px solid #f1efec" }}>{s.email}</div>)}
             </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ---- Abandoned Cart Recovery ---- */}
+      <div className="acard" style={{ marginTop: 16 }}>
+        <div className="acard-h">
+          <h3>Abandoned Cart Recovery (Email)</h3>
+          <span style={{ fontSize: 12, color: "var(--muted)" }}>45min+ purano · OPEN · email thakle 1ta recovery email</span>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 18, alignItems: "start" }}>
+          <div>
+            <div className="field" style={{ marginBottom: 10 }}>
+              <label>Recovery coupon code (optional — email e dekhabe, checkout e apply hobe)</label>
+              <input value={recCoupon} onChange={(e) => setRecCoupon(e.target.value.toUpperCase())} placeholder="e.g. COMEBACK10" style={{ textTransform: "uppercase" }} />
+            </div>
+            <button className="abtn primary" onClick={saveRecCoupon} disabled={recBusy}>Save coupon</button>
+          </div>
+          <div style={{ borderLeft: "1px solid #eee", paddingLeft: 18 }}>
+            <div style={{ fontSize: 12, color: "var(--muted)", marginBottom: 10 }}>
+              Kivabe kaj kore: checkout form e customer name/phone/address fill kore chole gele abandoned hishebe save hoy.
+              Recovery pass chalale 45min+ purano OPEN checkout gulo te ekta kore reminder email jay (cart items + total + coupon + resume link).
+              Prottekta checkout e maximum 1ta email — spam nai.
+            </div>
+            <button className="abtn primary" onClick={runRecovery} disabled={recBusy} aria-busy={recBusy || undefined}>
+              {recBusy && <span className="spinner" aria-hidden="true" />}Run recovery pass now
+            </button>
+            {recMsg && <div style={{ marginTop: 10, fontSize: 13, color: recMsg.includes("✓") || recMsg.includes("Sent") ? "var(--ok)" : "var(--danger)" }}>{recMsg}</div>}
           </div>
         </div>
       </div>

@@ -45,6 +45,7 @@ export async function POST(req: Request) {
         price: Number(b.price) || 0, comparePrice: b.comparePrice ? Number(b.comparePrice) : null,
         cost: b.cost ? Number(b.cost) : null, stock: Number(b.stock) || 0, lowStock: Number(b.lowStock) || 5,
         soldCount: b.soldCount === "" || b.soldCount == null ? null : Math.max(0, Number(b.soldCount)),
+      saleEnds: b.saleEnds ? new Date(b.saleEnds) : null,
       colorGroupId: b.colorGroupId ? Number(b.colorGroupId) : null,
       colorName: b.colorName ? String(b.colorName).trim().slice(0, 40) : null,
       colorImage: b.colorImage || null,

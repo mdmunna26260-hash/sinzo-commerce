@@ -71,7 +71,7 @@ export default function CheckoutPage() {
     trackEvent("InitiateCheckout", { value: subtotal, currency: "BDT", contents: lines.map((l) => ({ id: String(l.productId), quantity: l.qty })) });
     fetch("/api/checkout/start", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({
       items: lines.map((l) => ({ title: l.title, qty: l.qty, price: l.price })), total: subtotal,
-      phone: form.phone.replace(/[\s-]/g, ""), name: form.name.trim(), address: form.address.trim(),
+      phone: form.phone.replace(/[\s-]/g, ""), name: form.name.trim(), address: form.address.trim(), email: form.email.trim() || undefined,
     }) }).catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lines.length, form.phone, form.name, form.address]);
@@ -224,6 +224,16 @@ export default function CheckoutPage() {
 
         <aside className="summary">
           <h3>Your Order</h3>
+          {freeT > 0 && (
+            <div style={{ marginBottom: 14 }}>
+              <div style={{ fontSize: 12.5, marginBottom: 6, color: "var(--muted)" }}>
+                {subtotal - discount >= freeT
+                  ? <span style={{ color: "var(--ok)", fontWeight: 600 }}>🎉 You&apos;ve unlocked FREE delivery</span>
+                  : <>Add <b style={{ color: "var(--text)" }}>৳{Math.max(0, freeT - (subtotal - discount)).toLocaleString("en-IN")}</b> more for <b>FREE delivery</b></>}
+              </div>
+              <div className="freebar"><i style={{ width: Math.min(100, ((subtotal - discount) / freeT) * 100) + "%" }} /></div>
+            </div>
+          )}
           {lines.map((l) => (
             <div className="mini-item" key={l.key}>
               <img src={imgSrc(l.image, 300) || l.image} alt="" width={52} height={66} loading="lazy" decoding="async" />

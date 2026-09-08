@@ -86,6 +86,7 @@ model Product {
   position    Int                @default(0) // admin drag&drop order -> homepage/listing
   sizeChartImage String?         // per-product size chart image (media URL)
   soldCount      Int?            // optional override: show "Sold: N" on the PDP when set
+  saleEnds       DateTime?       // flash sale countdown: when set + comparePrice > price → countdown shows
   badge          String?
   isNew          Boolean          @default(false) // -> New Arrivals collection + badge
   isBestSeller   Boolean          @default(false) // -> Best Sellers collection + badge
@@ -237,6 +238,7 @@ model Review {
   phone     String?
   rating    Int
   text      String
+  photos    String? // JSON array of review photo URLs (max 3)
   status    String   @default("PENDING") // PENDING | APPROVED | REJECTED
   verified  Boolean  @default(false)
   featured  Boolean  @default(false)
@@ -255,16 +257,18 @@ model TrackingEvent {
 }
 
 model AbandonedCheckout {
-  id             Int      @id @default(autoincrement())
-  phone          String?
-  name           String?
-  address        String?
-  cartJson       String
-  total          Float
-  recovered      Boolean  @default(false)
-  checkoutStatus String   @default("OPEN") // OPEN | RECOVERED | CONVERTED
-  updatedAt      DateTime @default(now())
-  createdAt      DateTime @default(now())
+  id                Int      @id @default(autoincrement())
+  phone             String?
+  name              String?
+  email             String?
+  address           String?
+  cartJson          String
+  total             Float
+  recovered         Boolean  @default(false)
+  checkoutStatus    String   @default("OPEN") // OPEN | RECOVERED | CONVERTED
+  recoveryEmailedAt DateTime?
+  updatedAt         DateTime @default(now())
+  createdAt         DateTime @default(now())
 }
 
 model Subscriber {

@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 type O = {
-  id: number; code: string; name: string; phone: string; area: string; total: number;
+  id: number; code: string; name: string; phone: string; address: string; area: string; total: number;
   status: string; paymentStatus: string; paymentMethod: string; riskLevel: string;
   channel?: string | null; source?: string | null; courierName?: string | null; courierConsignmentId?: string | null;
   courierStatus?: string | null; createdAt: string; items: { title: string; qty: number; variant?: string | null }[];
@@ -65,6 +65,24 @@ export default function OrdersClient({ initial }: { initial: O[] }) {
               <option value="">Set status ({sel.size})…</option>
               {STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
             </select>
+            <button className="abtn" onClick={async () => {
+              if (!confirm(`Send ${sel.size} order(s) to Steadfast?`)) return;
+              setBusy(true);
+              const r = await afetch("/api/admin/orders/bulk", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ids: Array.from(sel), action: "courier" }) });
+              const j = await r.json().catch(() => ({}));
+              setBusy(false);
+              if (r.ok) { setSel(new Set()); router.refresh(); alert(`Sent: ${j.sent} · Failed: ${j.failed}${j.failed ? "\n" + (j.results || []).filter((x: any) => !x.ok).map((x: any) => x.code + ": " + x.error).join("\n") : ""}`); }
+              else alert(j.error || "Failed");
+            }}>🚚 Send to Steadfast</button>
+            <button className="abtn" onClick={() => {
+              const w = window.open("", "_blank");
+              if (!w) return;
+              w.document.write("<html><body style='font-family:monospace'>" + Array.from(sel).map((id) => {
+                const o = initial.find((x) => x.id === id);
+                return o ? `<div style='page-break-after:always;padding:12px;border-bottom:1px dashed #999'><b>${o.code}</b><br>${o.name}<br>${o.phone}<br><pre style='white-space:pre-wrap'>${o.address}</pre>Amount: ৳${Math.round(o.total)} (${o.paymentMethod})${o.items ? "<br>" + o.items.map((i) => i.title + " x" + i.qty).join("<br>") : ""}</div>` : "";
+              }).join("") + "</body></html>");
+              w.document.close(); w.print();
+            }}>🖨 Print labels</button>
             <button className="abtn danger" onClick={() => bulk("delete")}>Delete</button>
           </>}
         </div>

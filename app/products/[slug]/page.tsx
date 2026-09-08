@@ -109,6 +109,7 @@ export default async function PDP({ params, searchParams }: { params: { slug: st
         <ProductPageClient
           sizeChartImage={p.sizeChartImage || null}
           soldCount={p.soldCount ?? null}
+          saleEnds={p.saleEnds ? p.saleEnds.toISOString() : null}
           product={{
             id: p.id, title: p.title, slug: p.slug, price: p.price, comparePrice: p.comparePrice,
             shortDesc: p.shortDesc, description: p.description, sku: p.sku, stock: totalStock, lowStock: p.lowStock,
@@ -140,6 +141,18 @@ export default async function PDP({ params, searchParams }: { params: { slug: st
               {r.verified && <span className="verified">Verified purchase</span>}
               <div className="who">{r.name} · {new Date(r.createdAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}</div>
               <p>{r.text}</p>
+              {(() => {
+                let photos: string[] = [];
+                try { photos = JSON.parse((r as any).photos || "[]"); } catch {}
+                if (!photos.length) return null;
+                return (
+                  <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
+                    {photos.map((u) => (
+                      <img key={u} src={u} alt={`Photo from ${r.name}`} loading="lazy" decoding="async" style={{ width: 84, height: 84, objectFit: "cover", borderRadius: 8, border: "1px solid var(--line)" }} />
+                    ))}
+                  </div>
+                );
+              })()}
             </div>
           ))}
           <ProductPageReviewForm productId={p.id} />

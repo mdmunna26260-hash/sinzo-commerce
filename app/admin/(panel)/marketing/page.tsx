@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { getSettings, envFallback } from "@/lib/settings";
 import MarketingClient from "./client";
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Marketing" };
@@ -11,11 +12,16 @@ export default async function MarketingPage({ searchParams }: { searchParams: an
     db.pushSubscription.count().catch(() => 0),
     db.pushSubscription.count({ where: { phone: { not: null } } }).catch(() => 0),
   ]);
+  const sFull = envFallback(await getSettings(true));
+  const marketingCfg = sFull.marketing || {};
   return <MarketingClient
+    recCouponInit={marketingCfg.recoveryCoupon || ""}
+    recSettings={marketingCfg}
     abandoned={abandoned.map((a) => ({
-      id: a.id, phone: a.phone, name: a.name, address: a.address,
+      id: a.id, phone: a.phone, name: a.name, address: a.address, email: a.email,
       cart: JSON.parse(a.cartJson || "[]"),
       total: a.total, status: a.checkoutStatus || (a.recovered ? "RECOVERED" : "OPEN"),
+      recoveryEmailedAt: a.recoveryEmailedAt ? a.recoveryEmailedAt.toISOString() : null,
       updatedAt: a.updatedAt.toISOString(),
     }))}
     subscribers={subscribers.map((s) => ({ id: s.id, email: s.email }))}

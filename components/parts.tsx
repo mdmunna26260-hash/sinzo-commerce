@@ -7,7 +7,7 @@ export { imgSrc, imgSrcSet } from "./img-src";
 export type CardProduct = {
   id: number; title: string; slug: string; price: number; comparePrice: number | null;
   image?: string; categoryName?: string; stock: number; isNew?: boolean; isBestSeller?: boolean;
-  colors?: string[]; sizes?: string[]; badge?: string | null; };
+  colors?: string[]; sizes?: string[]; badge?: string | null; saleEnds?: string | null; };
 
 const BADGE_LABELS: Record<string, string> = {
   trending: "TRENDING NOW",
@@ -45,6 +45,9 @@ export function ProductCard({ p, wish }: { p: CardProduct; wish?: boolean }) {
         <div className="pcard-badges">
           {off > 0 && <span className="badge sale">-{off}%</span>}
           {p.badge && <span className={"badge badge-" + p.badge}>{BADGE_LABELS[p.badge] || p.badge}</span>}
+          {p.saleEnds && new Date(p.saleEnds).getTime() > Date.now() && off > 0 && (
+            <span className="badge badge-flash">FLASH</span>
+          )}
         </div>
         <WishHeart id={p.id} />
         {p.stock <= 0 && <div className="soldout-overlay"><span>Sold Out</span></div>}
