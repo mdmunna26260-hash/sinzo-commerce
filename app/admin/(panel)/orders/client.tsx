@@ -77,11 +77,32 @@ export default function OrdersClient({ initial }: { initial: O[] }) {
             <button className="abtn" onClick={() => {
               const w = window.open("", "_blank");
               if (!w) return;
-              w.document.write("<html><body style='font-family:monospace'>" + Array.from(sel).map((id) => {
+              const labels = Array.from(sel).map((id) => {
                 const o = initial.find((x) => x.id === id);
-                return o ? `<div style='page-break-after:always;padding:12px;border-bottom:1px dashed #999'><b>${o.code}</b><br>${o.name}<br>${o.phone}<br><pre style='white-space:pre-wrap'>${o.address}</pre>Amount: ৳${Math.round(o.total)} (${o.paymentMethod})${o.items ? "<br>" + o.items.map((i) => i.title + " x" + i.qty).join("<br>") : ""}</div>` : "";
-              }).join("") + "</body></html>");
-              w.document.close(); w.print();
+                if (!o) return "";
+                const consignment = o.courierConsignmentId || "—";
+                const items = (o.items || []).map((i: any) => `${i.title}${i.variant ? " (" + i.variant + ")" : ""} × ${i.qty}`).join("<br>");
+                return `<div style="page-break-after:always;padding:20px 16px;border-bottom:2px solid #333;font-family:Arial,sans-serif">
+                  <div style="text-align:center;margin-bottom:12px">
+                    <span style="font-size:18px;font-weight:700;letter-spacing:.15em">SINZO</span>
+                  </div>
+                  <div style="border:1px solid #ccc;border-radius:6px;padding:12px;margin-bottom:10px">
+                    <div style="font-size:10px;color:#888;text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px">Consignment ID</div>
+                    <div style="font-size:15px;font-weight:700">${consignment}</div>
+                  </div>
+                  <div style="border:1px solid #ccc;border-radius:6px;padding:12px;margin-bottom:10px">
+                    <div style="font-size:10px;color:#888;text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px">Steadfast ID</div>
+                    <div style="font-size:13px;font-weight:600">${consignment !== "—" ? "SF-" + consignment : "—"}</div>
+                  </div>
+                  <div style="border:1px solid #ccc;border-radius:6px;padding:12px;margin-bottom:10px">
+                    <div style="font-size:10px;color:#888;text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px">Items</div>
+                    <div style="font-size:12px;line-height:1.6">${items}</div>
+                  </div>
+                </div>`;
+              }).join("");
+              w.document.write("<html><head><style>@media print { .no-print { display:none } } body { margin: 0; background: #fff }</style></head><body>" + labels + "</body></html>");
+              w.document.close();
+              setTimeout(() => w.print(), 200);
             }}>🖨 Print labels</button>
             <button className="abtn danger" onClick={() => bulk("delete")}>Delete</button>
           </>}
