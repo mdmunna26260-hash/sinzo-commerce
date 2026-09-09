@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Fragment } from "react";
+import type { CSSProperties } from "react";
 import { db } from "@/lib/db";
 import { getSettings, publicSettings } from "@/lib/settings";
 import { getCategories } from "@/lib/catalog";
@@ -36,21 +37,21 @@ function Head({ no, eyebrow, title, href }: { no: string; eyebrow: string; title
   );
 }
 
-function CatTile({ c }: { c: any }) {
+function CatTile({ c, rd }: { c: any; rd?: number }) {
   const tileSrc = c.image
     ? (c.image.includes("/uploads/seed/") ? c.image.replace(/\.jpg$/, "-600.webp") : (c.image.match(/^\/api\/media\/([a-z0-9]+)$/i) ? c.image + "/w600" : c.image))
     : "/uploads/seed/p-" + (CAT_IMG[c.slug] || "shirt") + "-600.webp";
   return (
-    <Link className="ctile" href={"/products?category=" + c.slug}>
+    <Link className="ctile reveal" href={"/products?category=" + c.slug} style={rd != null ? ({ "--rd": rd } as CSSProperties) : undefined}>
       <img src={tileSrc} alt={c.name} loading="lazy" decoding="async" />
       <div className="ctile-label"><span>{c.description?.slice(0, 40) || "Collection"}</span><h3>{c.name}</h3></div>
     </Link>
   );
 }
 
-function Quote({ r }: { r: any }) {
+function Quote({ r, rd }: { r: any; rd?: number }) {
   return (
-    <div className="quote2">
+    <div className="quote2 reveal" style={rd != null ? ({ "--rd": rd } as CSSProperties) : undefined}>
       <span className="q-mark" aria-hidden>“</span>
       <span className="stars">{"★".repeat(r.rating)}{"☆".repeat(5 - r.rating)}</span>
       <p>{r.text}</p>
@@ -134,7 +135,7 @@ export default async function HomePage() {
     values: (
       <div className="values" key="values">
         <div className="container values-inner2">
-          {values.map((v) => <span key={v}>{v}</span>)}
+          {values.map((v, i) => <span key={v} className="reveal" style={{ "--rd": i } as CSSProperties}>{v}</span>)}
         </div>
       </div>
     ),
@@ -143,12 +144,12 @@ export default async function HomePage() {
         <Head no="01" eyebrow="Created for you" title={featuredCol?.title || "New Arrivals"} href={"/collections/" + featuredSlug} />
         <Carousel className="mobile-only">
           {Array.from({ length: Math.max(1, Math.ceil(cp(featuredCol).length / 4)) }, (_, i) => (
-            <div className="grid grid-4" key={"fp" + i}>{cp(featuredCol).slice(i * 4, i * 4 + 4).map((p: any) => <ProductCard key={p.id} p={p} />)}</div>
+            <div className="grid grid-4" key={"fp" + i}>{cp(featuredCol).slice(i * 4, i * 4 + 4).map((p: any, idx) => <ProductCard key={p.id} p={p} rd={(i * 4 + idx) % 4} />)}</div>
           ))}
         </Carousel>
         <div className="desktop-only">
           <div className="grid grid-4">
-            {cp(featuredCol).map((p: any) => <ProductCard key={p.id} p={p} />)}
+            {cp(featuredCol).map((p: any, idx) => <ProductCard key={p.id} p={p} rd={idx % 4} />)}
           </div>
         </div>
       </section>
@@ -159,12 +160,12 @@ export default async function HomePage() {
         {/* SOB category dekhabe: mobile-e swipeable carousel (3 per page), desktop-e full grid */}
         <Carousel className="mobile-only">
           {Array.from({ length: Math.ceil(cats.length / 4) }, (_, i) => (
-            <div className="cat-row-4" key={"cp" + i}>{cats.slice(i * 4, i * 4 + 4).map((c) => <CatTile key={c.id} c={c} />)}</div>
+            <div className="cat-row-4" key={"cp" + i}>{cats.slice(i * 4, i * 4 + 4).map((c, idx) => <CatTile key={c.id} c={c} rd={(i * 4 + idx) % 4} />)}</div>
           ))}
         </Carousel>
         <div className="desktop-only">
           <div className="cat-grid-desktop">
-            {cats.map((c) => <CatTile key={c.id} c={c} />)}
+            {cats.map((c, idx) => <CatTile key={c.id} c={c} rd={idx % 4} />)}
           </div>
         </div>
       </section>
@@ -191,12 +192,12 @@ export default async function HomePage() {
       <section className="section container" style={{ paddingTop: 0 }} key="bestsellers">
         <Head no="03" eyebrow="Loved by hundreds" title="Best Sellers" href="/collections/best-sellers" />
         <Carousel className="mobile-only">
-          <div className="grid grid-4">{cp(bestSellers).slice(0, 4).map((p: any) => <ProductCard key={p.id} p={p} />)}</div>
-          <div className="grid grid-4">{cp(bestSellers).slice(4, 8).map((p: any) => <ProductCard key={p.id} p={p} />)}</div>
+          <div className="grid grid-4">{cp(bestSellers).slice(0, 4).map((p: any, idx) => <ProductCard key={p.id} p={p} rd={idx % 4} />)}</div>
+          <div className="grid grid-4">{cp(bestSellers).slice(4, 8).map((p: any, idx) => <ProductCard key={p.id} p={p} rd={idx % 4} />)}</div>
         </Carousel>
         <div className="desktop-only">
           <div className="grid grid-4">
-            {cp(bestSellers).map((p: any) => <ProductCard key={p.id} p={p} />)}
+            {cp(bestSellers).map((p: any, idx) => <ProductCard key={p.id} p={p} rd={idx % 4} />)}
           </div>
         </div>
       </section>
@@ -205,12 +206,12 @@ export default async function HomePage() {
       <section className="section container" style={{ paddingTop: 0, paddingBottom: 90 }} key="testimonials">
         <Head no="04" eyebrow="Reviews" title="What customers say" />
         <Carousel className="mobile-only">
-          <div className="grid grid-2q">{reviews.slice(0, 2).map((r) => <Quote key={r.id} r={r} />)}</div>
-          <div className="grid grid-2q">{reviews.slice(2, 4).map((r) => <Quote key={r.id} r={r} />)}</div>
+          <div className="grid grid-2q">{reviews.slice(0, 2).map((r, idx) => <Quote key={r.id} r={r} rd={idx % 2} />)}</div>
+          <div className="grid grid-2q">{reviews.slice(2, 4).map((r, idx) => <Quote key={r.id} r={r} rd={idx % 2} />)}</div>
         </Carousel>
         <div className="desktop-only">
           <div className="grid grid-3">
-            {reviews.map((r) => <Quote key={r.id} r={r} />)}
+            {reviews.map((r, idx) => <Quote key={r.id} r={r} rd={idx % 3} />)}
           </div>
         </div>
       </section>

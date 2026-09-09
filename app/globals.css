@@ -336,8 +336,8 @@ h1, h2, h3, .serif { font-family: var(--font-head); font-weight: 500; letter-spa
 /* ---------- toast ---------- */
 .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: var(--text); color: var(--bg); padding: 13px 26px; font-size: 13px; letter-spacing: .04em; z-index: 100; border-radius: 99px; animation: fadeup .25s ease; box-shadow: 0 10px 30px rgba(0,0,0,.18); }
 @keyframes fadeup { from { opacity: 0; transform: translate(-50%, 10px); } to { opacity: 1; transform: translate(-50%, 0); } }
-.reveal { opacity: 0; transform: translateY(16px); transition: opacity .6s ease, transform .6s ease; }
-.reveal.in { opacity: 1; transform: none; }
+.reveal { opacity: 0; transform: translateY(16px); transition: opacity .6s ease, transform .6s ease; transition-delay: calc(var(--rd, 0) * 70ms); }
+.reveal.in { opacity: 1; transform: none; transition-delay: calc(var(--rd, 0) * 70ms); }
 
 /* ---------- Admin ---------- */
 .admin-body { display: grid; grid-template-columns: 232px 1fr; min-height: 100vh; background: #f4f3f0; }
@@ -1720,3 +1720,77 @@ input::placeholder, textarea::placeholder { color: #b0aaa1; }
 /* flash sale badge on product cards */
 .badge.badge-flash { background: #b3392f; color: #fff; animation: flashpulse 1.6s ease-in-out infinite; }
 @keyframes flashpulse { 0%, 100% { opacity: 1; } 50% { opacity: .75; } }
+
+/* ================= ANIMATIONS V2 — premium polish pass (per ANIMATIONS-REPORT.md) ================= */
+:root { --ease: cubic-bezier(.22,.61,.36,1); }
+
+/* --- 1. Hero entrance: slow Ken Burns zoom + staggered text rise --- */
+@keyframes kenburns { from { transform: scale(1.08); } to { transform: scale(1); } }
+.hero-img { animation: kenburns 2.8s var(--ease) both; will-change: transform; }
+@keyframes heroUp { from { opacity: 0; transform: translateY(22px); } to { opacity: 1; transform: none; } }
+.hero-content .eyebrow { animation: heroUp .7s .15s var(--ease) both; }
+.hero-content h1 { animation: heroUp .7s .3s var(--ease) both; }
+.hero-content p { animation: heroUp .7s .45s var(--ease) both; }
+.hero-content .btn { animation: heroUp .7s .6s var(--ease) both; }
+
+/* --- 2. Order success: checkmark pop + draw, staggered content --- */
+.success-wrap .check { animation: checkPop .5s cubic-bezier(.34,1.56,.64,1) both; }
+@keyframes checkPop { from { opacity: 0; transform: scale(.5); } to { opacity: 1; transform: scale(1); } }
+.check-path { stroke-dasharray: 26; stroke-dashoffset: 26; animation: checkDraw .45s .4s ease-out forwards; }
+@keyframes checkDraw { to { stroke-dashoffset: 0; } }
+.success-wrap h1 { animation: sfade .5s .55s ease both; }
+.success-wrap .order-code { animation: sfade .5s .7s ease both; }
+@keyframes sfade { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+
+/* --- 3. Cart badge pop on count increase --- */
+@keyframes badgePop { 0% { transform: scale(1); } 40% { transform: scale(1.4); } 100% { transform: scale(1); } }
+.cart-badge.pop, .tab-badge.pop { animation: badgePop .35s cubic-bezier(.34,1.56,.64,1); }
+
+/* --- 4. Button press feedback + hero CTA light sweep + card hover shadow + header scroll shadow --- */
+.btn, .abtn { transition: transform .12s ease, background .2s ease, color .2s ease, border-color .2s ease, box-shadow .2s ease; }
+.btn:active, .abtn:active { transform: scale(.97); }
+@media (hover:hover) {
+  .hero .btn { position: relative; overflow: hidden; }
+  .hero .btn::after { content: ""; position: absolute; top: 0; bottom: 0; left: -70%; width: 45%; background: linear-gradient(105deg, transparent, rgba(255,255,255,.30), transparent); transform: skewX(-20deg); transition: left .55s ease; }
+  .hero .btn:hover::after { left: 130%; }
+  .pcard { transition: opacity .6s ease, transform .6s ease, box-shadow .3s ease; transition-delay: calc(var(--rd, 0) * 70ms), calc(var(--rd, 0) * 70ms), 0s; }
+  .pcard:hover { box-shadow: 0 14px 34px rgba(20,20,20,.09); }
+  .header { transition: box-shadow .25s ease; }
+  .header.scrolled { box-shadow: 0 1px 0 var(--line), 0 10px 26px rgba(20,20,20,.06); }
+}
+
+/* --- 5. Mobile tab bar: gold active indicator + press feedback --- */
+.tab-item { position: relative; }
+.tab-item .tab-icon { transition: transform .12s ease; }
+.tab-item:active .tab-icon { transform: scale(.88); }
+.tab-item.active::before { content: ""; position: absolute; top: 3px; left: 50%; transform: translateX(-50%); width: 22px; height: 2.5px; border-radius: 2px; background: var(--accent); animation: tabIn .25s cubic-bezier(.34,1.56,.64,1) both; }
+@keyframes tabIn { from { opacity: 0; transform: translateX(-50%) scaleX(.3); } to { opacity: 1; transform: translateX(-50%) scaleX(1); } }
+
+/* --- 6. Wishlist heart pop --- */
+.pcard-heart.on { animation: heartPop .45s cubic-bezier(.34,1.56,.64,1); }
+@keyframes heartPop { 0% { transform: scale(1); } 45% { transform: scale(1.35); } 70% { transform: scale(.92); } 100% { transform: scale(1); } }
+
+/* --- 7. Form focus (checkout / login) — gold ring --- */
+.field input, .field select, .field textarea { transition: border-color .2s ease, box-shadow .2s ease; }
+.field input:focus, .field textarea:focus, .field select:focus { border-color: var(--text); box-shadow: 0 0 0 3px rgba(154,123,79,.12); }
+
+/* --- 8. Global polish --- */
+::selection { background: var(--accent); color: #fff; }
+html { -webkit-tap-highlight-color: transparent; }
+h1, h2, h3 { text-wrap: balance; }
+.price, .kpi .k-val { font-variant-numeric: tabular-nums; }
+@media (hover:hover) {
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #d8d2c8; border-radius: 99px; border: 3px solid var(--bg); }
+}
+
+/* --- 9. Admin panel: table row hover --- */
+.tbl tbody tr { transition: background .15s ease; }
+.tbl tbody tr:hover { background: #faf8f4; }
+
+/* --- 10. Reduced motion: global kill switch (content stays visible) --- */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; transition-delay: 0ms !important; scroll-behavior: auto !important; }
+  .reveal { opacity: 1 !important; transform: none !important; }
+}

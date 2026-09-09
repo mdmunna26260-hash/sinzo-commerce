@@ -65,7 +65,21 @@ const ITEMS = [
 
 export default function BottomNav() {
   const pathname = usePathname();
-  const { count } = useCart();
+  const { count, ready } = useCart();
+  /* cart badge pop when count increases (waits for cart hydration) */
+  const [pop, setPop] = useState(false);
+  const prevCount = useRef<number | null>(null);
+  useEffect(() => {
+    if (!ready) return;
+    if (prevCount.current === null) { prevCount.current = count; return; }
+    if (count > prevCount.current) {
+      prevCount.current = count;
+      setPop(true);
+      const t = setTimeout(() => setPop(false), 400);
+      return () => clearTimeout(t);
+    }
+    prevCount.current = count;
+  }, [count, ready]);
   /* shrink on scroll down, expand on scroll up */
   const [compact, setCompact] = useState(false);
   const lastY = useRef(0);
@@ -105,7 +119,7 @@ export default function BottomNav() {
           >
             <span className="tab-icon">
               {item.icon}
-              {item.href === "/cart" && count > 0 && <span className="tab-badge">{count > 99 ? "99+" : count}</span>}
+              {item.href === "/cart" && count > 0 && <span className={"tab-badge" + (pop ? " pop" : "")}>{count > 99 ? "99+" : count}</span>}
             </span>
             <span className="tab-label">{item.label}</span>
           </Link>

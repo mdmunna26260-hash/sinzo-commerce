@@ -15,7 +15,7 @@ export default function SuccessPage({ searchParams }: { searchParams: { code?: s
     <div className="success-wrap">
       {eid && <PurchaseTracker eid={eid} total={Number(total) || 0} ids={ids} num={num} phone={ph} />}
       <div className="check">
-        <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 6 9 17l-5-5"/></svg>
+        <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path className="check-path" d="M20 6 9 17l-5-5"/></svg>
       </div>
       <h1>Thank you! Order confirmed.</h1>
       <p style={{ color: "var(--muted)" }}>We&apos;ve received your order. Our team will call you shortly to confirm.</p>
