@@ -5,7 +5,7 @@
   "description": "Production-grade e-commerce platform (storefront + admin) - BDT / COD / Steadfast / Meta CAPI ready",
   "scripts": {
     "dev": "next dev -H 0.0.0.0 -p 3000",
-    "build": "prisma generate --schema prisma/schema.prod.prisma && next build",
+    "build": "prisma generate --schema prisma/schema.prod.prisma && next build && node scripts/ensure-db.js",
     "start": "next start -H 0.0.0.0 -p 3000",
     "lint": "next lint",
     "db:push": "prisma db push",

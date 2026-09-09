@@ -22,6 +22,8 @@ ENV DATABASE_URL=$DATABASE_URL
 # minimize build-time memory: no webpack cache, single worker
 ENV WEBPACK_CACHE=false NEXT_PRIVATE_WORKER_THREADS=1
 RUN npx prisma generate --schema prisma/schema.prod.prisma && npm run build
+# ensure DB columns exist before the app starts (needed for shared PG database)
+RUN node scripts/ensure-db.js || echo "ensure-db: skipped (no DB access at build time)"
 
 FROM node:20-bookworm-slim AS runner
 RUN apt-get update -qq && apt-get install -y -qq openssl && rm -rf /var/lib/apt/lists/*
@@ -34,4 +36,5 @@ COPY --from=builder /app/package.json ./package.json
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/next.config.mjs ./next.config.mjs
 EXPOSE 3000
-CMD ["npm", "run", "start"]
+# ensure DB columns on container start (runs before next start)
+CMD ["sh", "-c", "node scripts/ensure-db.js || true && npm run start"]
