@@ -25,7 +25,7 @@ export default function OrdersClient({ initial }: { initial: O[] }) {
   const list = useMemo(() => initial.filter((o) => {
     if (status && o.status !== status) return false;
     if (payment && o.paymentStatus !== payment) return false;
-    if (!q || ![o.code, o.name, o.phone, o.courierConsignmentId || ""].join(" ").toLowerCase().includes(q.toLowerCase())) return false;
+    if (q && ![o.code, o.name, o.phone, o.courierConsignmentId || ""].join(" ").toLowerCase().includes(q.toLowerCase())) return false;
     if (dateFilter) {
       const d = new Date(o.createdAt);
       const now = new Date();
