@@ -18,14 +18,30 @@ export default function OrdersClient({ initial }: { initial: O[] }) {
   const [q, setQ] = useState("");
   const [status, setStatus] = useState("");
   const [payment, setPayment] = useState("");
+  const [dateFilter, setDateFilter] = useState("");
   const [sel, setSel] = useState<Set<number>>(new Set());
   const [busy, setBusy] = useState(false);
 
-  const list = useMemo(() => initial.filter((o) =>
-    (!status || o.status === status) &&
-    (!payment || o.paymentStatus === payment) &&
-    (!q || [o.code, o.name, o.phone, o.courierConsignmentId || ""].join(" ").toLowerCase().includes(q.toLowerCase()))
-  ), [initial, q, status, payment]);
+  const list = useMemo(() => initial.filter((o) => {
+    if (status && o.status !== status) return false;
+    if (payment && o.paymentStatus !== payment) return false;
+    if (!q || ![o.code, o.name, o.phone, o.courierConsignmentId || ""].join(" ").toLowerCase().includes(q.toLowerCase())) return false;
+    if (dateFilter) {
+      const d = new Date(o.createdAt);
+      const now = new Date();
+      if (dateFilter === "today") {
+        if (d.toDateString() !== now.toDateString()) return false;
+      } else if (dateFilter === "yesterday") {
+        const y = new Date(now); y.setDate(y.getDate() - 1);
+        if (d.toDateString() !== y.toDateString()) return false;
+      } else if (dateFilter === "week") {
+        if ((now.getTime() - d.getTime()) > 7 * 86400000) return false;
+      } else if (dateFilter === "month") {
+        if ((now.getTime() - d.getTime()) > 30 * 86400000) return false;
+      }
+    }
+    return true;
+  }), [initial, q, status, payment, dateFilter]);
 
   const openOrder = (id: number) => router.push(withToken("/admin/orders/" + id));
 
@@ -95,6 +111,10 @@ export default function OrdersClient({ initial }: { initial: O[] }) {
                     <div style="font-size:13px;font-weight:600">${consignment !== "—" ? "SF-" + consignment : "—"}</div>
                   </div>
                   <div style="border:1px solid #ccc;border-radius:6px;padding:12px;margin-bottom:10px">
+                    <div style="font-size:10px;color:#888;text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px">Customer Phone</div>
+                    <div style="font-size:14px;font-weight:600">${o.phone}</div>
+                  </div>
+                  <div style="border:1px solid #ccc;border-radius:6px;padding:12px;margin-bottom:10px">
                     <div style="font-size:10px;color:#888;text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px">Items</div>
                     <div style="font-size:12px;line-height:1.6">${items}</div>
                   </div>
@@ -116,6 +136,13 @@ export default function OrdersClient({ initial }: { initial: O[] }) {
         <select className="abtn" value={payment} onChange={(e) => setPayment(e.target.value)}>
           <option value="">All payments</option>
           <option value="PENDING">Unpaid</option><option value="PAID">Paid</option>
+        </select>
+        <select className="abtn" value={dateFilter} onChange={(e) => setDateFilter(e.target.value)}>
+          <option value="">All dates</option>
+          <option value="today">Today</option>
+          <option value="yesterday">Yesterday</option>
+          <option value="week">Last 7 days</option>
+          <option value="month">Last 30 days</option>
         </select>
       </div>
       <div className="acard">
