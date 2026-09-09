@@ -37,15 +37,12 @@ export default function AdminError({ error, reset }: { error: Error & { digest?:
     const msg = [error?.message, error?.digest ? "digest: " + error.digest : ""].filter(Boolean).join(" · ");
     setDetails(msg || "Unknown error");
 
-    let keys: string[] = [];
-    try { keys = JSON.parse(sessionStorage.getItem("sz_admin_err_reload") || "[]"); } catch {}
-    const key = error?.digest || error?.message?.slice(0, 80) || "unknown";
-    if (!keys.includes(key)) {
-      try {
-        keys.push(key);
-        sessionStorage.setItem("sz_admin_err_reload", JSON.stringify(keys.slice(-3)));
-        setAttempts(keys.length);
-      } catch {}
+    // Auto-reload ONCE per session
+    let reloaded = false;
+    try { reloaded = sessionStorage.getItem("sz_admin_err_reload") === "1"; } catch {}
+    if (!reloaded) {
+      try { sessionStorage.setItem("sz_admin_err_reload", "1"); } catch {}
+      setAttempts(1);
       try {
         if (!location.search.includes("_r=")) {
           const u = new URL(window.location.href);
@@ -55,9 +52,9 @@ export default function AdminError({ error, reset }: { error: Error & { digest?:
         }
       } catch {}
       window.location.reload();
-    } else {
-      setAttempts(keys.length);
+      return;
     }
+    setAttempts(2);
   }, [error]);
 
   return (

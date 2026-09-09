@@ -26,13 +26,11 @@ const nextConfig = {
       { source: "/_next/static/:path*", headers: [
         { key: "Cache-Control", value: "public, max-age=31536000, immutable" },
       ]},
-      // Admin panel: NEVER cached — after every deploy the browser must fetch
-      // fresh HTML (stale old HTML references deleted chunks → client crash)
-      { source: "/admin/:path*", headers: [
-        { key: "Cache-Control", value: "no-store, must-revalidate" },
-      ]},
-      { source: "/admin", headers: [
-        { key: "Cache-Control", value: "no-store, must-revalidate" },
+      // ALL HTML pages: NEVER cache — after every deploy the browser must
+      // fetch fresh HTML (stale old HTML references deleted chunks → crash).
+      // Static assets (/_next/static/*) still use immutable 1-year cache.
+      { source: "/((?!_next/static|api/media|uploads).*)", headers: [
+        { key: "Cache-Control", value: "private, no-store, must-revalidate" },
       ]},
       // Products page: short cache + stale-while-revalidate
       { source: "/products", headers: [
