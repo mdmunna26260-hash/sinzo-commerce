@@ -8,6 +8,8 @@ import { notFound } from "next/navigation";
 export const dynamic = "force-dynamic";
 
 export default async function CollectionPage({ params }: { params: { slug: string } }) {
+  const { ensureExtraTables } = await import("@/lib/db-ensure");
+  await ensureExtraTables().catch(() => {});
   const col = await db.collection.findUnique({
     where: { slug: params.slug },
     include: {

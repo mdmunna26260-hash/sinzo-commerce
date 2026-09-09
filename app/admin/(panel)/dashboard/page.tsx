@@ -10,6 +10,8 @@ function money(n: number) { return "৳" + Math.round(n).toLocaleString("en-IN")
 
 export default async function Dashboard({ searchParams }: { searchParams: any }) {
   const user = await requireAdmin(searchParams);
+  const { ensureExtraTables } = await import("@/lib/db-ensure");
+  await ensureExtraTables().catch(() => {});
   const t = (searchParams?.t as string) || "";
   const tk = (p: string) => (t ? p + "?t=" + encodeURIComponent(t) : p);
 

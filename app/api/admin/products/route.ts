@@ -16,6 +16,9 @@ export const dynamic = "force-dynamic";
 export async function GET(req: Request) {
   const g = await requirePerm("products", req);
   if ("res" in g) return g.res;
+  // ensure newer columns (colorGroupId, saleEnds etc.) exist before querying
+  const { ensureExtraTables } = await import("@/lib/db-ensure");
+  await ensureExtraTables().catch(() => {});
   // optional ?q= filter (used by the order item picker; plain listing when absent)
   const q = new URL(req.url).searchParams.get("q")?.trim();
   const products = await db.product.findMany({

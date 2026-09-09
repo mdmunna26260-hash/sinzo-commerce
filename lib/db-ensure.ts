@@ -32,6 +32,12 @@ async function run(): Promise<void> {
   // AbandonedCheckout: email + recovery tracking columns
   await db.$executeRawUnsafe(isPg ? `ALTER TABLE "AbandonedCheckout" ADD COLUMN IF NOT EXISTS "email" TEXT` : `ALTER TABLE "AbandonedCheckout" ADD COLUMN "email" TEXT`).catch(() => {});
   await db.$executeRawUnsafe(isPg ? `ALTER TABLE "AbandonedCheckout" ADD COLUMN IF NOT EXISTS "recoveryEmailedAt" TIMESTAMP(3)` : `ALTER TABLE "AbandonedCheckout" ADD COLUMN "recoveryEmailedAt" DATETIME`).catch(() => {});
+  // Product.saleEnds (flash sale countdown)
+  await db
+    .$executeRawUnsafe(isPg
+      ? `ALTER TABLE "Product" ADD COLUMN IF NOT EXISTS "saleEnds" TIMESTAMP(3)`
+      : `ALTER TABLE "Product" ADD COLUMN "saleEnds" DATETIME`)
+    .catch(() => {});
   // Color groups (linked color products) + Product color fields
   await db
     .$executeRawUnsafe(isPg

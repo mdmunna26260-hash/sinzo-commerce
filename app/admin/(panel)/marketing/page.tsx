@@ -5,6 +5,8 @@ export const dynamic = "force-dynamic";
 export const metadata = { title: "Marketing" };
 export default async function MarketingPage({ searchParams }: { searchParams: any }) {
   await (await import("@/lib/auth")).requireAdmin(searchParams);
+  const { ensureExtraTables } = await import("@/lib/db-ensure");
+  await ensureExtraTables().catch(() => {});
   const [abandoned, subscribers, sources, pushTotal, pushWithPhone] = await Promise.all([
     db.abandonedCheckout.findMany({ orderBy: { updatedAt: "desc" }, take: 50 }),
     db.subscriber.findMany({ orderBy: { id: "desc" }, take: 200 }),

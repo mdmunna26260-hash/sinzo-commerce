@@ -12,6 +12,8 @@ export default async function WishlistPage() {
   const cfg = publicSettings(s);
   const cats = await getCategories();
   // only the fields ProductCard renders (badge included) — nothing heavy is shipped to the client
+  const { ensureExtraTables } = await import("@/lib/db-ensure");
+  await ensureExtraTables().catch(() => {});
   const products = await db.product.findMany({
     where: { status: "ACTIVE" },
     select: {

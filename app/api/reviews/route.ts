@@ -3,6 +3,8 @@ import { db } from "@/lib/db";
 export const dynamic = "force-dynamic";
 export async function POST(req: Request) {
   try {
+    const { ensureExtraTables } = await import("@/lib/db-ensure");
+    await ensureExtraTables().catch(() => {});
     const { productId, rating, name, phone, text, photos } = await req.json();
     if (!productId || !name || !text) return NextResponse.json({ error: "Missing fields" }, { status: 400 });
     const r = Math.max(1, Math.min(5, parseInt(rating) || 5));

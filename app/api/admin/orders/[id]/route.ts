@@ -9,6 +9,8 @@ type Ctx = { params: { id: string } };
 export async function GET(req: Request, { params }: Ctx) {
   const g = await requirePerm("orders", req);
   if ("res" in g) return g.res;
+  const { ensureExtraTables } = await import("@/lib/db-ensure");
+  await ensureExtraTables().catch(() => {});
   const order = await db.order.findUnique({ where: { id: Number(params.id) }, include: { items: true } });
   return NextResponse.json({ order });
 }

@@ -60,6 +60,8 @@ function Quote({ r }: { r: any }) {
 }
 
 export default async function HomePage() {
+  const { ensureExtraTables } = await import("@/lib/db-ensure");
+  await ensureExtraTables().catch(() => {});
   const s = await getSettings();
   const cfg = publicSettings(s);
   const cats = await getCategories();

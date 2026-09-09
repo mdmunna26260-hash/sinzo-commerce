@@ -14,6 +14,8 @@ export const dynamic = "force-dynamic";
 export async function GET(req: Request) {
   const g = await requirePerm("orders", req);
   if ("res" in g) return g.res;
+  const { ensureExtraTables } = await import("@/lib/db-ensure");
+  await ensureExtraTables().catch(() => {});
   const sp = new URL(req.url).searchParams;
   const where: any = {};
   const status = sp.get("status"); const q = sp.get("q"); const payment = sp.get("payment"); const source = sp.get("source");
