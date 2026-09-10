@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import PushOptIn from "@/components/push-optin";
 import { setTrackingPhone } from "@/components/store";
+import { AppearancePicker } from "@/components/theme-toggle";
 
 const STATUSES = ["PENDING", "CONFIRMED", "PROCESSING", "PACKED", "SHIPPED", "DELIVERED", "CANCELLED", "RETURNED", "ON_HOLD"];
 const money = (n: number) => "৳" + Math.round(n).toLocaleString("en-IN");
@@ -129,6 +130,16 @@ export default function AccountClient({ customer, orders, token }: { customer: a
           </div>
           <button className="btn" disabled={busy} type="submit">{busy ? "Saving…" : "Save Changes"}</button>
         </form>
+      )}
+
+      {tab === "profile" && (
+        <div className="acard" style={{ padding: 26, maxWidth: 560, marginTop: 14 }}>
+          <h3 style={{ marginBottom: 6 }}>Appearance</h3>
+          <p style={{ color: "var(--muted)", fontSize: 13, marginBottom: 16 }}>
+            Site er theme — "System" chol phone er dark/light setting follow korbe.
+          </p>
+          <AppearancePicker />
+        </div>
       )}
     </div>
   );

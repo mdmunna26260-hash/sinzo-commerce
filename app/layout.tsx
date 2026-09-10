@@ -44,7 +44,10 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     const store = cfg.store || {};
     return (
       <html lang="en">
-        <head><style dangerouslySetInnerHTML={{ __html: `:root{--bg:${theme.bg || "#faf9f7"};--text:${theme.text || "#141414"};}` }} /></head>
+        <head>
+          <script dangerouslySetInnerHTML={{ __html: `(function(){try{var m=localStorage.getItem("sz_theme")||"system";var d=m==="dark"||(m==="system"&&matchMedia("(prefers-color-scheme: dark)").matches);document.documentElement.setAttribute("data-theme",d?"dark":"light");}catch(e){document.documentElement.setAttribute("data-theme","light");}})();` }} />
+          <style dangerouslySetInnerHTML={{ __html: `:root{--bg:${theme.bg || "#faf9f7"};--text:${theme.text || "#141414"};}` }} />
+        </head>
         <body>
           <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", padding: 24, background: "var(--bg)", color: "var(--text)" }}>
             <div className="logo" style={{ fontSize: 30, letterSpacing: "0.3em" }}>{store.name || "STORE"}</div>
@@ -71,6 +74,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     <html lang="en">
       <head>
+        <script dangerouslySetInnerHTML={{ __html: `(function(){try{var m=localStorage.getItem("sz_theme")||"system";var d=m==="dark"||(m==="system"&&matchMedia("(prefers-color-scheme: dark)").matches);document.documentElement.setAttribute("data-theme",d?"dark":"light");}catch(e){document.documentElement.setAttribute("data-theme","light");}})();` }} />
         <style dangerouslySetInnerHTML={{ __html: cssVars }} />
         <link rel="manifest" href="/manifest.webmanifest" />
         <link rel="icon" href="/icon-192.png" sizes="192x192" type="image/png" />

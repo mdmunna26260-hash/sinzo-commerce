@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { afetch, withToken } from "@/lib/afetch";
+import { ThemeIconToggle, ThemeSwitchRow } from "./theme-toggle";
 
 const NAV: { group: string; items: { href: string; label: string; icon: string; badge?: string }[] }[] = [
   { group: "Overview", items: [
@@ -78,13 +79,14 @@ export default function Sidebar({ pending, lowStock }: { pending: number; lowSto
         <Link href="/" target="_blank" aria-label="View website" style={{ display: "flex", padding: 8 }}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14 21 3"/></svg>
         </Link>
+        <ThemeIconToggle />
       </div>
       {menuOpen && <div className="admin-scrim" onClick={() => setMenuOpen(false)} />}
     <aside className={"admin-side" + (menuOpen ? " open" : "")}>
       <div style={{ display: "flex", justifyContent: "flex-end", padding: "0 14px" }}>
         <button className="abtn sm" style={{ background: "transparent", borderColor: "rgba(255,255,255,.15)", color: "#fff", display: "none" }} aria-hidden>×</button>
       </div>
-      <Link href={link("/admin/dashboard")} className="logo" onClick={() => setMenuOpen(false)}>{user?.name ? user.name.split(" ")[0].toUpperCase() : "ADMIN"}<span style={{ fontSize: 10, display: "block", color: "#6c7280", letterSpacing: ".2em" }}>COMMERCE PANEL</span></Link>
+      <Link href={link("/admin/dashboard")} className="logo" onClick={() => setMenuOpen(false)}>{user?.name ? user.name.split(" ")[0].toUpperCase() : "ADMIN"}<span style={{ fontSize: 10, display: "block", color: "#8b929c", letterSpacing: ".2em" }}>COMMERCE PANEL</span></Link>
 
       <div className="bell-wrap">
         <button className="bell-btn" onClick={() => { setNotifOpen(!notifOpen); loadNotifs(); }}>
@@ -130,7 +132,8 @@ export default function Sidebar({ pending, lowStock }: { pending: number; lowSto
         </div>
       ))}
       <div className="grp">Account</div>
-      <div style={{ padding: "6px 22px", fontSize: 12, color: "#6c7280", wordBreak: "break-all" }}>{user?.email || "…"}<br /><span style={{ color: "#9a7b4f" }}>{user?.role || ""}</span></div>
+      <div style={{ padding: "6px 22px", fontSize: 12, color: "#8b929c", wordBreak: "break-all" }}>{user?.email || "…"}<br /><span style={{ color: "#9a7b4f" }}>{user?.role || ""}</span></div>
+      <div style={{ padding: "4px 22px 0" }}><ThemeSwitchRow /></div>
       <Link href="/" target="_blank" style={{ marginTop: 6 }}>↗ View Storefront</Link>
       <a href="#" onClick={(e) => { e.preventDefault(); logout(); }}>⎋ Sign out</a>
     </aside>

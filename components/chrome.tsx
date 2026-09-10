@@ -3,6 +3,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { useCart, trackEvent } from "./store";
+import { ThemeIconToggle, ThemeSwitchRow } from "./theme-toggle";
 
 export type HeaderCfg = { storeName: string; announcement?: string; categories: { name: string; slug: string }[] };
 
@@ -139,6 +140,7 @@ export function Header({ storeName, categories }: { storeName: string; categorie
           </nav>
           <div className="header-actions">
             <AdminDashLink />
+            <span className="desktop-only" style={{ display: "inline-flex" }}><ThemeIconToggle /></span>
             <button className="icon-btn" aria-label="Search" onClick={() => { setSearchOpen(true); setSugg(null); }}>
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
             </button>
@@ -157,6 +159,7 @@ export function Header({ storeName, categories }: { storeName: string; categorie
           {categories.slice(0, 6).map((c) => <Link prefetch key={c.slug} href={"/products?category=" + c.slug} onClick={() => setOpen(false)}>{c.name}</Link>)}
           <Link href="/track" onClick={() => setOpen(false)}>Track Order</Link>
           <Link prefetch href="/wishlist" onClick={() => setOpen(false)}>Wishlist</Link>
+          <ThemeSwitchRow />
         </nav>
       </header>
 

@@ -343,7 +343,7 @@ h1, h2, h3, .serif { font-family: var(--font-head); font-weight: 500; letter-spa
 .admin-body { display: grid; grid-template-columns: 232px 1fr; min-height: 100vh; background: #f4f3f0; }
 .admin-side { background: #14161a; color: #cfd2d8; padding: 22px 0; position: sticky; top: 0; height: 100vh; overflow: auto; }
 .admin-side .logo { color: #fff; font-size: 19px; padding: 0 22px; display: block; margin-bottom: 26px; letter-spacing: .22em; }
-.admin-side .grp { font-size: 10px; letter-spacing: .2em; color: #6c7280; text-transform: uppercase; padding: 18px 22px 8px; }
+.admin-side .grp { font-size: 10px; letter-spacing: .2em; color: #8b929c; text-transform: uppercase; padding: 18px 22px 8px; }
 .admin-side a { display: flex; align-items: center; gap: 12px; padding: 10px 22px; font-size: 13.5px; color: #cfd2d8; border-left: 2px solid transparent; }
 .admin-side a:hover { color: #fff; background: rgba(255,255,255,.04); }
 .admin-side a.active { color: #fff; background: rgba(255,255,255,.06); border-left-color: var(--accent); }
@@ -1788,3 +1788,221 @@ h1, h2, h3 { text-wrap: balance; }
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; transition-delay: 0ms !important; scroll-behavior: auto !important; }
   .reveal { opacity: 1 !important; transform: none !important; }
 }
+
+/* ====================================================================
+   DARK THEME — toggled via [data-theme="dark"] on <html>.
+   Mode: light / dark / system (localStorage "sz_theme", components/theme-toggle.tsx).
+   Pre-paint inline script in app/layout.tsx sets the attribute before first
+   paint (no flash). Warm charcoal palette — same luxury discipline as the
+   light cream theme: neutral surfaces, gold accent, sharp 2px radius.
+   Product image frames (.pcard-img, .pdp-main-img, .mgal-viewport,
+   .mgal-thumbs) intentionally stay LIGHT — photos are shot on white,
+   so a light mat on dark looks like framed product (Zara/SSENSE pattern).
+   ==================================================================== */
+:root[data-theme="dark"] {
+  --bg: #131210;
+  --text: #f5f2ec;
+  --muted: #c6c0b4;
+  --line: #2c2923;
+  --card: #1b1917;
+  --accent: #c2a06b;
+  --danger: #e2837a;
+  --ok: #85c8a5;
+  color-scheme: dark;
+}
+:root[data-theme="dark"] body { background: #131210; }
+
+/* ---- glass (header / tabbar / floating pills) ---- */
+:root[data-theme="dark"] .glass {
+  background: rgba(24, 22, 19, 0.66);
+  border-color: rgba(255, 255, 255, 0.09);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+:root[data-theme="dark"] .header {
+  background: rgba(19, 18, 16, 0.86) !important;
+  border-bottom-color: rgba(255, 255, 255, 0.07);
+  box-shadow: 0 1px 12px rgba(0, 0, 0, 0.25);
+}
+:root[data-theme="dark"] .tabbar {
+  background: rgba(19, 18, 16, 0.92) !important;
+  -webkit-backdrop-filter: blur(12px) saturate(1.3);
+  backdrop-filter: blur(12px) saturate(1.3);
+  border-color: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 -6px 24px rgba(0, 0, 0, 0.35);
+}
+:root[data-theme="dark"] .tab-item { color: rgba(255, 255, 255, 0.55); }
+:root[data-theme="dark"] .tab-item.active { color: #f1eee8; background: rgba(255, 255, 255, 0.1); }
+/* image-frame controls stay light (they sit on the light image mat) */
+:root[data-theme="dark"] .search-panel { border-bottom-color: var(--line); }
+
+/* ---- light surfaces → dark surfaces ---- */
+:root[data-theme="dark"] .chip { background: #1b1917; }
+:root[data-theme="dark"] .size-btn:not(.active) { background: #1b1917; }
+:root[data-theme="dark"] .qty { background: #171512; }
+:root[data-theme="dark"] .modal { background: #1b1917; }
+:root[data-theme="dark"] .login-card { background: #1b1917; }
+:root[data-theme="dark"] .acard { background: #1b1917; border-color: #2c2923; }
+:root[data-theme="dark"] .acard .acard-h { border-bottom-color: #262320; }
+:root[data-theme="dark"] .kpi { background: #1b1917; border-color: #2c2923; }
+:root[data-theme="dark"] .quote { background: #1b1917; }
+:root[data-theme="dark"] .summary { background: #1b1917; }
+:root[data-theme="dark"] .timeline { background: #1b1917; }
+:root[data-theme="dark"] .order-code { background: #171512; }
+:root[data-theme="dark"] .pay-opt { background: #1b1917; }
+:root[data-theme="dark"] .cart-size-select { background: #171512; }
+:root[data-theme="dark"] .cat-pill:not(.active) { background: #1b1917; }
+:root[data-theme="dark"] .promo-split { background: #1b1917; }
+:root[data-theme="dark"] .crs-arrow { background: #1b1917; }
+:root[data-theme="dark"] .lb-top button { background: #221f1b; }
+:root[data-theme="dark"] .lb-nav { background: rgba(30, 27, 23, 0.88); }
+:root[data-theme="dark"] .lb-nav:hover { background: #2a2622; }
+:root[data-theme="dark"] .notif-panel { background: #1b1917; }
+:root[data-theme="dark"] .search-results a:hover { background: #221f1b; }
+:root[data-theme="dark"] .lightbox { background: rgba(10, 10, 9, 0.96); }
+:root[data-theme="dark"] .push-optin { background: #1b1917; }
+:root[data-theme="dark"] .push-row { background: #171512; }
+:root[data-theme="dark"] .push-nudge { background: rgba(24, 22, 19, 0.97) !important; border-color: #2c2923; }
+:root[data-theme="dark"] .admin-body { background: #0f0e0c; }
+:root[data-theme="dark"] .settings-nav a { background: #1b1917; border-color: #2c2923; }
+:root[data-theme="dark"] .settings-nav a.active { background: #f1eee8; color: #131210; border-color: #f1eee8; }
+
+/* ---- admin tables ---- */
+:root[data-theme="dark"] .tbl th { background: #171512; }
+:root[data-theme="dark"] .tbl th:first-child, :root[data-theme="dark"] .tbl td:first-child { background: #171512; }
+:root[data-theme="dark"] .tbl tr:hover td { background: rgba(255, 255, 255, 0.025); }
+:root[data-theme="dark"] .tbl tr:hover td:first-child { background: #1d1a17; }
+:root[data-theme="dark"] .tbl td, :root[data-theme="dark"] .tbl th { border-color: #262320; }
+
+/* ---- forms (every input family that was hardcoded white) ---- */
+:root[data-theme="dark"] .field input, :root[data-theme="dark"] .field select, :root[data-theme="dark"] .field textarea,
+:root[data-theme="dark"] .af input, :root[data-theme="dark"] .af select, :root[data-theme="dark"] .af textarea,
+:root[data-theme="dark"] .filters input, :root[data-theme="dark"] .review-form input,
+:root[data-theme="dark"] .review-form textarea, :root[data-theme="dark"] .review-form select,
+:root[data-theme="dark"] .summary input, :root[data-theme="dark"] .summary select {
+  background: #171512; border-color: #2c2923; color: #f1eee8;
+}
+:root[data-theme="dark"] .field input::placeholder, :root[data-theme="dark"] .af input::placeholder,
+:root[data-theme="dark"] .summary input::placeholder { color: #8f897d; }
+
+/* form labels: full contrast in dark (user requested) */
+:root[data-theme="dark"] .field label,
+:root[data-theme="dark"] .af label,
+:root[data-theme="dark"] .opt-label,
+:root[data-theme="dark"] .flabel { color: #f5f2ec; }
+
+/* ---- buttons: primary inverts, admin buttons go dark ---- */
+:root[data-theme="dark"] .abtn { background: #1b1917; border-color: #3a362f; }
+:root[data-theme="dark"] .abtn.primary { color: #131210; }
+:root[data-theme="dark"] .asearch { background: #171512; border-color: #2c2923; color: #f1eee8; }
+:root[data-theme="dark"] .abtn.danger { border-color: #5a2f2a; }
+
+/* ---- status pills: pastel → dark tints ---- */
+:root[data-theme="dark"] .pill.PENDING { background: rgba(212, 175, 55, 0.14); color: #d8b64a; }
+:root[data-theme="dark"] .pill.CONFIRMED, :root[data-theme="dark"] .pill.PROCESSING { background: rgba(90, 130, 210, 0.15); color: #93b2e8; }
+:root[data-theme="dark"] .pill.PACKED { background: rgba(150, 110, 210, 0.15); color: #b79ae0; }
+:root[data-theme="dark"] .pill.SHIPPED { background: rgba(70, 150, 190, 0.15); color: #7fc0dd; }
+:root[data-theme="dark"] .pill.DELIVERED, :root[data-theme="dark"] .pill.APPROVED, :root[data-theme="dark"] .pill.PAID, :root[data-theme="dark"] .pill.ACTIVE { background: rgba(90, 190, 140, 0.14); color: #8fd2ae; }
+:root[data-theme="dark"] .pill.CANCELLED, :root[data-theme="dark"] .pill.REJECTED, :root[data-theme="dark"] .pill.FAILED, :root[data-theme="dark"] .pill.CRITICAL { background: rgba(220, 90, 80, 0.14); color: #e89086; }
+:root[data-theme="dark"] .pill.RETURNED { background: rgba(180, 110, 210, 0.14); color: #cf9fe8; }
+:root[data-theme="dark"] .pill.ON_HOLD, :root[data-theme="dark"] .pill.DRAFT { background: rgba(255, 255, 255, 0.07); color: #a29c91; }
+:root[data-theme="dark"] .noti.ok { background: rgba(90, 190, 140, 0.12); }
+:root[data-theme="dark"] .noti.err { background: rgba(220, 90, 80, 0.12); }
+
+/* ---- skeletons: shimmer on dark ---- */
+:root[data-theme="dark"] .sk { background: #221f1b; }
+:root[data-theme="dark"] .sk::after { background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.05), transparent); }
+
+/* ---- invoice & receipt stay light (print/thermal documents) ---- */
+:root[data-theme="dark"] .invoice, :root[data-theme="dark"] .rcpt {
+  background: #ffffff !important; color: #141414 !important;
+}
+:root[data-theme="dark"] .invoice *, :root[data-theme="dark"] .rcpt * { color: #141414; }
+:root[data-theme="dark"] .invoice { background: #fff; }
+
+/* ---- theme controls (header icon, drawer switch, account picker) ---- */
+.theme-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 14px;
+  padding: 10px 2px; border: none; background: none; width: 100%;
+  font-size: 13px; letter-spacing: .14em; text-transform: uppercase; color: var(--text); cursor: pointer;
+}
+.theme-row-label { font-weight: 500; }
+.theme-switch {
+  flex: 0 0 auto; width: 40px; height: 22px; border-radius: 99px;
+  background: var(--line); position: relative; transition: background .2s ease;
+}
+.theme-switch.on { background: var(--accent); }
+.theme-knob {
+  position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 99px;
+  background: #fff; transition: transform .2s ease; box-shadow: 0 1px 3px rgba(0,0,0,.25);
+}
+.theme-switch.on .theme-knob { transform: translateX(18px); }
+.theme-picker { display: grid; gap: 10px; max-width: 420px; }
+.theme-pick {
+  display: flex; align-items: center; gap: 12px; text-align: left;
+  border: 1px solid var(--line); background: none; border-radius: 8px;
+  padding: 13px 16px; cursor: pointer; color: var(--text);
+}
+.theme-pick b { display: block; font-size: 13.5px; font-weight: 600; }
+.theme-pick i { display: block; font-style: normal; font-size: 12px; color: var(--muted); margin-top: 2px; }
+.theme-pick.on { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
+.theme-dot {
+  flex: 0 0 auto; width: 16px; height: 16px; border-radius: 99px;
+  border: 1.5px solid var(--line); position: relative;
+}
+.theme-dot.on { border-color: var(--accent); }
+.theme-dot.on::after { content: ""; position: absolute; inset: 3px; border-radius: 99px; background: var(--accent); }
+@media (prefers-reduced-motion: reduce) {
+  .theme-switch, .theme-knob { transition: none; }
+}
+
+/* Admin sidebar + mobile topbar are always-dark chrome in BOTH themes —
+   keep the theme controls readable there. */
+.admin-side .theme-row { color: #e8e6e1; }
+.admin-side .theme-switch { background: rgba(255, 255, 255, 0.16); }
+.admin-side .theme-switch.on { background: #c2a06b; }
+.admin-topbar .theme-toggle { color: #fff; }
+
+/* Hero is a LIGHT image in both themes — keep light-theme colors inside it
+   (heading + ghost CTA were inverting to light-on-light in dark mode). */
+:root[data-theme="dark"] .hero,
+:root[data-theme="dark"] .hero-content { --text: #141414; --muted: #5c5852; --bg: #faf9f7; color: #141414; }
+:root[data-theme="dark"] .hero h1 { color: #141414; }
+
+/* Smooth theme switch: class is added for ~450ms on toggle (theme-toggle.tsx).
+   Scoped to the transition window so hover/reveal animations stay normal. */
+html.theme-transition,
+html.theme-transition *,
+html.theme-transition *::before,
+html.theme-transition *::after {
+  transition: background-color .4s ease, color .4s ease, border-color .4s ease, box-shadow .4s ease, fill .4s ease, stroke .4s ease !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  html.theme-transition,
+  html.theme-transition *,
+  html.theme-transition *::before,
+  html.theme-transition *::after { transition: none !important; }
+}
+
+/* Active size selection in dark: the glass rule above makes it near-black
+   glass, which vanishes on the dark page — force the light fill instead. */
+:root[data-theme="dark"] .size-btn.active {
+  background: #f1eee8;
+  border-color: #f1eee8;
+  color: #131210;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.4);
+  transform: translateY(-1px);
+}
+
+/* Frosted-glass panel block (section 6) forces WHITE with !important on
+   .modal/.fdrawer/.search-panel/.notif-panel — dark theme needs its own
+   !important or the panels stay white in dark mode. */
+:root[data-theme="dark"] .modal,
+:root[data-theme="dark"] .fdrawer,
+:root[data-theme="dark"] .search-panel,
+:root[data-theme="dark"] .notif-panel {
+  background: #171512 !important;
+  border-color: rgba(255, 255, 255, 0.08);
+}
+:root[data-theme="dark"] .fdrawer { border-left-color: rgba(255, 255, 255, 0.08); }
+:root[data-theme="dark"] .fdrawer .filters label { border-bottom-color: #262320; }
+:root[data-theme="dark"] .search-form input::placeholder { color: #8f897d; }
