@@ -271,11 +271,7 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
     toast("Added to cart ✓");
     setTimeout(() => setAdding(false), 450); // brief confirmation state
   };
-  // Mobile swipe gallery is enabled ONLY on Vercel deploys (not on VPS)
-  const [vercelOnly, setVercelOnly] = useState(false);
-  useEffect(() => {
-    setVercelOnly(/vercel\.app$/.test(window.location.hostname));
-  }, []);
+  // Mobile swipe gallery — enabled on ALL deployments (Vercel + VPS), 2026-09-10
 
   const buyNow = () => {
     if (buying || adding) return;
@@ -289,18 +285,14 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
       <div className="pdp">
         {/* ---------------- GALLERY ---------------- */}
         <div className="pdp-gallery">
-          {/* MOBILE: swipeable gallery — Vercel deployment ONLY (user preference).
-              VPS (sinzooffcial.com) keeps the original gallery. */}
-          {/* MOBILE swipe gallery — Vercel only */}
-          {vercelOnly && (
+          {/* MOBILE: swipeable gallery — all deployments (Vercel + VPS) */}
           <div className="pdp-gallery-mobile mobile-only">
             <MobileGallery images={product.images} title={product.title} active={img} onIndexChange={setImg} />
             {avail <= 0 && <div className="soldout-overlay"><span>Sold Out</span></div>}
           </div>
-          )}
 
-          {/* ORIGINAL gallery — always rendered; on Vercel mobile it's hidden by CSS when swipe gallery is active */}
-          <div className={"pdp-gallery-desktop" + (vercelOnly ? " hide-on-mobile" : "")}>
+          {/* ORIGINAL gallery — always rendered; on mobile it's hidden by CSS in favor of the swipe gallery */}
+          <div className="pdp-gallery-desktop hide-on-mobile">
           <div
             ref={mainRef}
             className={"pdp-main-img" + (N <= 1 ? " single" : "")}
