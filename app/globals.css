@@ -808,18 +808,6 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 13.5px; }
 /* NOTE: .pcard-info intentionally NOT animated here — cards already use the
    .reveal IntersectionObserver animation; a second animation = double fade + wasted paint on mobile */
 
-/* Shared element morph (card image → PDP hero) — overlay + destination page reveal.
-   The overlay is spawned by lib/flip.ts; 300ms transform-only, same easing as the
-   swipe gallery. Destination page fades in under the morphing image. */
-.flip-overlay { position: fixed; z-index: 9998; overflow: hidden; pointer-events: none; will-change: transform; background: #eee9e2; }
-.flip-overlay img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.pdp.pdp-flip { animation: none; opacity: 0; }
-.pdp.pdp-flip.pdp-flip-on { opacity: 1; transition: opacity 200ms ease 100ms; }
-@media (prefers-reduced-motion: reduce) {
-  .flip-overlay { display: none; }
-  .pdp.pdp-flip, .pdp.pdp-flip.pdp-flip-on { opacity: 1; animation: none; transition: none; }
-}
-
 /* View Transition API — PDP main image gets a unique name so it can morph.
    NOTE: cards must NOT have a view-transition-name — duplicate names on a page
    make the browser skip the whole transition (all transitions would break). */
