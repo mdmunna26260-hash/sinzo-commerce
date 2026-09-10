@@ -55,10 +55,6 @@ export default function CardImg({ url, alt, slug }: { url: string; alt: string; 
   return (
     <img
       ref={ref}
-      onClick={() => {
-        // shared element morph: clicked card image morphs into PDP hero
-        try { ref.current?.style.setProperty("view-transition-name", "product-hero"); } catch {}
-      }}
       src={err ? FALLBACK : imgSrc(url, 600)}
       srcSet={err ? undefined : imgSrcSet(url, [300, 600, 1000, 1200])}
       sizes="(max-width: 600px) 50vw, (max-width: 1200px) 33vw, 300px"

@@ -8,6 +8,7 @@ import { warmImage, warmWhenIdle } from "@/components/img-warm";
 import { trackRecentlyViewed } from "@/components/recently-viewed";
 import MobileGallery from "@/components/mobile-gallery";
 import SizeRecommendation from "@/components/size-rec";
+import { hasPendingFlip, finishFlip } from "@/lib/flip";
 
 type V = { id: number; size: string | null; color: string | null; stock: number; price: number | null; image?: string | null };
 type P = {
@@ -66,6 +67,35 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
   const [lbZoom, setLbZoom] = useState(false);
   const [hoverZoom, setHoverZoom] = useState(false);
   const touch = useRef<{ x: number; y: number } | null>(null);
+
+  /* Shared element morph: the clicked product-card image flies into this
+     gallery (FLIP overlay, lib/flip.ts). flipStarted is read synchronously on
+     first render so the page shell begins hidden under the overlay — no
+     content flash. Failsafe: any problem → plain page appearance. */
+  const [flipStarted] = useState(() => hasPendingFlip(product.id));
+  const [flipOn, setFlipOn] = useState(false);
+  useEffect(() => {
+    if (!flipStarted) return;
+    let tries = 0;
+    let stopped = false;
+    const attempt = () => {
+      if (stopped) return;
+      const cands = [
+        document.querySelector<HTMLElement>(".mgal-viewport"), // mobile
+        document.querySelector<HTMLElement>(".pdp-main-img"), // desktop
+      ];
+      const target = cands.find((el) => el && el.getBoundingClientRect().width > 0) || null;
+      if (target) {
+        finishFlip(product.id, target);
+        setFlipOn(true);
+        return;
+      }
+      if (hasPendingFlip(product.id) && ++tries < 10) setTimeout(attempt, 50);
+      else setFlipOn(true); // give up → show page normally
+    };
+    attempt();
+    return () => { stopped = true; };
+  }, [flipStarted, product.id]);
 
   /* ---------- mobile swipe-to-slide on main gallery image ----------
      Finger tracks 1:1 (translate3d), axis-locked so vertical scroll works.
@@ -282,7 +312,7 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
 
   return (
     <>
-      <div className="pdp">
+      <div className={"pdp" + (flipStarted ? " pdp-flip" : "") + (flipOn ? " pdp-flip-on" : "")}>
         {/* ---------------- GALLERY ---------------- */}
         <div className="pdp-gallery">
           {/* MOBILE: swipeable gallery — all deployments (Vercel + VPS) */}
