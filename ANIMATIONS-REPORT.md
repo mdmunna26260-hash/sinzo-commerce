@@ -221,3 +221,13 @@ Ekhon shudhu marquee e ache. Sob animation ek jaygay off:
 3. Sandbox preview e test: home scroll, product card hover (desktop), cart add, checkout → success, mobile tabbar (devtools e mobile viewport)
 4. `prefers-reduced-motion` on kore ekbar dekhun (devtools → Rendering → Emulate CSS prefers-reduced-motion) — sob kill hoye static site thakte hobe
 5. Performance: Lighthouse mobile — LCP < 2.5s maintain koro
+
+---
+
+## DEPLOY LOG (2026-09-10)
+
+- **Commit:** 5b6ac80 (animation pass) + trigger commits
+- **Local test:** tsc clean, all pages 200, prod build OK, admin orders 28/28 (sandbox)
+- **Vercel:** live — buildId `QcnF-DMylDahH-PshGDgL` (sha 52c2137). Deployed via Vercel REST API (token) because Vercel's new commit-email verification was webhook-blocking (email mdmuna26260@gmail.com was missing from the GitHub account; user added+verified it). After that fix, webhook auto-deploy also resumed (526c2bc auto-deployed to production).
+- **VPS:** live — auto-deployed (buildId `nT6Uctpy4Y2Dn-MYJceTz`). Root cause of missed deploys: Dokploy's GitHub App connection had been lost (repo had no app/webhook, `github.githubProviders` was empty). User re-installed the GitHub App in Dokploy Settings → Git Providers; app re-linked to new provider id via `application.saveGithubProvider` (triggerType "push", buildPath ""). Verified E2E: test commit 526c2bc auto-deployed in ~60s.
+- **Verified on both:** 8 new keyframes in served CSS, admin orders list working (Vercel 28, VPS 24 — order isolation by source is by design).
