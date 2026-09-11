@@ -64,8 +64,8 @@ h1, h2, h3, .serif { font-family: var(--font-head); font-weight: 500; letter-spa
   position: absolute; top: 100%; left: 0; right: 0;
   padding: 6px 24px 20px;
   background: rgba(255, 255, 255, 0.62);
-  -webkit-backdrop-filter: blur(22px) saturate(1.7);
-  backdrop-filter: blur(22px) saturate(1.7);
+  -webkit-backdrop-filter: blur(20px) saturate(1.9);
+  backdrop-filter: blur(20px) saturate(1.9);
   border-radius: 0 0 28px 28px;
   box-shadow: 0 18px 44px rgba(20, 18, 12, 0.14);
   pointer-events: none;
@@ -438,6 +438,10 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 13.5px; }
 
   .burger { display: inline-flex; }
   .mobile-nav.open { display: flex; pointer-events: auto; animation: mnavIn .3s cubic-bezier(.32,.72,0,1); }
+  /* Safari/WebKit: an ancestor with backdrop-filter disables a child's
+     backdrop-filter — while the menu is open, drop the header's own blur
+     so the menu's 20px frosted blur actually renders. */
+  .header:has(.mobile-nav.open) { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
 @keyframes mnavIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: none; } }
   .pdp { grid-template-columns: 1fr; gap: 30px; padding-top: 20px; }
   .pdp-gallery { position: static; }
@@ -2064,8 +2068,8 @@ html.theme-transition *::after {
 /* Mobile menu — dark liquid glass (mirrors the light frosted card) */
 :root[data-theme="dark"] .mobile-nav {
   background: rgba(21, 20, 17, 0.72);
-  -webkit-backdrop-filter: blur(22px) saturate(1.4);
-  backdrop-filter: blur(22px) saturate(1.4);
+  -webkit-backdrop-filter: blur(20px) saturate(1.6);
+  backdrop-filter: blur(20px) saturate(1.6);
   box-shadow: 0 18px 44px rgba(0, 0, 0, 0.5);
 }
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
