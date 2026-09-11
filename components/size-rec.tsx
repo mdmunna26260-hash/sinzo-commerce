@@ -12,7 +12,7 @@ type Props = {
 };
 
 const labelS: React.CSSProperties = { fontSize: 11, color: "var(--muted)", display: "block", marginBottom: 4 };
-const inputS: React.CSSProperties = { width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 4, fontSize: 14, background: "#fff" };
+const inputS: React.CSSProperties = { width: "100%", padding: "8px 10px", borderRadius: 4, fontSize: 14 };
 
 export default function SizeRecommendation({ sizes, stockMap }: Props) {
   const [open, setOpen] = useState(false);
@@ -44,7 +44,7 @@ export default function SizeRecommendation({ sizes, stockMap }: Props) {
       </button>
 
       {open && (
-        <div style={{ background: "#f8f7f5", padding: 14, borderRadius: 8, marginTop: 8, display: "grid", gap: 10 }}>
+        <div className="srec" style={{ padding: 14, borderRadius: 8, marginTop: 8, display: "grid", gap: 10 }}>
           {/* HEIGHT — FT/IN first (default), CM optional */}
           <div>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 6, flexWrap: "wrap" }}>
@@ -56,14 +56,12 @@ export default function SizeRecommendation({ sizes, stockMap }: Props) {
                     type="button"
                     onClick={() => setUnit(u)}
                     aria-pressed={unit === u}
+                    className={"srec-unit" + (unit === u ? " on" : "")}
                     style={{
                       fontSize: 11,
                       padding: "4px 12px",
                       borderRadius: 99,
                       cursor: "pointer",
-                      border: "1px solid " + (unit === u ? "var(--text)" : "var(--line)"),
-                      background: unit === u ? "var(--text)" : "#fff",
-                      color: unit === u ? "#fff" : "var(--text)",
                       fontWeight: 600,
                     }}
                   >
@@ -78,18 +76,18 @@ export default function SizeRecommendation({ sizes, stockMap }: Props) {
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
                   <div>
                     <label style={labelS}>Feet</label>
-                    <input type="number" inputMode="numeric" min={3} max={7} step={1} value={ft} onChange={(e) => setFt(e.target.value)} placeholder="5" style={inputS} />
+                    <input type="number" inputMode="numeric" min={3} max={7} step={1} value={ft} onChange={(e) => setFt(e.target.value)} placeholder="5" className="srec-input" style={inputS} />
                     {errors.feet && <div className="err">{errors.feet}</div>}
                   </div>
                   <div>
                     <label style={labelS}>Inches</label>
-                    <input type="number" inputMode="numeric" min={0} max={11} step={1} value={inch} onChange={(e) => setInch(e.target.value)} placeholder="7" style={inputS} />
+                    <input type="number" inputMode="numeric" min={0} max={11} step={1} value={inch} onChange={(e) => setInch(e.target.value)} placeholder="7" className="srec-input" style={inputS} />
                     {errors.inches && <div className="err">{errors.inches}</div>}
                   </div>
                 </div>
                 <div>
                   <label style={labelS}>Weight (kg)</label>
-                  <input type="number" inputMode="decimal" min={20} max={250} step="any" value={wt} onChange={(e) => setWt(e.target.value)} placeholder="70" style={inputS} />
+                  <input type="number" inputMode="decimal" min={20} max={250} step="any" value={wt} onChange={(e) => setWt(e.target.value)} placeholder="70" className="srec-input" style={inputS} />
                   {errors.weight && <div className="err">{errors.weight}</div>}
                 </div>
               </div>
@@ -97,12 +95,12 @@ export default function SizeRecommendation({ sizes, stockMap }: Props) {
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
                 <div>
                   <label style={labelS}>Height (cm)</label>
-                  <input type="number" inputMode="decimal" min={100} max={230} step="any" value={cm} onChange={(e) => setCm(e.target.value)} placeholder="170" style={inputS} />
+                  <input type="number" inputMode="decimal" min={100} max={230} step="any" value={cm} onChange={(e) => setCm(e.target.value)} placeholder="170" className="srec-input" style={inputS} />
                   {errors.height && <div className="err">{errors.height}</div>}
                 </div>
                 <div>
                   <label style={labelS}>Weight (kg)</label>
-                  <input type="number" inputMode="decimal" min={20} max={250} step="any" value={wt} onChange={(e) => setWt(e.target.value)} placeholder="70" style={inputS} />
+                  <input type="number" inputMode="decimal" min={20} max={250} step="any" value={wt} onChange={(e) => setWt(e.target.value)} placeholder="70" className="srec-input" style={inputS} />
                   {errors.weight && <div className="err">{errors.weight}</div>}
                 </div>
               </div>

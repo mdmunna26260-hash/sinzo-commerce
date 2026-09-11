@@ -178,7 +178,7 @@ export default function MarketingClient({ abandoned, subscribers, sources, push,
                   </tr>
                   {expanded === a.id && (
                     <tr key={a.id + "-detail"}>
-                      <td colSpan={5} style={{ background: "#fbfaf8", padding: 16 }}>
+                      <td colSpan={5} className="ad-row" style={{ padding: 16 }}>
                         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 18 }}>
                           <div>
                             <div style={{ fontSize: 10.5, letterSpacing: ".16em", textTransform: "uppercase", color: "var(--muted)", marginBottom: 8 }}>🛒 Cart Items</div>

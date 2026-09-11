@@ -3,7 +3,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { useCart, trackEvent } from "./store";
-import { ThemeIconToggle, ThemeSwitchRow } from "./theme-toggle";
+import { ThemeIconToggle } from "./theme-toggle";
 
 export type HeaderCfg = { storeName: string; announcement?: string; categories: { name: string; slug: string }[] };
 
@@ -104,6 +104,40 @@ export function Header({ storeName, categories }: { storeName: string; categorie
 
   useEffect(() => { setOpen(false); setSugg(null); }, [path]);
 
+  /* Auto-close the mobile menu: on scroll, click/tap outside (burger+menu),
+     Escape, or resize to desktop width. */
+  const burgerRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    let raf: number | undefined;
+    const close = () => setOpen(false);
+    const onScroll = () => {
+      if (raf) return;
+      raf = requestAnimationFrame(() => { raf = undefined; close(); });
+    };
+    const onDown = (e: Event) => {
+      const t = e.target as Node;
+      if (menuRef.current?.contains(t) || burgerRef.current?.contains(t)) return;
+      close();
+    };
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") close(); };
+    const onResize = () => { if (window.innerWidth >= 900) close(); };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("touchstart", onDown, { passive: true });
+    document.addEventListener("keydown", onKey);
+    window.addEventListener("resize", onResize);
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("touchstart", onDown);
+      document.removeEventListener("keydown", onKey);
+      window.removeEventListener("resize", onResize);
+      if (raf) cancelAnimationFrame(raf);
+    };
+  }, [open]);
+
   const onQ = (v: string) => {
     setQ(v);
     clearTimeout(timer.current);
@@ -127,7 +161,7 @@ export function Header({ storeName, categories }: { storeName: string; categorie
     <>
       <header ref={headerRef} className={"header" + (hid ? " hid" : "")}>
         <div className="container header-inner">
-          <button className="burger icon-btn" aria-label="Menu" onClick={() => setOpen(!open)}>
+          <button ref={burgerRef} className="burger icon-btn" aria-label="Menu" onClick={() => setOpen(!open)}>
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
           </button>
           <Link prefetch href="/" className="logo">{storeName}</Link>
@@ -140,7 +174,7 @@ export function Header({ storeName, categories }: { storeName: string; categorie
           </nav>
           <div className="header-actions">
             <AdminDashLink />
-            <span className="desktop-only" style={{ display: "inline-flex" }}><ThemeIconToggle /></span>
+            <ThemeIconToggle />
             <button className="icon-btn" aria-label="Search" onClick={() => { setSearchOpen(true); setSugg(null); }}>
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
             </button>
@@ -154,12 +188,9 @@ export function Header({ storeName, categories }: { storeName: string; categorie
             </Link>
           </div>
         </div>
-        <nav className={"mobile-nav" + (open ? " open" : "")}>
+        <nav ref={menuRef} className={"mobile-nav" + (open ? " open" : "")}>
           <Link href="/products" onClick={() => setOpen(false)}>Shop All</Link>
           {categories.slice(0, 6).map((c) => <Link prefetch key={c.slug} href={"/products?category=" + c.slug} onClick={() => setOpen(false)}>{c.name}</Link>)}
-          <Link href="/track" onClick={() => setOpen(false)}>Track Order</Link>
-          <Link prefetch href="/wishlist" onClick={() => setOpen(false)}>Wishlist</Link>
-          <ThemeSwitchRow />
         </nav>
       </header>
 

@@ -20,7 +20,7 @@ export default function WishlistClient({ products }: { products: any[] }) {
           {saved.map((p) => (
             <div key={p.id} style={{ position: "relative" }}>
               <ProductCard p={p} wish />
-              <button className="abtn sm" style={{ position: "absolute", top: 10, right: 10, background: "#fff" }} onClick={() => wl.toggle(p.id)}>✕</button>
+              <button className="abtn sm" style={{ position: "absolute", top: 10, right: 10, background: "#fff", color: "#141414" }} onClick={() => wl.toggle(p.id)}>✕</button>
             </div>
           ))}
         </div>

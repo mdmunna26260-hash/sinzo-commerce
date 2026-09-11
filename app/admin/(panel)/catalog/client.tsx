@@ -90,7 +90,7 @@ export default function CatalogClient({ categories, collections, products }: any
           </table>
           <div className="acard-b" style={{ borderTop: "1px solid #eeedea" }}>
             {editCatId && (
-              <div style={{ marginBottom: 12, padding: 10, background: "#f8f7f5", borderRadius: 6 }}>
+              <div className="ad-note" style={{ marginBottom: 12, padding: 10, borderRadius: 6 }}>
                 <div style={{ fontSize: 12.5, fontWeight: 600, marginBottom: 8 }}>Upload image for category #{editCatId}</div>
                 <input type="file" accept="image/*" onChange={(e) => { if (e.target.files?.[0]) uploadCatImg(e.target.files[0], editCatId); }} style={{ fontSize: 13 }} />
               </div>

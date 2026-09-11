@@ -56,8 +56,24 @@ h1, h2, h3, .serif { font-family: var(--font-head); font-weight: 500; letter-spa
 .icon-btn { position: relative; background: none; border: none; padding: 6px; color: var(--text); display: inline-flex; }
 .icon-btn:hover { color: var(--accent); }
 .burger { display: none; background: none; border: none; }
-.mobile-nav { display: none; flex-direction: column; border-top: 1px solid var(--line); padding: 12px 24px 20px; gap: 14px; background: var(--bg); }
-.mobile-nav a { font-size: 13px; letter-spacing: .14em; text-transform: uppercase; }
+/* Liquid-glass dropdown: semi-transparent frosted card that blurs the
+   page behind it (backdrop-filter) — no border, soft shadow, rounded
+   bottom corners. Sits below the sticky header (top:100%). */
+.mobile-nav {
+  display: none; flex-direction: column;
+  position: absolute; top: 100%; left: 0; right: 0;
+  padding: 6px 24px 20px;
+  background: rgba(255, 255, 255, 0.62);
+  -webkit-backdrop-filter: blur(22px) saturate(1.7);
+  backdrop-filter: blur(22px) saturate(1.7);
+  border-radius: 0 0 28px 28px;
+  box-shadow: 0 18px 44px rgba(20, 18, 12, 0.14);
+  pointer-events: none;
+}
+.mobile-nav a { font-size: 13px; letter-spacing: .14em; text-transform: uppercase; padding: 12px 0; }
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .mobile-nav { background: #faf9f7; }
+}
 
 .search-hint { padding: 12px 14px; font-size: 12px; color: var(--muted); }
 
@@ -421,7 +437,8 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 13.5px; }
   .nav { display: none; }
 
   .burger { display: inline-flex; }
-  .mobile-nav.open { display: flex; }
+  .mobile-nav.open { display: flex; pointer-events: auto; animation: mnavIn .3s cubic-bezier(.32,.72,0,1); }
+@keyframes mnavIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: none; } }
   .pdp { grid-template-columns: 1fr; gap: 30px; padding-top: 20px; }
   .pdp-gallery { position: static; }
   .cart-layout, .checkout-layout { grid-template-columns: 1fr; }
@@ -1805,7 +1822,8 @@ h1, h2, h3 { text-wrap: balance; }
   --muted: #c6c0b4;
   --line: #2c2923;
   --card: #1b1917;
-  --accent: #c2a06b;
+  /* --accent intentionally NOT overridden: the brand accent set in admin
+     Settings → Theme & Appearance applies to BOTH themes. */
   --danger: #e2837a;
   --ok: #85c8a5;
   color-scheme: dark;
@@ -2006,3 +2024,78 @@ html.theme-transition *::after {
 :root[data-theme="dark"] .fdrawer { border-left-color: rgba(255, 255, 255, 0.08); }
 :root[data-theme="dark"] .fdrawer .filters label { border-bottom-color: #262320; }
 :root[data-theme="dark"] .search-form input::placeholder { color: #8f897d; }
+
+/* Row-hover was on <tr> (cream) under the semi-transparent <td> hover —
+   in dark that reads as a white row with light text. Solid dark override. */
+:root[data-theme="dark"] .tbl tbody tr:hover { background: #1a1815; }
+
+/* Wishlist hearts sit on the LIGHT image mat — light-theme color in dark mode */
+:root[data-theme="dark"] .pcard-heart { color: #141414; }
+:root[data-theme="dark"] .pcard-heart.on { color: #b3392f; }
+
+/* Flash-sale countdown box (was hardcoded light pink inline — dark text
+   vanished on it in dark mode). Light theme keeps the original look. */
+.flash-box {
+  display: inline-flex; align-items: center; gap: 8px;
+  background: #fdf0ee; border: 1px solid #f3d9d3; border-radius: 10px;
+  padding: 8px 14px; margin: 0 0 10px;
+}
+.flash-box-label { font-size: 11px; font-weight: 700; letter-spacing: .1em; color: var(--danger); text-transform: uppercase; }
+:root[data-theme="dark"] .flash-box { background: rgba(226, 131, 122, 0.10); border-color: rgba(226, 131, 122, 0.35); }
+
+/* Discount: user preference — keep the light-theme deep red in dark mode
+   (bright #e2837a read as washed-out on near-black). */
+:root[data-theme="dark"] .off { color: #b3392f; }
+:root[data-theme="dark"] .pdp-price .off { color: #b3392f; }
+:root[data-theme="dark"] .badge.sale { background: #b3392f; }
+
+/* PDP image dots sit on the LIGHT image mat — active dot was var(--text)
+   (light on light = invisible) in dark mode. */
+:root[data-theme="dark"] .mgal-dots button { background: rgba(20, 20, 20, 0.3); }
+:root[data-theme="dark"] .mgal-dots button.on { background: #141414; }
+
+/* Admin + customer login: card blends into the dark canvas — give it an
+   edge so the panel reads as a card; explicit dark-theme legibility. */
+:root[data-theme="dark"] .login-card { border: 1px solid #2c2923; box-shadow: 0 24px 70px rgba(0, 0, 0, 0.55); }
+:root[data-theme="dark"] .login-card .logo { color: #f5f2ec; }
+:root[data-theme="dark"] .login-sub { color: #c6c0b4; }
+:root[data-theme="dark"] .login-card .abtn.primary { background: #f5f2ec; color: #131210; border-color: #f5f2ec; }
+
+/* Mobile menu — dark liquid glass (mirrors the light frosted card) */
+:root[data-theme="dark"] .mobile-nav {
+  background: rgba(21, 20, 17, 0.72);
+  -webkit-backdrop-filter: blur(22px) saturate(1.4);
+  backdrop-filter: blur(22px) saturate(1.4);
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.5);
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  :root[data-theme="dark"] .mobile-nav { background: #1b1917; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mobile-nav.open { animation: none; }
+}
+
+/* ---- Size recommendation (PDP) — theme-aware surfaces
+   (was hardcoded light inline: panel #f8f7f5, inputs #fff — unreadable
+   on the dark PDP). Light values preserved, dark variants below. */
+.srec { background: #f8f7f5; }
+.srec-input { background: #fff; border: 1px solid var(--line); color: var(--text); }
+.srec-input::placeholder { color: #a39d92; }
+.srec-unit { border: 1px solid var(--line); background: #fff; color: var(--text); }
+.srec-unit.on { background: var(--text); color: var(--bg); border-color: var(--text); }
+:root[data-theme="dark"] .srec { background: #1b1917; border: 1px solid #2c2923; }
+:root[data-theme="dark"] .srec-input { background: #171512; color: #f1eee8; }
+:root[data-theme="dark"] .srec-input::placeholder { color: #8f897d; }
+:root[data-theme="dark"] .srec-unit { background: #171512; color: #e8e4dc; }
+:root[data-theme="dark"] .srec-unit.on { background: #f5f2ec; color: #131210; border-color: #f5f2ec; }
+
+/* Account page — disabled login-id field was hardcoded light */
+:root[data-theme="dark"] .acct-disabled { background: #171512; color: #c6c0b4; }
+
+/* Admin — small light surfaces that read as bright patches in dark mode */
+.ad-track { background: #f0ede8; }
+.ad-note { background: #f8f7f5; }
+.ad-row { background: #fbfaf8; }
+:root[data-theme="dark"] .ad-track { background: #2c2923; }
+:root[data-theme="dark"] .ad-note { background: #171512; border: 1px solid #262320; }
+:root[data-theme="dark"] .ad-row { background: #171512; }

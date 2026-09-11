@@ -179,7 +179,7 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: SP
                 <span><b>{f.v}</b> · {f.label} {f.hint && <span style={{ color: "var(--muted)" }}>({f.hint})</span>}</span>
                 <span style={{ color: "var(--muted)" }}>{i === 0 ? "" : `${funnel[i - 1].v ? pct(f.v / funnel[i - 1].v) : "—"} of previous · ${f.v ? pct(f.v / funnelMax) : "0%"} overall`}</span>
               </div>
-              <div style={{ background: "#f0ede8", height: 22, borderRadius: 4, overflow: "hidden" }}>
+              <div className="ad-track" style={{ height: 22, borderRadius: 4, overflow: "hidden" }}>
                 <div style={{ width: Math.max(2, (f.v / funnelMax) * 100) + "%", height: "100%", background: "linear-gradient(90deg, var(--accent), #c9ab84)", borderRadius: 4 }} />
               </div>
             </div>
@@ -211,7 +211,7 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: SP
                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3 }}>
                   <span className={"pill " + st}>{st}</span><span><b>{n}</b> · {pct(n / ordersAll.length)}</span>
                 </div>
-                <div style={{ background: "#f0ede8", height: 8, borderRadius: 99 }}>
+                <div className="ad-track" style={{ height: 8, borderRadius: 99 }}>
                   <div style={{ width: (n / ordersAll.length) * 100 + "%", height: "100%", borderRadius: 99, background: "var(--text)" }} />
                 </div>
               </div>

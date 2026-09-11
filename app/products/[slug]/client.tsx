@@ -44,8 +44,8 @@ function Countdown({ ends }: { ends: string }) {
     </span>
   );
   return (
-    <div style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "#fdf0ee", border: "1px solid #f3d9d3", borderRadius: 10, padding: "8px 14px", margin: "0 0 10px" }}>
-      <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: ".1em", color: "var(--danger)", textTransform: "uppercase" }}>Sale ends</span>
+    <div className="flash-box">
+      <span className="flash-box-label">Sale ends</span>
       <span style={{ display: "inline-flex", gap: 6 }}>
         {unit(h, "HRS")}{unit(m, "MIN")}{unit(s, "SEC")}
       </span>

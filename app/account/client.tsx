@@ -112,7 +112,7 @@ export default function AccountClient({ customer, orders, token }: { customer: a
           {tempPhone ? (
             <div className="field"><label>Mobile Number (order track korar jonno)</label><input value={profile.phone} onChange={(e) => setProfile({ ...profile, phone: e.target.value })} placeholder="01XXXXXXXXX" inputMode="numeric" /></div>
           ) : (
-            <div className="field"><label>Mobile (login id — fixed)</label><input value={customer.phone} disabled style={{ background: "#f6f4f1" }} /></div>
+            <div className="field"><label>Mobile (login id — fixed)</label><input value={customer.phone} disabled className="acct-disabled" style={{ background: "#f6f4f1" }} /></div>
           )}
           <div className="field"><label>Email</label><input type="email" value={profile.email} onChange={(e) => setProfile({ ...profile, email: e.target.value })} /></div>
           <div className="field"><label>Default Address</label><textarea value={profile.address} onChange={(e) => setProfile({ ...profile, address: e.target.value })} style={{ minHeight: 70 }} /></div>
