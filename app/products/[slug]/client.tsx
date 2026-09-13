@@ -423,14 +423,14 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
                   const v = product.variants.find((x) => x.size === s && (!color || x.color === color));
                   const stock = v?.stock || 0;
                   return (
-                    <button key={s} className={"size-btn" + (size === s ? " active" : "")} disabled={stock <= 0}
+                    <button key={s} className={"size-btn" + (size === s ? " active" : "")} disabled={stock <= 0 && !preorder}
                       onClick={() => { setSize(s); setQty(1); }}>{s}</button>
                   );
                 })}
               </div>
             </>
           )}
-          {sizes.length > 0 && (
+          {sizes.length > 0 && !preorder && (
             <SizeRecommendation sizes={sizes} stockMap={sizeStock} />
           )}
           {colors.length > 0 && (

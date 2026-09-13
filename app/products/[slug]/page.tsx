@@ -153,7 +153,7 @@ export default async function PDP({ params, searchParams }: { params: { slug: st
                 .filter(Boolean)
                 .map((u) => ({ url: u, alt: `${p.title}` })),
             ],
-            variants: p.variants.filter((v) => v.stock > 0).map((v) => ({ id: v.id, size: v.size, color: v.color, stock: v.stock, price: v.price, image: v.image || null })),
+            variants: (p.preorder ? p.variants : p.variants.filter((v) => v.stock > 0)).map((v) => ({ id: v.id, size: v.size, color: v.color, stock: v.stock, price: v.price, image: v.image || null })),
             categoryName: p.category?.name,
             colorName: p.colorName,
             colorImage: p.colorImage,

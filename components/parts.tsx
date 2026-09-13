@@ -8,7 +8,7 @@ export { imgSrc, imgSrcSet } from "./img-src";
 export type CardProduct = {
   id: number; title: string; slug: string; price: number; comparePrice: number | null;
   image?: string; categoryName?: string; stock: number; isNew?: boolean; isBestSeller?: boolean;
-  colors?: string[]; sizes?: string[]; badge?: string | null; saleEnds?: string | null; };
+  colors?: string[]; sizes?: string[]; badge?: string | null; saleEnds?: string | null; preorder?: boolean; };
 
 const BADGE_LABELS: Record<string, string> = {
   trending: "TRENDING NOW",
@@ -49,9 +49,10 @@ export function ProductCard({ p, wish, rd }: { p: CardProduct; wish?: boolean; r
           {p.saleEnds && new Date(p.saleEnds).getTime() > Date.now() && off > 0 && (
             <span className="badge badge-flash">FLASH</span>
           )}
+          {p.preorder && <span className="badge badge-preorder">Pre-order</span>}
         </div>
         <WishHeart id={p.id} />
-        {p.stock <= 0 && <div className="soldout-overlay"><span>Sold Out</span></div>}
+        {p.stock <= 0 && !p.preorder && <div className="soldout-overlay"><span>Sold Out</span></div>}
         {wish ? <div className="pcard-quick"><button type="button">In your wishlist</button></div> : null}
       </div>
       <div className="pcard-info">

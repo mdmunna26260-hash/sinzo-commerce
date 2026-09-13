@@ -510,6 +510,7 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 13.5px; }
 
 .badge.new { background: #fff; color: var(--text); border: 1px solid var(--text); }
 .badge.best { background: var(--accent); color: #fff; }
+.badge.badge-preorder { background: var(--accent); color: #fff; }
 
 /* ---------- Mobile performance & pixel-perfect pass ---------- */
 /* render only what's on screen (below-fold sections skip layout cost) */

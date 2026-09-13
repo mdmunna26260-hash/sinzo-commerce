@@ -121,7 +121,7 @@ async function Results({ sp, cats, sizes }: { sp: SP; cats: { id: number; name: 
     where, orderBy,
     select: {
       id: true, title: true, slug: true, price: true, comparePrice: true, stock: true,
-      badge: true, isNew: true, isBestSeller: true, saleEnds: true,
+      badge: true, isNew: true, isBestSeller: true, saleEnds: true, preorder: true,
       category: { select: { name: true } },
       images: { select: { url: true }, orderBy: { position: "asc" }, take: 1 },
       variants: { select: { size: true, color: true, stock: true } },
@@ -171,10 +171,10 @@ async function Results({ sp, cats, sizes }: { sp: SP; cats: { id: number; name: 
         <InfiniteGrid products={products.map((p) => ({
           id: p.id, title: p.title, slug: p.slug, price: p.price, comparePrice: p.comparePrice,
           image: p.images?.[0]?.url, categoryName: p.category?.name, stock: Math.max(p.stock, p.variants.reduce((s, v) => s + v.stock, 0)),
-          isNew: p.isNew, isBestSeller: p.isBestSeller, badge: p.badge,
+          isNew: p.isNew, isBestSeller: p.isBestSeller, badge: p.badge, preorder: !!p.preorder,
           saleEnds: (p as any).saleEnds ? new Date((p as any).saleEnds).toISOString() : null,
-          colors: Array.from(new Set(p.variants.filter((v) => v.stock > 0 && v.color).map((v) => v.color!))),
-          sizes: [...new Set(p.variants.filter((v) => v.stock > 0 && v.size).map((v) => v.size!))].sort(),
+          colors: Array.from(new Set(p.variants.filter((v) => (p.preorder || v.stock > 0) && v.color).map((v) => v.color!))),
+          sizes: [...new Set(p.variants.filter((v) => (p.preorder || v.stock > 0) && v.size).map((v) => v.size!))].sort(),
         }))} />
       )}
     </ShopLayout>
