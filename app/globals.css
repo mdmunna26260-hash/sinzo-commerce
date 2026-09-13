@@ -2105,6 +2105,16 @@ html.theme-transition *::after {
 :root[data-theme="dark"] .ad-row { background: #171512; }
 
 /* ================= Live watching (social proof, PDP) ================= */
+/* desktop gallery carousel dots (over the main image, bottom center) */
+.gal-dots { position: absolute; bottom: 14px; left: 0; right: 0; display: flex; justify-content: center; gap: 7px; z-index: 6; }
+.gal-dots button { width: 8px; height: 8px; border-radius: 50%; border: 0; padding: 0; background: rgba(255,255,255,.65); box-shadow: 0 0 0 1px rgba(0,0,0,.18); cursor: pointer; transition: all .25s ease; }
+.gal-dots button.on { width: 20px; border-radius: 4px; background: var(--text); }
+
+/* pre-order (PDP badge + order line tag) */
+.pdp-preorder { display: flex; align-items: center; gap: 8px; margin: 4px 0 2px; font-size: 13px; color: var(--muted); }
+.pdp-preorder-badge { font-size: 10.5px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: #fff; background: var(--accent); border-radius: 99px; padding: 3px 10px; }
+.po-tag { display: inline-block; margin-left: 8px; font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); border: 1px solid var(--accent); border-radius: 99px; padding: 1px 8px; vertical-align: middle; white-space: nowrap; }
+
 .live-watching { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--muted); margin: 0 0 8px; }
 .live-watching b { color: var(--text); font-variant-numeric: tabular-nums; }
 .live-dot { width: 8px; height: 8px; border-radius: 50%; background: #22a06b; flex: none; animation: livepulse 1.6s ease-in-out infinite; }

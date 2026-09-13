@@ -40,7 +40,7 @@ function VariantImgCell({ v, i, setEdit }: { v: any; i: number; setEdit: any }) 
   );
 }
 
-const EMPTY: any = { title: "", slug: "", shortDesc: "", description: "", sku: "", price: "", comparePrice: "", cost: "", stock: "0", lowStock: "5", soldCount: "", saleEnds: "", status: "ACTIVE", featured: false, isNew: false, isBestSeller: false, badge: '', sizeChartImage: "", tags: "", categoryId: "", images: [], variants: [], colorGroupId: "", colorName: "", colorImage: "" };
+const EMPTY: any = { title: "", slug: "", shortDesc: "", description: "", sku: "", price: "", comparePrice: "", cost: "", stock: "0", lowStock: "5", soldCount: "", saleEnds: "", status: "ACTIVE", featured: false, isNew: false, isBestSeller: false, badge: '', sizeChartImage: "", tags: "", categoryId: "", images: [], variants: [], colorGroupId: "", colorName: "", colorImage: "", preorder: false, preorderDate: "" };
 function DescriptionEditor({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   const ref = useRef<HTMLTextAreaElement>(null);
   const wrap = (before: string, after: string) => {
@@ -141,6 +141,7 @@ export default function ProductsClient({ initial, categories }: { initial: P[]; 
     cost: p.cost != null ? String(p.cost) : "", stock: String(p.stock), lowStock: String(p.lowStock),
     soldCount: p.soldCount != null ? String(p.soldCount) : "",
     saleEnds: p.saleEnds ? new Date(p.saleEnds).toISOString().slice(0, 16) : "",
+    preorder: !!p.preorder, preorderDate: p.preorderDate ? new Date(p.preorderDate).toISOString().slice(0, 10) : "",
     colorGroupId: p.colorGroupId != null ? String(p.colorGroupId) : "",
     colorName: p.colorName || "",
     // auto: color thumbnail defaults to the product's main image (admin can replace/remove)
@@ -208,6 +209,8 @@ export default function ProductsClient({ initial, categories }: { initial: P[]; 
       cost: edit.cost ? Number(edit.cost) : null, stock: Number(edit.stock || 0), lowStock: Number(edit.lowStock || 5),
       soldCount: edit.soldCount === "" || edit.soldCount == null ? null : Math.max(0, Number(edit.soldCount)),
       saleEnds: edit.saleEnds ? new Date(edit.saleEnds).toISOString() : null,
+      preorder: !!edit.preorder,
+      preorderDate: edit.preorderDate ? new Date(edit.preorderDate + "T12:00:00").toISOString() : null,
       colorGroupId: edit.colorGroupId ? Number(edit.colorGroupId) : null,
       colorName: edit.colorName ? String(edit.colorName).trim().slice(0, 40) : null,
       colorImage: edit.colorImage || null,
@@ -326,6 +329,20 @@ export default function ProductsClient({ initial, categories }: { initial: P[]; 
               <div className="af full"><label>Sold count (product page e "Sold: N" dekhabe)</label>
                 <input type="number" value={edit.soldCount} onChange={(e) => setEdit({ ...edit, soldCount: e.target.value })} placeholder="khaali = dekhabe na" />
                 <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 4 }}>Number dile product page e <b>Sold: 230</b> style e dekhabe. Khaali rakhle kuchu dekhabe na.</div>
+              </div>
+              <div className="af full"><label>Pre-order (stock ashe na, age order nito jay)</label>
+                <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, marginBottom: 8, cursor: "pointer" }}>
+                  <input type="checkbox" checked={!!edit.preorder} onChange={(e) => setEdit({ ...edit, preorder: e.target.checked })} />
+                  <span>Pre-order on koro — stock 0 thakleo customer order dite parbe (stock komabe na)</span>
+                </label>
+                {edit.preorder && (
+                  <>
+                    <input type="date" value={edit.preorderDate || ""} onChange={(e) => setEdit({ ...edit, preorderDate: e.target.value })} />
+                    <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 4 }}>
+                      PDP e <b>Pre-order</b> badge + "Expected delivery (date)" dekhabe. Admin order list e PRE-ORDER tag thakbe.
+                    </div>
+                  </>
+                )}
               </div>
               <div className="af"><label>Category</label>
                 <select value={edit.categoryId} onChange={(e) => setEdit({ ...edit, categoryId: e.target.value })}>

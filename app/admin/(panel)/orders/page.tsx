@@ -13,7 +13,7 @@ export default async function OrdersPage({ searchParams }: { searchParams: any }
     status: o.status, paymentStatus: o.paymentStatus, paymentMethod: o.paymentMethod,
     riskLevel: o.riskLevel, source: o.source, courierName: o.courierName,
     courierConsignmentId: o.courierConsignmentId, courierStatus: o.courierStatus,
-    createdAt: o.createdAt.toISOString(), items: o.items.map((i) => ({ title: i.title, qty: i.qty, variant: i.variant })),
+    createdAt: o.createdAt.toISOString(), items: o.items.map((i) => ({ title: i.title, qty: i.qty, variant: i.variant, preorder: !!i.preorder })),
   }));
   return <OrdersClient initial={data} />;
 }

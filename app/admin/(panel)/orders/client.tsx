@@ -9,7 +9,7 @@ type O = {
   id: number; code: string; name: string; phone: string; address: string; area: string; total: number;
   status: string; paymentStatus: string; paymentMethod: string; riskLevel: string;
   channel?: string | null; source?: string | null; courierName?: string | null; courierConsignmentId?: string | null;
-  courierStatus?: string | null; createdAt: string; items: { title: string; qty: number; variant?: string | null }[];
+  courierStatus?: string | null; createdAt: string; items: { title: string; qty: number; variant?: string | null; preorder?: boolean }[];
 };
 const STATUSES = ["PENDING", "CONFIRMED", "PROCESSING", "PACKED", "SHIPPED", "DELIVERED", "CANCELLED", "RETURNED", "ON_HOLD"];
 
@@ -97,7 +97,7 @@ export default function OrdersClient({ initial }: { initial: O[] }) {
                 const o = initial.find((x) => x.id === id);
                 if (!o) return "";
                 const consignment = o.courierConsignmentId || "—";
-                const items = (o.items || []).map((i: any) => `${i.title}${i.variant ? " (" + i.variant + ")" : ""} × ${i.qty}`).join("<br>");
+                const items = (o.items || []).map((i: any) => `${i.title}${i.variant ? " (" + i.variant + ")" : ""}${i.preorder ? " [PRE-ORDER]" : ""} × ${i.qty}`).join("<br>");
                 return `<div style="page-break-after:always;padding:20px 16px;border-bottom:2px solid #333;font-family:Arial,sans-serif">
                   <div style="text-align:center;margin-bottom:12px">
                     <span style="font-size:18px;font-weight:700;letter-spacing:.15em">SINZO</span>
@@ -167,7 +167,7 @@ export default function OrdersClient({ initial }: { initial: O[] }) {
                       <span>· {o.area === "INSIDE_DHAKA" ? "Inside Dhaka" : "Outside"}</span>
                     </span>
                   </td>
-                  <td style={{ fontSize: 12.5 }}>{o.items.map((i) => <div key={i.title}>{i.title}{i.variant ? ` (${i.variant})` : ""} ×{i.qty}</div>)}</td>
+                  <td style={{ fontSize: 12.5 }}>{o.items.map((i) => <div key={i.title}>{i.title}{i.variant ? ` (${i.variant})` : ""} ×{i.qty}{i.preorder ? <span className="po-tag">Pre-order</span> : null}</div>)}</td>
                   <td><b>৳{Math.round(o.total).toLocaleString("en-IN")}</b></td>
                   <td><span className={"pill " + o.paymentStatus}>{o.paymentMethod === "COD" ? "COD" : "ONLINE"} · {o.paymentStatus}</span></td>
                   <td><span className={"pill " + o.status}>{o.status}</span></td>

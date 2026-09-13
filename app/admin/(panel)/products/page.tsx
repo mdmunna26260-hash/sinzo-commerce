@@ -18,6 +18,7 @@ export default async function AdminProducts({ searchParams }: { searchParams: an
     tags: p.tags, shortDesc: p.shortDesc, description: p.description,
     sizeChartImage: p.sizeChartImage || null, badge: p.badge, isNew: p.isNew, isBestSeller: p.isBestSeller,
     soldCount: p.soldCount, saleEnds: p.saleEnds,
+    preorder: !!p.preorder, preorderDate: p.preorderDate ? p.preorderDate.toISOString() : null,
     colorGroupId: p.colorGroupId, colorName: p.colorName, colorImage: p.colorImage,
     position: p.position,
     categoryId: p.categoryId, categoryName: p.category?.name, views: p.views,

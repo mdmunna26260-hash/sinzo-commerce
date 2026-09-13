@@ -368,7 +368,7 @@ export default function OrderDetailClient({ initial }: { initial: Order }) {
                   <tbody>
                     {o.items.map((i: any) => (
                       <tr key={i.id}>
-                        <td>{i.image && <img src={i.image} alt="" style={{ display: "inline", marginRight: 10, verticalAlign: "middle" }} />}{i.title}</td>
+                        <td>{i.image && <img src={i.image} alt="" style={{ display: "inline", marginRight: 10, verticalAlign: "middle" }} />}{i.title}{i.preorder ? <span className="po-tag">Pre-order{i.preorderDate ? " · " + new Date(i.preorderDate).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : ""}</span> : null}</td>
                         <td>{i.variant || "—"}</td>
                         <td>{money(i.price)}</td><td>{i.qty}</td><td><b>{money(i.price * i.qty)}</b></td>
                       </tr>

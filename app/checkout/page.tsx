@@ -238,7 +238,7 @@ export default function CheckoutPage() {
             <div className="mini-item" key={l.key}>
               <img src={imgSrc(l.image, 300) || l.image} alt="" width={52} height={66} loading="lazy" decoding="async" />
               <div style={{ flex: 1 }}>
-                <div className="m">{l.title}</div>
+                <div className="m">{l.title}{l.preorder && <span className="po-tag">Pre-order</span>}</div>
                 <div className="s">{[l.size, l.color].filter(Boolean).join(" · ")}</div>
                 <div className="mini-qty">
                   <button type="button" onClick={() => setQty(l.key, l.qty - 1)} aria-label="Decrease">−</button>

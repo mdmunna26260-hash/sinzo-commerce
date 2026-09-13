@@ -84,6 +84,8 @@ model Product {
   movements   InventoryMovement[]
   views       Int                @default(0)
   position    Int                @default(0) // admin drag&drop order -> homepage/listing
+  preorder    Boolean            @default(false) // pre-order: order accepted before stock is available
+  preorderDate DateTime?         // expected delivery date shown to customers
   sizeChartImage String?         // per-product size chart image (media URL)
   soldCount      Int?            // optional override: show "Sold: N" on the PDP when set
   saleEnds       DateTime?       // flash sale countdown: when set + comparePrice > price → countdown shows
@@ -211,6 +213,8 @@ model OrderItem {
   image     String?
   price     Float
   qty       Int
+  preorder      Boolean   @default(false) // order line was placed as pre-order
+  preorderDate  DateTime? // expected delivery date captured at order time
 }
 
 model Coupon {

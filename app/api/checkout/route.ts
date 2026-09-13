@@ -62,18 +62,18 @@ export async function POST(req: Request) {
       if (line.variantId) {
         const v = p.variants.find((x) => x.id === Number(line.variantId));
         if (v) {
-          if (v.stock <= 0) return NextResponse.json({ error: `${p.title} (${v.size || ""}${v.color ? " · " + v.color : ""}) is sold out` }, { status: 400 });
+          if (v.stock <= 0 && !p.preorder) return NextResponse.json({ error: `${p.title} (${v.size || ""}${v.color ? " · " + v.color : ""}) is sold out` }, { status: 400 });
           unit = v.price || p.price;
           stockLeft = v.stock;
           variantId = v.id;
           variantLabel = [v.size, v.color].filter(Boolean).join(" · ");
         }
-      } else if (p.stock <= 0) {
+      } else if (p.stock <= 0 && !p.preorder) {
         return NextResponse.json({ error: `${p.title} is sold out` }, { status: 400 });
       }
-      const qty = Math.max(1, Math.min(Number(line.qty) || 1, stockLeft));
+      const qty = Math.max(1, Math.min(Number(line.qty) || 1, p.preorder ? 99 : stockLeft));
       subtotal += unit * qty;
-      orderItems.push({ productId: p.id, variantId, title: p.title, variant: variantLabel, price: unit, qty, image: p.images?.[0]?.url || null, stockLeft });
+      orderItems.push({ productId: p.id, variantId, title: p.title, variant: variantLabel, price: unit, qty, image: p.images?.[0]?.url || null, stockLeft, preorder: !!p.preorder, preorderDate: p.preorderDate ? new Date(p.preorderDate) : null });
     }
 
     // --- fraud / risk (before committing anything) ---
@@ -139,15 +139,17 @@ export async function POST(req: Request) {
             source: detectSource(attribution), attribution: attribution ? JSON.stringify(attribution) : null,
             channel: deployChannel(),
             ip, customerId: customer.id,
-            items: { create: orderItems.map((i) => ({ productId: i.productId, variantId: i.variantId, title: i.title, variant: i.variant, price: i.price, qty: i.qty, image: i.image })) },
+            items: { create: orderItems.map((i) => ({ productId: i.productId, variantId: i.variantId, title: i.title, variant: i.variant, price: i.price, qty: i.qty, image: i.image, preorder: !!i.preorder, preorderDate: i.preorderDate ? new Date(i.preorderDate) : null })) },
           },
         });
         const code = orderCode(order.id);
         const finalOrder = await tx.order.update({ where: { id: order.id }, data: { code } });
 
         // guarded inventory: conditional decrement so concurrent checkouts
-        // can never oversell or drive stock negative
+        // can never oversell or drive stock negative. Pre-order lines don't
+        // touch stock (goods arrive later).
         for (const i of orderItems) {
+          if (i.preorder) continue;
           if (i.variantId) {
             const r = await tx.productVariant.updateMany({ where: { id: i.variantId, stock: { gte: i.qty } }, data: { stock: { decrement: i.qty } } });
             if (r.count === 0) throw new SoldOutError(`${i.title} is just sold out`);
@@ -184,11 +186,11 @@ export async function POST(req: Request) {
     }).catch(() => {});
 
     // customer order-confirmation WhatsApp (linked device, if enabled)
-    whatsappCustomerOrder(cleanPhone, String(name).trim(), { code, total, area, items: orderItems.map((i) => ({ title: i.title, qty: i.qty, price: i.price })) }).catch(() => {});
+    whatsappCustomerOrder(cleanPhone, String(name).trim(), { code, total, area, items: orderItems.map((i) => ({ title: i.title + (i.preorder ? " [Pre-order]" : ""), qty: i.qty, price: i.price })) }).catch(() => {});
 
     // customer order-confirmation email (if email given + SMTP configured)
     if (email) {
-      emailCustomerOrder(String(email), String(name).trim(), { code, total, area, items: orderItems.map((i) => ({ title: i.title, qty: i.qty, price: i.price })) }).catch(() => {});
+      emailCustomerOrder(String(email), String(name).trim(), { code, total, area, items: orderItems.map((i) => ({ title: i.title + (i.preorder ? " [Pre-order]" : ""), qty: i.qty, price: i.price })) }).catch(() => {});
     }
 
     // admin notification (in-app + Telegram + email if configured)

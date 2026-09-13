@@ -54,7 +54,7 @@ function Countdown({ ends }: { ends: string }) {
   );
 }
 
-export default function ProductPageClient({ product, sizeChartHtml, sizeChartImage, soldCount, saleEnds, colorFamily = [] }: { product: P; sizeChartHtml: string | null; sizeChartImage: string | null; soldCount?: number | null; saleEnds?: string | null; colorFamily?: ColorFamilyItem[] }) {
+export default function ProductPageClient({ product, sizeChartHtml, sizeChartImage, soldCount, saleEnds, preorder = false, preorderDate = null, colorFamily = [] }: { product: P; sizeChartHtml: string | null; sizeChartImage: string | null; soldCount?: number | null; saleEnds?: string | null; preorder?: boolean; preorderDate?: string | null; colorFamily?: ColorFamilyItem[] }) {
   const { add } = useCart();
   const router = useRouter();
   const wishlist = useWishlist();
@@ -223,6 +223,7 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
   const avail = activeVariant ? activeVariant.stock : product.variants.length ? 0 : product.stock;
   const price = activeVariant?.price || product.price;
   const off = product.comparePrice && product.comparePrice > price ? Math.round((1 - price / product.comparePrice) * 100) : 0;
+  const preDateStr = preorderDate ? new Date(preorderDate).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : "soon";
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -265,6 +266,7 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
   const line = () => ({
     productId: product.id, variantId: activeVariant?.id, slug: product.slug, title: product.title,
     image: product.images[0]?.url, price, qty, size: size || undefined, color: color || undefined, stock: avail || 99,
+    preorder: !!preorder,
   });
   const addLine = () => {
     if (adding || buying) return; // no duplicate adds
@@ -290,7 +292,7 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
           {/* MOBILE: swipeable gallery — all deployments (Vercel + VPS) */}
           <div className="pdp-gallery-mobile mobile-only">
             <MobileGallery images={product.images} title={product.title} active={img} onIndexChange={setImg} />
-            {avail <= 0 && <div className="soldout-overlay"><span>Sold Out</span></div>}
+            {avail <= 0 && !preorder && <div className="soldout-overlay"><span>Sold Out</span></div>}
           </div>
 
           {/* DESKTOP: classic gallery — main image + hover zoom + thumbnail rail */}
@@ -325,7 +327,15 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
               onClick={() => { setLbIdx(img); setLbZoom(false); setLightbox(true); }}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3M11 8v6M8 11h6"/></svg>
             </button>
-            {avail <= 0 && <div className="soldout-overlay"><span>Sold Out</span></div>}
+            {/* carousel dots — desktop */}
+            {N > 1 && (
+              <div className="gal-dots" role="tablist" aria-label="Image pagination">
+                {product.images.map((_, i) => (
+                  <button key={i} role="tab" aria-selected={i === img} aria-label={"Image " + (i + 1)} className={i === img ? "on" : ""} onClick={() => goTo(i)} />
+                ))}
+              </div>
+            )}
+            {avail <= 0 && !preorder && <div className="soldout-overlay"><span>Sold Out</span></div>}
           </div>
 
           {N > 1 && (
@@ -344,6 +354,12 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
         <div className="pdp-info">
           {product.categoryName && <div className="eyebrow">{product.categoryName}</div>}
           <h1>{product.title}</h1>
+          {preorder && (
+            <div className="pdp-preorder">
+              <span className="pdp-preorder-badge">Pre-order</span>
+              <span>Expected delivery {preDateStr}</span>
+            </div>
+          )}
           {saleEnds && product.comparePrice && product.comparePrice > price && new Date(saleEnds).getTime() > Date.now() && (
             <Countdown ends={saleEnds} />
           )}
@@ -434,19 +450,21 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
           <div className="qty">
             <button onClick={() => setQty(Math.max(1, qty - 1))} aria-label="Decrease">−</button>
             <span>{qty}</span>
-            <button onClick={() => setQty(Math.min(qty + 1, avail || 1))} aria-label="Increase">+</button>
+            <button onClick={() => setQty(Math.min(qty + 1, preorder ? 99 : (avail || 1)))} aria-label="Increase">+</button>
           </div>
           <div style={{ marginTop: 10 }}>
-            {avail > 0 ? (
+            {preorder ? (
+              <span className="stock-note">Pre-order — ships by {preDateStr}</span>
+            ) : avail > 0 ? (
               <span className="stock-note">{avail <= 5 ? `Only ${avail} left — order soon` : "In stock"}</span>
             ) : <span className="stock-note low">Sold out</span>}
           </div>
 
           <div className="pdp-actions">
-            <button className="btn" disabled={avail <= 0 || adding} aria-busy={adding || undefined} onClick={addLine}>
-              {adding && <span className="spinner" aria-hidden="true" />}<span style={adding ? { marginLeft: 8 } : undefined}>{adding ? "Adding…" : "Add to Cart"}</span>
+            <button className="btn" disabled={(avail <= 0 && !preorder) || adding} aria-busy={adding || undefined} onClick={addLine}>
+              {adding && <span className="spinner" aria-hidden="true" />}<span style={adding ? { marginLeft: 8 } : undefined}>{adding ? "Adding…" : preorder ? "Pre-order" : "Add to Cart"}</span>
             </button>
-            <button className="btn btn-accent" disabled={avail <= 0 || buying} aria-busy={buying || undefined} onClick={buyNow}>
+            <button className="btn btn-accent" disabled={(avail <= 0 && !preorder) || buying} aria-busy={buying || undefined} onClick={buyNow}>
               {buying && <span className="spinner" aria-hidden="true" />}<span style={buying ? { marginLeft: 8 } : undefined}>{buying ? "Processing…" : "Buy Now"}</span>
             </button>
             <button className="btn btn-outline glass" style={{ flex: "0 0 auto", minWidth: 0, padding: "13px 16px" }} onClick={() => wishlist.toggle(product.id)} aria-label="Wishlist">
