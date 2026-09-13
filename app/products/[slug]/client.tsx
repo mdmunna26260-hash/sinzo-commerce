@@ -8,6 +8,7 @@ import { warmImage, warmWhenIdle } from "@/components/img-warm";
 import { trackRecentlyViewed } from "@/components/recently-viewed";
 import MobileGallery from "@/components/mobile-gallery";
 import LiveWatching from "@/components/live-watching";
+import SoldCount from "@/components/sold-count";
 import SizeRecommendation from "@/components/size-rec";
 
 type V = { id: number; size: string | null; color: string | null; stock: number; price: number | null; image?: string | null };
@@ -54,7 +55,7 @@ function Countdown({ ends }: { ends: string }) {
   );
 }
 
-export default function ProductPageClient({ product, sizeChartHtml, sizeChartImage, soldCount, saleEnds, preorder = false, preorderDate = null, colorFamily = [] }: { product: P; sizeChartHtml: string | null; sizeChartImage: string | null; soldCount?: number | null; saleEnds?: string | null; preorder?: boolean; preorderDate?: string | null; colorFamily?: ColorFamilyItem[] }) {
+export default function ProductPageClient({ product, sizeChartHtml, sizeChartImage, soldCount, saleEnds, preorder = false, preorderDate = null, soldMode = "fixed", colorFamily = [] }: { product: P; sizeChartHtml: string | null; sizeChartImage: string | null; soldCount?: number | null; saleEnds?: string | null; preorder?: boolean; preorderDate?: string | null; soldMode?: string | null; colorFamily?: ColorFamilyItem[] }) {
   const { add } = useCart();
   const router = useRouter();
   const wishlist = useWishlist();
@@ -367,14 +368,8 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
             <b>৳{price.toLocaleString("en-IN")}</b>
             {product.comparePrice && product.comparePrice > price && (<><s>৳{product.comparePrice.toLocaleString("en-IN")}</s><span className="off">{off}% OFF</span></>)}
           </div>
-          <LiveWatching />
-          {soldCount != null && soldCount > 0 && (
-            <div className="pdp-sold" style={{ display: "flex", alignItems: "center", gap: 6, margin: "-2px 0 6px" }}>
-              <span style={{ fontSize: 12, fontWeight: 700, color: "var(--accent)", background: "rgba(154,123,79,.10)", padding: "4px 10px", borderRadius: 99 }}>
-                Sold: {soldCount.toLocaleString("en-IN")}
-              </span>
-            </div>
-          )}
+          <LiveWatching productId={product.id} />
+          <SoldCount productId={product.id} soldCount={soldCount} soldMode={soldMode} />
           {product.shortDesc && <p className="pdp-desc">{product.shortDesc}</p>}
 
           {/* ---- COLOR FAMILY selector (linked products, real navigation) ---- */}

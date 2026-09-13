@@ -143,6 +143,7 @@ export default async function PDP({ params, searchParams }: { params: { slug: st
           saleEnds={p.saleEnds ? p.saleEnds.toISOString() : null}
           preorder={!!p.preorder}
           preorderDate={p.preorderDate ? p.preorderDate.toISOString() : null}
+          soldMode={p.soldMode || "fixed"}
           product={{
             id: p.id, title: p.title, slug: p.slug, price: p.price, comparePrice: p.comparePrice,
             shortDesc: p.shortDesc, description: p.description, sku: p.sku, stock: totalStock, lowStock: p.lowStock,

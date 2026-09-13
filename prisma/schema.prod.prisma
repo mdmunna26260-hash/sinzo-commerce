@@ -86,6 +86,7 @@ model Product {
   position    Int                @default(0) // admin drag&drop order -> homepage/listing
   preorder    Boolean            @default(false) // pre-order: order accepted before stock is available
   preorderDate DateTime?         // expected delivery date shown to customers
+  soldMode    String             @default("fixed") // "fixed" = exact admin number | "random" = auto base that slowly grows
   sizeChartImage String?         // per-product size chart image (media URL)
   soldCount      Int?            // optional override: show "Sold: N" on the PDP when set
   saleEnds       DateTime?       // flash sale countdown: when set + comparePrice > price → countdown shows

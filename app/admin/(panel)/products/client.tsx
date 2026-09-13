@@ -40,7 +40,7 @@ function VariantImgCell({ v, i, setEdit }: { v: any; i: number; setEdit: any }) 
   );
 }
 
-const EMPTY: any = { title: "", slug: "", shortDesc: "", description: "", sku: "", price: "", comparePrice: "", cost: "", stock: "0", lowStock: "5", soldCount: "", saleEnds: "", status: "ACTIVE", featured: false, isNew: false, isBestSeller: false, badge: '', sizeChartImage: "", tags: "", categoryId: "", images: [], variants: [], colorGroupId: "", colorName: "", colorImage: "", preorder: false, preorderDate: "" };
+const EMPTY: any = { title: "", slug: "", shortDesc: "", description: "", sku: "", price: "", comparePrice: "", cost: "", stock: "0", lowStock: "5", soldCount: "", saleEnds: "", status: "ACTIVE", featured: false, isNew: false, isBestSeller: false, badge: '', sizeChartImage: "", tags: "", categoryId: "", images: [], variants: [], colorGroupId: "", colorName: "", colorImage: "", preorder: false, preorderDate: "", soldMode: "fixed" };
 function DescriptionEditor({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   const ref = useRef<HTMLTextAreaElement>(null);
   const wrap = (before: string, after: string) => {
@@ -142,6 +142,7 @@ export default function ProductsClient({ initial, categories }: { initial: P[]; 
     soldCount: p.soldCount != null ? String(p.soldCount) : "",
     saleEnds: p.saleEnds ? new Date(p.saleEnds).toISOString().slice(0, 16) : "",
     preorder: !!p.preorder, preorderDate: p.preorderDate ? new Date(p.preorderDate).toISOString().slice(0, 10) : "",
+    soldMode: p.soldMode || "fixed",
     colorGroupId: p.colorGroupId != null ? String(p.colorGroupId) : "",
     colorName: p.colorName || "",
     // auto: color thumbnail defaults to the product's main image (admin can replace/remove)
@@ -211,6 +212,7 @@ export default function ProductsClient({ initial, categories }: { initial: P[]; 
       saleEnds: edit.saleEnds ? new Date(edit.saleEnds).toISOString() : null,
       preorder: !!edit.preorder,
       preorderDate: edit.preorderDate ? new Date(edit.preorderDate + "T12:00:00").toISOString() : null,
+      soldMode: edit.soldMode === "random" ? "random" : "fixed",
       colorGroupId: edit.colorGroupId ? Number(edit.colorGroupId) : null,
       colorName: edit.colorName ? String(edit.colorName).trim().slice(0, 40) : null,
       colorImage: edit.colorImage || null,
@@ -327,8 +329,23 @@ export default function ProductsClient({ initial, categories }: { initial: P[]; 
                 </div>
               </div>
               <div className="af full"><label>Sold count (product page e "Sold: N" dekhabe)</label>
-                <input type="number" value={edit.soldCount} onChange={(e) => setEdit({ ...edit, soldCount: e.target.value })} placeholder="khaali = dekhabe na" />
-                <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 4 }}>Number dile product page e <b>Sold: 230</b> style e dekhabe. Khaali rakhle kuchu dekhabe na.</div>
+                <div style={{ display: "flex", gap: 18, marginBottom: 8, fontSize: 13 }}>
+                  <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer" }}>
+                    <input type="radio" name="soldmode" checked={edit.soldMode !== "random"} onChange={() => setEdit({ ...edit, soldMode: "fixed" })} />
+                    Fixed (exact number)
+                  </label>
+                  <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer" }}>
+                    <input type="radio" name="soldmode" checked={edit.soldMode === "random"} onChange={() => setEdit({ ...edit, soldMode: "random" })} />
+                    Random (auto, din boro hoy)
+                  </label>
+                </div>
+                <input type="number" value={edit.soldCount} disabled={edit.soldMode === "random"}
+                  onChange={(e) => setEdit({ ...edit, soldCount: e.target.value })} placeholder="khaali = dekhabe na" />
+                <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 4 }}>
+                  {edit.soldMode === "random"
+                    ? "Random mode e number auto-generated hoy ar bishesh-khon e +1..+3 hoye boro hoy (aj 958 → 961 → 965…). Number field ei mode e ignore hoy."
+                    : "Fixed mode e soho ei number dekhabe. Khaali rakhle sold count dekhabe na."}
+                </div>
               </div>
               <div className="af full"><label>Pre-order (stock ashe na, age order nito jay)</label>
                 <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, marginBottom: 8, cursor: "pointer" }}>

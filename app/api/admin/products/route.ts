@@ -51,6 +51,7 @@ export async function POST(req: Request) {
       saleEnds: b.saleEnds ? new Date(b.saleEnds) : null,
       preorder: !!b.preorder,
       preorderDate: b.preorderDate ? new Date(b.preorderDate) : null,
+      soldMode: b.soldMode === "random" ? "random" : "fixed",
       colorGroupId: b.colorGroupId ? Number(b.colorGroupId) : null,
       colorName: b.colorName ? String(b.colorName).trim().slice(0, 40) : null,
       colorImage: b.colorImage || null,
