@@ -133,6 +133,18 @@ export default function MobileGallery({ images, title, active, onIndexChange }: 
             </div>
           ))}
         </div>
+        <div className="mgal-dots" role="tablist" aria-label="Image pagination">
+          {images.map((_, i) => (
+            <button
+              key={i}
+              role="tab"
+              aria-selected={i === active}
+              aria-label={`Image ${i + 1}`}
+              className={i === active ? "on" : ""}
+              onClick={() => onIndexChange(i)}
+            />
+          ))}
+        </div>
       </div>
 
       {/* thumbnail strip — tap to jump, active highlighted, auto-centred */}
