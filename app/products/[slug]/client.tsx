@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCart, useWishlist, trackEvent, toast } from "@/components/store";
@@ -7,6 +7,7 @@ import { imgSrc, imgSrcSet } from "@/components/parts";
 import { warmImage, warmWhenIdle } from "@/components/img-warm";
 import { trackRecentlyViewed } from "@/components/recently-viewed";
 import MobileGallery from "@/components/mobile-gallery";
+import VerticalImageScroll from "@/components/vertical-image-scroll";
 import SizeRecommendation from "@/components/size-rec";
 
 type V = { id: number; size: string | null; color: string | null; stock: number; price: number | null; image?: string | null };
@@ -66,6 +67,24 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
   const [lbZoom, setLbZoom] = useState(false);
   const [hoverZoom, setHoverZoom] = useState(false);
   const touch = useRef<{ x: number; y: number } | null>(null);
+
+  /* ---------- Gallery mode per device ----------
+     Desktop (≥901px): Vertical Image Scroll 3D deck — a no-overlap full-screen
+     pager (step 90% > card 88%, so cards fully clear before the next enters).
+     Mobile:  the original horizontal swipe gallery (thumb-friendly, CTA stays
+     on screen).
+     useLayoutEffect → decision lands before first paint, no flicker.
+     prefers-reduced-motion / single-image → classic gallery everywhere. */
+  const [vscroll, setVscroll] = useState(false);
+  useLayoutEffect(() => {
+    const m = window.matchMedia("(min-width: 901px)");
+    const rm = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const ok = () => setVscroll(m.matches && !rm.matches && N > 1);
+    ok();
+    m.addEventListener("change", ok);
+    rm.addEventListener("change", ok);
+    return () => { m.removeEventListener("change", ok); rm.removeEventListener("change", ok); };
+  }, [N]);
 
   /* ---------- mobile swipe-to-slide on main gallery image ----------
      Finger tracks 1:1 (translate3d), axis-locked so vertical scroll works.
@@ -282,7 +301,7 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
 
   return (
     <>
-      <div className="pdp">
+      <div className={"pdp" + (vscroll ? " pdp-viscroll" : "")}>
         {/* ---------------- GALLERY ---------------- */}
         <div className="pdp-gallery">
           {/* MOBILE: swipeable gallery — all deployments (Vercel + VPS) */}
@@ -291,7 +310,9 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
             {avail <= 0 && <div className="soldout-overlay"><span>Sold Out</span></div>}
           </div>
 
-          {/* ORIGINAL gallery — always rendered; on mobile it's hidden by CSS in favor of the swipe gallery */}
+          {/* ORIGINAL gallery — mobile-only by CSS; on desktop it's replaced by the
+              Vertical Image Scroll when vscroll mode is active */}
+          {!vscroll && (
           <div className="pdp-gallery-desktop hide-on-mobile">
           <div
             ref={mainRef}
@@ -341,6 +362,11 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
             </div>
           )}
           </div>
+          )}
+          {vscroll && (
+            <VerticalImageScroll images={product.images} title={product.title} initialIndex={img} onIndexChange={setImg} soldOut={avail <= 0}
+              onZoom={() => { setLbIdx(img); setLbZoom(false); setLightbox(true); }} />
+          )}
         </div>
 
         {/* ---------------- INFO ---------------- */}

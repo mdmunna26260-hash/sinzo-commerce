@@ -2,17 +2,28 @@ import { db } from "@/lib/db";
 import { getSettings } from "@/lib/settings";
 import { notFound } from "next/navigation";
 import { parseOrderCode } from "@/lib/slug";
+import { normalizeBDPhone } from "@/lib/phone";
+import InvoicePhoneForm from "./phone-form";
 
 export const dynamic = "force-dynamic";
 const money = (n: number) => "৳" + Math.round(n).toLocaleString("en-IN");
 
-/* Public customer invoice — accessible via order code (safe: shows only
-   non-sensitive order info; no admin data). */
-export default async function CustomerInvoice({ params }: { params: { code: string } }) {
+/* Public customer invoice — GATED by the order's phone number (PII protection).
+   Order codes are sequential (ORD-XXXX), so without this gate anyone could
+   enumerate every customer's name/phone/address. Only the buyer can view it. */
+export default async function CustomerInvoice({ params, searchParams }: { params: { code: string }; searchParams?: { phone?: string } }) {
   const id = parseOrderCode(params.code);
   if (id == null) notFound();
+
+  const rawPhone = String(searchParams?.phone || "").replace(/[^0-9]/g, "");
+  if (!rawPhone) {
+    return <InvoicePhoneForm code={params.code} />;
+  }
+  // Accept 01XXXXXXXXX / +8801XXXXXXXXX / 8801XXXXXXXXX — normalize before compare
+  const normPhone = normalizeBDPhone(rawPhone);
+
   const order = await db.order.findFirst({
-    where: { id },
+    where: { id, phone: normPhone },
     include: { items: { include: { product: { include: { images: true } } } } },
   });
   if (!order) notFound();

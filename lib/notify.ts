@@ -114,7 +114,7 @@ export function storeUrl(s: any): string {
   const url = String(raw).trim();
   if (url.startsWith("http")) return url.replace(/\/$/, "");
   if (url) return "https://" + url.replace(/\/$/, "");
-  return "https://sinzo-commerce.vercel.app";
+  return "https://sinzooffcial.com";
 }
 
 /* Email action buttons (invoice / track) — table-based, email-client safe */

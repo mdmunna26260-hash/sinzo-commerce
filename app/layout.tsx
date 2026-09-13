@@ -17,6 +17,12 @@ export const viewport: Viewport = {
   themeColor: "#faf9f7",
 };
 
+/* Share images: use the 1200px variant instead of the full-res original */
+const ogImage = (u?: string) => {
+  const m = /^\/api\/media\/([a-z0-9]+)$/i.exec(u || "");
+  return m ? `/api/media/${m[1]}/w1200` : u;
+};
+
 export async function generateMetadata(): Promise<Metadata> {
   try {
     const s = publicSettings(await getSettings());
@@ -25,7 +31,7 @@ export async function generateMetadata(): Promise<Metadata> {
       metadataBase: siteUrl ? new URL(siteUrl.startsWith("http") ? siteUrl : "https://" + siteUrl) : undefined,
       title: { default: s.seo?.metaTitle || s.store?.name || "Store", template: `%s · ${s.store?.name || "Store"}` },
       description: s.seo?.metaDescription || s.store?.tagline || "",
-      openGraph: { title: s.seo?.metaTitle || s.store?.name, description: s.seo?.metaDescription, images: s.homepage?.heroImage ? [s.homepage.heroImage] : [] },
+      openGraph: { title: s.seo?.metaTitle || s.store?.name, description: s.seo?.metaDescription, images: s.homepage?.heroImage ? [ogImage(s.homepage.heroImage)] : [] },
     };
   } catch { return { title: "Store" }; }
 }

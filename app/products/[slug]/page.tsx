@@ -85,10 +85,41 @@ export default async function PDP({ params, searchParams }: { params: { slug: st
   const variantStock = p.variants.reduce((sum, v) => sum + v.stock, 0);
   const totalStock = Math.max(p.stock, variantStock);
 
+  // JSON-LD (schema.org Product) → price/stock/review stars in Google results
+  const siteBase = (process.env.NEXT_PUBLIC_SITE_URL || "https://sinzooffcial.com").replace(/\/$/, "");
+  const absImg = (u?: string) => (u ? (u.startsWith("http") ? u : siteBase + u) : undefined);
+  const jsonLd: Record<string, unknown> = {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    name: p.title,
+    description: p.shortDesc || (p.description ? p.description.slice(0, 300) : undefined),
+    image: p.images?.[0]?.url ? [absImg(p.images[0].url)] : [],
+    url: siteBase + "/products/" + p.slug,
+    brand: { "@type": "Brand", name: s.store?.name || "SINZO" },
+    offers: {
+      "@type": "Offer",
+      priceCurrency: "BDT",
+      price: String(p.price),
+      availability: totalStock > 0 ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
+      url: siteBase + "/products/" + p.slug,
+    },
+  };
+  if (p.sku) jsonLd.sku = p.sku;
+  if (avgRating > 0 && p.reviews.length) {
+    jsonLd.aggregateRating = {
+      "@type": "AggregateRating",
+      ratingValue: String(Math.round(avgRating * 10) / 10),
+      reviewCount: String(p.reviews.length),
+      bestRating: "5",
+      worstRating: "1",
+    };
+  }
+
   const first = p.images?.[0]?.url;
   const pv = (u: string, w: number) => imgSrc(u, w) || u;
   return (
     <>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c") }} />
       {first && (
         <link
           rel="preload"

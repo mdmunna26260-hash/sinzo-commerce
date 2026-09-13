@@ -90,19 +90,27 @@ async function main() {
     });
   }
 
-  // ---- Users (PDF: Super Admin default creds — CHANGE AFTER FIRST LOGIN) ----
-  const adminPass = await bcrypt.hash("do you love me?", 10);
-  await prisma.user.upsert({
-    where: { email: "Sinzo.bd@gmail.com" },
-    update: {},
-    create: { email: "Sinzo.bd@gmail.com", password: adminPass, name: "Super Admin", role: "SUPER_ADMIN" },
-  });
-  const mgrPass = await bcrypt.hash("order@123", 10);
-  await prisma.user.upsert({
-    where: { email: "orders@sinzo.com.bd" },
-    update: {},
-    create: { email: "orders@sinzo.com.bd", password: mgrPass, name: "Order Manager", role: "ORDER_MANAGER" },
-  });
+// ---- Users ----
+// Credentials come from env (SEED_ADMIN_EMAIL/SEED_ADMIN_PASS, SEED_MANAGER_EMAIL/SEED_MANAGER_PASS).
+// When no password is provided a random one is generated and printed ONCE to the
+// console — never hardcode real passwords in source.
+const crypto = require("crypto");
+const adminEmail = process.env.SEED_ADMIN_EMAIL || "Sinzo.bd@gmail.com";
+const adminPassRaw = process.env.SEED_ADMIN_PASS || crypto.randomBytes(9).toString("base64url");
+if (!process.env.SEED_ADMIN_PASS) console.log(`[seed] admin login → ${adminEmail} / ${adminPassRaw} (set SEED_ADMIN_PASS to control it)`);
+await prisma.user.upsert({
+  where: { email: adminEmail },
+  update: {},
+  create: { email: adminEmail, password: await bcrypt.hash(adminPassRaw, 10), name: "Super Admin", role: "SUPER_ADMIN" },
+});
+const mgrEmail = process.env.SEED_MANAGER_EMAIL || "orders@sinzo.com.bd";
+const mgrPassRaw = process.env.SEED_MANAGER_PASS || crypto.randomBytes(9).toString("base64url");
+if (!process.env.SEED_MANAGER_PASS) console.log(`[seed] manager login → ${mgrEmail} / ${mgrPassRaw}`);
+await prisma.user.upsert({
+  where: { email: mgrEmail },
+  update: {},
+  create: { email: mgrEmail, password: await bcrypt.hash(mgrPassRaw, 10), name: "Order Manager", role: "ORDER_MANAGER" },
+});
 
   // ---- Categories ----
   const cats = {};

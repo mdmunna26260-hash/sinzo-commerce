@@ -68,7 +68,11 @@ function authorized(req) {
   return (req.headers["x-bridge-key"] || "") === KEY;
 }
 function jidFor(number) {
-  const digits = String(number || "").replace(/[^0-9]/g, "");
+  let digits = String(number || "").replace(/[^0-9]/g, "");
+  // BD JIDs need the 880 country code without the leading zero:
+  // 01676450711 → 8801676450711@s.whatsapp.net
+  if (digits.startsWith("01")) digits = "880" + digits.slice(1);
+  else if (!digits.startsWith("880") && digits.length === 10) digits = "880" + digits;
   return digits + "@s.whatsapp.net";
 }
 

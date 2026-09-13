@@ -16,11 +16,26 @@ function check(name, cond, extra) {
 }
 (async () => {
   console.log("Smoke test →", BASE);
-  // admin login first (seeded super admin) so tests adapt to whatever products exist
-  let r = await req("/api/admin/login", { method: "POST", body: JSON.stringify({ email: "Sinzo.bd@gmail.com", password: "do you love me?" }) });
-  check("admin login works", r.status === 200 && r.body?.ok, JSON.stringify(r.body));
-  const plist = (await req("/api/admin/products")).body?.products || [];
-  check("admin products list", plist.length >= 1, "(got " + plist.length + ")");
+  // admin login first (seeded super admin) so tests adapt to whatever products exist.
+  // Credentials come from env (SMOKE_ADMIN_EMAIL / SMOKE_ADMIN_PASSWORD) —
+  // never hardcode real passwords in source.
+  const adminEmail = process.env.SMOKE_ADMIN_EMAIL || "Sinzo.bd@gmail.com";
+  const adminPassword = process.env.SMOKE_ADMIN_PASSWORD || "";
+  let adminAuthed = false;
+  if (adminPassword) {
+    const login = await req("/api/admin/login", { method: "POST", body: JSON.stringify({ email: adminEmail, password: adminPassword }) });
+    adminAuthed = login.status === 200 && !!login.body?.ok;
+    check("admin login works", adminAuthed, JSON.stringify(login.body));
+  } else {
+    console.log("  ⚠ SMOKE_ADMIN_PASSWORD not set — auth-dependent tests will be skipped");
+  }
+  let plist = (await req("/api/admin/products")).body?.products || [];
+  if (adminAuthed) check("admin products list", plist.length >= 1, "(got " + plist.length + ")");
+  if (plist.length === 0) {
+    // unauthenticated fallback: public search returns popular products
+    const pop = (await req("/api/search?q=")).body?.products || [];
+    plist = pop.map((p) => ({ id: p.id, title: p.title, slug: p.slug, status: "ACTIVE", stock: 1, variants: [] }));
+  }
   const live = plist.find((p) => p.status === "ACTIVE" && p.stock > 0) || plist[0];
   const slug = live?.slug || "";
   const needle = (live?.title || "").split(" ").slice(-1)[0] || live?.title || "";
@@ -55,23 +70,27 @@ function check(name, cond, extra) {
   })});
   check("COD order placed", r.status === 200 && /^ORD-\d+$/.test(r.body?.code || ""), JSON.stringify(r.body));
   const code = r.body?.code;
-  // order appears in admin
-  r = await req("/api/admin/orders?q=" + code);
-  check("order visible in admin", r.body?.orders?.length === 1);
-  const orderId = r.body?.orders?.[0]?.id;
-  // status update
-  r = await req("/api/admin/orders/" + orderId, { method: "PUT", body: JSON.stringify({ status: "CONFIRMED" }) });
-  check("order status update", r.status === 200);
+  if (adminAuthed) {
+    // order appears in admin
+    r = await req("/api/admin/orders?q=" + code);
+    check("order visible in admin", r.body?.orders?.length === 1);
+    const orderId = r.body?.orders?.[0]?.id;
+    // status update
+    r = await req("/api/admin/orders/" + orderId, { method: "PUT", body: JSON.stringify({ status: "CONFIRMED" }) });
+    check("order status update", r.status === 200);
+    // settings update reflects
+    r = await req("/api/admin/settings", { method: "PUT", body: JSON.stringify({ group: "shipping", value: { insideDhaka: 90 } }) });
+    check("settings update", r.status === 200);
+    r = await req("/api/admin/settings", { method: "PUT", body: JSON.stringify({ group: "shipping", value: { insideDhaka: 80 } }) });
+  }
   // public tracking
   r = await req("/api/track/order", { method: "POST", body: JSON.stringify({ code, phone: "01812345678" }) });
-  check("customer can track order", r.body?.order?.status === "CONFIRMED");
+  check("customer can track order", adminAuthed
+    ? r.body?.order?.status === "CONFIRMED"
+    : r.body?.order?.status === "PENDING");
   // CAPI not configured -> honest response
   r = await req("/api/track/event", { method: "POST", body: JSON.stringify({ name: "AddToCart", eventId: "t1", data: { value: 100 } }) });
   check("tracking endpoint responds (CAPI honest about config)", r.status === 200);
-  // settings update reflects
-  r = await req("/api/admin/settings", { method: "PUT", body: JSON.stringify({ group: "shipping", value: { insideDhaka: 90 } }) });
-  check("settings update", r.status === 200);
-  r = await req("/api/admin/settings", { method: "PUT", body: JSON.stringify({ group: "shipping", value: { insideDhaka: 80 } }) });
   console.log(`\nResult: ${pass} passed, ${fail} failed`);
   process.exit(fail ? 1 : 0);
 })().catch((e) => { console.error(e); process.exit(1); });

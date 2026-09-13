@@ -2103,3 +2103,55 @@ html.theme-transition *::after {
 :root[data-theme="dark"] .ad-track { background: #2c2923; }
 :root[data-theme="dark"] .ad-note { background: #171512; border: 1px solid #262320; }
 :root[data-theme="dark"] .ad-row { background: #171512; }
+
+/* ================= Vertical Image Scroll — PDP desktop card-stack deck =================
+   Adapted from the Kexsio "Vertical Image Scroll" reference (3D card deck, 1200px
+   perspective, .82/.70 scale peek cards, ±8° rotateX, discrete one-card-at-a-time
+   navigation) for a product page: the deck is driven by PAGE SCROLL (pinned tall
+   section) instead of wheel-hijack, so the page stays scrollable.
+   Desktop (≥901px) only — mobile uses the horizontal swipe gallery;
+   prefers-reduced-motion / single-image products get the classic gallery. */
+.pdp.pdp-viscroll { align-items: stretch; }
+.pdp.pdp-viscroll .pdp-gallery { position: static; display: block; }
+.pdp.pdp-viscroll .pdp-gallery-mobile { display: none; }
+.pdp.pdp-viscroll .pdp-info { position: sticky; top: 90px; max-height: calc(100vh - 120px); overflow-y: auto; scrollbar-width: thin; }
+.pdp.pdp-viscroll .pdp-info::-webkit-scrollbar { width: 5px; }
+.pdp.pdp-viscroll .pdp-info::-webkit-scrollbar-thumb { background: var(--line); border-radius: 99px; }
+
+.viscroll { position: relative; height: calc(var(--n) * (100vh - 90px)); }
+@supports (height: 100svh) { .viscroll { height: calc(var(--n) * (100svh - 90px)); } }
+.viscroll-pin { position: sticky; top: 90px; height: calc(100vh - 90px); }
+@supports (height: 100svh) { .viscroll-pin { height: calc(100svh - 90px); } }
+.viscroll-stage { position: absolute; inset: 0; overflow: hidden; }
+.viscroll-deck { position: absolute; inset: 0; perspective: 1200px; }
+.viscroll-card { position: absolute; left: 50%; top: 50%; height: var(--cardh, 88%); aspect-ratio: 3/4; background: #eee9e2; border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; will-change: transform, opacity; transform-style: preserve-3d; transform: translate(-50%, -50%); transition: filter .35s ease; }
+.viscroll-card img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.viscroll-card::after { content: ""; position: absolute; inset: 0; pointer-events: none; background: linear-gradient(rgba(20, 18, 15, 0.07), transparent 16%); }
+.viscroll-card.on { cursor: grab; }
+.viscroll-card.on.dragging { cursor: grabbing; }
+.viscroll-card.on { box-shadow: 0 25px 50px -12px rgba(20, 18, 15, 0.16), 0 0 0 1px rgba(20, 18, 15, 0.05); transition: box-shadow .3s ease; }
+.viscroll-card:not(.on) { box-shadow: 0 10px 30px -10px rgba(20, 18, 15, 0.10); filter: blur(3px); }
+:root[data-theme="dark"] .viscroll-card { background: #201d19; }
+:root[data-theme="dark"] .viscroll-card.on { box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.06); }
+.viscroll-zoom { position: absolute; top: 10px; right: 10px; z-index: 12; width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; border: 1px solid var(--line); background: rgba(255, 255, 255, .82); backdrop-filter: blur(6px); border-radius: var(--radius); cursor: pointer; color: var(--text); }
+.viscroll-zoom:hover { background: #fff; }
+:root[data-theme="dark"] .viscroll-zoom { background: rgba(28, 26, 22, .82); color: #f2efe9; }
+:root[data-theme="dark"] .viscroll-zoom:hover { background: rgba(40, 37, 31, .9); }
+.viscroll-counter { position: absolute; left: 16px; top: 50%; transform: translateY(-50%); z-index: 11; display: flex; flex-direction: column; align-items: center; gap: 8px; pointer-events: none; }
+.viscroll-counter .cur { font-size: 26px; font-weight: 300; letter-spacing: .1em; font-variant-numeric: tabular-nums; }
+.viscroll-counter .line { width: 1px; height: 28px; background: rgba(20, 18, 15, .25); }
+.viscroll-counter .tot { font-size: 12px; letter-spacing: .12em; opacity: .5; font-variant-numeric: tabular-nums; }
+.viscroll-dots { position: absolute; right: 16px; top: 50%; transform: translateY(-50%); z-index: 11; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.viscroll-dots button { width: 8px; height: 8px; border-radius: 99px; border: none; padding: 0; cursor: pointer; background: rgba(20, 18, 15, 0.28); transition: height .3s ease, background .3s ease; }
+.viscroll-dots button:hover { background: rgba(20, 18, 15, 0.5); }
+.viscroll-dots button.on { height: 24px; background: var(--text); }
+:root[data-theme="dark"] .viscroll-dots button { background: rgba(242, 239, 233, 0.28); }
+:root[data-theme="dark"] .viscroll-dots button:hover { background: rgba(242, 239, 233, 0.5); }
+:root[data-theme="dark"] .viscroll-counter .line { background: rgba(242, 239, 233, .25); }
+.viscroll-hint { position: absolute; bottom: 2.5%; left: 50%; transform: translateX(-50%); z-index: 11; display: flex; flex-direction: column; align-items: center; gap: 4px; opacity: .75; pointer-events: none; }
+.viscroll-hint svg:first-child { animation: vhUp 1.5s ease-in-out infinite; }
+.viscroll-hint svg:last-child { animation: vhDown 1.5s ease-in-out infinite; }
+.viscroll-hint span { font-size: 10px; letter-spacing: .22em; text-transform: uppercase; opacity: .8; }
+@keyframes vhUp { 0%, 100% { transform: translateY(2px); opacity: .5; } 50% { transform: translateY(-4px); opacity: 1; } }
+@keyframes vhDown { 0%, 100% { transform: translateY(-2px); opacity: .5; } 50% { transform: translateY(4px); opacity: 1; } }
+.viscroll-soldout { inset: 0; z-index: 20; }

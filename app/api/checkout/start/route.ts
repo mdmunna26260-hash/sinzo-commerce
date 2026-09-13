@@ -1,9 +1,13 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { rateLimit } from "@/lib/auth";
+import { getClientIp } from "@/lib/ua";
 export const dynamic = "force-dynamic";
 /* Abandoned-checkout capture. Dedup: one OPEN row per 30 min window. */
 export async function POST(req: Request) {
   try {
+    // PII-capture endpoint: keep it bounded per IP
+    if (!rateLimit("checkout-start:" + getClientIp(req), 5, 60 * 60 * 1000)) return NextResponse.json({ ok: false, skipped: "rate" });
     const { items, total, phone, name, address, email } = await req.json();
     // Only capture as "abandoned" when the customer actually filled the checkout form
     if (!phone || !name || !address) return NextResponse.json({ ok: false, skipped: "incomplete" });

@@ -4,6 +4,7 @@ import { getSettings, envFallback } from "@/lib/settings";
 import { assessRisk } from "@/lib/risk";
 import { sendCapi } from "@/lib/capi";
 import { detectSource, getClientIp } from "@/lib/ua";
+import { rateLimit } from "@/lib/auth";
 import { orderCode } from "@/lib/slug";
 import { normalizeBDPhone, isValidBDPhone } from "@/lib/phone";
 import { notifyAdmin, emailCustomerOrder, whatsappCustomerOrder } from "@/lib/notify";
@@ -29,6 +30,12 @@ export async function POST(req: Request) {
     if (area !== "INSIDE_DHAKA" && area !== "OUTSIDE_DHAKA") errors.area = "Select delivery zone";
     if (items.length === 0) return NextResponse.json({ error: "Your cart is empty" }, { status: 400 });
     if (Object.keys(errors).length) return NextResponse.json({ error: "Please fix the highlighted fields", errors }, { status: 400 });
+
+    // basic bot/brute-force guard on top of the fraud velocity engine
+    const ip = getClientIp(req);
+    if (!rateLimit("checkout:" + ip, 10, 10 * 60 * 1000)) {
+      return NextResponse.json({ error: "Too many attempts. Please try again in a few minutes." }, { status: 429 });
+    }
 
     const s = envFallback(await getSettings());
     const shipCfg = s.shipping || {};
@@ -69,81 +76,103 @@ export async function POST(req: Request) {
       orderItems.push({ productId: p.id, variantId, title: p.title, variant: variantLabel, price: unit, qty, image: p.images?.[0]?.url || null, stockLeft });
     }
 
-    // --- coupon ---
-    let discount = 0;
-    let freeship = false;
-    let appliedCode: string | null = null;
-    if (couponCode) {
-      const c = await db.coupon.findUnique({ where: { code: String(couponCode).toUpperCase().trim() } });
-      const now = new Date();
-      const usable = c && c.active
-        && (!c.startsAt || now >= c.startsAt) && (!c.endsAt || now <= c.endsAt)
-        && (c.usageLimit == null || c.usedCount < c.usageLimit)
-        && (c.minOrder == null || subtotal >= c.minOrder)
-        && (!c.firstOrderOnly || (await db.order.count({ where: { phone: cleanPhone, status: { notIn: ["CANCELLED"] } } })) === 0);
-      if (usable) {
-        if (c!.type === "percent") discount = Math.round(((subtotal * c!.value) / 100) * 100) / 100;
-        else if (c!.type === "fixed") discount = c!.value;
-        if (c!.maxDiscount != null && discount > c!.maxDiscount) discount = c!.maxDiscount;
-        if (c!.type === "freeship") freeship = true;
-        appliedCode = c!.code;
-        await db.coupon.update({ where: { id: c!.id }, data: { usedCount: { increment: 1 } } });
-      }
-    }
-
-    // --- delivery fee (from admin settings, never hardcoded) ---
-    const feeBase = area === "INSIDE_DHAKA" ? Number(shipCfg.insideDhaka ?? 80) : Number(shipCfg.outsideDhaka ?? 140);
-    const freeT = Number(shipCfg.freeShippingThreshold ?? 0);
-    const deliveryFee = freeship || (freeT > 0 && subtotal - discount >= freeT) ? 0 : feeBase;
-    const giftWrapFee = body.giftWrap ? 60 : 0; // gift wrap charge, added to grand total
-    const total = Math.max(0, subtotal - discount) + deliveryFee + giftWrapFee;
-
-    // --- fraud / risk ---
-    const ip = getClientIp(req);
+    // --- fraud / risk (before committing anything) ---
     const risk = await assessRisk({ phone: cleanPhone, address: String(address), ip }, s.fraud);
     if (risk.level === "CRITICAL") {
       return NextResponse.json({ error: "We're unable to accept this order. Please contact support." }, { status: 403 });
     }
 
-    // --- customer upsert ---
-    const customer = await db.customer.upsert({
-      where: { phone: cleanPhone },
-      update: { name: String(name).trim(), address: String(address).trim(), area, email: email || null },
-      create: { phone: cleanPhone, name: String(name).trim(), address: String(address).trim(), area, email: email || null },
-    });
+    // --- delivery fee (from admin settings, never hardcoded) ---
+    const feeBase = area === "INSIDE_DHAKA" ? Number(shipCfg.insideDhaka ?? 80) : Number(shipCfg.outsideDhaka ?? 140);
+    const freeT = Number(shipCfg.freeShippingThreshold ?? 0);
+    const giftWrapFee = body.giftWrap ? Math.max(0, Number(checkoutCfg.giftWrapFee ?? 60)) : 0;
 
-    // --- create order ---
-    const order = await db.order.create({
-      data: {
-        code: "TEMP", name: String(name).trim(), phone: cleanPhone, email: email || null,
-        address: String(address).trim(), area, notes: body.giftWrap ? (notes ? notes + ' | ' : '') + '🎁 GIFT WRAP (+৳60)' : notes || null,
-        subtotal, discount, deliveryFee, total,
-        couponCode: appliedCode, paymentMethod: paymentMethod || "COD", paymentStatus: "PENDING",
-        status: risk.level === "HIGH" ? "ON_HOLD" : "PENDING",
-        riskLevel: risk.level, riskFlags: risk.flags.join(", ") || null,
-        source: detectSource(attribution), attribution: attribution ? JSON.stringify(attribution) : null,
-        channel: deployChannel(),
-        ip, customerId: customer.id,
-        items: { create: orderItems.map((i) => ({ productId: i.productId, variantId: i.variantId, title: i.title, variant: i.variant, price: i.price, qty: i.qty, image: i.image })) },
-      },
-    });
-    const code = orderCode(order.id);
-    await db.order.update({ where: { id: order.id }, data: { code } });
+    // --- transactional order placement: coupon + customer + order + guarded
+    //     stock all commit or roll back together (no oversell, no half-burned
+    //     coupons, no negative stock under concurrent checkouts) ---
+    class SoldOutError extends Error {}
+    let result: { order: any; appliedCode: string | null };
+    try {
+      result = await db.$transaction(async (tx) => {
+        // coupon (usageLimit enforced; usedCount increments atomically with the order)
+        let discount = 0;
+        let freeship = false;
+        let appliedCode: string | null = null;
+        if (couponCode) {
+          const c = await tx.coupon.findUnique({ where: { code: String(couponCode).toUpperCase().trim() } });
+          const now = new Date();
+          const firstOrderOk = !c?.firstOrderOnly || (await tx.order.count({ where: { phone: cleanPhone, status: { notIn: ["CANCELLED"] } } })) === 0;
+          const usable = c && c.active
+            && (!c.startsAt || now >= c.startsAt) && (!c.endsAt || now <= c.endsAt)
+            && (c.usageLimit == null || c.usedCount < c.usageLimit)
+            && (c.minOrder == null || subtotal >= c.minOrder)
+            && firstOrderOk;
+          if (usable) {
+            if (c!.type === "percent") discount = Math.round(((subtotal * c!.value) / 100) * 100) / 100;
+            else if (c!.type === "fixed") discount = c!.value;
+            if (c!.maxDiscount != null && discount > c!.maxDiscount) discount = c!.maxDiscount;
+            if (c!.type === "freeship") freeship = true;
+            appliedCode = c!.code;
+            await tx.coupon.update({ where: { id: c!.id }, data: { usedCount: { increment: 1 } } });
+          }
+        }
 
-    // --- inventory ---
-    for (const i of orderItems) {
-      if (i.variantId) {
-        await db.productVariant.update({ where: { id: i.variantId }, data: { stock: { decrement: i.qty } } }).catch(() => {});
-      }
-      await db.product.update({ where: { id: i.productId }, data: { stock: { decrement: i.qty } } }).catch(() => {});
-      await db.inventoryMovement.create({ data: { productId: i.productId, delta: -i.qty, reason: "ORDER", ref: code } }).catch(() => {});
+        const deliveryFee = freeship || (freeT > 0 && subtotal - discount >= freeT) ? 0 : feeBase;
+        const total = Math.max(0, subtotal - discount) + deliveryFee + giftWrapFee;
+
+        // customer upsert
+        const customer = await tx.customer.upsert({
+          where: { phone: cleanPhone },
+          update: { name: String(name).trim(), address: String(address).trim(), area, email: email || null },
+          create: { phone: cleanPhone, name: String(name).trim(), address: String(address).trim(), area, email: email || null },
+        });
+
+        // create order
+        const order = await tx.order.create({
+          data: {
+            code: "TEMP", name: String(name).trim(), phone: cleanPhone, email: email || null,
+            address: String(address).trim(), area, notes: body.giftWrap ? (notes ? notes + " | " : "") + "🎁 GIFT WRAP (+৳" + giftWrapFee + ")" : notes || null,
+            subtotal, discount, deliveryFee, total,
+            couponCode: appliedCode, paymentMethod: paymentMethod || "COD", paymentStatus: "PENDING",
+            status: risk.level === "HIGH" ? "ON_HOLD" : "PENDING",
+            riskLevel: risk.level, riskFlags: risk.flags.join(", ") || null,
+            source: detectSource(attribution), attribution: attribution ? JSON.stringify(attribution) : null,
+            channel: deployChannel(),
+            ip, customerId: customer.id,
+            items: { create: orderItems.map((i) => ({ productId: i.productId, variantId: i.variantId, title: i.title, variant: i.variant, price: i.price, qty: i.qty, image: i.image })) },
+          },
+        });
+        const code = orderCode(order.id);
+        const finalOrder = await tx.order.update({ where: { id: order.id }, data: { code } });
+
+        // guarded inventory: conditional decrement so concurrent checkouts
+        // can never oversell or drive stock negative
+        for (const i of orderItems) {
+          if (i.variantId) {
+            const r = await tx.productVariant.updateMany({ where: { id: i.variantId, stock: { gte: i.qty } }, data: { stock: { decrement: i.qty } } });
+            if (r.count === 0) throw new SoldOutError(`${i.title} is just sold out`);
+          }
+          const r = await tx.product.updateMany({ where: { id: i.productId, stock: { gte: i.qty } }, data: { stock: { decrement: i.qty } } });
+          if (r.count === 0) throw new SoldOutError(`${i.title} is just sold out`);
+          await tx.inventoryMovement.create({ data: { productId: i.productId, delta: -i.qty, reason: "ORDER", ref: code } });
+        }
+
+        // abandoned checkout: mark CONVERTED (order placed)
+        await tx.abandonedCheckout.updateMany({
+          where: { phone: cleanPhone, checkoutStatus: "OPEN" },
+          data: { checkoutStatus: "CONVERTED", recovered: true },
+        }).catch(() => {});
+
+        return { order: finalOrder, appliedCode };
+      });
+    } catch (e) {
+      if (e instanceof SoldOutError) return NextResponse.json({ error: e.message }, { status: 409 });
+      throw e;
     }
-
-    // --- abandoned checkout: mark CONVERTED (order placed) ---
-    await db.abandonedCheckout.updateMany({
-      where: { phone: cleanPhone, checkoutStatus: "OPEN" },
-      data: { checkoutStatus: "CONVERTED", recovered: true },
-    }).catch(() => {});
+    const order = result.order;
+    const code = order.code;
+    const appliedCode = result.appliedCode;
+    const total = order.total;
 
     // --- server-side Purchase via Meta CAPI (dedup with browser pixel by event_id) ---
     sendCapi({
