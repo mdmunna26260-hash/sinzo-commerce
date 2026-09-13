@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCart, useWishlist, trackEvent, toast } from "@/components/store";
@@ -7,7 +7,7 @@ import { imgSrc, imgSrcSet } from "@/components/parts";
 import { warmImage, warmWhenIdle } from "@/components/img-warm";
 import { trackRecentlyViewed } from "@/components/recently-viewed";
 import MobileGallery from "@/components/mobile-gallery";
-import VerticalImageScroll from "@/components/vertical-image-scroll";
+import LiveWatching from "@/components/live-watching";
 import SizeRecommendation from "@/components/size-rec";
 
 type V = { id: number; size: string | null; color: string | null; stock: number; price: number | null; image?: string | null };
@@ -68,23 +68,6 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
   const [hoverZoom, setHoverZoom] = useState(false);
   const touch = useRef<{ x: number; y: number } | null>(null);
 
-  /* ---------- Gallery mode per device ----------
-     Desktop (≥901px): Vertical Image Scroll 3D deck — a no-overlap full-screen
-     pager (step 90% > card 88%, so cards fully clear before the next enters).
-     Mobile:  the original horizontal swipe gallery (thumb-friendly, CTA stays
-     on screen).
-     useLayoutEffect → decision lands before first paint, no flicker.
-     prefers-reduced-motion / single-image → classic gallery everywhere. */
-  const [vscroll, setVscroll] = useState(false);
-  useLayoutEffect(() => {
-    const m = window.matchMedia("(min-width: 901px)");
-    const rm = window.matchMedia("(prefers-reduced-motion: reduce)");
-    const ok = () => setVscroll(m.matches && !rm.matches && N > 1);
-    ok();
-    m.addEventListener("change", ok);
-    rm.addEventListener("change", ok);
-    return () => { m.removeEventListener("change", ok); rm.removeEventListener("change", ok); };
-  }, [N]);
 
   /* ---------- mobile swipe-to-slide on main gallery image ----------
      Finger tracks 1:1 (translate3d), axis-locked so vertical scroll works.
@@ -301,7 +284,7 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
 
   return (
     <>
-      <div className={"pdp" + (vscroll ? " pdp-viscroll" : "")}>
+      <div className="pdp">
         {/* ---------------- GALLERY ---------------- */}
         <div className="pdp-gallery">
           {/* MOBILE: swipeable gallery — all deployments (Vercel + VPS) */}
@@ -310,9 +293,7 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
             {avail <= 0 && <div className="soldout-overlay"><span>Sold Out</span></div>}
           </div>
 
-          {/* ORIGINAL gallery — mobile-only by CSS; on desktop it's replaced by the
-              Vertical Image Scroll when vscroll mode is active */}
-          {!vscroll && (
+          {/* DESKTOP: classic gallery — main image + hover zoom + thumbnail rail */}
           <div className="pdp-gallery-desktop hide-on-mobile">
           <div
             ref={mainRef}
@@ -344,11 +325,6 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
               onClick={() => { setLbIdx(img); setLbZoom(false); setLightbox(true); }}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3M11 8v6M8 11h6"/></svg>
             </button>
-            {N > 1 && (
-              <>
-                <div className="gal-count">{img + 1} / {N}</div>
-              </>
-            )}
             {avail <= 0 && <div className="soldout-overlay"><span>Sold Out</span></div>}
           </div>
 
@@ -362,11 +338,6 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
             </div>
           )}
           </div>
-          )}
-          {vscroll && (
-            <VerticalImageScroll images={product.images} title={product.title} initialIndex={img} onIndexChange={setImg} soldOut={avail <= 0}
-              onZoom={() => { setLbIdx(img); setLbZoom(false); setLightbox(true); }} />
-          )}
         </div>
 
         {/* ---------------- INFO ---------------- */}
@@ -380,6 +351,7 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
             <b>৳{price.toLocaleString("en-IN")}</b>
             {product.comparePrice && product.comparePrice > price && (<><s>৳{product.comparePrice.toLocaleString("en-IN")}</s><span className="off">{off}% OFF</span></>)}
           </div>
+          <LiveWatching />
           {soldCount != null && soldCount > 0 && (
             <div className="pdp-sold" style={{ display: "flex", alignItems: "center", gap: 6, margin: "-2px 0 6px" }}>
               <span style={{ fontSize: 12, fontWeight: 700, color: "var(--accent)", background: "rgba(154,123,79,.10)", padding: "4px 10px", borderRadius: 99 }}>
