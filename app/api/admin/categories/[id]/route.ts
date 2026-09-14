@@ -8,8 +8,15 @@ export async function PUT(req: Request, { params }: Ctx) {
   const g = await requirePerm("categories", req);
   if ("res" in g) return g.res;
   const b = await req.json();
-  const data: any = { name: b.name, description: b.description || null, image: b.image || null, sizeChart: b.sizeChart || null };
+  // Partial update: only touch fields the client actually sent, so an
+  // image-only upload can't wipe description/sizeChart (or name).
+  const data: any = {};
+  if (b.name !== undefined) data.name = b.name;
+  if (b.description !== undefined) data.description = b.description || null;
+  if (b.image !== undefined) data.image = b.image || null;
+  if (b.sizeChart !== undefined) data.sizeChart = b.sizeChart || null;
   if (b.slug) data.slug = slugify(b.slug);
+  if (Object.keys(data).length === 0) return NextResponse.json({ error: "Nothing to update" }, { status: 400 });
   try {
     const c = await db.category.update({ where: { id: Number(params.id) }, data });
     return NextResponse.json({ ok: true, category: c });

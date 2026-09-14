@@ -11,14 +11,20 @@ export default function CatalogClient({ categories, collections, products }: any
 
   const uploadCatImg = async (file: File, catId?: number) => {
     const fd = new FormData(); fd.append("file", file);
-    const r = await fetch("/api/admin/upload", { method: "POST", body: fd });
-    const j = await r.json();
-    if (!r.ok) { setMsg("Upload failed"); return; }
-    if (catId) {
-      await fetch("/api/admin/categories/" + catId, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ image: j.url }) });
-      setMsg("Category image updated ✓"); router.refresh();
-    } else {
-      setNewCat((c) => ({ ...c, image: j.url }));
+    try {
+      const r = await fetch("/api/admin/upload", { method: "POST", body: fd });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok || !j.url) { setMsg("Upload failed" + (j.error ? " — " + j.error : " (" + r.status + ")")); return; }
+      if (catId) {
+        const p = await fetch("/api/admin/categories/" + catId, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ image: j.url }) });
+        const pj = await p.json().catch(() => ({}));
+        if (!p.ok) { setMsg("Image saved, but category update failed" + (pj.error ? " — " + pj.error : " (" + p.status + ")")); return; }
+        setMsg("Category image updated ✓"); router.refresh();
+      } else {
+        setNewCat((c) => ({ ...c, image: j.url }));
+      }
+    } catch {
+      setMsg("Upload failed — network error (try a smaller image)");
     }
   };
 
@@ -77,7 +83,14 @@ export default function CatalogClient({ categories, collections, products }: any
             <tbody>
               {categories.map((c: any) => (
                 <tr key={c.id}>
-                  <td><b>{c.name}</b></td>
+                  <td>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      {c.image
+                        ? <img src={c.image.startsWith("/api/media") ? c.image + "/w80" : c.image} width={30} height={30} alt="" style={{ borderRadius: 4, objectFit: "cover", background: "#eee" }} />
+                        : <div style={{ width: 30, height: 30, borderRadius: 4, background: "#f0eeea", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13 }}>🖼</div>}
+                      <b>{c.name}</b>
+                    </div>
+                  </td>
                   <td style={{ fontSize: 12, color: "var(--muted)" }}>/{c.slug}</td>
                   <td>{c.productCount}</td>
                   <td style={{ whiteSpace: "nowrap" }}>

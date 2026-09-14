@@ -23,6 +23,12 @@ async function run(): Promise<void> {
       ? `ALTER TABLE "Order" ADD COLUMN IF NOT EXISTS "channel" TEXT NOT NULL DEFAULT 'vps'`
       : `ALTER TABLE "Order" ADD COLUMN "channel" TEXT NOT NULL DEFAULT 'vps'`)
     .catch(() => {});
+  // Order.stockDeducted (stock minus only on Steadfast "delivered"; idempotency guard)
+  await db
+    .$executeRawUnsafe(isPg
+      ? `ALTER TABLE "Order" ADD COLUMN IF NOT EXISTS "stockDeducted" BOOLEAN NOT NULL DEFAULT false`
+      : `ALTER TABLE "Order" ADD COLUMN "stockDeducted" BOOLEAN NOT NULL DEFAULT 0`)
+    .catch(() => {});
   // ProductVariant.image (linked color variants)
   await db
     .$executeRawUnsafe(isPg

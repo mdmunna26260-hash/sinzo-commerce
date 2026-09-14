@@ -195,6 +195,7 @@ model Order {
   courierConsignmentId String?
   courierStatus      String?
   courierTracking    String?
+  stockDeducted Boolean @default(false) // true once delivery-time stock decrement ran (idempotency guard)
   customerId   Int?
   customer     Customer?    @relation(fields: [customerId], references: [id])
   items        OrderItem[]

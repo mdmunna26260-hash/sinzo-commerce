@@ -43,7 +43,8 @@ h1, h2, h3, .serif { font-family: var(--font-head); font-weight: 500; letter-spa
 .link-underline:hover { color: var(--accent); border-color: var(--accent); }
 
 /* ---------- Announcement ---------- */
-.announce { background: var(--text); color: var(--bg); text-align: center; font-size: 9.5px; letter-spacing: .16em; padding: 5px 12px; text-transform: uppercase; }
+/* Day theme ALWAYS (stays dark bar + light text even in dark mode) */
+.announce { background: #141414; color: #faf9f7; text-align: center; font-size: 9.5px; letter-spacing: .16em; padding: 5px 12px; text-transform: uppercase; }
 
 /* ---------- Header ---------- */
 .header { position: sticky; top: 0; z-index: 50; background: rgba(250,249,247,.92); backdrop-filter: blur(10px); border-bottom: 1px solid var(--line); }

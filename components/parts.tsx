@@ -57,8 +57,7 @@ export function ProductCard({ p, wish, rd }: { p: CardProduct; wish?: boolean; r
       </div>
       <div className="pcard-info">
         <div className="pcard-title">{p.title}</div>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
-          <span className="pcard-cat">{p.categoryName}</span>
+        <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 8 }}>
           {p.colors && p.colors.length > 0 && (
             <span className="pcard-colors" title={p.colors.join(", ")}>
               {p.colors.slice(0, 4).map((c, i) => (

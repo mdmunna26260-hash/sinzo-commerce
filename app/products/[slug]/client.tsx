@@ -7,7 +7,7 @@ import { imgSrc, imgSrcSet } from "@/components/parts";
 import { warmImage, warmWhenIdle } from "@/components/img-warm";
 import { trackRecentlyViewed } from "@/components/recently-viewed";
 import MobileGallery from "@/components/mobile-gallery";
-import LiveWatching from "@/components/live-watching";
+// LiveWatching import removed — live views OFF per user request
 import SoldCount from "@/components/sold-count";
 import SizeRecommendation from "@/components/size-rec";
 
@@ -353,7 +353,6 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
 
         {/* ---------------- INFO ---------------- */}
         <div className="pdp-info">
-          {product.categoryName && <div className="eyebrow">{product.categoryName}</div>}
           <h1>{product.title}</h1>
           {preorder && (
             <div className="pdp-preorder">
@@ -368,7 +367,7 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
             <b>৳{price.toLocaleString("en-IN")}</b>
             {product.comparePrice && product.comparePrice > price && (<><s>৳{product.comparePrice.toLocaleString("en-IN")}</s><span className="off">{off}% OFF</span></>)}
           </div>
-          <LiveWatching productId={product.id} />
+          {/* LiveWatching OFF per user request (component dormant in components/live-watching.tsx) */}
           <SoldCount productId={product.id} soldCount={soldCount} soldMode={soldMode} />
           {product.shortDesc && <p className="pdp-desc">{product.shortDesc}</p>}
 

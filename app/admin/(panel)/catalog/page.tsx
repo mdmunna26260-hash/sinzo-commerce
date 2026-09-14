@@ -11,7 +11,7 @@ export default async function CatalogPage({ searchParams }: { searchParams: any 
     db.product.findMany({ select: { id: true, title: true }, orderBy: { title: "asc" } }),
   ]);
   return <CatalogClient
-    categories={categories.map((c) => ({ id: c.id, name: c.name, slug: c.slug, description: c.description, productCount: c._count.products }))}
+    categories={categories.map((c) => ({ id: c.id, name: c.name, slug: c.slug, description: c.description, image: c.image, productCount: c._count.products }))}
     collections={collections.map((c) => ({ id: c.id, title: c.title, slug: c.slug, subtitle: c.subtitle, productCount: c._count.products, productIds: c.products.map((x) => x.productId) }))}
     products={products}
   />;

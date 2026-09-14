@@ -4,6 +4,7 @@ import { requirePerm } from "@/lib/admin-guard";
 import { logAudit } from "@/lib/auth";
 import { notifyAdmin, emailCustomerStatus } from "@/lib/notify";
 import { sendPushToPhones } from "@/lib/webpush";
+import { applyDeliveryStockDeduction, stockWasDeducted } from "@/lib/deliver-stock";
 export const dynamic = "force-dynamic";
 type Ctx = { params: { id: string } };
 export async function GET(req: Request, { params }: Ctx) {
@@ -19,6 +20,8 @@ export async function PUT(req: Request, { params }: Ctx) {
   if ("res" in g) return g.res;
   const b = await req.json();
   const id = Number(params.id);
+  const { ensureExtraTables } = await import("@/lib/db-ensure");
+  await ensureExtraTables().catch(() => {});
   const before = await db.order.findUnique({ where: { id } });
   if (!before) return NextResponse.json({ error: "Not found" }, { status: 404 });
   const data: any = {};
@@ -132,6 +135,10 @@ export async function PUT(req: Request, { params }: Ctx) {
   const order = await db.order.update({ where: { id }, data });
   if (b.status && b.status !== before.status) {
     await logAudit(g.user.email, "ORDER_STATUS", `${before.code}: ${before.status} → ${b.status}`);
+    // Stock: manual delivery triggers the one-time decrement (same as Steadfast sync)
+    if (b.status === "DELIVERED") {
+      await applyDeliveryStockDeduction(id, before.code).catch(() => {});
+    }
     const evtMap: Record<string, any> = { CONFIRMED: "order.confirmed", CANCELLED: "order.cancelled", SHIPPED: "order.shipped", DELIVERED: "order.delivered" };
     const evt = evtMap[b.status];
     if (evt) {
@@ -154,8 +161,13 @@ export async function PUT(req: Request, { params }: Ctx) {
       sendPushToPhones([before.phone], { title: pm.t, body: pm.b, url: `/track?code=${before.code}`, tag: before.code }).catch(() => {});
     }
   }
-  // restock on cancel/return
-  if (["CANCELLED", "RETURNED"].includes(b.status) && !["CANCELLED", "RETURNED"].includes(before.status)) {
+  // restock on cancel/return — ONLY if stock was actually deducted.
+  // New flow: stock is never taken at order time, so a plain cancellation
+  // must NOT restock (it would inflate stock). Restock applies to:
+  //   - delivered-then-returned orders (stock was deducted at delivery),
+  //   - legacy pre-rollout orders (stock was deducted at old checkout,
+  //     detected via their "ORDER" inventory movement).
+  if (["CANCELLED", "RETURNED"].includes(b.status) && !["CANCELLED", "RETURNED"].includes(before.status) && (before.stockDeducted || (await stockWasDeducted(id, before.code)))) {
     const items = await db.orderItem.findMany({ where: { orderId: id } });
     for (const i of items) {
       if (i.productId) {

@@ -145,19 +145,10 @@ export async function POST(req: Request) {
         const code = orderCode(order.id);
         const finalOrder = await tx.order.update({ where: { id: order.id }, data: { code } });
 
-        // guarded inventory: conditional decrement so concurrent checkouts
-        // can never oversell or drive stock negative. Pre-order lines don't
-        // touch stock (goods arrive later).
-        for (const i of orderItems) {
-          if (i.preorder) continue;
-          if (i.variantId) {
-            const r = await tx.productVariant.updateMany({ where: { id: i.variantId, stock: { gte: i.qty } }, data: { stock: { decrement: i.qty } } });
-            if (r.count === 0) throw new SoldOutError(`${i.title} is just sold out`);
-          }
-          const r = await tx.product.updateMany({ where: { id: i.productId, stock: { gte: i.qty } }, data: { stock: { decrement: i.qty } } });
-          if (r.count === 0) throw new SoldOutError(`${i.title} is just sold out`);
-          await tx.inventoryMovement.create({ data: { productId: i.productId, delta: -i.qty, reason: "ORDER", ref: code } });
-        }
+        // Inventory is NOT decremented at order time (Steadfast flow):
+        // stock is subtracted exactly once when the order is DELIVERED
+        // (lib/deliver-stock.ts). The sold-out validation above still
+        // protects against selling 0-stock non-pre-order items.
 
         // abandoned checkout: mark CONVERTED (order placed)
         await tx.abandonedCheckout.updateMany({

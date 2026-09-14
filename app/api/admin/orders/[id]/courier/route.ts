@@ -4,6 +4,7 @@ import { requirePerm } from "@/lib/admin-guard";
 import { createConsignment, checkStatusByConsignment } from "@/lib/steadfast";
 import { logAudit } from "@/lib/auth";
 import { emailCustomerStatus } from "@/lib/notify";
+import { applyDeliveryStockDeduction } from "@/lib/deliver-stock";
 export const dynamic = "force-dynamic";
 type Ctx = { params: { id: string } };
 export async function POST(req: Request, { params }: Ctx) {
@@ -27,6 +28,8 @@ export async function POST(req: Request, { params }: Ctx) {
 export async function GET(req: Request, { params }: Ctx) {
   const g = await requirePerm("orders", req);
   if ("res" in g) return g.res;
+  const { ensureExtraTables } = await import("@/lib/db-ensure");
+  await ensureExtraTables().catch(() => {});
   const order = await db.order.findUnique({ where: { id: Number(params.id) } });
   if (!order?.courierConsignmentId) return NextResponse.json({ error: "No courier consignment on this order" }, { status: 400 });
   const beforeStatus = order.courierStatus;
@@ -34,7 +37,12 @@ export async function GET(req: Request, { params }: Ctx) {
   if (r.ok) {
     const newStatus = r.data?.delivery_status || order.courierStatus;
     await db.order.update({ where: { id: order.id }, data: { courierStatus: newStatus, courierTracking: JSON.stringify(r.data) } }).catch(() => {});
-    if (r.data?.delivery_status === "delivered") await db.order.update({ where: { id: order.id }, data: { status: "DELIVERED", paymentStatus: "PAID" } }).catch(() => {});
+    if (r.data?.delivery_status === "delivered") {
+      await db.order.update({ where: { id: order.id }, data: { status: "DELIVERED", paymentStatus: "PAID" } }).catch(() => {});
+      // Stock: minus exactly once, here — on Steadfast "delivered".
+      // Atomic claim (Order.stockDeducted) makes repeated syncs race-safe.
+      await applyDeliveryStockDeduction(order.id, order.code).catch(() => {});
+    }
     // customer email on rider pickup / in transit (only on transition, never repeats)
     if (order.email && newStatus && beforeStatus !== newStatus && ["picked_up", "in_transit"].includes(String(newStatus))) {
       emailCustomerStatus(order.email, order.name, { code: order.code, total: order.total, area: order.area, courierName: order.courierName }, "rider").catch(() => {});
