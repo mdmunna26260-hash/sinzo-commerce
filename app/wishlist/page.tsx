@@ -18,7 +18,7 @@ export default async function WishlistPage() {
     where: { status: "ACTIVE" },
     select: {
       id: true, title: true, slug: true, price: true, comparePrice: true, stock: true,
-      badge: true, isNew: true, isBestSeller: true,
+      badge: true, isNew: true, isBestSeller: true, preorder: true,
       category: { select: { name: true } },
       images: { select: { url: true }, orderBy: { position: "asc" }, take: 1 },
       variants: { select: { size: true, stock: true } },
@@ -28,8 +28,8 @@ export default async function WishlistPage() {
     id: p.id, title: p.title, slug: p.slug, price: p.price, comparePrice: p.comparePrice,
     image: p.images?.[0]?.url, categoryName: p.category?.name,
     stock: Math.max(p.stock, p.variants.reduce((sum, v) => sum + v.stock, 0)),
-    sizes: Array.from(new Set(p.variants.filter((v) => v.stock > 0 && v.size).map((v) => v.size!))),
-    isNew: p.isNew, isBestSeller: p.isBestSeller, badge: p.badge,
+    sizes: Array.from(new Set(p.variants.filter((v) => (p.preorder || v.stock > 0) && v.size).map((v) => v.size!))),
+    isNew: p.isNew, isBestSeller: p.isBestSeller, badge: p.badge, preorder: !!p.preorder,
   }));
   return (
     <>

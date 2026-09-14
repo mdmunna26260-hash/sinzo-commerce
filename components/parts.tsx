@@ -44,15 +44,15 @@ export function ProductCard({ p, wish, rd }: { p: CardProduct; wish?: boolean; r
       <div className="pcard-img">
         {p.image && <CardImg url={p.image} alt={p.title} slug={p.slug} />}
         <div className="pcard-badges">
-          {off > 0 && <span className="badge sale">-{off}%</span>}
-          {p.badge && <span className={"badge badge-" + p.badge}>{BADGE_LABELS[p.badge] || p.badge}</span>}
+          {p.stock <= 0 && !p.preorder && <span className="badge">SOLD OUT</span>}
+          {p.preorder && <span className="badge">Pre-Order</span>}
+          {off > 0 && <span className="badge">-{off}%</span>}
+          {p.badge && <span className="badge">{BADGE_LABELS[p.badge] || p.badge}</span>}
           {p.saleEnds && new Date(p.saleEnds).getTime() > Date.now() && off > 0 && (
-            <span className="badge badge-flash">FLASH</span>
+            <span className="badge">FLASH</span>
           )}
-          {p.preorder && <span className="badge badge-preorder">Pre-order</span>}
         </div>
         <WishHeart id={p.id} />
-        {p.stock <= 0 && !p.preorder && <div className="soldout-overlay"><span>Sold Out</span></div>}
         {wish ? <div className="pcard-quick"><button type="button">In your wishlist</button></div> : null}
       </div>
       <div className="pcard-info">

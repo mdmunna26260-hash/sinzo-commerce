@@ -100,8 +100,9 @@ h1, h2, h3, .serif { font-family: var(--font-head); font-weight: 500; letter-spa
 .pcard-img { position: relative; overflow: hidden; aspect-ratio: var(--img-ratio, 3 / 4); background: #eee9e2; border-radius: var(--radius); }
 .pcard-img img { width: 100%; height: 100%; object-fit: cover; transition: transform .6s ease; }
 .pcard:hover .pcard-img img { transform: scale(1.05); }
-.pcard-badges { position: absolute; top: 12px; left: 12px; display: flex; flex-direction: column; gap: 6px; }
-.badge { font-size: 10px; letter-spacing: .12em; padding: 4px 10px; text-transform: uppercase; font-weight: 600; }
+.pcard-badges { position: absolute; top: 10px; left: 10px; display: flex; flex-direction: column; align-items: flex-start; gap: 5px; z-index: 3; }
+/* Unified badge chip — matches reference look (small light chip, dark text, top-left) */
+.badge { display: inline-block; background: #f7f5f1; color: #17150f; font-size: 10px; letter-spacing: .02em; padding: 4px 9px; border-radius: 4px; font-weight: 600; line-height: 1.2; border: 1px solid rgba(0,0,0,.06); }
 .badge.sale { background: var(--danger); color: #fff; }
 .badge.oos { background: #7a7a7a; color: #fff; }
 .pcard-quick { position: absolute; bottom: 0; left: 0; right: 0; padding: 12px; transform: translateY(110%); transition: transform .25s ease; }
@@ -509,9 +510,7 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 13.5px; }
 .notif-item .nd { font-size: 11px; color: var(--muted); margin-top: 4px; }
 @media (max-width: 640px) { .notif-panel { left: 12px; right: 12px; width: auto; } }
 
-.badge.new { background: #fff; color: var(--text); border: 1px solid var(--text); }
-.badge.best { background: var(--accent); color: #fff; }
-.badge.badge-preorder { background: var(--accent); color: #fff; }
+/* per-color badge variants retired — all card badges use the unified .badge chip */
 
 /* ---------- Mobile performance & pixel-perfect pass ---------- */
 /* render only what's on screen (below-fold sections skip layout cost) */
@@ -753,11 +752,7 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 13.5px; }
 .inf-end { text-align: center; color: var(--muted); font-size: 12px; letter-spacing: .12em; padding: 30px 0 6px; text-transform: uppercase; }
 .pcard-sizes { font-size: 12px; color: var(--muted); margin-top: 2px; letter-spacing: .02em; }
 
-.badge-trending { background: rgba(255,255,255,.85); backdrop-filter: blur(4px); border: 1.5px solid var(--danger); color: var(--danger); }
-.badge-hot { background: rgba(255,255,255,.85); backdrop-filter: blur(4px); border: 1.5px solid #ff6b35; color: #ff6b35; }
-.badge-new { background: rgba(255,255,255,.85); backdrop-filter: blur(4px); border: 1.5px solid var(--text); color: var(--text); }
-.badge-signature { background: rgba(255,255,255,.85); backdrop-filter: blur(4px); border: 1.5px solid #d4af37; color: #d4af37; }
-.badge-limited { background: rgba(255,255,255,.85); backdrop-filter: blur(4px); border: 1.5px solid #2d2d2d; color: #2d2d2d; }
+/* (colored badge variants retired — unified .badge chip above) */
 
 /* ===== Admin Panel Polish ===== */
 .admin-main { max-width: 1400px; }
@@ -809,9 +804,9 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 13.5px; }
   .bar-chart { height: 120px !important; }
 }
 
-/* Badges: small plain text on mobile — no border, no bg, just black text */
+/* Badges on mobile: same unified chip, slightly smaller */
 @media (max-width: 640px) {
-  .badge { font-size: 9px !important; padding: 0 !important; border: none !important; background: none !important; backdrop-filter: none !important; color: var(--text) !important; font-weight: 700 !important; letter-spacing: .08em !important; }
+  .badge { font-size: 9.5px; padding: 3px 8px; }
 }
 
 /* ===== Premium Page Transitions ===== */
@@ -1739,9 +1734,7 @@ input::placeholder, textarea::placeholder { color: #b0aaa1; }
 }
 
 
-/* flash sale badge on product cards */
-.badge.badge-flash { background: #b3392f; color: #fff; animation: flashpulse 1.6s ease-in-out infinite; }
-@keyframes flashpulse { 0%, 100% { opacity: 1; } 50% { opacity: .75; } }
+/* (flash badge now uses the unified .badge chip) */
 
 /* ================= ANIMATIONS V2 — premium polish pass (per ANIMATIONS-REPORT.md) ================= */
 :root { --ease: cubic-bezier(.22,.61,.36,1); }
