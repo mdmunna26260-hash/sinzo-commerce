@@ -1,5 +1,18 @@
 # updated 2026-09-14
 
+## ccf3eb6 — Unified reference-style card badges + pre-order SOLD OUT fixes (LIVE)
+- ALL product-card badges = one unified light chip, top-left (ref: vescartes
+  look): SOLD OUT, Pre-Order, -X% discount, NEW/LIMITED/TRENDING etc, FLASH.
+  Same style PC + mobile (mobile override that stripped badge bg removed).
+  Sold Out is now a chip — NOT a full image overlay on cards (PDP overlay
+  unchanged).
+- /products infinite grid dropped `preorder` in card mapping → FADE BLACK
+  showed SOLD OUT on the products page. Fixed. Wishlist select+mapping now
+  preorder-aware too.
+- Verified locally: Pre-Order chip ✓, -23% chip ✓, SOLD OUT chip ✓
+  (temp 0-stock test, stock restored exactly).
+- Deploy: origin+next=`ccf3eb6`; Vercel prod/staging manual v13 API.
+
 ## 0c77829 — Steadfast inventory flow + PDP/card cleanups + category image fix (LIVE on all 3 sites)
 - **Inventory = Steadfast-delivered-based:** stock decrements ONLY when order is DELIVERED
   (Steadfast status sync `courier GET` or manual admin DELIVERED) — exact variant(size)+product
