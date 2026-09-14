@@ -100,7 +100,7 @@ h1, h2, h3, .serif { font-family: var(--font-head); font-weight: 500; letter-spa
 .pcard-img { position: relative; overflow: hidden; aspect-ratio: var(--img-ratio, 3 / 4); background: #eee9e2; border-radius: var(--radius); }
 .pcard-img img { width: 100%; height: 100%; object-fit: cover; transition: transform .6s ease; }
 .pcard:hover .pcard-img img { transform: scale(1.05); }
-.pcard-badges { position: absolute; top: 10px; left: 10px; display: flex; flex-direction: column; align-items: flex-start; gap: 5px; z-index: 3; }
+.pcard-badges { position: absolute; top: 0; left: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 5px; z-index: 3; }
 /* Unified badge chip — matches reference look (small light chip, dark text, top-left) */
 .badge { display: inline-block; background: #f7f5f1; color: #17150f; font-size: 10px; letter-spacing: .02em; padding: 4px 9px; border-radius: 4px; font-weight: 600; line-height: 1.2; border: 1px solid rgba(0,0,0,.06); }
 .badge.sale { background: var(--danger); color: #fff; }
@@ -700,7 +700,7 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 13.5px; }
 .sh-link:hover { color: var(--accent); border-color: var(--accent); }
 
 /* product card: heart + colors */
-.pcard-heart { position: absolute; top: 10px; right: 10px; width: 36px; height: 36px; border-radius: 99px; background: transparent; border: none; color: var(--text); display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 3; opacity: 0; transform: translateY(-3px); transition: opacity .22s ease, transform .22s ease, color .2s ease; filter: drop-shadow(0 1px 3px rgba(0,0,0,.35)); }
+.pcard-heart { position: absolute; top: 0; right: 0; width: 36px; height: 36px; border-radius: 99px; background: transparent; border: none; color: var(--text); display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 3; opacity: 0; transform: translateY(-3px); transition: opacity .22s ease, transform .22s ease, color .2s ease; filter: drop-shadow(0 1px 3px rgba(0,0,0,.35)); }
 .pcard:hover .pcard-heart, .pcard-heart.on { opacity: 1; transform: none; }
 .pcard-heart.on { color: var(--danger); }
 @media (hover: none) { .pcard-heart { opacity: 1; transform: none; } }
