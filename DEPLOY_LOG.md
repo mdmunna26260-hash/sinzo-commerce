@@ -1,5 +1,18 @@
 # updated 2026-09-14
 
+## a35e5cd — Admin UI modernized (Stripe-style light), all 13 pages (LIVE)
+- Scoped design system under .admin-body (storefront untouched): soft-shadow
+  12px cards, indigo accent tokens (light + dark theme), tabular KPI numerals,
+  modern tables, soft pill tints, 8px buttons/inputs with focus rings.
+- Sidebar: light, accent active nav, count badges, avatar user card,
+  GLOBAL SEARCH (orders code/name/phone + products title) — new
+  /api/admin/global-search. Product deep link ?edit=<id> opens drawer.
+- Dashboard: KPI icon chips + trend deltas + sparklines, gradient SVG area
+  chart (no chart lib), recent orders w/ thumbnails + pills, top products
+  w/ images. Login: light gradient + elevated card.
+- Verified: all 12 admin routes 200 (local), search API works, storefront
+  pill/badge styles unchanged (account page pills keep global colors).
+
 ## ccf3eb6 — Unified reference-style card badges + pre-order SOLD OUT fixes (LIVE)
 - ALL product-card badges = one unified light chip, top-left (ref: vescartes
   look): SOLD OUT, Pre-Order, -X% discount, NEW/LIMITED/TRENDING etc, FLASH.
