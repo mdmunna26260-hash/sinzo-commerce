@@ -101,8 +101,8 @@ h1, h2, h3, .serif { font-family: var(--font-head); font-weight: 500; letter-spa
 .pcard-img img { width: 100%; height: 100%; object-fit: cover; transition: transform .6s ease; }
 .pcard:hover .pcard-img img { transform: scale(1.05); }
 .pcard-badges { position: absolute; top: 0; left: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 5px; z-index: 3; }
-/* Unified badge chip — matches reference look (small light chip, dark text, top-left) */
-.badge { display: inline-block; background: #f7f5f1; color: #17150f; font-size: 10px; letter-spacing: .02em; padding: 4px 9px; border-radius: 4px; font-weight: 600; line-height: 1.2; border: 1px solid rgba(0,0,0,.06); }
+/* Unified badge chip — matches reference look (small light chip, dark text, top-left, no border) */
+.badge { display: inline-block; background: #f7f5f1; color: #17150f; font-size: 10px; letter-spacing: .02em; padding: 4px 9px; border-radius: 4px; font-weight: 600; line-height: 1.2; }
 .badge.sale { background: var(--danger); color: #fff; }
 .badge.oos { background: #7a7a7a; color: #fff; }
 .pcard-quick { position: absolute; bottom: 0; left: 0; right: 0; padding: 12px; transform: translateY(110%); transition: transform .25s ease; }
