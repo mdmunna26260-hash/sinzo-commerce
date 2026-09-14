@@ -183,7 +183,7 @@ export default function MarketingClient({ abandoned, subscribers, sources, push,
                           <div>
                             <div style={{ fontSize: 10.5, letterSpacing: ".16em", textTransform: "uppercase", color: "var(--muted)", marginBottom: 8 }}>🛒 Cart Items</div>
                             {a.cart.map((i: any, k: number) => (
-                              <div key={k} style={{ display: "flex", justifyContent: "space-between", padding: "5px 0", borderBottom: "1px solid #f1efec", fontSize: 13 }}>
+                              <div key={k} style={{ display: "flex", justifyContent: "space-between", padding: "5px 0", borderBottom: "1px solid #f0f2f5", fontSize: 13 }}>
                                 <span>{i.title} × {i.qty}</span>
                                 <b>{money((i.price || 0) * (i.qty || 1))}</b>
                               </div>
@@ -244,7 +244,7 @@ export default function MarketingClient({ abandoned, subscribers, sources, push,
             <div className="acard-h"><h3>Subscribers</h3><a className="abtn sm" href="/api/admin/export?type=subscribers">⭳ CSV</a></div>
             <div className="acard-b" style={{ maxHeight: 300, overflow: "auto", fontSize: 13 }}>
               {subscribers.length === 0 && <span style={{ color: "var(--muted)" }}>No subscribers yet.</span>}
-              {subscribers.map((s: any) => <div key={s.id} style={{ padding: "5px 0", borderBottom: "1px solid #f1efec" }}>{s.email}</div>)}
+              {subscribers.map((s: any) => <div key={s.id} style={{ padding: "5px 0", borderBottom: "1px solid #f0f2f5" }}>{s.email}</div>)}
             </div>
           </div>
         </div>

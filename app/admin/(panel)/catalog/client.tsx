@@ -101,7 +101,7 @@ export default function CatalogClient({ categories, collections, products }: any
               ))}
             </tbody>
           </table>
-          <div className="acard-b" style={{ borderTop: "1px solid #eeedea" }}>
+          <div className="acard-b" style={{ borderTop: "1px solid #e4e7ec" }}>
             {editCatId && (
               <div className="ad-note" style={{ marginBottom: 12, padding: 10, borderRadius: 6 }}>
                 <div style={{ fontSize: 12.5, fontWeight: 600, marginBottom: 8 }}>Upload image for category #{editCatId}</div>
@@ -109,7 +109,7 @@ export default function CatalogClient({ categories, collections, products }: any
               </div>
             )}
             <div style={{ display: "flex", gap: 8 }}>
-              <input placeholder="New category name" value={newCat.name} onChange={(e) => setNewCat({ ...newCat, name: e.target.value })} style={{ flex: 1, border: "1px solid #ddd9d2", padding: "9px 12px", borderRadius: 5 }} />
+              <input placeholder="New category name" value={newCat.name} onChange={(e) => setNewCat({ ...newCat, name: e.target.value })} style={{ flex: 1, border: "1px solid #d0d5dd", padding: "9px 12px", borderRadius: 5 }} />
               <button className="abtn primary" onClick={async () => { if (newCat.name) { await api("/api/admin/categories", "POST", { ...newCat, image: newCat.image || undefined }); setNewCat({ name: "", description: "", image: "" }); } }}>Add</button>
             </div>
           </div>
@@ -133,13 +133,13 @@ export default function CatalogClient({ categories, collections, products }: any
               ))}
             </tbody>
           </table>
-          <div className="acard-b" style={{ borderTop: "1px solid #eeedea" }}>
+          <div className="acard-b" style={{ borderTop: "1px solid #e4e7ec" }}>
             <div style={{ display: "grid", gap: 8 }}>
               <div style={{ display: "flex", gap: 8 }}>
-                <input placeholder="Collection title (e.g. Best Sellers)" value={newCol.title} onChange={(e) => setNewCol({ ...newCol, title: e.target.value })} style={{ flex: 1, border: "1px solid #ddd9d2", padding: "9px 12px", borderRadius: 5 }} />
+                <input placeholder="Collection title (e.g. Best Sellers)" value={newCol.title} onChange={(e) => setNewCol({ ...newCol, title: e.target.value })} style={{ flex: 1, border: "1px solid #d0d5dd", padding: "9px 12px", borderRadius: 5 }} />
                 <button className="abtn primary" onClick={async () => { if (newCol.title) { await api("/api/admin/collections", "POST", newCol); setNewCol({ title: "", subtitle: "", productIds: [] }); } }}>Add</button>
               </div>
-              <select multiple value={newCol.productIds.map(String)} onChange={(e) => setNewCol({ ...newCol, productIds: Array.from(e.target.selectedOptions).map((o) => Number(o.value)) })} style={{ height: 110, border: "1px solid #ddd9d2", borderRadius: 5, padding: 8, fontSize: 13 }}>
+              <select multiple value={newCol.productIds.map(String)} onChange={(e) => setNewCol({ ...newCol, productIds: Array.from(e.target.selectedOptions).map((o) => Number(o.value)) })} style={{ height: 110, border: "1px solid #d0d5dd", borderRadius: 5, padding: 8, fontSize: 13 }}>
                 {products.map((p: any) => <option key={p.id} value={p.id}>{p.title}</option>)}
               </select>
               <div style={{ fontSize: 12, color: "var(--muted)" }}>Hold Ctrl/Cmd to select multiple products for this new collection. Notun collection banale Featured Collection dropdown-e auto add hobe.</div>
@@ -164,13 +164,13 @@ export default function CatalogClient({ categories, collections, products }: any
             </div>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", margin: "16px 0 8px" }}>
               <b style={{ fontSize: 13.5 }}>Products in this collection: {editCol.productIds.length}</b>
-              <input placeholder="🔍 Search products…" value={colSearch} onChange={(e) => setColSearch(e.target.value)} style={{ border: "1px solid #ddd9d2", padding: "7px 10px", borderRadius: 5, fontSize: 13, width: 200 }} />
+              <input placeholder="🔍 Search products…" value={colSearch} onChange={(e) => setColSearch(e.target.value)} style={{ border: "1px solid #d0d5dd", padding: "7px 10px", borderRadius: 5, fontSize: 13, width: 200 }} />
             </div>
             <div style={{ maxHeight: 300, overflowY: "auto", border: "1px solid #e8e6e1", borderRadius: 6 }}>
               {filteredProducts.map((p: any) => {
                 const on = editCol.productIds.includes(p.id);
                 return (
-                  <label key={p.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 12px", borderBottom: "1px solid #f1efec", cursor: "pointer", background: on ? "#f6f9f4" : "#fff" }}>
+                  <label key={p.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 12px", borderBottom: "1px solid #f0f2f5", cursor: "pointer", background: on ? "#f6f9f4" : "#fff" }}>
                     <input type="checkbox" checked={on} onChange={() => toggleProduct(p.id)} style={{ width: 16, height: 16 }} />
                     <span style={{ fontSize: 13.5 }}>{p.title}</span>
                     {on && <span className="pill DELIVERED" style={{ marginLeft: "auto" }}>IN</span>}

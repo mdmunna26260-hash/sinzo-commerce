@@ -75,7 +75,7 @@ function FraudCheck({ orderId, phone }: { orderId: number; phone: string }) {
       </div>
       {repMsg && <div className="acard-b" style={{ paddingTop: 10, paddingBottom: 0 }}><div className={"noti " + (repMsg.includes("✓") ? "ok" : "err")}>{repMsg}</div></div>}
       {repOpen && (
-        <div className="acard-b" style={{ paddingTop: 12, borderBottom: "1px solid #f1efec" }}>
+        <div className="acard-b" style={{ paddingTop: 12, borderBottom: "1px solid #f0f2f5" }}>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
             <select className="abtn" value={repType} onChange={(e) => setRepType(e.target.value)} aria-label="Report reason">
               <option>Cancelled order</option>
@@ -85,7 +85,7 @@ function FraudCheck({ orderId, phone }: { orderId: number; phone: string }) {
               <option>Address problem</option>
               <option>Abusive behaviour</option>
             </select>
-            <input placeholder="Note (optional)" value={repNote} onChange={(e) => setRepNote(e.target.value)} style={{ flex: 1, minWidth: 160, border: "1px solid #ddd9d2", padding: "9px 12px", borderRadius: 5 }} />
+            <input placeholder="Note (optional)" value={repNote} onChange={(e) => setRepNote(e.target.value)} style={{ flex: 1, minWidth: 160, border: "1px solid #d0d5dd", padding: "9px 12px", borderRadius: 5 }} />
             <button className="abtn danger" onClick={submitReport} disabled={repBusy} aria-busy={repBusy || undefined}>
               {repBusy && <span className="spinner" aria-hidden="true" />} {repBusy ? "Reporting…" : "Confirm report"}
             </button>
@@ -375,7 +375,7 @@ export default function OrderDetailClient({ initial }: { initial: Order }) {
                     ))}
                   </tbody>
                 </table>
-                <div className="acard-b" style={{ borderTop: "1px solid #eeedea" }}>
+                <div className="acard-b" style={{ borderTop: "1px solid #e4e7ec" }}>
                   <div className="sum-row"><span>Subtotal</span><span>{money(o.subtotal)}</span></div>
                   {o.discount > 0 && <div className="sum-row"><span>Discount {o.couponCode ? `(${o.couponCode})` : ""}</span><span>−{money(o.discount)}</span></div>}
                   <div className="sum-row"><span>Delivery ({o.area === "INSIDE_DHAKA" ? "Inside Dhaka" : "Outside Dhaka"})</span><span>{money(o.deliveryFee)}</span></div>
@@ -529,7 +529,7 @@ export default function OrderDetailClient({ initial }: { initial: Order }) {
               {picker.rowIdx != null ? "Ei row er product replace hobe (ager product er stock ferot hobe)" : "Order e notun product add hobe (stock kata hobe)"}
             </div>
             <form style={{ display: "flex", gap: 8, marginBottom: 12 }} onSubmit={(e) => { e.preventDefault(); searchPicker(); }}>
-              <input id="ordpick-q" placeholder="Product khunje din (title / SKU)…" value={pq} onChange={(e) => setPq(e.target.value)} style={{ flex: 1, padding: "9px 12px", border: "1px solid #ddd9d2", borderRadius: 5 }} autoCapitalize="none" />
+              <input id="ordpick-q" placeholder="Product khunje din (title / SKU)…" value={pq} onChange={(e) => setPq(e.target.value)} style={{ flex: 1, padding: "9px 12px", border: "1px solid #d0d5dd", borderRadius: 5 }} autoCapitalize="none" />
               <button className="abtn primary" type="submit" disabled={pBusy} aria-busy={pBusy || undefined}>{pBusy ? "…" : "Search"}</button>
             </form>
             {pRes === null && <div style={{ fontSize: 13, color: "var(--muted)", padding: "10px 0" }}>Search chapun — sob active product dekhajabe.</div>}
@@ -539,7 +539,7 @@ export default function OrderDetailClient({ initial }: { initial: Order }) {
               const sel = pickSel?.productId === prod.id ? pickSel : null;
               const chosen = sel ? (prod.variants || []).find((x: any) => x.id === sel.variantId) || vs[0] || null : null;
               return (
-                <div key={prod.id} style={{ border: "1px solid #eeedea", borderRadius: 8, padding: 12, marginBottom: 10 }}>
+                <div key={prod.id} style={{ border: "1px solid #e4e7ec", borderRadius: 8, padding: 12, marginBottom: 10 }}>
                   <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
                     {prod.images?.[0] && <img src={prod.images[0].url} alt="" style={{ width: 38, height: 48, objectFit: "cover", borderRadius: 4 }} />}
                     <div style={{ flex: 1, minWidth: 0 }}>
@@ -553,15 +553,15 @@ export default function OrderDetailClient({ initial }: { initial: Order }) {
                     )}
                   </div>
                   {sel && (
-                    <div style={{ marginTop: 10, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", borderTop: "1px solid #f1efec", paddingTop: 10 }}>
+                    <div style={{ marginTop: 10, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", borderTop: "1px solid #f0f2f5", paddingTop: 10 }}>
                       {vs.length > 0 && (
-                        <select value={sel.variantId ?? ""} onChange={(e) => setPickSel({ ...sel, variantId: Number(e.target.value) || null })} style={{ padding: "8px 10px", border: "1px solid #ddd9d2", borderRadius: 5, flex: 1, minWidth: 150 }}>
+                        <select value={sel.variantId ?? ""} onChange={(e) => setPickSel({ ...sel, variantId: Number(e.target.value) || null })} style={{ padding: "8px 10px", border: "1px solid #d0d5dd", borderRadius: 5, flex: 1, minWidth: 150 }}>
                           {vs.map((v: any) => (
                             <option key={v.id} value={v.id}>{[v.size, v.color].filter(Boolean).join(" · ") || "Default"} — ৳{Number(v.price ?? prod.price).toLocaleString("en-IN")} ({v.stock} pc)</option>
                           ))}
                         </select>
                       )}
-                      <input type="number" min={1} value={sel.qty} onChange={(e) => setPickSel({ ...sel, qty: e.target.value })} style={{ width: 64, padding: "8px 10px", border: "1px solid #ddd9d2", borderRadius: 5 }} aria-label="Quantity" />
+                      <input type="number" min={1} value={sel.qty} onChange={(e) => setPickSel({ ...sel, qty: e.target.value })} style={{ width: 64, padding: "8px 10px", border: "1px solid #d0d5dd", borderRadius: 5 }} aria-label="Quantity" />
                       <button className="abtn primary" onClick={() => applyPickRow(prod, chosen, sel.qty)}>{picker.rowIdx != null ? "Replace" : "Add to order"}</button>
                     </div>
                   )}

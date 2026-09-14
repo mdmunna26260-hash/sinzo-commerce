@@ -50,7 +50,7 @@ export default function UsersClient({ initial, meId, meRole, perms }: any) {
                         {pwUser === u.id && (
                           <>
                             <input type="password" placeholder="New password (min 6)" value={pwValue} onChange={(e) => setPwValue(e.target.value)}
-                              style={{ width: 150, border: "1px solid #ddd9d2", padding: "4px 8px", borderRadius: 4, fontSize: 12 }} autoFocus />
+                              style={{ width: 150, border: "1px solid #d0d5dd", padding: "4px 8px", borderRadius: 4, fontSize: 12 }} autoFocus />
                             <button className="abtn sm primary" onClick={() => { if (pwValue.length >= 6) { api("/api/admin/users/" + u.id, "PUT", { password: pwValue }); setPwUser(null); setPwValue(""); } }}>Save</button>
                           </>
                         )}

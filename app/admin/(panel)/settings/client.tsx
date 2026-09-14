@@ -138,7 +138,7 @@ function QrPanel({ bridgeRunning, onPaired }: { bridgeRunning: boolean; onPaired
   }
   return (
     <div style={{ display: "flex", gap: 18, alignItems: "flex-start", flexWrap: "wrap" }}>
-      <div style={{ background: "#fff", border: "1px solid #ddd9d2", borderRadius: 8, padding: 10, width: 300, textAlign: "center" }}>
+      <div style={{ background: "#fff", border: "1px solid #d0d5dd", borderRadius: 8, padding: 10, width: 300, textAlign: "center" }}>
         {qr ? <img src={qr} alt="WhatsApp QR" style={{ width: "100%" }} /> : <div style={{ padding: "60px 10px", color: "var(--muted)", fontSize: 13 }}>{hint || "QR asche…"}</div>}
         <div style={{ fontSize: 11.5, color: "var(--muted)", marginTop: 6 }}>QR every ~20s refresh hoy — notun QR hoye jayle auto-update</div>
       </div>
@@ -464,7 +464,7 @@ export default function SettingsClient({ groups, user, userCount, hasCourier, co
             <div className="acard-b">
               <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
                 <select value={bl.type} onChange={(e) => setBl({ ...bl, type: e.target.value })} className="abtn"><option>PHONE</option><option>ADDRESS</option><option>IP</option></select>
-                <input placeholder="Value to blacklist" value={bl.value} onChange={(e) => setBl({ ...bl, value: e.target.value })} style={{ flex: 1, border: "1px solid #ddd9d2", padding: "9px 12px", borderRadius: 5 }} />
+                <input placeholder="Value to blacklist" value={bl.value} onChange={(e) => setBl({ ...bl, value: e.target.value })} style={{ flex: 1, border: "1px solid #d0d5dd", padding: "9px 12px", borderRadius: 5 }} />
                 <button className="abtn primary" onClick={blacklistAdd}>Blacklist</button>
               </div>
               <div style={{ fontSize: 12.5, color: "var(--muted)" }}>Orders from blacklisted phones/IPs/addresses are rejected or flagged automatically.</div>

@@ -1,7 +1,7 @@
 "use client";
 import { afetch, withToken } from "@/lib/afetch";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
 type V = { id?: number; size: string; color: string; sku: string; price: string; stock: string };
 type P = any;
@@ -420,7 +420,7 @@ export default function ProductsClient({ initial, categories }: { initial: P[]; 
             ))}
 
             {/* ---- COLOR GROUP (linked color products) ---- */}
-            <div className="af full" style={{ marginTop: 18, borderTop: "1px solid #eeedea", paddingTop: 14 }}>
+            <div className="af full" style={{ marginTop: 18, borderTop: "1px solid #e4e7ec", paddingTop: 14 }}>
               <label style={{ fontWeight: 600, fontSize: 13.5 }}>Color Group (linked color products)</label>
               <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 4, marginBottom: 10 }}>
                 Ek rokom product er different color alada product hishebe thakbe (alada URL, stock, size) — kintu product page e circular color thumbnail diye linked thakbe. Khali rakhle kono link hobe na.

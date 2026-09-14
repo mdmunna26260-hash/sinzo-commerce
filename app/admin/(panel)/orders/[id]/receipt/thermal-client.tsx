@@ -24,7 +24,7 @@ export default function ThermalClient({ order, store, width }: { order: any; sto
   const consignment = (() => { try { return JSON.parse(order.courierTracking || "{}"); } catch { return {}; } })();
 
   return (
-    <div style={{ background: "#f4f3f0", minHeight: "100vh", padding: 12 }}>
+    <div style={{ background: "#f6f7f9", minHeight: "100vh", padding: 12 }}>
       <style dangerouslySetInnerHTML={{ __html: `
         @page { size: 58mm auto; margin: 1mm; }
         * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }

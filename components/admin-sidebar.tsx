@@ -1,7 +1,7 @@
 "use client";
 import { FmtDate } from "@/components/dates";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { afetch, withToken } from "@/lib/afetch";
 import { ThemeIconToggle, ThemeSwitchRow } from "./theme-toggle";
@@ -24,7 +24,7 @@ const NAV: { group: string; items: { href: string; label: string; icon: string; 
   { group: "Growth tools", items: [
     { href: "/admin/analytics", label: "Advanced Analytics", icon: "M23 6l-9.5 9.5-5-5L1 18M17 6h6v6" },
     { href: "/admin/tracking", label: "Tracking & Pixels", icon: "M22 12h-4l-3 9L9 3l-3 9H2" },
-    { href: "/admin/settings", label: "Settings", icon: "M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zm7.4-3a7.4 7.4 0 0 0-.1-1.2l2-1.6-2-3.4-2.4 1a7.5 7.5 0 0 0-2-1.2L14.5 2h-4l-.4 2.6a7.5 7.5 0 0 0-2 1.2l-2.4-1-2 3.4 2 1.6a7.4 7.4 0 0 0 0 2.4l-2 1.6 2 3.4 2.4-1a7.5 7.5 0 0 0 2 1.2l.4 2.6h4l.4-2.6a7.5 7.5 0 0 0 2-1.2l2.4 1 2-3.4-2-1.6c.06-.4.1-.8.1-1.2z" },
+    { href: "/admin/settings", label: "Settings", icon: "M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zm7.4-3a7.4 7.4 0 0 0-.1-1.2l2-1.6-2-3.4-2.4 1a7.5 7.5 0 0 0-2-1.2L14.5 2h-4l-.4 2.6a7.5 7.5 0 0 0-2 1.2l-2.4 1-2 3.4 2 1.6a7.4 7.4 0 0 0 0 2.4l-2 1.6 2 3.4 2.4-1a7.5 7.5 0 0 0 2 1.2l.4 2.6h4l.4-2.6a7.5 7.5 0 0 0 2-1.2l2.4-1.6c.06-.4.1-.8.1-1.2z" },
     { href: "/admin/users", label: "Team", icon: "M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z" },
     { href: "/admin/audit", label: "Audit Log", icon: "M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M16 13H8M16 17H8M10 9H8" },
   ]},
@@ -35,6 +35,75 @@ function decodeToken(t?: string | null): any {
     const payload = (t || "").split(".")[0];
     return JSON.parse(atob(payload.replace(/-/g, "+").replace(/_/g, "/")));
   } catch { return null; }
+}
+
+/* ---- global search (orders + products) ---- */
+function GlobalSearch({ token, link }: { token: string; link: (href: string) => string }) {
+  const [q, setQ] = useState("");
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [res, setRes] = useState<{ orders: any[]; products: any[] } | null>(null);
+  const box = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!q.trim() || q.trim().length < 2) { setRes(null); setOpen(false); return; }
+    const t = setTimeout(async () => {
+      setBusy(true);
+      try {
+        const r = await fetch("/api/admin/global-search?q=" + encodeURIComponent(q.trim()) + (token ? "&t=" + encodeURIComponent(token) : ""));
+        if (r.ok) { const j = await r.json(); setRes(j); setOpen(true); }
+      } catch { /* offline — ignore */ }
+      setBusy(false);
+    }, 250);
+    return () => clearTimeout(t);
+  }, [q, token]);
+
+  useEffect(() => {
+    const onDoc = (e: MouseEvent) => { if (box.current && !box.current.contains(e.target as Node)) setOpen(false); };
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, []);
+
+  const close = () => { setOpen(false); setQ(""); };
+
+  return (
+    <div className="ad-search" ref={box}>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" /></svg>
+      <input
+        placeholder="Search order / product…"
+        value={q}
+        onChange={(e) => setQ(e.target.value)}
+        onFocus={() => { if (res) setOpen(true); }}
+        aria-label="Global search"
+      />
+      {open && res && (
+        <div className="ad-search-panel">
+          {res.orders.length === 0 && res.products.length === 0 && <div className="sone">Kichu pawa gelo “{q}” e</div>}
+          {res.orders.length > 0 && (
+            <>
+              <div className="sgrp">Orders</div>
+              {res.orders.map((o: any) => (
+                <a key={o.id} href={link("/admin/orders/" + o.id)} onClick={close}>
+                  <b>{o.code}</b><span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{o.name}</span>
+                  <span className={"pill " + o.status} style={{ fontSize: 9.5 }}>{o.status}</span>
+                </a>
+              ))}
+            </>
+          )}
+          {res.products.length > 0 && (
+            <>
+              <div className="sgrp">Products</div>
+              {res.products.map((p: any) => (
+                <a key={p.id} href={link("/admin/products?edit=" + p.id)} onClick={close}>
+                  <b>{p.title}</b><span style={{ marginLeft: "auto", color: "var(--ad-mute)", fontVariantNumeric: "tabular-nums" }}>৳{Math.round(p.price).toLocaleString("en-IN")}</span>
+                </a>
+              ))}
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
 }
 
 export default function Sidebar({ pending, lowStock }: { pending: number; lowStock: number }) {
@@ -68,29 +137,32 @@ export default function Sidebar({ pending, lowStock }: { pending: number; lowSto
   const markAll = async () => { await afetch("/api/admin/notifications", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "readAll" }) }); loadNotifs(); };
   const clearAll = async () => { await afetch("/api/admin/notifications", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "clear" }) }); loadNotifs(); };
 
+  const initial = user?.name ? user.name.trim().charAt(0).toUpperCase() : "A";
+
   return (
     <>
       {/* mobile topbar */}
       <div className="admin-topbar">
         <button aria-label="Open menu" onClick={() => setMenuOpen(true)}>
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M3 6h18M3 12h18M3 18h18" /></svg>
         </button>
         <span className="logo">COMMERCE PANEL</span>
         <Link href="/" target="_blank" aria-label="View website" style={{ display: "flex", padding: 8 }}>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14 21 3"/></svg>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14 21 3" /></svg>
         </Link>
         <ThemeIconToggle />
       </div>
       {menuOpen && <div className="admin-scrim" onClick={() => setMenuOpen(false)} />}
     <aside className={"admin-side" + (menuOpen ? " open" : "")}>
-      <div style={{ display: "flex", justifyContent: "flex-end", padding: "0 14px" }}>
-        <button className="abtn sm" style={{ background: "transparent", borderColor: "rgba(255,255,255,.15)", color: "#fff", display: "none" }} aria-hidden>×</button>
-      </div>
-      <Link href={link("/admin/dashboard")} className="logo" onClick={() => setMenuOpen(false)}>{user?.name ? user.name.split(" ")[0].toUpperCase() : "ADMIN"}<span style={{ fontSize: 10, display: "block", color: "#8b929c", letterSpacing: ".2em" }}>COMMERCE PANEL</span></Link>
+      <Link href={link("/admin/dashboard")} className="logo" onClick={() => setMenuOpen(false)}>
+        SINZO<span style={{ fontSize: 9.5, display: "block", color: "var(--ad-mute)", letterSpacing: ".24em", fontWeight: 500, marginTop: 3 }}>COMMERCE PANEL</span>
+      </Link>
+
+      <GlobalSearch token={t} link={link} />
 
       <div className="bell-wrap">
         <button className="bell-btn" onClick={() => { setNotifOpen(!notifOpen); loadNotifs(); }}>
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 0 1-3.4 0"/></svg>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 0 1-3.4 0" /></svg>
           Notifications
           {unread > 0 && <span className="bell-count">{unread > 99 ? "99+" : unread}</span>}
         </button>
@@ -98,14 +170,14 @@ export default function Sidebar({ pending, lowStock }: { pending: number; lowSto
       {notifOpen && (
         <div className="notif-panel" onClick={(e) => e.stopPropagation()}>
           <div className="np-h">
-            <span>🔔 Notifications {unread > 0 && <span style={{ color: "var(--danger)" }}>({unread} notun)</span>}</span>
+            <span>Notifications {unread > 0 && <span style={{ color: "var(--ad-red)" }}>({unread} notun)</span>}</span>
             <span style={{ display: "flex", gap: 6 }}>
               {unread > 0 && <button className="abtn sm" onClick={markAll}>Mark all read</button>}
               <button className="abtn sm danger" onClick={clearAll}>Clear</button>
               <button className="abtn sm" onClick={() => setNotifOpen(false)}>✕</button>
             </span>
           </div>
-          {notifs.length === 0 && <div className="notif-item" style={{ color: "var(--muted)" }}>Kono notification nai — notun order ashlei ekhane dekhabe.</div>}
+          {notifs.length === 0 && <div className="notif-item" style={{ color: "var(--ad-mute)" }}>Kono notification nai — notun order ashlei ekhane dekhabe.</div>}
           {notifs.map((n) => (
             <div key={n.id} className={"notif-item" + (n.read ? "" : " unread")}>
               <div className="nt">{n.title}</div>
@@ -125,17 +197,30 @@ export default function Sidebar({ pending, lowStock }: { pending: number; lowSto
               <Link key={it.href} href={link(it.href)} onClick={() => setMenuOpen(false)} className={path.startsWith(it.href) ? "active" : ""}>
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path d={it.icon} /></svg>
                 <span style={{ flex: 1 }}>{it.label}</span>
-                {badge > 0 && <span style={{ background: "#9a7b4f", color: "#fff", fontSize: 10, borderRadius: 99, padding: "1px 7px" }}>{badge}</span>}
+                {badge > 0 && <span className={"nav-badge" + (it.badge === "stock" ? " warn" : "")}>{badge > 99 ? "99+" : badge}</span>}
               </Link>
             );
           })}
         </div>
       ))}
+
       <div className="grp">Account</div>
-      <div style={{ padding: "6px 22px", fontSize: 12, color: "#8b929c", wordBreak: "break-all" }}>{user?.email || "…"}<br /><span style={{ color: "#9a7b4f" }}>{user?.role || ""}</span></div>
-      <div style={{ padding: "4px 22px 0" }}><ThemeSwitchRow /></div>
-      <Link href="/" target="_blank" style={{ marginTop: 6 }}>↗ View Storefront</Link>
-      <a href="#" onClick={(e) => { e.preventDefault(); logout(); }}>⎋ Sign out</a>
+      <div className="side-user">
+        <div className="av">{initial}</div>
+        <div style={{ minWidth: 0 }}>
+          <div className="nm">{user?.name || "Admin"}</div>
+          <div className="em">{user?.email || "…"}</div>
+        </div>
+      </div>
+      <div style={{ padding: "0 10px" }}><ThemeSwitchRow /></div>
+      <Link href="/" target="_blank" style={{ marginTop: 4 }}>
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14 21 3" /></svg>
+        View Storefront
+      </Link>
+      <a href="#" onClick={(e) => { e.preventDefault(); logout(); }} className="signout" style={{ color: "var(--ad-red)" }}>
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" /></svg>
+        Sign out
+      </a>
     </aside>
     </>
   );

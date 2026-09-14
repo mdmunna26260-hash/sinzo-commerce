@@ -47,7 +47,7 @@ export default function TrackingClient({ cfg, events, counts, lastEvent }: any) 
               <button className="abtn" onClick={testCapi}>Send Test Event</button>
             </div>
           </div>
-          <div className="acard-h" style={{ borderTop: "1px solid #eeedea" }}><h3>Google</h3></div>
+          <div className="acard-h" style={{ borderTop: "1px solid #e4e7ec" }}><h3>Google</h3></div>
           <div className="acard-b form-grid">
             <div className="af"><label>GA4 Measurement ID</label><input value={form.ga4Id} onChange={(e) => setForm({ ...form, ga4Id: e.target.value })} placeholder="G-XXXXXXXXXX" /></div>
             <div className="af"><label>GTM Container ID</label><input value={form.gtmId} onChange={(e) => setForm({ ...form, gtmId: e.target.value })} placeholder="GTM-XXXXXXX" /></div>
