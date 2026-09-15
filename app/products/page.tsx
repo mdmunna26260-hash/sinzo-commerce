@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 import { getSettings, publicSettings } from "@/lib/settings";
 import { getCategories } from "@/lib/catalog";
+import { productSearchWhere, resolveCategorySlug, clean } from "@/lib/search";
 import { Header, Footer, Announcement } from "@/components/chrome";
 import { ProductCard } from "@/components/parts";
 import { ProductGridSkeleton, Skeleton } from "@/components/loading-ui";
@@ -24,7 +25,12 @@ export default async function ProductsPage({ searchParams }: { searchParams: SP 
   const cats = await getCategories();
   const sp = searchParams;
 
-  const activeCat = cats.find((c) => c.slug === sp.category);
+  const catSlugs = cats.map((c) => c.slug);
+  // legacy/typo'd slugs (e.g. ?category=leather-jacket when the Category row is "lather-jacket")
+  // still resolve — but an UNKNOWN slug must never silently show the whole catalogue
+  const resolvedCat = resolveCategorySlug(sp.category, catSlugs);
+  const catUnknown = !!sp.category && !resolvedCat;
+  const activeCat = resolvedCat ? cats.find((c) => c.slug === resolvedCat) : undefined;
   const qpill = (slug?: string) => {
     const params = new URLSearchParams();
     if (sp.q) params.set("q", sp.q);
@@ -49,21 +55,21 @@ export default async function ProductsPage({ searchParams }: { searchParams: SP 
       <div className="container shop-wrap">
         <div className="eyebrow">{activeCat ? "Category" : sp.q ? "Search" : "Shop"}</div>
         <h1 className="shop-title">
-          {activeCat ? activeCat.name : sp.q ? `Results for “${sp.q}”` : "All Products"}
+          {activeCat ? clean(activeCat.name) : catUnknown ? "No such category" : sp.q ? `Results for “${clean(sp.q)}”` : "All Products"}
         </h1>
 
         {/* quick category pills — always visible, never re-loads */}
         <div className="cat-pills">
           <Link className={"cat-pill" + (!sp.category ? " active" : "")} href={qpill(undefined)}>All{activeTotal ? ` (${activeTotal})` : ""}</Link>
           {cats.map((c) => (
-            <Link key={c.slug} className={"cat-pill" + (sp.category === c.slug ? " active" : "")} href={qpill(c.slug)}>{c.name}{countMap.get(c.id) ? ` (${countMap.get(c.id)})` : ""}</Link>
+            <Link key={c.slug} className={"cat-pill" + (resolvedCat === c.slug ? " active" : "")} href={qpill(c.slug)}>{clean(c.name)} ({countMap.get(c.id) || 0})</Link>
           ))}
         </div>
 
         {/* Only the RESULTS area enters a loading state when filters/search/sort
             change — header, pills, filter controls all stay mounted (no flash). */}
         <Suspense key={JSON.stringify(sp)} fallback={<ResultsFallback />}>
-          <Results sp={sp} cats={cats} sizes={allSizes} />
+          <Results sp={{ ...sp, category: resolvedCat || undefined }} unknownCategory={catUnknown} cats={cats} sizes={allSizes} />
         </Suspense>
       </div>
       <Footer cfg={{ ...cfg, _nav: { categories: cats.map((c) => ({ name: c.name, slug: c.slug })) } }} />
@@ -85,14 +91,12 @@ function ResultsFallback() {
 }
 
 /* The data-dependent part: products query + toolbar/filters + grid */
-async function Results({ sp, cats, sizes }: { sp: SP; cats: { id: number; name: string; slug: string }[]; sizes: string[] }) {
+async function Results({ sp, cats, sizes, unknownCategory }: { sp: SP; cats: { id: number; name: string; slug: string }[]; sizes: string[]; unknownCategory?: boolean }) {
   const where: any = { status: "ACTIVE" };
+  if (unknownCategory) where.id = -1; // show the empty state instead of an unfiltered catalogue
   if (sp.q) {
-    const q = sp.q.trim();
-    where.OR = [
-      { title: { contains: q } }, { description: { contains: q } }, { shortDesc: { contains: q } },
-      { tags: { contains: q } }, { sku: { contains: q } },
-    ];
+    const sw = productSearchWhere(sp.q); // case-insensitive on Postgres + every word must match
+    if (sw) where.AND = [sw];
   }
   if (sp.category) {
     const c = cats.find((x) => x.slug === sp.category);
@@ -136,7 +140,8 @@ async function Results({ sp, cats, sizes }: { sp: SP; cats: { id: number; name: 
   }
 
   const activeChips: { label: string; patch: Record<string, string | undefined> }[] = [];
-  if (sp.category && cats.find((c) => c.slug === sp.category)) activeChips.push({ label: cats.find((c) => c.slug === sp.category)!.name, patch: { category: undefined } });
+  const chipCat = cats.find((c) => c.slug === sp.category);
+  if (chipCat) activeChips.push({ label: clean(chipCat.name), patch: { category: undefined } });
   if (sp.size) activeChips.push({ label: "Size " + sp.size, patch: { size: undefined } });
   if (sp.min) activeChips.push({ label: "৳" + sp.min + "+", patch: { min: undefined } });
   if (sp.max) activeChips.push({ label: "≤ ৳" + sp.max, patch: { max: undefined } });
@@ -164,12 +169,14 @@ async function Results({ sp, cats, sizes }: { sp: SP; cats: { id: number; name: 
       {products.length === 0 ? (
         <div className="empty">
           <h3>Nothing here yet</h3>
-          <p>Try different filters or browse all products.</p>
+          <p>{unknownCategory
+            ? "We don't have a category by that name. Browse the full catalogue below."
+            : "Try different filters or browse all products."}</p>
           <br /><Link className="btn btn-outline" href="/products">Clear filters</Link>
         </div>
       ) : (
         <InfiniteGrid products={products.map((p) => ({
-          id: p.id, title: p.title, slug: p.slug, price: p.price, comparePrice: p.comparePrice,
+          id: p.id, title: clean(p.title), slug: p.slug, price: p.price, comparePrice: p.comparePrice,
           image: p.images?.[0]?.url, categoryName: p.category?.name, stock: Math.max(p.stock, p.variants.reduce((s, v) => s + v.stock, 0)),
           isNew: p.isNew, isBestSeller: p.isBestSeller, badge: p.badge, preorder: !!p.preorder,
           saleEnds: (p as any).saleEnds ? new Date((p as any).saleEnds).toISOString() : null,

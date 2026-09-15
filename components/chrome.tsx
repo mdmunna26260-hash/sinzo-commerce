@@ -4,17 +4,21 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { useCart, trackEvent } from "./store";
 import { ThemeIconToggle } from "./theme-toggle";
+import { waLink, telLink } from "@/lib/phone";
 
 export type HeaderCfg = { storeName: string; announcement?: string; categories: { name: string; slug: string }[] };
 
 export function Announcement({ text }: { text?: string }) {
   if (!text) return null;
+  // 4 copies are needed for the CSS marquee loop, but a screen reader reads all four
+  // (and Google indexes them 4×). The track is decorative; one accessible copy is enough.
   const item = <span className="announce-item">{text}<i className="announce-dot" aria-hidden>◆</i></span>;
   return (
-    <div className="announce" role="marquee">
+    <div className="announce" role="marquee" aria-hidden="true">
       <div className="announce-track">
         {item}{item}{item}{item}
       </div>
+      <span className="sr-only">{text}</span>
     </div>
   );
 }
@@ -45,7 +49,8 @@ function AdminDashLink() {
           const j = await r.json();
           if (j?.ok) {
             try { sessionStorage.setItem("sz_admin_whoami", JSON.stringify({ ok: true, at: Date.now() })); } catch {}
-            setState({ show: true, href: token ? "/admin/dashboard?t=" + encodeURIComponent(token) : "/admin/dashboard" });
+            // never put the session token in a link: it ends up in history, Referer and nginx logs
+            setState({ show: true, href: "/admin/dashboard" });
             return;
           }
         }
@@ -271,12 +276,12 @@ export function Footer({ cfg }: { cfg: any }) {
             <Link prefetch href="/track">Track Order</Link>
             <Link href="/products">Shipping</Link>
             <Link href="/products">Returns &amp; Exchange</Link>
-            <a href={store.whatsapp ? "https://wa.me/" + String(store.whatsapp).replace(/[^0-9]/g, "") : "#"} target="_blank" rel="noreferrer">WhatsApp Support</a>
+            <a href={store.whatsapp ? waLink(store.whatsapp) : "#"} target="_blank" rel="noreferrer noopener">WhatsApp Support</a>
           </div>
           <div>
             <h4>Contact</h4>
             <a href={"mailto:" + store.email}>{store.email}</a>
-            <a href={"tel:" + String(store.phone || "").replace(/\s/g, "")}>{store.phone}</a>
+            <a href={telLink(store.phone)}>{store.phone}</a>
             <a href={store.facebook} target="_blank" rel="noreferrer">Facebook</a>
             <a href={store.instagram} target="_blank" rel="noreferrer">Instagram</a>
           </div>

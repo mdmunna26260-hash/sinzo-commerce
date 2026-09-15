@@ -35,7 +35,8 @@ export default function CustomerLoginPage() {
       const j = await r.json();
       if (r.ok && j.ok) {
         if (form.phone) setTrackingPhone(form.phone); // Meta advanced matching from now on
-        if (j.token) document.cookie = `sz_customer_fb=${j.token}; path=/; max-age=2592000; SameSite=Lax`;
+        // Secure in prod: without it this session cookie is also sent over plain http://
+        if (j.token) document.cookie = `sz_customer_fb=${j.token}; path=/; max-age=2592000; SameSite=Lax${location.protocol === "https:" ? "; Secure" : ""}`;
         try {
           const probe = await fetch("/api/auth/me");
           if (probe.ok) { router.push("/account"); router.refresh(); return; }
@@ -63,12 +64,12 @@ export default function CustomerLoginPage() {
           {mode === "register" && (
             <div className="field" style={{ marginBottom: 0 }}>
               <label>Full Name *</label>
-              <input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="e.g. Rahim Ahmed" autoCapitalize="words" />
+              <input required name="name" autoComplete="name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="e.g. Rahim Ahmed" autoCapitalize="words" />
             </div>
           )}
           <div className="field" style={{ marginBottom: 0 }}>
-            <label>Mobile Number *</label>
-            <input required value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="01XXXXXXXXX" inputMode="numeric" autoCapitalize="none" spellCheck={false} />
+            <label htmlFor="login-phone">Mobile Number *</label>
+            <input required id="login-phone" name="phone" autoComplete="tel" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="01XXXXXXXXX" inputMode="numeric" autoCapitalize="none" spellCheck={false} />
           </div>
           {mode === "register" && (
             <div className="field" style={{ marginBottom: 0 }}>
@@ -77,8 +78,8 @@ export default function CustomerLoginPage() {
             </div>
           )}
           <div className="field" style={{ marginBottom: 0 }}>
-            <label>Password * {mode === "register" && <span style={{ textTransform: "none", letterSpacing: 0 }}>(min 6)</span>}</label>
-            <input required type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} placeholder="••••••••" />
+            <label htmlFor="login-pass">Password * {mode === "register" && <span style={{ textTransform: "none", letterSpacing: 0 }}>(min 6)</span>}</label>
+            <input required id="login-pass" type="password" name="password" autoComplete={mode === "login" ? "current-password" : "new-password"} value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} placeholder="••••••••" />
           </div>
           <button className="btn" style={{ width: "100%" }} disabled={busy} aria-busy={busy || undefined}>
             {busy && <span className="spinner" aria-hidden="true" />}

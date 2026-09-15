@@ -91,6 +91,56 @@ function check(name, cond, extra) {
   // CAPI not configured -> honest response
   r = await req("/api/track/event", { method: "POST", body: JSON.stringify({ name: "AddToCart", eventId: "t1", data: { value: 100 } }) });
   check("tracking endpoint responds (CAPI honest about config)", r.status === 200);
+  /* customer login must not reveal whether a phone number has an account */
+  {
+    const bad1 = await fetch(BASE + "/api/auth/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ phone: "01700000001", password: "nope" }) });
+    const bad2 = await fetch(BASE + "/api/auth/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ phone: "01700000002", password: "nope" }) });
+    const [j1, j2] = [await bad1.json(), await bad2.json()];
+    check("login: identical error for unknown vs known account", j1.error === j2.error && /Invalid phone number or password/.test(j1.error || ""), JSON.stringify(j1) + JSON.stringify(j2));
+  }
+
+  /* ── regressions found in the 2026-09-15 audit — each of these failed before the fix ── */
+  {
+    // 1) search must be case-insensitive on POSTGRES (LIKE is case-sensitive there;
+    //    titles are stored UPPERCASE, so "beige" used to return nothing)
+    const lower = (live?.title || "").trim().toLowerCase();
+    if (lower) {
+      const r1 = await req("/api/search?q=" + encodeURIComponent(lower));
+      check("search: lowercase full title finds the product", (r1.body?.products || []).some((x) => x.slug === slug), "(q=" + lower + ")");
+      if (lower.split(" ").length > 1) {
+        const r2 = await req("/api/search?q=" + encodeURIComponent(lower.split(" ").slice(0, 2).join(" ")));
+        check("search: multi-word query is not treated as one literal", (r2.body?.products || []).length > 0, "(q=" + lower.split(" ").slice(0, 2).join(" ") + ")");
+      }
+    }
+    // 2) an unknown ?category= must not silently show the whole catalogue
+    const page = await (await fetch(BASE + "/products?category=___definitely-not-a-category___")).text();
+    check("unknown category shows the empty state (not all products)", /Nothing here yet|No such category/.test(page));
+    // 3) SEO/render hygiene on a real PDP
+    const pdp = await (await fetch(BASE + "/products/" + slug)).text();
+    check("PDP has a canonical link", /rel="canonical"/.test(pdp));
+    check("PDP <title> has no double space (DB trailing spaces)", !/<title>[^<]*[ ]{2}/.test(pdp));
+    check("PDP never renders raw undefined", !/>\s*undefined\s*</.test(pdp));
+    check("PDP emits Product JSON-LD", /application\/ld\+json/.test(pdp) && /"@type":"Product"/.test(pdp));
+    // 4) an ORD- code alone must not be a lookup key (enumeration guard)
+    if (code) {
+      const t1 = await req("/api/track/courier?code=" + encodeURIComponent(code));
+      check("tracking: ORD code without phone is refused", t1.status === 400 && t1.body?.needPhone === true, "(status=" + t1.status + ")");
+      const t2 = await req("/api/track/courier?code=" + encodeURIComponent(code) + "&phone=01812345678");
+      check("tracking: ORD code + phone works", t2.status === 200 && !!t2.body?.status);
+    }
+    // 5) analytics endpoints are bounded
+    const big = "A".repeat(200 * 1024);
+    const ev = await fetch(BASE + "/api/track/event", { method: "POST", headers: { "Content-Type": "application/json" }, body: big });
+    check("track/event rejects oversized payloads", ev.status === 413, "(status=" + ev.status + ")");
+    // 6) media route must not traverse
+    const trav = await fetch(BASE + "/api/media/../../../etc/passwd");
+    check("media path traversal blocked", trav.status !== 200);
+    // 7) security headers present
+    const h = (await fetch(BASE + "/")).headers;
+    check("CSP header sent", !!(h.get("content-security-policy") || h.get("content-security-policy-report-only")));
+    check("nosniff sent", h.get("x-content-type-options") === "nosniff");
+  }
+
   console.log(`\nResult: ${pass} passed, ${fail} failed`);
   process.exit(fail ? 1 : 0);
 })().catch((e) => { console.error(e); process.exit(1); });

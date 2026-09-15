@@ -34,7 +34,11 @@ export async function POST(req: Request) {
     }
     const token = createToken({ id: user.id, email: user.email, name: user.name, role: user.role });
     await logAudit(user.email, "LOGIN", undefined, ip);
-    const res = NextResponse.json({ ok: true, token, user: { email: user.email, name: user.name, role: user.role } });
+    // Production: the httpOnly cookie below is the ONLY thing the browser needs.
+    // Returning the JWT in the body is what let it land in localStorage (XSS/extension
+    // readable) and in ?t= links. Dev/preview keeps it so embedded previews still work.
+    const handTokenToJs = process.env.NODE_ENV !== "production" || process.env.AUTH_URL_TOKEN === "1";
+    const res = NextResponse.json({ ok: true, ...(handTokenToJs ? { token } : {}), user: { email: user.email, name: user.name, role: user.role } });
     const c = sessionCookie(token);
     (res.cookies as any).set(c.name, c.value, c);
     return res;

@@ -1,0 +1,203 @@
+# SINZO — audit fix log (2026-09-15)
+
+Repo: `mdmunna26260-hash/sinzo-commerce` @ `f980950` (prod). Branch: `fix/audit-2026-09-15`.
+Everything below was reproduced and re-verified against a real running instance in the sandbox
+(SQLite dev DB seeded with the same data quirks production has: UPPERCASE titles with trailing
+spaces, a misspelled category slug, an empty category, a wrong `whatsapp` format).
+
+## 1 · Storefront search was broken on production only
+
+**Root cause.** Prisma `contains` → `LIKE`. On PostgreSQL (Neon/prod) `LIKE` is
+**case-sensitive**; on SQLite (dev) it is case-insensitive. Product titles are stored UPPERCASE,
+so every lowercase query missed. On top of that the whole query was matched as ONE literal
+string, so typing a product's full name (`white shirt`) matched nothing.
+
+That is why nobody saw it in dev. `app/api/admin/global-search/route.ts` had the opposite
+problem: it used `mode: "insensitive"` unconditionally, which Prisma **rejects on SQLite**
+(`Unknown field 'mode'` → that admin search crashes in dev).
+
+**Fix.** New `lib/search.ts`:
+- `supportsInsensitive()` — true only when `DATABASE_URL` is `postgres…`
+- `ci(value)` — `{ contains, mode: "insensitive" }` on Postgres, plain `contains` on SQLite
+- `terms(q)` — strips punctuation, splits on whitespace, drops <2-char noise, caps at 6 terms
+- `productSearchWhere(q, fields)` — **AND over terms**, each term OR'ed across
+  title/tags/sku/shortDesc/description/category
+- `clean(s)` — collapses the DB's trailing/double whitespace
+
+Applied to: `/api/search`, `/products?q=` (storefront), admin product picker, admin color-groups,
+admin global-search. `/api/search` additionally: clamps `q` to 80 chars, and when nothing matches
+it returns the popular rail with `noResults: true` so the search sheet never dead-ends.
+
+**Verified.** `beige`, `black`, `beige color`, `lather jacket`, `leather` now resolve;
+unknown/garbage terms return no rows instead of the whole catalogue.
+
+## 2 · Category menu link opened an empty page
+
+`/products?category=leather-jacket` rendered **0 products** while the jacket existed, and any
+**unknown** `?category=` value was silently ignored → it showed ALL products (so a typo'd link
+looked like a bug and every `?category=` URL in the sitemap was a duplicate of `/products`).
+
+**Fix.** `resolveCategorySlug()` + `CATEGORY_ALIASES` in `lib/search.ts` resolve both directions
+(`straight-fit ⇄ stright-fit`, `leather-jacket ⇄ lather-jacket`, `flame ⇄ falme`, `wide-leg ⇄
+wide-leg-t-shirt`), so renaming a category in admin **never breaks an existing link** — including
+the ones already printed in Facebook ads. Unresolvable slugs now produce the real empty state
+("Nothing here yet" / "No such category") instead of an unfiltered catalogue. Pills always show a
+count (`(0)` when a category is empty — previously an empty category rendered with no count at
+all, which is how the mismatch hid itself).
+
+## 3 · Catalogue data repair — `scripts/fix-prod-catalog.js` (new)
+
+Dry run by default, idempotent, prints the whole plan before writing anything:
+trims whitespace in title/shortDesc/description/tags, fixes category slug+label spellings,
+corrects `LATHER→LEATHER` / `FALME→FLAME` in titles (slugs only with `--slugs`, so ad links don't
+break), assigns products to their own empty category, fills the empty `/collections/sale` from
+`comparePrice`, clears `store.instagram` when it holds a facebook.com URL, and sets a homepage meta
+title when it's blank.
+
+```
+node scripts/fix-prod-catalog.js            # read-only report  ← run this first
+node scripts/fix-prod-catalog.js --apply    # write
+```
+Step 4 requires **every** word of the category name to match, so "Leather Jacket" matches
+"LEATHER JACKET" but not "Tan Leather Tote" (verified — an earlier version of the heuristic did
+misfile that bag; fixed and re-run).
+
+## 4 · Admin session token was being put in a URL
+
+`tokenFromRequest()` accepted `?t=<token>`, and the storefront header built
+`/admin/dashboard?t=<token>` for logged-in admins. A token in a URL is a token in browser
+history, nginx access logs and `Referer` headers.
+
+**Fix.** `lib/auth.ts`: the `?t=` path (and handing the JWT to JS in the login response) is now
+**off in production** — the httpOnly `sz_session` cookie is the only production path. Opt back in
+with `AUTH_URL_TOKEN=1` for embedded previews. The header no longer appends the token to the link.
+
+**Also fixed (worse than it looked):** `SESSION_SECRET` fell back to the literal
+`"dev-secret-change-me"` from a **public** repo (`sinzo` was public on GitHub). Anyone reading the
+source could mint a `SUPER_ADMIN` token. Now: in production a missing/default secret is refused and
+replaced with a per-boot random secret + a loud error log, so nobody can forge; dev keeps a stable
+default. **Set `SESSION_SECRET` in Dokploy → Environment** (otherwise every deploy logs the admin
+out).
+
+## 5 · Public order tracking was an enumeration key
+
+`GET /api/track/courier?code=…` accepted an order code (`ORD-1001`, `ORD-1002`… — sequential and
+therefore guessable) with **no second factor** and returned the order's items, area and status. A
+bare phone number also returned everything. It additionally loaded the last **500 orders** and
+`JSON.parse`d each row *per request*.
+
+**Fix.** `ORD-…` codes are honoured only together with the order's mobile number (same rule as
+`POST /api/track/order`); a phone-only lookup returns **status only** (no item list) and says so;
+consignment/tracking IDs stay single-field (long, courier-issued, already on the parcel); lookups
+are now indexed `where` clauses instead of a 500-row scan; per-IP limit 30/min → 15/min; error text
+is English and generic. `app/track/client.tsx` gained the mobile-number field the API now wants,
+plus honest copy — it previously promised "Tracking number, Consignment ID, Order code ba Phone
+number — jekono ekta dilei cholbe" (either one is enough), which was not true of the server.
+
+## 6 · Cache headers: storefront was uncachable, everywhere
+
+`next.config.mjs` set `private, no-store, must-revalidate` on **all** HTML (the comment explains
+why: a deploy that renames `/_next/static/*` chunks leaves visitors on stale HTML). The trade was
+too blunt — every page view on a single VPS re-rendered.
+
+**Fix.** Storefront (`/`, `/products`, `/products/*`, `/collections/*`) →
+`public, max-age=0, s-maxage=60, stale-while-revalidate=300, must-revalidate`. `max-age=0` keeps
+the **browser** revalidating (so the stale-chunk crash they were guarding against still can't
+happen), while a CDN/proxy can serve for 60s and refresh in the background. `/cart`, `/checkout`,
+`/account`, `/login`, `/admin*`, `/api/*` stay `private, no-store`.
+
+Verified: `Content-Security-Policy-Report-Only`, `Permissions-Policy`, `Cross-Origin-Opener-Policy`
+sent; `Strict-Transport-Security` gains `; preload` in production; `www.` → apex `308` redirect
+added (both hosts previously served identical content, splitting cookies and PageRank).
+
+> ⚠️ `s-maxage` only pays off once a shared cache is in front (Cloudflare in front of Dokploy is
+> the 10-minute version). Nothing here makes the site slower — it just stops forbidding caching.
+> `/api/media/*` keeps the 1-year `immutable` header the route itself sets (deliberately NOT
+> overridden in config, which would have downgraded it to 30 days).
+
+## 7 · SEO / social
+
+- **Canonical**: none existed anywhere in the codebase. Added on `/`, every PDP, every collection.
+- **metadataBase**: only set when `NEXT_PUBLIC_SITE_URL` existed; if unset, every absolute
+  og:url/og:image silently disappeared. Now falls back to `https://sinzooffcial.com`.
+- **PDP `generateMetadata`**: rewrote — `clean()`ed title (was `"LATHER JACKET "` → a double space
+  in the browser tab), real 155-char description instead of a raw slice with leading `\n`,
+  `og:type/url/site_name/locale`, and the **w1200 share image** instead of the full-resolution
+  original (Facebook cropped it; mobile users downloaded ~1 MB).
+- **Structured data**: `/` had zero JSON-LD → added `Organization` + `WebSite` with
+  `SearchAction` (sitelinks search box). PDP `Product` now emits `PreOrder` availability (was
+  `OutOfStock` for pre-order items, which is what Google then showed), `priceSpecification` with
+  `previousPrice` (strike-through now reaches rich results), `priceValidUntil`,
+  `availabilityStarts` for pre-orders, `shippingDetails` and a 7-day `hasMerchantReturnPolicy`.
+- **sitemap**: stopped publishing `/products?category=…` (duplicates of `/products`, and every
+  unknown slug returned the full catalogue — i.e. free duplicate pages); collections got
+  `changeFrequency`, `/track` too.
+
+## 8 · Cart & checkout rendered the literal word "Loading…"
+
+`/cart` and `/checkout` are client-mounted (cart lives in `localStorage`), so the server HTML said
+`Loading…` and that was the entire page for no-JS/failed-Hydration visitors. Replaced with a real
+skeleton (rows + thumb placeholders using the existing `.sk-img`/`.sk-line` classes) plus an
+`sr-only` "Loading your cart…".
+
+## 9 · Small but visible
+
+- **`/collections/sale`** promised "Winter Sale — Up to 30% off selected styles" over an **empty
+  grid**; it now renders an empty state that links to `/products?onsale=1`, and has real metadata.
+- **WhatsApp/tel links**: `store.whatsapp` is `01576450711`; wa.me needs
+  `8801576450711`, so every WhatsApp button opened an "invalid number" screen. New
+  `waLink()`/`telLink()` in `lib/phone.ts` normalise (same rule the admin order screen already
+  used). Verified: renders `wa.me/8801576450711` and `tel:+8801576450711`.
+- **`favicon.ico` was a 404** that returned 19 KB of HTML on every visit → generated a real
+  multi-size `favicon.ico` + `favicon-32.png` from `icon-512.png` and linked them.
+- **Announcement bar** duplicated its text 4× into the DOM/screen-reader and Google's index (it's
+  a CSS marquee). Track is now `aria-hidden` with one `sr-only` copy.
+- **Login form**: inputs had no `name`/`autoComplete` → password managers couldn't save; added
+  `tel`/`current-password`/`new-password` + label↔input `htmlFor`. The customer fallback cookie is
+  now `Secure` over https.
+- **`/products` was completely broken in dev** (`Unknown field 'preorder' for select statement on
+  model 'Product'`) because `prisma/schema.prisma` had drifted from `schema.prod.prisma`
+  (`preorder`, `preorderDate`, `soldMode`, `stockDeducted`). Dev schema synced — this also means
+  `npm run dev` + `db:push` works again.
+- **Admin write hygiene**: product create now `clean()`s title/shortDesc/description, so trailing
+  spaces can't come back through the UI.
+- **`/api/track/event`**: no size cap, no rate limit, any event name was written to the DB (a 1 MB
+  POST returned 200). Now 16 KB cap → `413`, 120/min per IP, allowlisted event names, and throttled
+  calls still answer 200 so a blocked analytics ping can't surface as a console error.
+- **Banglish UI strings** ("Bhul password", "Track kora jacche na", "…jekono ekta dilei cholbe")
+  replaced with English on customer-facing surfaces. Admin-only strings left alone.
+
+## 9b · Customer login leaked which phone numbers have accounts (found while reviewing source)
+
+`POST /api/auth/login` answered **"Account pay nai — age register korun"** for a number with no
+account and **"Bhul password"** for a wrong password — a free oracle over Bangladesh's mobile-number
+space (knowing who has an account at a clothing store is itself sensitive, and it names targets for
+credential stuffing). The missing-account path also skipped `bcrypt.compare`, so it answered ~100×
+faster (timing oracle). Verified fixed: both cases now return the identical
+`Invalid phone number or password`, 101 ms vs 106 ms.
+
+**Fix** — the pattern `app/api/admin/login/route.ts` already used: always run a bcrypt compare
+(against a dummy hash when there is no account) + one generic message, plus a per-account throttle
+(8/15 min) on top of the existing 10/10 min per-IP one. `/api/admin/login` was already correct and
+was left as is — it also has no user-enumeration leak.
+
+## 10 · `scripts/smoke.js` now guards all of this
+
+Added regression checks that each failed before the fix (34 checks, 0 failures against a
+`next build` + `next start` instance seeded with the same data quirks production has): lowercase + multi-word search, unknown
+category must show the empty state, PDP canonical, no double space in `<title>`, no raw `undefined`,
+Product JSON-LD present, **`ORD-` code refused without a phone number**, working with one, oversized
+analytics payload → 413, media traversal blocked, CSP + nosniff headers sent. Run against any
+instance with `BASE_URL=… npm test`.
+
+## NOT changed — deliberately
+
+- **Checkout pricing**: `POST /api/checkout` already re-loads products and re-prices server-side
+  ("never trust client prices"), enforces per-variant stock, runs in a `$transaction` with atomic
+  coupon consumption, and rate-limits. My audit note asking to verify this is **closed — it is
+  correct**. One dead branch: `SoldOutError` is caught but never thrown; the `class SoldOutError`
+  block and its `if (e instanceof SoldOutError)` are unreachable (harmless).
+- **Stock decrement at delivery** (Steadfast flow) left as designed.
+- **Role/permission model**, audit log, bcrypt dummy-compare (no user-enumeration timing leak) —
+  already good.
+- No database was touched in production; no deploy was triggered.

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { ci } from "@/lib/search";
 import { db } from "@/lib/db";
 import { requirePerm } from "@/lib/admin-guard";
 export const dynamic = "force-dynamic";
@@ -10,10 +11,15 @@ export async function GET(req: Request) {
   if ("res" in g) return g.res;
   const q = (new URL(req.url).searchParams.get("q") || "").trim();
   if (q.length < 2) return NextResponse.json({ orders: [], products: [] });
-  const like = { contains: q, mode: "insensitive" as const };
+  const like = ci(q); // mode:"insensitive" is Postgres-only — ci() picks per connector
+  // digits only: q="rahim" used to strip to "" and `phone: { contains: "" }` matches
+  // EVERY row, so any word-search in the admin box dumped the recent orders
+  const digits = q.replace(/[^0-9]/g, "");
+  const orderOr: any[] = [{ code: like }, { name: like }];
+  if (digits.length >= 3) orderOr.push({ phone: { contains: digits } });
   const [orders, products] = await Promise.all([
     db.order.findMany({
-      where: { OR: [{ code: like }, { name: like }, { phone: { contains: q.replace(/[^0-9]/g, "") } }] },
+      where: { OR: orderOr },
       select: { id: true, code: true, name: true, phone: true, status: true, total: true, createdAt: true },
       orderBy: { id: "desc" },
       take: 5,

@@ -7,6 +7,7 @@ const TONE: Record<string, string> = { ok: "var(--ok)", warn: "#9a7b1e", bad: "v
 export default function TrackClient() {
   const sp = useSearchParams();
   const [code, setCode] = useState(sp.get("code") || sp.get("t") || "");
+  const [phone, setPhone] = useState(() => { try { return localStorage.getItem("sz_track_phone") || ""; } catch { return ""; } });
   const [result, setResult] = useState<any>(null);
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
@@ -15,10 +16,13 @@ export default function TrackClient() {
     if (!c.trim()) return;
     setBusy(true); setErr(""); setResult(null);
     try {
-      const r = await fetch("/api/track/courier?code=" + encodeURIComponent(c.trim()));
+      const qs = new URLSearchParams({ code: c.trim() });
+      if (phone.trim()) qs.set("phone", phone.trim());
+      try { localStorage.setItem("sz_track_phone", phone.trim()); } catch {}
+      const r = await fetch("/api/track/courier?" + qs.toString());
       const j = await r.json();
-      if (r.ok) setResult(j); else setErr(j.error || "Track kora jacche na");
-    } catch { setErr("Network error — abar try korun"); }
+      if (r.ok) setResult(j); else setErr(j.error || "We couldn't find that order — check the code and mobile number.");
+    } catch { setErr("Network error — please try again."); }
     setBusy(false);
   };
   useEffect(() => { const c = sp.get("code") || sp.get("t"); if (c) lookup(c); /* eslint-disable-next-line */ }, []);
@@ -28,14 +32,24 @@ export default function TrackClient() {
       <div className="eyebrow">Order tracking</div>
       <h1 style={{ fontSize: "clamp(28px,3.4vw,38px)", margin: "8px 0 6px" }}>Where&apos;s my parcel?</h1>
       <p style={{ color: "var(--muted)", fontSize: 14, marginBottom: 22 }}>
-        Tracking number, Consignment ID, Order code ba Phone number — jekono ekta dilei cholbe.
+        Enter your courier tracking number or consignment ID. Using an <b>ORD-… order code</b>? Add the mobile number you ordered with so we can be sure it&apos;s your parcel.
       </p>
       <form onSubmit={(e) => { e.preventDefault(); lookup(code); }}>
         <div className="field">
+          <label htmlFor="track-code" style={{ display: "block", fontSize: 12, letterSpacing: ".14em", textTransform: "uppercase", color: "var(--muted)", marginBottom: 6 }}>Tracking / Order code</label>
           <input
-            placeholder="Tracking / Consignment / Order Code / Phone"
+            id="track-code"
+            placeholder="e.g. 3021487291 or ORD-1042"
             value={code} onChange={(e) => setCode(e.target.value)}
-            autoCapitalize="characters" spellCheck={false} aria-label="Tracking number"
+            autoCapitalize="characters" spellCheck={false} autoComplete="off" name="track-code"
+            style={{ fontSize: 16, minHeight: 52, letterSpacing: ".04em" }}
+          />
+        </div>
+        <div className="field" style={{ marginTop: 12 }}>
+          <label htmlFor="track-phone" style={{ display: "block", fontSize: 12, letterSpacing: ".14em", textTransform: "uppercase", color: "var(--muted)", marginBottom: 6 }}>Mobile number (for ORD- codes)</label>
+          <input
+            id="track-phone" type="tel" inputMode="numeric" name="track-phone" autoComplete="tel"
+            placeholder="01XXXXXXXXX" value={phone} onChange={(e) => setPhone(e.target.value)}
             style={{ fontSize: 16, minHeight: 52, letterSpacing: ".04em" }}
           />
         </div>

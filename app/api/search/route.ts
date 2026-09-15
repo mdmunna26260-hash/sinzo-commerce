@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { productSearchWhere, terms } from "@/lib/search";
 
 export const dynamic = "force-dynamic";
 // thumbs render at ~40px — the 300px variant is plenty (saves ~90% of image bytes)
@@ -10,16 +11,32 @@ const small = (url: string | null) => {
   return m ? `/api/media/${m[1]}/w300` : url;
 };
 const pick = (p: any) => ({ id: p.id, title: p.title, slug: p.slug, image: small(p.images?.[0]?.url || null), price: p.price });
+
+const SELECT = { id: true, title: true, slug: true, price: true, images: { select: { url: true }, orderBy: { position: "asc" }, take: 1 } } as const;
+
 export async function GET(req: Request) {
-  const q = new URL(req.url).searchParams.get("q")?.trim() || "";
-  if (q.length < 2) {
-    const popular = await db.product.findMany({ where: { status: "ACTIVE" }, orderBy: { views: "desc" }, take: 6, select: { id: true, title: true, slug: true, price: true, images: { select: { url: true }, orderBy: { position: "asc" }, take: 1 } } });
+  // clamp the query: a 20 KB ?q= used to be passed straight into LIKE
+  const q = (new URL(req.url).searchParams.get("q") || "").slice(0, 80).trim();
+
+  // not enough to search on → show the popular rail instead of an empty box
+  if (terms(q).length === 0) {
+    const popular = await db.product.findMany({ where: { status: "ACTIVE" }, orderBy: { views: "desc" }, take: 8, select: SELECT });
     return NextResponse.json({ products: popular.map(pick), popular: true });
   }
-  const products = await db.product.findMany({
-    where: { status: "ACTIVE", OR: [{ title: { contains: q } }, { tags: { contains: q } }, { sku: { contains: q } }, { shortDesc: { contains: q } }, { description: { contains: q } }] },
-    select: { id: true, title: true, slug: true, price: true, images: { select: { url: true }, orderBy: { position: "asc" }, take: 1 } },
-    take: 8, orderBy: { views: "desc" },
+
+  const base = productSearchWhere(q);
+  const found = await db.product.findMany({
+    where: { status: "ACTIVE", ...(base ? { AND: [base] } : {}) },
+    select: SELECT,
+    take: 12,
+    orderBy: { views: "desc" },
   });
-  return NextResponse.json({ products: products.map(pick), popular: false });
+
+  // search must never dead-end: fall back to the popular rail with a flag so the
+  // UI can render "nothing matched — popular picks" instead of a blank sheet
+  if (!found.length) {
+    const popular = await db.product.findMany({ where: { status: "ACTIVE" }, orderBy: { views: "desc" }, take: 6, select: SELECT });
+    return NextResponse.json({ products: popular.map(pick), popular: false, noResults: true, total: 0 });
+  }
+  return NextResponse.json({ products: found.map(pick), popular: false, noResults: false, total: found.length });
 }

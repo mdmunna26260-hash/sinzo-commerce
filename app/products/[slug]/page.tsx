@@ -1,4 +1,6 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { clean } from "@/lib/search";
 import { db } from "@/lib/db";
 import { getSettings, publicSettings } from "@/lib/settings";
 import { getCategories } from "@/lib/catalog";
@@ -14,13 +16,30 @@ import Link from "next/link";
 export const dynamic = "force-dynamic";
 // runtime caching via CDN keeps fast; skip build-time prerender (small VPS RAM)
 
-export async function generateMetadata({ params }: { params: { slug: string } }) {
-  const p = await db.product.findUnique({ where: { slug: params.slug }, include: { images: true } });
+export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
+  const p = await db.product.findUnique({ where: { slug: params.slug }, include: { images: { orderBy: { position: "asc" }, take: 1 } } });
   if (!p) return { title: "Product not found" };
+  const base = (process.env.NEXT_PUBLIC_SITE_URL || "https://sinzooffcial.com").replace(/\/$/, "");
+  const url = `${base}/products/${p.slug}`;
+  // DB titles carry trailing spaces ("LATHER JACKET ") → they leaked into <title> as a
+  // double space and into og:title; and the share image must be the w1200 variant,
+  // not the full-resolution original (Facebook crops, mobile users download ~1 MB).
+  const title = clean(p.title);
+  const desc = clean(p.shortDesc || p.description || "").slice(0, 155) || `${title} — SINZO. Cash on delivery all over Bangladesh.`;
+  const img = p.images?.[0]?.url;
+  const share = img ? (/^\/api\/media\/[a-z0-9]+$/i.test(img) ? `${img}/w1200` : img) : undefined;
   return {
-    title: p.title,
-    description: p.shortDesc || p.description?.slice(0, 150),
-    openGraph: { title: p.title, description: p.shortDesc || "", images: p.images?.[0]?.url ? [p.images[0].url] : [] },
+    title,
+    description: desc,
+    alternates: { canonical: `/products/${p.slug}` },
+    openGraph: {
+      type: "website",
+      title,
+      description: desc,
+      url,
+      ...(share ? { images: [{ url: share.startsWith("http") ? share : base + share, width: 1200, height: 1200, alt: title }] } : {}),
+    },
+    twitter: { card: "summary_large_image", title, description: desc, ...(share ? { image: share.startsWith("http") ? share : base + share } : {}) },
   };
 }
 
@@ -92,16 +111,47 @@ export default async function PDP({ params, searchParams }: { params: { slug: st
     "@context": "https://schema.org",
     "@type": "Product",
     name: p.title,
-    description: p.shortDesc || (p.description ? p.description.slice(0, 300) : undefined),
+    // clean(): the raw DB string has trailing whitespace and newlines, which show up
+    // verbatim in Google's snippet and in the JSON-LD preview tool
+    description: clean(p.shortDesc || (p.description ? p.description.slice(0, 300) : "")) || clean(p.title),
     image: p.images?.[0]?.url ? [absImg(p.images[0].url)] : [],
+    sku: p.sku || undefined,
     url: siteBase + "/products/" + p.slug,
     brand: { "@type": "Brand", name: s.store?.name || "SINZO" },
     offers: {
       "@type": "Offer",
       priceCurrency: "BDT",
       price: String(p.price),
-      availability: totalStock > 0 ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
+      availability: p.preorder
+        ? "https://schema.org/PreOrder"
+        : totalStock > 0 ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
       url: siteBase + "/products/" + p.slug,
+      priceValidUntil: new Date(Date.now() + 1000 * 60 * 60 * 24 * 60).toISOString().slice(0, 10),
+      ...(p.comparePrice && p.comparePrice > p.price ? {
+        priceSpecification: {
+          "@type": "PriceSpecification",
+          price: String(p.price), priceCurrency: "BDT",
+          previousPrice: String(p.comparePrice),
+          valueAddedTaxIncluded: false,
+        },
+        ...(p.saleEnds ? { validFor: { "@type": "QuantitativeValue", maxValue: Math.max(0, Math.round((new Date(p.saleEnds).getTime() - Date.now()) / 86400000)) }, unitText: "DAY" } : {}),
+      } : {}),
+      ...(p.preorder && p.preorderDate ? { availabilityStarts: new Date(p.preorderDate).toISOString().slice(0, 10) } : {}),
+    },
+    ...(s.shipping?.estimateInside || s.shipping?.insideDhaka != null ? {
+      shippingDetails: {
+        "@type": "OfferShippingDetails",
+        shippingDestination: { "@type": "DefinedRegion", addressCountry: "BD" },
+        shippingRate: { "@type": "ShippingRateSettings", shippingRateCurrency: "BDT", label: "BDT" },
+      },
+    } : {}),
+    hasMerchantReturnPolicy: {
+      "@type": "MerchantReturnPolicy",
+      applicableCountry: "BD",
+      returnPolicyCategory: "https://schema.org/MerchantReturnFiniteReturnWindow",
+      merchantReturnDays: 7,
+      returnMethod: "https://schema.org/ReturnByMail",
+      returnFees: "https://schema.org/FreeReturn",
     },
   };
   if (p.sku) jsonLd.sku = p.sku;

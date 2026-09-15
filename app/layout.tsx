@@ -8,6 +8,7 @@ import BottomNav from "@/components/bottom-nav";
 import PushRegister from "@/components/push-register";
 import PushNudge from "@/components/push-nudge";
 import { getSettings, publicSettings } from "@/lib/settings";
+import { clean } from "@/lib/search";
 
 export const viewport: Viewport = {
   width: "device-width",
@@ -28,10 +29,29 @@ export async function generateMetadata(): Promise<Metadata> {
     const s = publicSettings(await getSettings());
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.VERCEL_URL || "";
     return {
-      metadataBase: siteUrl ? new URL(siteUrl.startsWith("http") ? siteUrl : "https://" + siteUrl) : undefined,
-      title: { default: s.seo?.metaTitle || s.store?.name || "Store", template: `%s · ${s.store?.name || "Store"}` },
-      description: s.seo?.metaDescription || s.store?.tagline || "",
-      openGraph: { title: s.seo?.metaTitle || s.store?.name, description: s.seo?.metaDescription, images: s.homepage?.heroImage ? [ogImage(s.homepage.heroImage)] : [] },
+      // without metadataBase every absolute share URL (og:image, canonical) silently
+      // resolves to nothing — Facebook/WhatsApp then show no preview picture
+      metadataBase: new URL(siteUrl ? (siteUrl.startsWith("http") ? siteUrl : "https://" + siteUrl) : "https://sinzooffcial.com"),
+      title: {
+        default: clean(s.seo?.metaTitle) || `${s.store?.name || "Store"} — ${clean(s.store?.tagline) || "Shop online, pay on delivery"}`,
+        template: `%s · ${s.store?.name || "Store"}`,
+      },
+      description: clean(s.seo?.metaDescription) || clean(s.store?.tagline) || "",
+      // one canonical host: http/https/www variants otherwise all get indexed
+      alternates: { canonical: "/" },
+      robots: {
+        index: true, follow: true,
+        googleBot: { index: true, follow: true, "max-image-preview": "large", "max-snippet": -1 },
+      },
+      openGraph: {
+        type: "website",
+        siteName: s.store?.name || "Store",
+        locale: "en_BD",
+        url: (process.env.NEXT_PUBLIC_SITE_URL || "https://sinzooffcial.com").replace(/\/$/, "") + "/",
+        title: clean(s.seo?.metaTitle) || s.store?.name,
+        description: clean(s.seo?.metaDescription) || clean(s.store?.tagline) || "",
+        images: s.homepage?.heroImage ? [ogImage(s.homepage.heroImage)] : [],
+      },
     };
   } catch { return { title: "Store" }; }
 }
@@ -40,6 +60,37 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   let cfg: any = null;
   try { cfg = publicSettings(await getSettings()); } catch {}
   const theme = cfg?.theme || {};
+  const siteBase = (process.env.NEXT_PUBLIC_SITE_URL || "https://sinzooffcial.com").replace(/\/$/, "");
+  const orgLd = cfg?.store?.name ? {
+    "@context": "https://schema.org",
+    "@graph": [
+    {
+      "@type": "Organization",
+      "@id": siteBase + "/#organization",
+      name: cfg.store.name,
+      url: siteBase + "/",
+      ...(cfg.store.logo ? { logo: cfg.store.logo } : {}),
+      ...(cfg.store.email ? { email: cfg.store.email } : {}),
+      ...(cfg.store.phone ? { telephone: cfg.store.phone } : {}),
+      ...(cfg.store.address ? { address: { "@type": "PostalAddress", streetAddress: cfg.store.address } } : {}),
+      sameAs: [cfg.store?.facebook, cfg.store?.instagram, cfg.store?.tiktok, cfg.store?.youtube].filter(Boolean),
+    },
+    {
+      "@type": "WebSite",
+      "@id": siteBase + "/#website",
+      url: siteBase + "/",
+      name: cfg.store.name,
+      description: cfg.store?.tagline || undefined,
+      publisher: { "@id": siteBase + "/#organization" },
+      inLanguage: ["en", "bn"],
+      potentialAction: {
+        "@type": "SearchAction",
+        target: { "@type": "EntryPoint", urlTemplate: siteBase + "/products?q={search_term_string}" },
+        "query-input": "required name=search_term_string",
+      },
+    },
+    ],
+  } : null;
   // Maintenance mode: block storefront for non-admins (admins keep full access)
   let adminBypass = false;
   try {
@@ -83,13 +134,23 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <script dangerouslySetInnerHTML={{ __html: `(function(){try{var m=localStorage.getItem("sz_theme")||"system";var d=m==="dark"||(m==="system"&&matchMedia("(prefers-color-scheme: dark)").matches);document.documentElement.setAttribute("data-theme",d?"dark":"light");}catch(e){document.documentElement.setAttribute("data-theme","light");}})();` }} />
         <style dangerouslySetInnerHTML={{ __html: cssVars }} />
         <link rel="manifest" href="/manifest.webmanifest" />
+        {/* without an explicit 32px/ico entry browsers request /favicon.ico and got a 19 KB
+            HTML 404 page back (that response is also uncacheable, so it repeats on every visit) */}
+        <link rel="icon" href="/favicon.ico" sizes="48x48" />
         <link rel="icon" href="/icon-192.png" sizes="192x192" type="image/png" />
+        <link rel="mask-icon" href="/icon-192.png" color="#141414" />
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         {gtmId ? (
           <script id="gtm" dangerouslySetInnerHTML={{ __html: `(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src='https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);})(window,document,'script','dataLayer','${gtmId}');` }} />
         ) : null}
         <script id="sz-cfg" type="application/json" dangerouslySetInnerHTML={{ __html: JSON.stringify(cfg || {}) }} />
+        {orgLd ? (
+          /* Entity + sitelinks-searchbox markup for the whole site (the PDP has Product
+             schema, but "/" had no structured data at all → no knowledge panel, no
+             sitelinks search box, and brand queries show a bare listing). */
+          <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(orgLd).replace(/</g, "\\u003c") }} />
+        ) : null}
       </head>
       <body>
         <script dangerouslySetInnerHTML={{ __html: `(function(){try{var k="sz_chunk_err";if(sessionStorage.getItem(k))return;var r=function(m){try{sessionStorage.setItem(k,"1");fetch("/api/client-error",{method:"POST",headers:{"Content-Type":"application/json"},keepalive:true,body:JSON.stringify({message:m,url:location.pathname+location.search})}).catch(function(){});}catch(e){}setTimeout(function(){try{var u=new URL(location.href);if(!u.searchParams.has("_r")){u.searchParams.set("_r",String(Date.now()));location.replace(u.toString());return;}}catch(e){}location.reload();},50);};

@@ -83,6 +83,11 @@ model Product {
   sizeChartImage String?         // per-product size chart image (media URL)
   soldCount      Int?            // optional override: show "Sold: N" on the PDP when set
   saleEnds       DateTime?       // flash sale countdown: when set + comparePrice > price → countdown shows
+  // ── kept in sync with schema.prod.prisma: these were missing here, so `npm run dev`
+  //    (SQLite) crashed every page that selects preorder/preorderDate/soldMode ──
+  preorder       Boolean          @default(false) // pre-order: order accepted before stock is available
+  preorderDate   DateTime?                        // expected delivery date shown to customers
+  soldMode       String           @default("fixed") // "fixed" = exact admin number | "random" = auto base that slowly grows
   badge          String?
   isNew          Boolean          @default(false) // -> New Arrivals collection + badge
   isBestSeller   Boolean          @default(false) // -> Best Sellers collection + badge
@@ -193,6 +198,8 @@ model Order {
   items        OrderItem[]
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
+
+  stockDeducted Boolean  @default(false) // true once delivery-time stock decrement ran (idempotency guard)
 }
 
 model OrderItem {
@@ -207,6 +214,9 @@ model OrderItem {
   image     String?
   price     Float
   qty       Int
+
+  preorder      Boolean   @default(false) // order line was placed as pre-order
+  preorderDate  DateTime?               // expected delivery date captured at order time
 }
 
 model Coupon {

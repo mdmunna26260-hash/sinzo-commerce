@@ -77,7 +77,23 @@ export default function CheckoutPage() {
   }, [lines.length, form.phone, form.name, form.address]);
 
   if (!ready) {
-    return <div className="container"><div className="empty" style={{ padding: "130px 20px" }}><h3>Loading…</h3></div></div>;
+    return (
+      <div className="container" aria-busy="true">
+        <div className="cart-head" style={{ margin: "26px 0 18px" }}><div className="sk-line" style={{ width: 190, height: 26, margin: 0 }} /></div>
+        {[0, 1].map((i) => (
+          <div key={i} style={{ display: "flex", gap: 14, padding: "14px 0", borderBottom: "1px solid var(--line)" }}>
+            <div className="sk-block" style={{ width: 78, height: 104, margin: 0, flex: "none" }} />
+            <div style={{ flex: 1 }}>
+              <div className="sk-line" style={{ width: "52%", margin: "6px 0" }} />
+              <div className="sk-line" style={{ width: "26%", margin: "6px 0" }} />
+              <div className="sk-line" style={{ width: "18%", margin: "6px 0" }} />
+            </div>
+          </div>
+        ))}
+        <div className="sk-line" style={{ width: 150, height: 30, margin: "22px 0 0" }} />
+        <span className="sr-only">Loading your cart…</span>
+      </div>
+    );
   }
   if (lines.length === 0 && !busy) {
     return (

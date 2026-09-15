@@ -11,10 +11,20 @@ export async function POST(req: Request) {
   try {
     const { phone, password } = await req.json();
     const cleanPhone = normalizeBDPhone(String(phone || ""));
+    // per-account throttle on top of the per-IP one: without it a rotated-IP attacker can
+    // brute-force one number at leisure (10/10min per IP is trivially spread out)
+    if (!rateLimit("custlogin-em:" + cleanPhone, 8, 15 * 60 * 1000)) {
+      return NextResponse.json({ error: "Too many attempts. Try again in 15 minutes." }, { status: 429 });
+    }
     const customer = await db.customer.findUnique({ where: { phone: cleanPhone } });
-    if (!customer || !customer.password) return NextResponse.json({ error: "Account pay nai — age register korun" }, { status: 401 });
-    const ok = await bcrypt.compare(String(password || ""), customer.password);
-    if (!ok) return NextResponse.json({ error: "Bhul password" }, { status: 401 });
+    // One generic message + always run a bcrypt compare: "Account pay nai" vs "Bhul password"
+    // told the world which BD mobile numbers have an account here (and the missing compare made
+    // the no-account path answer ~100x faster). Same pattern /api/admin/login already uses.
+    const hash = customer?.password || "$2a$10$C6UzMDM.H6dfI/f/IKcEeO7ZBkRG0AmUfyV0JbzhX.T1BxJmWjA1u";
+    const ok = await bcrypt.compare(String(password || ""), hash);
+    if (!customer || !customer.password || !ok) {
+      return NextResponse.json({ error: "Invalid phone number or password" }, { status: 401 });
+    }
     const token = createCustomerToken({ id: customer.id, phone: customer.phone, name: customer.name || "Customer" });
     const res = NextResponse.json({ ok: true, token, user: { name: customer.name, phone: customer.phone } });
     const c = customerCookie(token);

@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { requirePerm } from "@/lib/admin-guard";
 import { slugify } from "@/lib/slug";
 import { logAudit } from "@/lib/auth";
+import { productSearchWhere } from "@/lib/search";
 
 async function syncCollection(productId: number, slug: string, want: boolean) {
   const col = await db.collection.findUnique({ where: { slug } });
@@ -22,7 +23,7 @@ export async function GET(req: Request) {
   // optional ?q= filter (used by the order item picker; plain listing when absent)
   const q = new URL(req.url).searchParams.get("q")?.trim();
   const products = await db.product.findMany({
-    where: q ? { OR: [{ title: { contains: q } }, { sku: { contains: q } }, { tags: { contains: q } }] } : undefined,
+    where: q ? { AND: [productSearchWhere(q, ["title", "sku", "tags"])] } : undefined,
     include: { images: true, variants: true, category: true },
     orderBy: [{ position: "asc" }, { id: "desc" }],
     take: q ? 12 : undefined,
@@ -43,7 +44,9 @@ export async function POST(req: Request) {
     const finalSlug = exists ? slug + "-" + Date.now().toString(36) : slug;
     const product = await db.product.create({
       data: {
-        title: b.title, slug: finalSlug, shortDesc: b.shortDesc || null, description: b.description || null,
+        title: String(b.title).replace(/\s+/g, " ").trim(), slug: finalSlug,
+        shortDesc: b.shortDesc ? String(b.shortDesc).replace(/\s+/g, " ").trim() : null,
+        description: b.description ? String(b.description).trim() : null,
         sku: b.sku || null, barcode: b.barcode || null,
         price: Number(b.price) || 0, comparePrice: b.comparePrice ? Number(b.comparePrice) : null,
         cost: b.cost ? Number(b.cost) : null, stock: Number(b.stock) || 0, lowStock: Number(b.lowStock) || 5,

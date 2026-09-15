@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requirePerm } from "@/lib/admin-guard";
 import { logAudit } from "@/lib/auth";
+import { ci } from "@/lib/search";
 export const dynamic = "force-dynamic";
 
 /* Color groups: product families whose colors link to each other on the PDP.
@@ -12,7 +13,7 @@ export async function GET(req: Request) {
   if ("res" in g) return g.res;
   const q = new URL(req.url).searchParams.get("q")?.trim() || "";
   const groups = await db.colorGroup.findMany({
-    where: q ? { name: { contains: q } } : undefined,
+    where: q ? { name: ci(q) } : undefined,
     orderBy: { id: "desc" },
     take: 50,
     include: {
