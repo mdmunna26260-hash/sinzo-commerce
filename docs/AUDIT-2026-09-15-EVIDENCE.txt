@@ -1,0 +1,164 @@
+<!-- Redacted before committing: any credential/endpoint from the original working notes is
+     intentionally removed. Do not paste secrets into this file — see .env.example instead. -->
+
+SINZO black-box audit — raw evidence (2026-09-15, sandbox client, HTTPS/HTTP2)
+================================================================================
+
+[A] HEADERS / CACHE
+$ curl -sI https://sinzooffcial.com/
+HTTP/2 200
+cache-control: private, no-store, must-revalidate
+strict-transport-security: max-age=31536000; includeSubDomains
+x-content-type-options: nosniff
+x-frame-options: SAMEORIGIN
+referrer-policy: strict-origin-when-cross-origin
+alt-svc: h3=":443"; ma=2592000
+vary: RSC, Next-Router-State-Tree, Next-Router-Prefetch, Accept-Encoding
+(no content-security-policy, no permissions-policy, no etag/last-modified, no s-maxage)
+$ curl -sI https://sinzooffcial.com/products/white-shirt   -> same cache-control: private, no-store
+
+[B] PORT 80 / WWW
+$ http://sinzooffcial.com/            -> 200  size=95277   (no 301 to https)
+$ https://www.sinzooffcial.com/       -> 200  size=95277   (no 301 to apex)
+$ https://sinzooffcial.com/nonexistent-page-xyz -> 404 (correct)
+
+[C] CONTROL PLANE EXPOSURE
+$ https://server.sinzooffcial.com/    -> 200, <title>Dokploy</title>, size=25023
+
+[D] DB / POSTGREST (public read attempt, no credentials used)
+$ GET .../neondb/rest/v1                       -> 400 {"message":"missing authentication credentials: required authorization bearer token in JWT format"}
+$ GET .../neondb/rest/v1/{products,orders,users,customers,admin_users} -> all 400, same message   => NOT publicly readable
+
+[E] ADMIN API AUTH
+$ GET /api/admin/whoami    -> 401 {"error":"Unauthorized"}
+$ GET /api/admin/settings  -> 401
+$ GET /api/admin/products  -> 401
+$ GET /api/admin/orders    -> 401
+$ GET /account             -> 200 but RSC payload contains NEXT_REDIRECT;replace;/login;307
+$ GET /api/health          -> 200 {"ok":true,"at":1789459897183}
+$ GET /api/products, /api/settings -> 404
+
+[F] ADMIN TOKEN HANDLING (extracted from /_next/static/chunks/fd9d1056-*.js)
+...arams(location.search).get("t")||""}catch(e){}if(!e)try{e=localStorage.getItem("sz_admin_token")||""}catch(e){}
+try{let n=e?{Authorization:"Bearer "+e}:{},r=await fetch("/api/admin/whoami",{headers:n});...
+localStorage keys found: sz_admin_token, sz_admin_whoami, sz_attr, sz_cart_v1, sz_cart_changed,
+sz_fbc, sz_theme, sz_user_phone, sz_wishlist, sz_wishlist_changed
+
+[G] LOGIN RATE LIMIT (401 x8, then 429)
+attempts 1-8  -> 401 {"error":"Bhul password"}
+attempts 9-12 -> 429 {"error":"Too many attempts, try later."}
+no retry-after / set-cookie on the 401 responses
+
+[H] WRITE ENDPOINTS
+$ POST /api/newsletter {"email":"test@example.com"} -> 200 {"ok":true}      <-- TEST ROW, DELETE IT
+$ POST /api/newsletter {"email":"notanemail"}       -> 400 {"error":"Invalid email"}
+$ POST /api/newsletter (2 more rapid)                -> 429 {"error":"Too many attempts from your connection."}
+$ POST /api/track/event {"name":"test","event":"x"} -> 200 {"ok":true,"capi":{"configured":false}}
+$ POST /api/track/event  <1 MB body>                -> 200 {"ok":false}
+$ POST /api/client-error  x3 rapid                  -> 204, 204, 204 (no rate limit)
+
+[I] SQLi / XSS PROBES (all escaped, no 500s)
+$ /api/search?q="' OR 1=1 --"                       -> 200 {"products":[],"popular":false}
+$ /api/search?q="a'; DROP TABLE products;--"        -> 200 {"products":[],"popular":false}
+$ /products?category=<script>alert(1)</script>      -> 0 raw echoes of payload
+$ /products?q="><img src=x onerror=alert(1)>        -> 0 raw echoes
+$ /api/search?q=<20k chars>                         -> 431 (header too large; no crash)
+$ /api/media/../../../etc/passwd                    -> 404
+$ /api/media/..%2f..%2f..%2fetc%2fpasswd            -> 404
+$ /api/media/https://evil.com/x.jpg                 -> 404
+
+[J] SEARCH (GET /api/search?q=)  — full matrix
+white shirt -> 0          WHITE SHIRT -> 1 [WHITE SHIRT]
+beige       -> 0          beige color -> 0
+black       -> 0           fade black -> 0
+falme       -> 0           patchwork  -> 0
+grey        -> 0           acid       -> 0
+t-shirt     -> 0           tee        -> 3 (unrelated products)
+red         -> 6 (ACID ICE BLUE, LIGHT GREY, FADE BLACK, FULL WHITE BAGGY, LATHER JACKET, WHITE SHIRT...)  <-- no RED FALME PATCHWORK
+light       -> 4 (WHITE SHIRT, WHITE POLO, BEIGE COLOR, BLACK POLO)   <-- no LIGHT GREY!
+baggy       -> 6 (includes ACID ICE BLUE, FADE BLACK)
+leather     -> 1 [LATHER JACKET]   lather -> 1 [LATHER JACKET]
+shirt       -> 6    polo -> 4    shir -> 6    sh -> 8
+q= empty    -> 6 (default/popular list)
+titles returned by API show trailing spaces: "FULL WHITE BAGGY ", "LATHER JACKET ",
+"RED FALME PATCHWORK ", "FALME PATCHWORK "
+
+[K] CATEGORY / COLLECTION FILTERS (unique /products/<slug> hrefs in rendered body)
+/products                      -> 11 slugs: acid-ice-blue beige-color black-polo fade-black
+  falme-patchwork full-white-baggy lather-jacket light-grey red-falme-patchwork white-polo white-shirt
+/products?category=leather-jacket -> 0 cards   (heading "Category LEATHER JACKET", no empty state,
+                                        counter still says "All (11)")
+/products?category=lather-jacket  -> 11 cards  (unknown filter IGNORED -> shows everything)
+/products?category=zzz-nope       -> 11 cards  (same)
+/products?category=straight-fit  -> 11 cards   (correct spelling ignored; DB uses "stright-fit")
+/products?category=stright-fit   -> 4 cards
+/products?category=polo -> 3   /?category=shirt -> 1 (visible "SHIRT (1)")
+/collections/sale -> 0 cards but copy says "Winter Sale — Up to 30% off selected styles"
+/collections/new-arrivals -> 9 cards
+sitemap.xml: 22 URLs, ALL return 200 (no broken links); includes /products?category=... URLs;
+  /products/white-polo is in sitemap (exists) but homepage nav links /products/black-polo etc.
+
+[L] NAV / DATA MISMATCH
+homepage href set includes: /products?category=leather-jacket   <-- resolves to 0 products (see [K])
+store settings JSON served inline on every page:
+  "instagram":"https://www.facebook.com/share/19RD1NCoXB/?mibextid=wwXIfr"   <-- Facebook URL in the Instagram field
+  "whatsapp":"01576450711"   -> rendered as https://wa.me/01576450711 (national format)
+  "phone":"01576450711"      -> rendered as tel:01576450711 (no +880)
+  "address":"Gulshan Avenue, Dhaka 1212, Bangladesh"
+  header/footer nav label: "STRIGHT FIT"  (sic)
+
+[M] META / SEO
+/: <title>SINZO</title>; meta description "Premium shirts, dresses, outerwear and accessories..."
+   (catalogue has no dresses); <link rel="canonical"> count = 0; application/ld+json count = 0
+PDP x11: <title>TITLE  · SINZO</title> (double space for titles with trailing whitespace),
+   og:title/og:image unique per product, twitter:card+title+description+image present,
+   canonical: NONE, ld+json: 1x Product schema:
+   {"@type":"Product","name":"WHITE SHIRT","description":"Elevate your casual wardrobe with the
+    Bershka Openwork Knit Polo Shirt...","offers":{"@type":"Offer","priceCurrency":"BDT",
+    "price":"700","availability":"https://schema.org/InStock"},"sku":"SHI67"}
+   -> no priceSpecification ({}), no aggregateRating, no shippingDetails, no returnPolicy
+fade-black: JSON-LD availability=https://schema.org/OutOfStock while cards badge "Pre-Order"
+   and PDP SSR text contains no stock/lead-time line at all
+duplicate meta description on white-shirt + beige-color + black-polo (same Bershka paragraph),
+   2 of them prefixed with a literal newline
+<html lang="en"> on all pages while UI contains Banglish ("Bhul password",
+   "Order code ba Phone number — jekono ekta dilei cholbe.")
+
+[N] RENDERED-TEXT CHECKS (visible text only, scripts/styles removed)
+/checkout : "Loading… Home Shop Cart Track Account"                       <- no SSR content
+/cart     : "Loading… Home Shop Cart Track Account"                       <- no SSR content
+/wishlist : renders fully server-side (correct empty state: "No saved items yet")
+/login    : inputs = <input required placeholder="01XXXXXXXXX" inputMode="numeric" ...>
+            <input required type="password" ...>  (no name=, no autocomplete=)
+every page: announcement bar string "FREE DELIVERY ON ORDERS OVER ৳4000 · EASY 7-DAY RETURNS ◆"
+            appears 4x in DOM text; header nav appears twice, no aria-hidden
+            "01 Created for you" eyebrow on /
+card price markup observed: "ACID ICE BLUE ৳1,000 ৳1,300 Save ৳300" (no %) vs
+            "LIGHT GREY ৳1,000 ৳1,300 Save ৳300 - 22 %" vs "LATHER JACKET ৳2,850 - 18 %" (no strike price)
+
+[O] ASSETS / PERF
+TTFB (5x, /): 0.723 0.707 0.699 0.729 0.717 s ; total 1.49–2.71 s
+HTML 95,277 B raw -> 16,202 B gzip (content-encoding: gzip; no br)
+chunks: fd9d1056 172,835 B (uncompressed, served gz ~53,742 B), 2117 123,529 B,
+        polyfills 112,594 B raw / 39,627 B transfer, css 6587eeb1 18,660 B
+estimated first load (html+js+css+9x w300 thumbs) ~223 KB
+/api/media/<id>/w300 -> 4,236 B image/webp   ttfb 0.93 s
+/api/media/<id>/w600 -> 27,352 B            ttfb 0.90 s
+/api/media/<id>/w1200-> 181,894 B           ttfb 1.08 s
+media headers: cache-control: public, max-age=31536000, immutable, s-maxage=31536000,
+        stale-while-revalidate=86400  (good)
+srcset widths used: w300/w600/w1000/w1200 with sizes="(max-width:600px) 50vw,(max-width:1200px) 33vw,300px";
+        hero uses fetchPriority="high" (good); 31 <img> on /
+favicon.ico -> 404 (19,592 B of HTML); /icon-192.png 200, /icon-512.png 200, /apple-touch-icon.png 200,
+        manifest.webmanifest valid (name/short_name/display/icons/maskable all present)
+external font origin referenced: https://fonts.googleapis.com (preconnect, not self-hosted)
+search endpoint latency: 0.75–0.96 s per call
+
+[P] WHAT WAS NOT TESTED
+No repo/source access (PAT not used), so no SQL, no server actions, no schema review.
+No headless browser available -> client-side hydration flows (cart add, checkout submit, review
+  submit, admin CRUD) not exercised end to end.
+No writes: no orders, accounts, or products created (except the one newsletter row noted in [H]).
+Order total / price tampering NOT verified: cart state is localStorage sz_cart_v1 and the subtotal
+  is computed client-side as reduce((e,t)=>e+t.qty*t.price,0) over stored line items -> the server
+  action must be read to confirm it re-prices from the DB.
