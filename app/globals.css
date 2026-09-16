@@ -1370,14 +1370,7 @@ a, button, .pcard, .chip, .cat-pill, .size-btn { -webkit-tap-highlight-color: tr
    `clip` (not `hidden`) so the sticky header keeps working — `hidden` would turn the root
    into a scroll container and break position:sticky descendants. */
 html, body { overflow-x: clip; }
-/* The page's OWN scrollbar is hidden too — on a phone that 10px rounded bar (styled further below)
-   floats over the content edge, which is what looked like an "up-down swipe" control.
-   Scrolling itself is untouched (touch, wheel, keys, anchor jumps all still work) — only the bar
-   is not painted. `overscroll-behavior` drops the rubber-band past the top/bottom and the
-   pull-to-refresh grab that fights the tab bar. Inner scroll areas (filter sidebar, tables, the
-   horizontal strips) keep their own rules. */
-html { scrollbar-width: none; -ms-overflow-style: none; overscroll-behavior: none; }
-html::-webkit-scrollbar { width: 0; height: 0; display: none; }
+/* (scrollbar styling for the page itself lives in §Global polish below — deliberately NOT hidden here.) */
 
 /* ---------- Header: hide on scroll down, reveal on scroll up ---------- */
 .header { transition: transform 220ms ease; }
@@ -1908,11 +1901,13 @@ input::placeholder, textarea::placeholder { color: #b0aaa1; }
 html { -webkit-tap-highlight-color: transparent; }
 h1, h2, h3 { text-wrap: balance; }
 .price, .kpi .k-val { font-variant-numeric: tabular-nums; }
-@media (hover:hover) {
-  ::-webkit-scrollbar { width: 10px; height: 10px; }
-  ::-webkit-scrollbar-track { background: transparent; }
-  ::-webkit-scrollbar-thumb { background: #d8d2c8; border-radius: 99px; border: 3px solid var(--bg); }
-}
+/* Page scrollbar — the exact look the main site has (10px, transparent track, light rounded pill,
+   3px theme-coloured border). It used to sit inside `@media (hover:hover)`, so phones/touch devices
+   fell back to the OS default bar; now the same styling is applied everywhere. Not `scrollbar-color`:
+   in Chromium that property overrides the ::-webkit-scrollbar rules and would change the look. */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #d8d2c8; border-radius: 99px; border: 3px solid var(--bg); }
 
 /* --- 9. Admin panel: table row hover --- */
 .tbl tbody tr { transition: background .15s ease; }
