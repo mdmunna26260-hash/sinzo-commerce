@@ -1370,6 +1370,14 @@ a, button, .pcard, .chip, .cat-pill, .size-btn { -webkit-tap-highlight-color: tr
    `clip` (not `hidden`) so the sticky header keeps working — `hidden` would turn the root
    into a scroll container and break position:sticky descendants. */
 html, body { overflow-x: clip; }
+/* The page's OWN scrollbar is hidden too — on a phone that 10px rounded bar (styled further below)
+   floats over the content edge, which is what looked like an "up-down swipe" control.
+   Scrolling itself is untouched (touch, wheel, keys, anchor jumps all still work) — only the bar
+   is not painted. `overscroll-behavior` drops the rubber-band past the top/bottom and the
+   pull-to-refresh grab that fights the tab bar. Inner scroll areas (filter sidebar, tables, the
+   horizontal strips) keep their own rules. */
+html { scrollbar-width: none; -ms-overflow-style: none; overscroll-behavior: none; }
+html::-webkit-scrollbar { width: 0; height: 0; display: none; }
 
 /* ---------- Header: hide on scroll down, reveal on scroll up ---------- */
 .header { transition: transform 220ms ease; }
