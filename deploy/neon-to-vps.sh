@@ -87,6 +87,17 @@ dumpfile()  { local f="${DUMP:-}"; [ -n "$f" ] || f="$(cat "$WORKDIR/.last-dump"
 
 cmd_precheck() {
   need_src
+  # pg_dump refuses a source newer than its own major version, so check before anything else:
+  # our compose image is postgres:16-alpine → fine for Neon PG ≤ 16; for a PG 17 branch/upgrade
+  # bump the tool image (or run the same commands from a postgres:17-alpine container).
+  say "Postgres versions (pg_dump on the SOURCE side must be >= the server's major)"
+  client_version="$(pick_runner >/dev/null 2>&1; if [ "$RUNNER_RESOLVED" = "container" ]; then docker compose exec -T "$DB_SERVICE" pg_dump --version 2>/dev/null; else pg_dump --version 2>/dev/null; fi | head -1)"
+  say "pg_dump in use: ${client_version:-unknown}"
+  sql "$SRC_URL" "SELECT '  source (Neon) server: '||current_setting('server_version')||'  (needs a client of this major or newer)';" 2>/dev/null \
+    || warn "could not read the source version — is SRC_URL the direct (non-pooled) endpoint?"
+  if [ -n "$DST_URL" ]; then
+    sql "$DST_URL" "SELECT '  target (VPS)   server: '||current_setting('server_version');" 2>/dev/null || true
+  fi
   say "SOURCE (Neon) — total size and what dominates it (Media stores image BYTES in the DB)"
   sql "$SRC_URL" "SELECT 'database   : '||pg_size_pretty(pg_database_size(current_database()))
                   UNION ALL SELECT 'image rows : '||count(*)||' rows, '||pg_size_pretty(coalesce(sum(octet_length(data)),0))||' stored in \"Media\".data' FROM \"Media\"

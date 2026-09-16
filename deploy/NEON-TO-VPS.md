@@ -73,8 +73,14 @@ export CATCHUP_TABLES='Order OrderItem Product ProductVariant Customer Coupon Re
 ./deploy/neon-to-vps.sh verify                    # must end with "verify clean"
 ```
 
-`RUNNER=container` still reaches the DB through `127.0.0.1` **inside** the container; if you would rather
-use the host, add a temporary `ports: ["127.0.0.1:5432:5432"]` to the `db` service and `export RUNNER=host`.
+`RUNNER=container` still reaches the DB through `127.0.0.1` **inside** the container — and you need it,
+because `deploy/docker-compose.vps.yml` publishes no port for `db` (verified: the `db` service has only
+`image: postgres:16-alpine`, no `ports:`), so nothing listens on the host's 5432. If you prefer the host,
+add a temporary `ports: ["127.0.0.1:5432:5432"]` to the `db` service and `export RUNNER=host`.
+
+**Version floor:** `pg_dump` aborts when the source server is a newer major than the client. The compose
+image is `postgres:16-alpine` — enough for Neon on PG ≤ 16. `precheck` prints both versions; if your Neon
+branch is 17, run the same commands from a `postgres:17-alpine` container (or bump the service image).
 
 ### Cutover (the only window that needs the app down)
 
