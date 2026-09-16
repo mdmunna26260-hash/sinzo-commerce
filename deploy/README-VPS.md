@@ -29,3 +29,23 @@ bash deploy/setup-swap.sh      # 2GB swap → traffic spikes won't crash the box
 
 ## Rollback
 Dokploy → Deployments → previous version → Redeploy (or image rollback).
+
+## Database: Neon → VPS (self-hosted Postgres)
+
+The compose stack above already runs `postgres:16-alpine` as the `db` service, so the data can live on the
+box instead of Neon. Do not "just change the URL" — the sequence fix, the FK-closure reload and the
+verify-before-cutover steps are the difference between a migration and a corrupted shop.
+
+- Runbook (decisions, commands, rollback, what breaks afterwards): **[`NEON-TO-VPS.md`](./NEON-TO-VPS.md)**
+- Tool: `deploy/neon-to-vps.sh` — `precheck | plan | dump | restore | catchup | sequences | verify | all`
+- Post-copy integrity check (also good as a Monday-morning check): `npm run db:verify`
+
+One-line shape of it, so the order of operations is obvious:
+
+```bash
+docker compose up -d db
+docker compose exec -T db psql -U sinzo -d postgres -c 'CREATE DATABASE sinzo_live OWNER sinzo;'
+SRC_URL='<neon direct url>' DST_URL='postgresql://sinzo:<pw>@127.0.0.1:5432/sinzo_live' \
+  RUNNER=container ./deploy/neon-to-vps.sh all
+# store live until here → then: stop app → catchup → verify → flip DATABASE_URL in Dokploy → start
+```

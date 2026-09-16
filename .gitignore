@@ -28,3 +28,4 @@ public/uploads/*
 *.log
 .DS_Store
 *.tsbuildinfo
+backup/
