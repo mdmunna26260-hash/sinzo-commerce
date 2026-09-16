@@ -285,6 +285,8 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
     router.push("/checkout");
   };
 
+  const mainSrc: string | undefined = (product.images[img] || product.images[0])?.url;
+
   return (
     <>
       <div className="pdp">
@@ -306,23 +308,27 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
             onTouchEnd={onMainTouchEnd}
             onTouchCancel={onMainTouchEnd}
           >
-            <img
-              src={imgSrc((product.images[img] || product.images[0])?.url, 1000) || (product.images[img] || product.images[0])?.url}
-              srcSet={imgSrcSet((product.images[img] || product.images[0])?.url, [600, 1000, 1200])}
-              sizes="(max-width: 900px) 100vw, 45vw"
-              alt={product.images[img]?.alt || product.title}
-              className={"pdp-img" + (hoverZoom ? " hz" : "")}
-              fetchPriority="high"
-              onError={(e) => { (e.currentTarget as HTMLImageElement).style.opacity = "0"; }}
-              style={hoverZoom ? { transformOrigin: "50% 50%" } : undefined}
-              onMouseEnter={() => { if (window.matchMedia("(hover: hover)").matches) setHoverZoom(true); }}
-              onMouseLeave={() => { setHoverZoom(false); }}
-              onMouseMove={(e) => {
-                // write transform-origin straight to the DOM node — no re-render on every mousemove
-                const r = e.currentTarget.getBoundingClientRect();
-                e.currentTarget.style.transformOrigin = `${((e.clientX - r.left) / r.width) * 100}% ${((e.clientY - r.top) / r.height) * 100}%`;
-              }}
-            />
+            {mainSrc ? (
+              <img
+                src={imgSrc(mainSrc, 1000) || mainSrc}
+                srcSet={imgSrcSet(mainSrc, [600, 1000, 1200])}
+                sizes="(max-width: 900px) 100vw, 45vw"
+                alt={product.images[img]?.alt || product.title}
+                className={"pdp-img" + (hoverZoom ? " hz" : "")}
+                fetchPriority="high"
+                onError={(e) => { (e.currentTarget as HTMLImageElement).style.opacity = "0"; }}
+                style={hoverZoom ? { transformOrigin: "50% 50%" } : undefined}
+                onMouseEnter={() => { if (window.matchMedia("(hover: hover)").matches) setHoverZoom(true); }}
+                onMouseLeave={() => { setHoverZoom(false); }}
+                onMouseMove={(e) => {
+                  // write transform-origin straight to the DOM node — no re-render on every mousemove
+                  const r = e.currentTarget.getBoundingClientRect();
+                  e.currentTarget.style.transformOrigin = `${((e.clientX - r.left) / r.width) * 100}% ${((e.clientY - r.top) / r.height) * 100}%`;
+                }}
+              />
+            ) : (
+              <div className="noimg noimg-desktop"><div className="noimg-in"><span className="noimg-mark" aria-hidden>S</span><span>No photo yet</span></div></div>
+            )}
             {/* zoom — top right corner */}
             <button className="gal-zoom" title="Zoom" aria-label="Zoom image"
               onClick={() => { setLbIdx(img); setLbZoom(false); setLightbox(true); }}>

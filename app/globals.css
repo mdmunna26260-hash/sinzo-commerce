@@ -170,7 +170,9 @@ h1, h2, h3, .serif { font-family: var(--font-head); font-weight: 500; letter-spa
 .st-count { font-size: 12.5px; color: var(--muted); letter-spacing: .04em; }
 .st-btn { display: inline-flex; align-items: center; gap: 7px; background: none; border: 1px solid var(--line); padding: 9px 16px; font-size: 12px; letter-spacing: .08em; border-radius: var(--radius); color: var(--text); min-height: 38px; }
 .st-btn:hover { border-color: var(--text); }
-.sort-select { border: none; background: transparent; padding: 9px 4px; font-size: 12.5px; letter-spacing: .06em; color: var(--text); min-height: 38px; cursor: pointer; }
+.sort-select { border: 1px solid var(--line); background: transparent; border-radius: var(--radius); padding: 9px 12px; font-size: 12px; letter-spacing: .08em; color: var(--text); min-height: 38px; cursor: pointer; max-width: 52%; appearance: none; -webkit-appearance: none; background-image: linear-gradient(45deg, transparent 50%, var(--text) 50%), linear-gradient(135deg, var(--text) 50%, transparent 50%); background-position: calc(100% - 14px) calc(50% + 1px), calc(100% - 9px) calc(50% + 1px); background-size: 5px 5px, 5px 5px; background-repeat: no-repeat; padding-right: 30px; }
+.sort-select:hover { border-color: var(--text); }
+.sort-select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 /* filter chips */
 .chips { display: flex; gap: 8px; flex-wrap: wrap; margin: 0 0 16px; }
@@ -670,6 +672,11 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 13.5px; }
 .crs-dots { display: flex; gap: 6px; }
 .crs-dots button { width: 6px; height: 6px; border-radius: 99px; border: none; background: #d8d2c8; padding: 0; cursor: pointer; transition: all .25s ease; }
 .crs-dots button.on { background: var(--text); width: 18px; }
+/* the dots are 6px — too small to hit reliably with a thumb. Grow only the hit area (no visual
+   change) so pagination meets the 44px guideline, and give keyboard users a visible ring. */
+.crs-dots button, .mgal-dots button { position: relative; }
+.crs-dots button::after, .mgal-dots button::after { content: ""; position: absolute; inset: -19px -8px; }
+.crs-dots button:focus-visible, .mgal-dots button:focus-visible { outline: 2px solid var(--accent); outline-offset: 10px; }
 @media (min-width: 900px) { .crs { margin: 0; } }
 
 /* ---------- filter drawer UI polish ---------- */
@@ -905,7 +912,7 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 13.5px; }
 
 /* Badges on mobile: same unified chip, slightly smaller */
 @media (max-width: 640px) {
-  .badge { font-size: 9.5px; padding: 3px 8px; }
+  .badge { font-size: 10.5px; padding: 4px 9px; }
 }
 
 /* ===== Premium Page Transitions ===== */
@@ -1038,7 +1045,7 @@ a, button, .pcard, .chip, .cat-pill, .size-btn { -webkit-tap-highlight-color: tr
   .pcard-heart { width: 40px; height: 40px; }
   .gal-zoom { width: 44px; height: 44px; }
   .crs-arrow { width: 40px; height: 40px; }
-  .st-btn { min-height: 44px; }
+  .st-btn, .sort-select { min-height: 44px; }
 }
 /* Admin on phones: tighten paddings, keep tables scrollable */
 @media (max-width: 640px) {
@@ -1434,7 +1441,7 @@ html, body { overflow-x: clip; }
   touch-action: pan-x pan-y;
   -webkit-tap-highlight-color: transparent;
 }
-.tab-label { font-size: 9.5px; line-height: 1; letter-spacing: .05em; font-weight: 500; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tab-label { font-size: 11px; line-height: 1; letter-spacing: .05em; font-weight: 500; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tabbar.compact .tab-label { display: none; }
 .tabbar.compact .tab-item { gap: 0; }
 
@@ -2376,3 +2383,23 @@ html.theme-transition *::after {
 /* Image lazy loading blur placeholder */
 .fade-img { opacity: 0; transition: opacity .3s ease; }
 .fade-img.loaded { opacity: 1; }
+
+/* ---------- 9. "No photo yet" placeholder (products created in Admin before images are uploaded) ----------
+   Before this, an image-less product rendered an empty 3:4 void on mobile and a src-less <img> on desktop.
+   Both now reuse the real image box (.mgal-viewport / .pdp-main-img) so the size is identical to a photo. */
+.noimg { position: relative; }
+.noimg-in { position: absolute; inset: 0; display: grid; place-items: center; align-content: center; gap: 12px; text-align: center;
+  color: var(--muted); font-size: 10.5px; letter-spacing: .2em; text-transform: uppercase; padding: 0 18px; }
+.noimg-mark { width: 36px; height: 36px; border: 1px solid var(--line); border-radius: 2px; background: #fff;
+  display: grid; place-items: center; font-family: var(--font-head); font-size: 18px; color: var(--text); }
+.pdp-main-img .noimg { position: absolute; inset: 0; display: grid; place-items: center; } /* the .pdp-main-img box already carries the aspect-ratio + background */
+/* ≤899px the desktop gallery is display:none, so the mobile gallery is the only child of the flex row.
+   Without a flex basis its width came from the photo's intrinsic size — an image-less product therefore
+   collapsed the whole block to 0px wide (the placeholder had nothing to fill). */
+@media (max-width: 899px) {
+  /* the container is display:flex; flex-direction:column with align-items:start there, so the item is
+     sized to its content — an image-less product has no intrinsic width and collapsed to 0px. */
+  .pdp-gallery-mobile { align-self: stretch; width: 100%; min-width: 0; }
+}
+:root[data-theme="dark"] .noimg-mark { background: #232323; color: #f3efe7; }
+@media (prefers-reduced-motion: reduce) { .noimg, .noimg * { animation: none; } }

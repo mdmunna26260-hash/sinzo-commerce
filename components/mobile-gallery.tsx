@@ -105,6 +105,21 @@ export default function MobileGallery({ images, title, active, onIndexChange }: 
     slideTo(active);
   };
 
+  // A product created in Admin before any photo is attached has images.length === 0.
+  // The track then renders an empty 3:4 hole and the PDP looks broken, so show a labelled
+  // placeholder of exactly the same height (no layout jump when the photo is uploaded later).
+  if (!N) {
+    return (
+      <div className="mgal" aria-label={`${title} — no photo yet`}>
+        {/* .mgal-viewport is the element that carries the 3:4 box + background, so reusing it keeps the
+            placeholder exactly the size of a real slide (and it stays right when a photo is added). */}
+        <div className="mgal-viewport noimg">
+          <span className="noimg-in"><span className="noimg-mark" aria-hidden>S</span><span>No photo yet</span></span>
+        </div>
+      </div>
+    );
+  }
+
   // counter animates via CSS; container has fixed aspect-ratio → no height jump
   return (
     <div className="mgal" aria-roledescription="carousel" aria-label={`${title} images`}>

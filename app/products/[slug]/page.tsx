@@ -185,7 +185,7 @@ export default async function PDP({ params, searchParams }: { params: { slug: st
       <Header storeName={cfg.store?.name || "Store"} categories={cats.map((c) => ({ name: c.name, slug: c.slug }))} />
       <div className="container">
         <div style={{ padding: "22px 0 0", fontSize: 12.5, color: "var(--muted)" }}>
-          <Link href="/">Home</Link> / <Link href="/products">Shop</Link> {(p as any).category && <>/ <Link href={"/products?category=" + (p as any).category.slug}>{(p as any).category.name}</Link></>} / <span style={{ color: "var(--text)" }}>{p.title}</span>
+          <Link href="/">Home</Link> / <Link href="/products">Shop</Link> {(p as any).category && String((p as any).category.name || "").trim().toLowerCase() !== String(p.title || "").trim().toLowerCase() && <>/ <Link href={"/products?category=" + (p as any).category.slug}>{(p as any).category.name}</Link></>} / <span style={{ color: "var(--text)" }}>{p.title}</span>
         </div>
         <ProductPageClient
           sizeChartImage={p.sizeChartImage || null}
