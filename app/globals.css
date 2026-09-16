@@ -1905,6 +1905,12 @@ h1, h2, h3 { text-wrap: balance; }
    3px theme-coloured border). It used to sit inside `@media (hover:hover)`, so phones/touch devices
    fell back to the OS default bar; now the same styling is applied everywhere. Not `scrollbar-color`:
    in Chromium that property overrides the ::-webkit-scrollbar rules and would change the look. */
+@media (hover: none), (max-width: 899px) {
+  /* Phones: no scrollbar at all — the styled bar below is a *classic* (space-taking) one, so it ate
+     ~10px of layout and left a dead light strip down the right edge next to the dark header. */
+  html { scrollbar-width: none; -ms-overflow-style: none; overscroll-behavior: none; }
+  html::-webkit-scrollbar { width: 0; height: 0; display: none; }
+}
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: #d8d2c8; border-radius: 99px; border: 3px solid var(--bg); }
