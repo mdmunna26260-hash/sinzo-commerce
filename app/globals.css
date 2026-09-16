@@ -191,7 +191,12 @@ h1, h2, h3, .serif { font-family: var(--font-head); font-weight: 500; letter-spa
 .shop-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 22px 12px; }
 
 /* ---------- filter drawer (mobile) ---------- */
-.fdrawer-bg { position: fixed; inset: 0; background: rgba(20,20,20,.4); z-index: 85; opacity: 0; pointer-events: none; transition: opacity .25s ease; }
+/* The closed drawer lives INSIDE this fixed backdrop and is translated 100% to the right —
+   without clipping, that off-screen box extends the document's scrollable area, which is what
+   made the whole page swipe sideways next to the tab bar (measured: 1304px of overshoot at
+   360px). Clipping the backdrop removes the overflow at the source and the slide-in still works,
+   because the panel travels inside this box. */
+.fdrawer-bg { position: fixed; inset: 0; background: rgba(20,20,20,.4); z-index: 85; opacity: 0; pointer-events: none; transition: opacity .25s ease; overflow: clip; }
 .fdrawer-bg.open { opacity: 1; pointer-events: auto; }
 .fdrawer { position: fixed; inset: 0; background: var(--bg); z-index: 86; display: flex; flex-direction: column; transform: translateX(100%); transition: transform .3s cubic-bezier(.32,.72,0,1); }
 .fdrawer.open { transform: none; }
@@ -763,7 +768,11 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 13.5px; }
 /* ================= DESIGN v3 — editorial premium ================= */
 
 /* announcement marquee */
-.announce { overflow: hidden; white-space: nowrap; }
+/* `contain: paint` is not decoration: the marquee track is ~4× the viewport wide and, with
+   `will-change: transform` on it, its overflow leaked past `overflow: hidden` into the document —
+   measured on /products at 390px: root overshoot 1274px → 0 with this line, 1274px without it.
+   That leak is what made the page swipe sideways under the tab bar. */
+.announce { overflow: hidden; white-space: nowrap; contain: paint; }
 .announce-track { display: inline-flex; animation: szmarquee 30s linear infinite; will-change: transform; }
 .announce-item { display: inline-flex; align-items: center; padding: 5px 0; }
 .announce-dot { font-size: 7px; margin: 0 26px; opacity: .55; font-style: normal; }
@@ -1357,6 +1366,11 @@ a, button, .pcard, .chip, .cat-pill, .size-btn { -webkit-tap-highlight-color: tr
   .pdp-main-img img { pointer-events: none; } /* drag targets the card, not the img */
 }
 
+/* ---------- No sideways page scroll, anywhere ----------
+   `clip` (not `hidden`) so the sticky header keeps working — `hidden` would turn the root
+   into a scroll container and break position:sticky descendants. */
+html, body { overflow-x: clip; }
+
 /* ---------- Header: hide on scroll down, reveal on scroll up ---------- */
 .header { transition: transform 220ms ease; }
 .header.hid { transform: translateY(-110%); }
@@ -1376,6 +1390,10 @@ a, button, .pcard, .chip, .cat-pill, .size-btn { -webkit-tap-highlight-color: tr
   width: min(370px, calc(100vw - 28px));
   padding: 2px 4px;
   border-radius: 30px;
+  /* NO horizontal swipe on the tab bar: items are flex:1 and always fit the pill.
+     overflow was the thing that let the bar scroll under the thumb on narrow phones. */
+  overflow: hidden;
+  flex-wrap: nowrap;
   background: rgba(255, 255, 255, 0.72);
   -webkit-backdrop-filter: blur(20px) saturate(1.8);
   backdrop-filter: blur(20px) saturate(1.8);
@@ -1404,15 +1422,18 @@ a, button, .pcard, .chip, .cat-pill, .size-btn { -webkit-tap-highlight-color: tr
   align-items: center;
   justify-content: center;
   gap: 3px;
-  padding: 8px 16px;
+  padding: 8px 6px;
   border-radius: 22px;
+  /* share the pill evenly instead of pushing past it */
+  flex: 1 1 0;
+  min-width: 0;
   color: rgba(0, 0, 0, 0.35);
   text-decoration: none;
   transition: background 120ms ease, color 120ms ease;
   touch-action: pan-x pan-y;
   -webkit-tap-highlight-color: transparent;
 }
-.tab-label { font-size: 9.5px; line-height: 1; letter-spacing: .05em; font-weight: 500; }
+.tab-label { font-size: 9.5px; line-height: 1; letter-spacing: .05em; font-weight: 500; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tabbar.compact .tab-label { display: none; }
 .tabbar.compact .tab-item { gap: 0; }
 
