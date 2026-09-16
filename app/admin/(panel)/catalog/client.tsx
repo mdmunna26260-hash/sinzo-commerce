@@ -11,20 +11,24 @@ export default function CatalogClient({ categories, collections, products }: any
 
   const uploadCatImg = async (file: File, catId?: number) => {
     const fd = new FormData(); fd.append("file", file);
+    setMsg("Uploading…");
     try {
       const r = await fetch("/api/admin/upload", { method: "POST", body: fd });
       const j = await r.json().catch(() => ({}));
-      if (!r.ok || !j.url) { setMsg("Upload failed" + (j.error ? " — " + j.error : " (" + r.status + ")")); return; }
+      if (!r.ok || !j.url) { setMsg("Upload failed" + (j.error ? " — " + j.error : " (" + r.status + ")")); setTimeout(() => setMsg(""), 3000); return; }
       if (catId) {
         const p = await fetch("/api/admin/categories/" + catId, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ image: j.url }) });
         const pj = await p.json().catch(() => ({}));
-        if (!p.ok) { setMsg("Image saved, but category update failed" + (pj.error ? " — " + pj.error : " (" + p.status + ")")); return; }
+        if (!p.ok) { setMsg("Image saved, but category update failed" + (pj.error ? " — " + pj.error : " (" + p.status + ")")); setTimeout(() => setMsg(""), 3000); return; }
         setMsg("Category image updated ✓"); router.refresh();
+        setTimeout(() => setMsg(""), 2500);
       } else {
         setNewCat((c) => ({ ...c, image: j.url }));
+        setMsg("Image uploaded — now press Add ✓"); setTimeout(() => setMsg(""), 2500);
       }
     } catch {
       setMsg("Upload failed — network error (try a smaller image)");
+      setTimeout(() => setMsg(""), 3000);
     }
   };
 
@@ -103,9 +107,22 @@ export default function CatalogClient({ categories, collections, products }: any
           </table>
           <div className="acard-b" style={{ borderTop: "1px solid #e4e7ec" }}>
             {editCatId && (
-              <div className="ad-note" style={{ marginBottom: 12, padding: 10, borderRadius: 6 }}>
-                <div style={{ fontSize: 12.5, fontWeight: 600, marginBottom: 8 }}>Upload image for category #{editCatId}</div>
-                <input type="file" accept="image/*" onChange={(e) => { if (e.target.files?.[0]) uploadCatImg(e.target.files[0], editCatId); }} style={{ fontSize: 13 }} />
+              <div style={{ marginBottom: 12, padding: 12, borderRadius: 8, background: "#f8f9fa", border: "1px solid #e0e0e0" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                  <div style={{ fontSize: 12.5, fontWeight: 600 }}>Upload image for "{categories.find((c) => c.id === editCatId)?.name || "#" + editCatId}"</div>
+                  <button className="abtn sm" onClick={() => setEditCatId(null)}>✕ Close</button>
+                </div>
+                <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+                  {categories.find((c) => c.id === editCatId)?.image ? (
+                    <img src={(() => { const u = categories.find((c) => c.id === editCatId)?.image || ""; return u.startsWith("/api/media") ? u + "/w80" : u; })()} alt="" style={{ width: 50, height: 50, borderRadius: 6, objectFit: "cover", border: "1px solid #ddd" }} />
+                  ) : (
+                    <div style={{ width: 50, height: 50, borderRadius: 6, background: "#eee", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20 }}>🖼</div>
+                  )}
+                  <label className="abtn primary sm" style={{ cursor: "pointer" }}>
+                    ⬆ Choose image
+                    <input type="file" accept="image/*" style={{ display: "none" }} onChange={(e) => { if (e.target.files?.[0]) uploadCatImg(e.target.files[0], editCatId); }} />
+                  </label>
+                </div>
               </div>
             )}
             <div style={{ display: "flex", gap: 8 }}>

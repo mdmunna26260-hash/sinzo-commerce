@@ -2207,3 +2207,21 @@ html.theme-transition *::after {
 
 /* screen-reader-only copy (marquee announcement etc. — visible layout untouched) */
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); clip-path: inset(50%); white-space: nowrap; border: 0; }
+
+
+/* ---------- #8 admin catalog mobile responsive ---------- */
+@media (max-width: 640px) {
+  .acard .tbl th, .acard .tbl td { padding: 8px 6px; font-size: 12px; }
+  .acard .tbl th:first-child, .acard .tbl td:first-child { position: static !important; background: transparent; }
+  /* category/collection tables: allow horizontal scroll */
+  .acard .tbl { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .acard .tbl thead { display: table-header-group; }
+  .acard .tbl tr { display: table-row; }
+  .acard .tbl td, .acard .tbl th { display: table-cell; white-space: nowrap; }
+  /* variant inputs on mobile */
+  .form-grid { grid-template-columns: 1fr !important; }
+  .af input, .af select, .af textarea { font-size: 14px; }
+  /* settings nav horizontal scroll fix */
+  .settings-nav { -webkit-overflow-scrolling: touch; scrollbar-width: thin; }
+  .settings-nav::-webkit-scrollbar { height: 3px; }
+}

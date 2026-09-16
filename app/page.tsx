@@ -43,7 +43,7 @@ function CatTile({ c, rd }: { c: any; rd?: number }) {
     : "/uploads/seed/p-" + (CAT_IMG[c.slug] || "shirt") + "-600.webp";
   return (
     <Link className="ctile reveal" href={"/products?category=" + c.slug} style={rd != null ? ({ "--rd": rd } as CSSProperties) : undefined}>
-      <img src={tileSrc} alt={c.name} loading="lazy" decoding="async" />
+      <img src={tileSrc} alt={c.name} loading="lazy" decoding="async" onError={(e) => { (e.target as HTMLImageElement).src = "/uploads/seed/p-" + (CAT_IMG[c.slug] || "shirt") + "-600.webp"; }} />
       <div className="ctile-label"><span>{c.description?.slice(0, 40) || "Collection"}</span><h3>{c.name}</h3></div>
     </Link>
   );
