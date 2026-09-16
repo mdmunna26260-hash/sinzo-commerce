@@ -38,9 +38,14 @@ export default function TrackClient() {
   const isCancelled = result?.status === "CANCELLED" || result?.status === "RETURNED";
 
   const items: any[] = result?.items || [];
-  const unit = (i: any) => (i.price ? money(i.price) + " each" : "");
-  const line = (i: any) => (i.price ? money(i.price * (i.qty || 1)) : "");
   const totalQty = items.reduce((a: number, i: any) => a + (i.qty || 1), 0);
+  const itemsSum = items.reduce((a: number, i: any) => a + (i.price ? i.price * (i.qty || 1) : 0), 0);
+  // Only print a per-line total when the item lines actually add up to the order's subtotal. Legacy /
+  // imported rows can hold a unit price that predates a later edit; showing ৳5,700 next to a ৳2,850
+  // subtotal would read as a billing error to a customer, so the line total is simply left blank.
+  const lineTotalsOK = result?.subtotal == null || Math.abs(itemsSum - Number(result.subtotal)) <= 1;
+  const unit = (i: any) => (i.price ? money(i.price) + " each" : "");
+  const line = (i: any) => (i.price && lineTotalsOK ? money(i.price * (i.qty || 1)) : "");
 
   return (
     <div className="track-wrap" style={{ maxWidth: 640, margin: "0 auto" }}>
