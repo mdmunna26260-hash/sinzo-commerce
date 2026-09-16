@@ -1061,6 +1061,13 @@ a, button, .pcard, .chip, .cat-pill, .size-btn { -webkit-tap-highlight-color: tr
 /* Categories mobile: 2 columns × 2 rows per swipe page (4 per page) */
 .cat-row-4 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 .cat-row-4 .ctile { aspect-ratio: 4 / 5; }
+/* tiles are ~190px wide inside the mobile swipe row, but the label was built for a full-width
+   desktop tile: 60/24px padding + a 24px heading ate half the card. Scale it down there only. */
+@media (max-width: 899px) {
+  .ctile-label { padding: 42px 14px 14px; }
+  .ctile-label h3 { font-size: 17px; }
+  .ctile-label span { font-size: 10px; }
+}
 @media (max-width: 360px) { .cat-row-4 { gap: 8px; } }
 
 /* ---------- Size chart: mobile = FULLSCREEN, image fits viewport exactly ---------- */
@@ -2403,3 +2410,12 @@ html.theme-transition *::after {
 }
 :root[data-theme="dark"] .noimg-mark { background: #232323; color: #f3efe7; }
 @media (prefers-reduced-motion: reduce) { .noimg, .noimg * { animation: none; } }
+
+/* ---------- 10. Hero legibility on phones (placed last on purpose: the base .hero-overlay rule and a
+   later mobile block both set the scrim, so this override has to win the cascade) ---------- */
+@media (max-width: 899px) {
+  /* the headline sits at ~35% of the hero height while the paper scrim used to reach .92 opacity only
+     at 78% → eyebrow + first line were text on a bare photo (muted #5c5852 over a beige coat).
+     Bring the plate up so the copy always lands on paper, and keep the bottom fully solid. */
+  .hero-overlay { background: linear-gradient(rgba(250, 249, 247, 0) 12%, rgba(250, 249, 247, .86) 34%, rgba(250, 249, 247, .96) 62%, var(--bg) 100%) !important; }
+}

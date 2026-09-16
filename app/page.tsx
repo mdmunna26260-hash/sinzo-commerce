@@ -186,7 +186,7 @@ async function HomeContent() {
       </section>
     ),
     promo: hp.promoTitle ? (
-      <section className="container" style={{ marginBottom: 80 }} key="promo">
+      <section className="section container" style={{ paddingTop: 0 }} key="promo">
         <div className="promo-split reveal">
           <div className="ps-img">
             {hp.promoImage && <SmartImg src={vb(hp.promoImage)} alt={hp.promoTitle} />}
@@ -218,7 +218,7 @@ async function HomeContent() {
       </section>
     ),
     testimonials: reviews.length > 0 ? (
-      <section className="section container" style={{ paddingTop: 0, paddingBottom: 90 }} key="testimonials">
+      <section className="section container" style={{ paddingTop: 0 }} key="testimonials">
         <Head no="04" eyebrow="Reviews" title="What customers say" />
         <Carousel className="mobile-only">
           <div className="grid grid-2q">{reviews.slice(0, 2).map((r, idx) => <Quote key={r.id} r={r} rd={idx % 2} />)}</div>
