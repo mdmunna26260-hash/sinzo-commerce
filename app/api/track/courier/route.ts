@@ -8,14 +8,17 @@ import { normalizeBDPhone } from "@/lib/phone";
 
 export const dynamic = "force-dynamic";
 
-/* Public tracking by courier tracking number / consignment ID / our order code.
+/* Public tracking by courier tracking number / consignment ID / our order code / phone.
  *
- * HARDENED 2026-09-15:
+ * HARDENED 2026-09-15, relaxed on the owner's request 2026-09-16:
  *  • An ORD-#### code is sequential (ORD-1001, 1002 …) so on its own it is an
- *    enumeration key. It is now only honoured together with the order's phone number
+ *    enumeration key. It is only honoured together with the order's phone number
  *    (same rule as POST /api/track/order).
- *  • A bare phone number returns STATUS ONLY — no item list, no area — because a BD
- *    mobile number is not a secret and this endpoint is public.
+ *  • A bare phone number DOES show that number's orders with their items (owner asked:
+ *    BD customers rarely keep the ORD- code, but always know their own mobile). The
+ *    trade-off is deliberate and bounded — a BD mobile number is not a secret, so this
+ *    path never returns name / address / notes / the number itself, and it is throttled
+ *    per number (6/10min) on top of the per-IP limit, so it cannot be walked at scale.
  *  • Courier-issued tracking/consignment IDs stay single-field (they are long,
  *    unguessable, and already printed on the customer's parcel).
  *  • The old code loaded the last 500 orders and JSON.parsed every row per request;
@@ -23,11 +26,20 @@ export const dynamic = "force-dynamic";
 const FULL = {
   id: true, code: true, status: true, createdAt: true, courierName: true,
   courierConsignmentId: true, courierStatus: true, courierTracking: true, area: true,
-  items: { select: { title: true, qty: true } },
+  subtotal: true, discount: true, deliveryFee: true, total: true,
+  paymentMethod: true, paymentStatus: true,
+  items: { select: { title: true, variant: true, image: true, price: true, qty: true, preorder: true, preorderDate: true } },
 } as const;
-const SLIM = { ...FULL, items: false } as const;
 
 const GENERIC_MISS = { error: "No order found for that code. Check the code (and the phone number you ordered with)." };
+
+/** Our own pipeline labels — shared by the ORD-code path and the phone path so both read the same. */
+const ORDER_LABEL: Record<string, string> = {
+  PENDING: "Order Received (Pending)", CONFIRMED: "Order Confirmed", PROCESSING: "Processing",
+  PACKED: "Packed", SHIPPED: "Shipped", DELIVERED: "Delivered", CANCELLED: "Cancelled",
+  RETURNED: "Returned", ON_HOLD: "On Hold",
+};
+const orderTone = (s: string) => (s === "DELIVERED" ? "ok" : s === "CANCELLED" || s === "RETURNED" ? "bad" : "info");
 
 async function findOrder(code: string) {
   // 1) consignment id (indexed equality)
@@ -70,17 +82,28 @@ export async function GET(req: Request) {
       }
     }
 
-    // 4) bare phone number → status only
+    // 4) bare phone number → that number's newest order, items included, + its older codes
     if (!order && /^01[3-9]\d{8}$/.test(code)) {
-      const slim = await db.order.findFirst({ where: { phone: code }, select: SLIM, orderBy: { id: "desc" } });
-      if (slim) {
-        const m = mapSteadfastStatus(slim.courierStatus);
+      if (!rateLimit("track-phone:" + code, 6, 10 * 60 * 1000)) {
+        return NextResponse.json({ error: "Too many lookups for that number. Please wait 10 minutes." }, { status: 429 });
+      }
+      const rows = await db.order.findMany({ where: { phone: code }, select: FULL, orderBy: { id: "desc" }, take: 6 });
+      if (rows.length) {
+        const o = rows[0];
+        const live = o.courierStatus ? mapSteadfastStatus(o.courierStatus) : null;
         return NextResponse.json({
-          code: slim.code, createdAt: slim.createdAt, status: slim.status, tone: ["DELIVERED"].includes(slim.status) ? "ok" : ["CANCELLED", "RETURNED"].includes(slim.status) ? "bad" : "info",
-          source: "order", items: [], private: true,
-          notice: "For item details, enter your order code (ORD-…) together with your mobile number.",
-          courierName: slim.courierName || null, consignmentId: slim.courierConsignmentId || null,
-          ...(slim.courierStatus ? { courierStatusLabel: m.label } : {}),
+          code: o.code, createdAt: o.createdAt, area: o.area,
+          items: o.items, orderStatus: o.status,
+          subtotal: o.subtotal, discount: o.discount, deliveryFee: o.deliveryFee, total: o.total,
+          paymentMethod: o.paymentMethod, paymentStatus: o.paymentStatus,
+          courierName: o.courierName || null, consignmentId: o.courierConsignmentId || null,
+          source: "order", matchedBy: "phone",
+          status: ORDER_LABEL[o.status] || o.status, tone: orderTone(o.status),
+          ...(live ? { courierStatusLabel: live.label } : {}),
+          notice: rows.length > 1
+            ? `Showing your newest order (${o.code}). ${rows.length - 1} older order(s) on this number are listed below — tap one to open it.`
+            : "Found by your mobile number.",
+          otherOrders: rows.slice(1).map((r) => ({ code: r.code, createdAt: r.createdAt, status: r.status, label: ORDER_LABEL[r.status] || r.status })),
         });
       }
     }
@@ -105,6 +128,8 @@ export async function GET(req: Request) {
     const base = {
       code: order.code, createdAt: order.createdAt, area: order.area,
       items: order.items, orderStatus: order.status,
+      subtotal: order.subtotal, discount: order.discount, deliveryFee: order.deliveryFee, total: order.total,
+      paymentMethod: order.paymentMethod, paymentStatus: order.paymentStatus,
       courierName: order.courierName || null, consignmentId: order.courierConsignmentId || null,
     };
 
@@ -125,8 +150,7 @@ export async function GET(req: Request) {
     }
 
     // not on courier yet → honest order status
-    const map: Record<string, string> = { PENDING: "Order Received (Pending)", CONFIRMED: "Order Confirmed", PROCESSING: "Processing", PACKED: "Packed", SHIPPED: "Shipped", DELIVERED: "Delivered", CANCELLED: "Cancelled", RETURNED: "Returned", ON_HOLD: "On Hold" };
-    return NextResponse.json({ ...base, source: "order", status: map[order.status] || order.status, tone: ["DELIVERED"].includes(order.status) ? "ok" : ["CANCELLED", "RETURNED"].includes(order.status) ? "bad" : "info" });
+    return NextResponse.json({ ...base, source: "order", status: ORDER_LABEL[order.status] || order.status, tone: orderTone(order.status) });
   } catch {
     return NextResponse.json({ error: "Tracking is temporarily unavailable. Please try again." }, { status: 500 });
   }

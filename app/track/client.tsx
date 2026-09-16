@@ -1,9 +1,15 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { imgSrc } from "@/components/img-src";
 
 const TONE: Record<string, string> = { ok: "var(--ok)", warn: "#9a7b1e", bad: "var(--danger)", info: "var(--text)" };
 const STEPS = ["PENDING", "CONFIRMED", "PROCESSING", "PACKED", "SHIPPED", "DELIVERED"];
+// Same BDT formatting the account panel uses, so a number never reads differently in two places.
+const money = (n: number) => "৳" + Math.round(n).toLocaleString("en-IN");
+const dayMonthYear = (d: string) => new Date(d).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+const LABEL: Record<string, string> = { COD: "Cash on Delivery", BKASH: "bKash", NAGAD: "Nagad", SSLCOMMERZ: "Card / SSLCommerz" };
+const PAY: Record<string, string> = { PENDING: "not paid yet", PAID: "paid", FAILED: "payment failed", REFUNDED: "refunded" };
 
 export default function TrackClient() {
   const sp = useSearchParams();
@@ -30,6 +36,11 @@ export default function TrackClient() {
 
   const currentIdx = result ? STEPS.indexOf(result.status) : -1;
   const isCancelled = result?.status === "CANCELLED" || result?.status === "RETURNED";
+
+  const items: any[] = result?.items || [];
+  const unit = (i: any) => (i.price ? money(i.price) + " each" : "");
+  const line = (i: any) => (i.price ? money(i.price * (i.qty || 1)) : "");
+  const totalQty = items.reduce((a: number, i: any) => a + (i.qty || 1), 0);
 
   return (
     <div className="track-wrap" style={{ maxWidth: 640, margin: "0 auto" }}>
@@ -122,15 +133,76 @@ export default function TrackClient() {
             {result.notice && <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 8 }}>{result.notice}</div>}
           </div>
 
-          {/* Items */}
+          {/* What you ordered: thumbnail + variant + per-line price, then the money breakdown.
+              The courier/order API payload (app/api/track/*) carries items[], subtotal, total. */}
           <div style={{ background: "#fff", border: "1px solid var(--line)", borderRadius: 14, padding: "18px 20px" }}>
-            <div style={{ fontSize: 11, letterSpacing: ".16em", textTransform: "uppercase", color: "var(--muted)", marginBottom: 12 }}>Items</div>
-            {result.items?.map((i: any, k: number) => (
-              <div key={k} style={{ display: "flex", justifyContent: "space-between", padding: "5px 0", fontSize: 13.5 }}>
-                <span>{i.title}</span>
-                <span style={{ color: "var(--muted)" }}>× {i.qty}</span>
+            <div style={{ fontSize: 11, letterSpacing: ".16em", textTransform: "uppercase", color: "var(--muted)", marginBottom: 12 }}>
+              What you ordered{items.length ? ` · ${totalQty} item${totalQty === 1 ? "" : "s"}` : ""}
+            </div>
+            {items.map((i: any, k: number) => (
+              <div key={k} style={{ display: "flex", alignItems: "center", gap: 10, padding: "7px 0", borderBottom: k === items.length - 1 ? "none" : "1px dashed var(--line)" }}>
+                {i.image ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={imgSrc(i.image, 300)} alt="" width={38} height={48} loading="lazy" decoding="async"
+                    style={{ width: 38, height: 48, objectFit: "cover", borderRadius: 6, border: "1px solid var(--line)", flex: "0 0 auto" }} />
+                ) : (
+                  <span aria-hidden style={{ width: 38, height: 48, borderRadius: 6, border: "1px dashed var(--line)", flex: "0 0 auto", display: "inline-block" }} />
+                )}
+                <span style={{ flex: "1 1 auto", minWidth: 0 }}>
+                  <span style={{ display: "block", fontSize: 13.5 }}>{i.title}{i.variant ? <span style={{ color: "var(--muted)" }}> · {i.variant}</span> : null}</span>
+                  <span style={{ display: "block", fontSize: 12, color: "var(--muted)", marginTop: 2 }}>
+                    Qty {i.qty}{i.price ? ` · ${unit(i)}` : ""}{i.preorder ? " · pre-order" : ""}
+                    {i.preorderDate ? ` (est. ${dayMonthYear(i.preorderDate)})` : ""}
+                  </span>
+                </span>
+                <b style={{ fontSize: 13.5, flex: "0 0 auto" }}>{line(i)}</b>
               </div>
             ))}
+            {items.length === 0 && result.source !== "steadfast" && (
+              <div style={{ fontSize: 13, color: "var(--muted)" }}>
+                Item list for this order isn&apos;t available here — use your ORD- code with the mobile number you ordered with, or WhatsApp us.
+              </div>
+            )}
+
+            {result.total != null && (
+              <div style={{ marginTop: 12, fontSize: 13 }}>
+                {result.subtotal != null && (
+                  <div style={{ display: "flex", justifyContent: "space-between", padding: "3px 0", color: "var(--muted)" }}>
+                    <span>Subtotal</span><span>{money(result.subtotal)}</span>
+                  </div>
+                )}
+                {!!result.discount && (
+                  <div style={{ display: "flex", justifyContent: "space-between", padding: "3px 0", color: "var(--ok)" }}>
+                    <span>Discount{result.couponCode ? ` (${result.couponCode})` : ""}</span><span>−{money(result.discount)}</span>
+                  </div>
+                )}
+                <div style={{ display: "flex", justifyContent: "space-between", padding: "3px 0", color: "var(--muted)" }}>
+                  <span>Delivery{result.area === "INSIDE_DHAKA" ? " (inside Dhaka)" : result.area ? " (outside Dhaka)" : ""}</span>
+                  <span>{result.deliveryFee ? money(result.deliveryFee) : "Free"}</span>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", padding: "6px 0 2px", borderTop: "2px solid var(--text)", marginTop: 6 }}>
+                  <b>Total</b><b>{money(result.total)}</b>
+                </div>
+                <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 6 }}>
+                  {LABEL[result.paymentMethod] || result.paymentMethod || "Cash on Delivery"}
+                  {result.paymentStatus ? ` · ${PAY[result.paymentStatus] || result.paymentStatus.toLowerCase()}` : ""}
+                </div>
+              </div>
+            )}
+
+            {result.otherOrders?.length > 0 && (
+              <div style={{ marginTop: 14, borderTop: "1px solid var(--line)", paddingTop: 10 }}>
+                <div style={{ fontSize: 11, letterSpacing: ".16em", textTransform: "uppercase", color: "var(--muted)", marginBottom: 8 }}>Other orders on this number</div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                  {result.otherOrders.map((o: any) => (
+                    <button key={o.code} type="button" onClick={() => { setCode(o.code); lookup(o.code); }}
+                      style={{ font: "inherit", fontSize: 12.5, padding: "6px 10px", borderRadius: 999, border: "1px solid var(--line)", background: "transparent", cursor: "pointer" }}>
+                      <b>{o.code}</b> · {dayMonthYear(o.createdAt)} · {o.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}

@@ -16,7 +16,8 @@
     "postinstall": "prisma generate",
     "test": "node scripts/smoke.js",
     "db:push:prod": "prisma db push --schema prisma/schema.prod.prisma",
-    "db:seed:prod": "prisma generate --schema prisma/schema.prod.prisma && node prisma/seed.js"
+    "db:seed:prod": "prisma generate --schema prisma/schema.prod.prisma && node prisma/seed.js",
+    "admin:passwd": "node scripts/set-admin-password.js"
   },
   "dependencies": {
     "@prisma/client": "5.22.0",

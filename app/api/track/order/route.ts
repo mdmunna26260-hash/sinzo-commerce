@@ -12,7 +12,11 @@ export async function POST(req: Request) {
     // normalize so 01676450711 / +8801676450711 / 8801676450711 all match
     const order = await db.order.findFirst({
       where: { id, phone: normalizeBDPhone(String(phone)) },
-      select: { code: true, status: true, total: true, createdAt: true, courierName: true, courierStatus: true, courierConsignmentId: true, items: { select: { title: true, qty: true } } },
+      select: {
+        code: true, status: true, createdAt: true, area: true, subtotal: true, discount: true, deliveryFee: true, total: true,
+        paymentMethod: true, paymentStatus: true, courierName: true, courierStatus: true, courierConsignmentId: true,
+        items: { select: { title: true, variant: true, image: true, price: true, qty: true, preorder: true, preorderDate: true } },
+      },
     });
     if (!order) return NextResponse.json({ error: "Order not found. Check your code and phone number." }, { status: 404 });
     return NextResponse.json({ order });

@@ -94,6 +94,10 @@ is English and generic. `app/track/client.tsx` gained the mobile-number field th
 plus honest copy — it previously promised "Tracking number, Consignment ID, Order code ba Phone
 number — jekono ekta dilei cholbe" (either one is enough), which was not true of the server.
 
+> **Update 2026-09-16 — see §11:** the owner asked to see *what was ordered* from a phone-number lookup,
+> so the phone-only path now returns items again, bounded by a per-number throttle and by never
+> returning name/address/notes. The rest of §5 (no code-only lookup, indexed queries) still stands.
+
 ## 6 · Cache headers: storefront was uncachable, everywhere
 
 `next.config.mjs` set `private, no-store, must-revalidate` on **all** HTML (the comment explains
@@ -189,6 +193,54 @@ category must show the empty state, PDP canonical, no double space in `<title>`,
 Product JSON-LD present, **`ORD-` code refused without a phone number**, working with one, oversized
 analytics payload → 413, media traversal blocked, CSP + nosniff headers sent. Run against any
 instance with `BASE_URL=… npm test`.
+
+## 11 · Tracking now lists the ordered items (and resolves a phone number)
+
+Asked for by the owner: "order track — phone number, order id use kore dekha jabe and ki item
+order korache seta o dekhha jabe."
+
+**API.** `GET /api/track/courier` previously selected `items: { title, qty }` only, so the panel
+could not show size/colour, unit price, line total, thumbnail, payment state or the money split.
+The `select` is now `title, variant, image, price, qty, preorder, preorderDate` plus
+`subtotal, discount, deliveryFee, total, paymentMethod, paymentStatus` on both the code+phone path
+and a new phone-only path. `POST /api/track/order` got the same item/money fields so the two
+endpoints cannot drift apart. The order-status label map and the tone rule were duplicated inline;
+they are now `ORDER_LABEL` / `orderTone()` at module scope, used by both paths.
+
+**Phone-only lookup** returns the newest order on that number with its items, and `otherOrders`
+(the up-to-5 older codes with date + status) so the customer can tap into an older parcel. It is
+throttled per number (6 lookups / 10 min) on top of the per-IP 15/min, and the row it builds never
+includes `name`, `address`, `notes` or the phone itself. Measured: 7th lookup for the same number →
+`429 Too many lookups for that number.`
+
+**UI.** `app/track/client.tsx`: item rows (38×48 thumb through `imgSrc()` so the mobile variant is
+used, title · variant, `Qty n · ৳x each`, right-aligned line total, pre-order date when set), a
+totals block (subtotal / discount / delivery with inside-vs-outside Dhaka wording / bold total) and
+a payment line mapped through `LABEL`/`PAY` ("Cash on Delivery · not paid yet"), plus the
+`otherOrders` chips. Money uses the same `৳` + `en-IN` grouping as the account panel so a figure
+never reads differently in two places. Field copy and placeholder now say a bare mobile number is
+enough, because it is.
+
+Verified against the running dev server with real rows in `prisma/dev.db`:
+`ORD-1008+01812345678`, `01812345678` (6 orders → newest + 5 `otherOrders`), `01712345678`
+(single delivered order, `paymentStatus: PAID`), wrong phone for `ORD-1008` → generic miss, no
+phone → `{needPhone:true}`, `tsc --noEmit` clean, `/track` 200 and the compiled client chunk
+contains the new markup. `next lint` is not usable here — the repo has no ESLint config, so
+running it drops into an interactive setup prompt.
+
+## 11b · `scripts/set-admin-password.js` (new) — because the seed cannot rotate a password
+
+`prisma/seed.js` upserts the admin with `update: {}`, so re-seeding leaves an existing password
+untouched — the standard way an owner ends up locked out of `/admin` after a redeploy. New script
+`node scripts/set-admin-password.js '<pass>'` (also `npm run admin:passwd -- '<pass>'`) hashes with
+bcrypt(10) exactly as the login route expects, refuses anything under 10 chars, creates the row if
+it is missing, echoes no password, and re-`compare()`s the stored hash to prove login will work.
+It reads `.env.local`/`.env` when `DATABASE_URL` is absent from the shell. It matches users the same
+way `/api/admin/login` does — exact email, then a case-insensitive pass over active admins — because
+the first version of this script used `findUnique` on a lower-cased email, missed the row stored as
+`Sinzo.bd@gmail.com`, and quietly created a **second** SUPER_ADMIN instead of updating the first.
+That fallback and a cleanup of the stray row are in. End-to-end: old pass 200 → set new → new 200 /
+old 401 → restore → 200.
 
 ## NOT changed — deliberately
 
