@@ -10,6 +10,7 @@ import { imgSrc } from "@/components/img-src";
 import { CartProvider } from "@/components/store";
 import Carousel from "@/components/home/carousel";
 import SmartImg from "@/components/smart-img";
+import SafeSection from "@/components/safe-section";
 
 // ISR: Cache page for 60s, then revalidate in background
 // First visitor after expiry: gets cached page (fast), fresh page renders in background
@@ -38,12 +39,17 @@ function Head({ no, eyebrow, title, href }: { no: string; eyebrow: string; title
 }
 
 function CatTile({ c, rd }: { c: any; rd?: number }) {
+  const seed = "/uploads/seed/p-" + (CAT_IMG[c.slug] || "shirt") + "-600.webp";
   const tileSrc = c.image
     ? (c.image.includes("/uploads/seed/") ? c.image.replace(/\.jpg$/, "-600.webp") : (c.image.match(/^\/api\/media\/([a-z0-9]+)$/i) ? c.image + "/w600" : c.image))
-    : "/uploads/seed/p-" + (CAT_IMG[c.slug] || "shirt") + "-600.webp";
+    : seed;
   return (
     <Link className="ctile reveal" href={"/products?category=" + c.slug} style={rd != null ? ({ "--rd": rd } as CSSProperties) : undefined}>
-      <img src={tileSrc} alt={c.name} loading="lazy" decoding="async" onError={(e) => { (e.target as HTMLImageElement).src = "/uploads/seed/p-" + (CAT_IMG[c.slug] || "shirt") + "-600.webp"; }} />
+      {/* SmartImg owns the broken-image fallback. An inline onError={(e) => …} here used to sit on this
+          <img>; this tile is passed into <Carousel> (a client component), and React refuses function props
+          across that boundary — it threw while serializing the payload, so the server HTML looked fine
+          (curl/SEO saw the page) and every browser replaced it with the OOPS card after hydration. */}
+      <SmartImg src={tileSrc} alt={c.name} fallback={seed} />
       <div className="ctile-label"><span>{c.description?.slice(0, 40) || "Collection"}</span><h3>{c.name}</h3></div>
     </Link>
   );
@@ -55,7 +61,7 @@ function Quote({ r, rd }: { r: any; rd?: number }) {
       <span className="q-mark" aria-hidden>“</span>
       <span className="stars">{"★".repeat(r.rating)}{"☆".repeat(5 - r.rating)}</span>
       <p>{r.text}</p>
-      <div className="who">{r.name} — {r.product.title.slice(0, 24)}…</div>
+      <div className="who">{r.name || "Customer"} — {(r.product?.title || "SINZO").slice(0, 24)}…</div>
     </div>
   );
 }
@@ -233,7 +239,7 @@ async function HomeContent() {
       <Header storeName={cfg.store?.name || "Store"} categories={cats.map((c) => ({ name: c.name, slug: c.slug }))} />
 
       {sectionCfg.filter((x) => x.enabled).map((x) => (
-        <Fragment key={x.id}>{sections[x.id] || null}</Fragment>
+        <Fragment key={x.id}>{sections[x.id] ? <SafeSection id={x.id}>{sections[x.id]}</SafeSection> : null}</Fragment>
       ))}
 
       <Footer cfg={{ ...cfg, _nav: { categories: cats.map((c) => ({ name: c.name, slug: c.slug })) } }} />
