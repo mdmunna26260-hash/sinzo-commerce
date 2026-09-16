@@ -2225,3 +2225,124 @@ html.theme-transition *::after {
   .settings-nav { -webkit-overflow-scrolling: touch; scrollbar-width: thin; }
   .settings-nav::-webkit-scrollbar { height: 3px; }
 }
+
+/* ================================================================
+   RESPONSIVE POLISH — mobile + tablet + desktop fine-tuning
+   ================================================================ */
+
+/* Storefront search results — mobile grid */
+.search-results { display: grid; grid-template-columns: 1fr; gap: 10px; }
+@media (min-width: 640px) { .search-results { grid-template-columns: 1fr 1fr; } }
+.search-results a { display: flex; gap: 12px; align-items: center; padding: 10px; border-radius: 8px; text-decoration: none; color: var(--text); }
+.search-results a:hover { background: var(--bg); }
+.search-results img { width: 48px; height: 60px; object-fit: cover; border-radius: 6px; flex-shrink: 0; }
+.search-results .st { font-size: 13.5px; font-weight: 500; }
+.search-results .sp { font-size: 12.5px; color: var(--muted); }
+
+/* iOS: prevent auto-zoom on input focus (16px minimum on mobile) */
+@media (max-width: 768px) {
+  input[type="text"], input[type="email"], input[type="tel"],
+  input[type="number"], input[type="search"], input[type="url"],
+  input[type="password"], input[type="datetime-local"], textarea, select {
+    font-size: 16px !important;
+  }
+}
+
+/* Touch targets: minimum 44px for buttons/links on mobile */
+@media (max-width: 768px) {
+  .btn, .abtn { min-height: 44px; display: inline-flex; align-items: center; justify-content: center; }
+  .size-btn { min-height: 44px; min-width: 44px; }
+  .color-dot { width: 36px; height: 36px; }
+  .qty button { width: 40px; height: 40px; font-size: 18px; }
+  .cat-pill { padding: 10px 20px; min-height: 40px; display: inline-flex; align-items: center; }
+  .chip { padding: 8px 14px; min-height: 38px; }
+  .tab-item { min-height: 52px; }
+  .icon-btn { min-width: 40px; min-height: 40px; }
+}
+
+/* Review photo thumbnails — mobile sizing */
+@media (max-width: 640px) {
+  .review img { width: 68px !important; height: 68px !important; }
+}
+
+/* Review form mobile */
+@media (max-width: 640px) {
+  .review-form { max-width: 100%; }
+  .review-form input, .review-form textarea { font-size: 16px; }
+}
+
+/* Color family swatches on very small screens */
+@media (max-width: 380px) {
+  .color-swatch { width: 36px !important; height: 36px !important; }
+  .color-family-row { gap: 8px !important; }
+}
+
+/* Checkout summary mobile spacing */
+@media (max-width: 640px) {
+  .checkout-layout { gap: 16px; }
+  .summary .sum-row { font-size: 14px; padding: 6px 0; }
+  .summary .total { font-size: 16px !important; }
+  .coupon-row { flex-direction: row; gap: 8px; }
+  .coupon-row input { flex: 1; min-width: 0; }
+}
+
+/* Account page form on mobile */
+@media (max-width: 640px) {
+  .form-grid { grid-template-columns: 1fr !important; gap: 12px; }
+  .acard { padding: 16px 14px !important; }
+  .af input, .af select, .af textarea { width: 100%; box-sizing: border-box; }
+}
+
+/* PDP actions mobile — full-width buttons stacked */
+@media (max-width: 480px) {
+  .pdp-actions { flex-direction: column; gap: 8px; }
+  .pdp-actions .btn { width: 100%; min-height: 48px; font-size: 15px; }
+  .pdp-actions .btn-outline { width: 44px; min-width: 44px; align-self: center; }
+}
+
+/* Footer mobile polish */
+@media (max-width: 640px) {
+  .footer { padding: 32px 0 24px; }
+  .footer-grid { gap: 24px; }
+  .footer h4 { font-size: 11px; margin-bottom: 10px; }
+  .footer a { font-size: 13px; padding: 3px 0; }
+}
+
+/* Hero mobile text sizing */
+@media (max-width: 480px) {
+  .hero-content h1 { font-size: 30px; line-height: 1.1; }
+  .hero-content p { font-size: 14px; }
+  .hero-content .btn { min-height: 48px; width: 100%; max-width: 280px; }
+}
+
+/* Product card image mobile aspect ratio */
+@media (max-width: 480px) {
+  .pcard-img { aspect-ratio: 3/4; }
+  .pcard-title { font-size: 13.5px; line-height: 1.3; }
+  .pcard .price { font-size: 13px; }
+  .pcard .price b { font-size: 14px; }
+}
+
+/* Mobile nav links touch targets */
+.mobile-nav a { min-height: 44px; display: flex; align-items: center; }
+
+/* Track page mobile */
+@media (max-width: 640px) {
+  .track-layout { grid-template-columns: 1fr; }
+  .tl-step { padding: 8px 0; }
+}
+
+/* Wishlist grid mobile */
+@media (max-width: 480px) {
+  .grid-4 { grid-template-columns: repeat(2, 1fr) !important; gap: 12px 8px; }
+}
+
+/* Login/register mobile */
+@media (max-width: 480px) {
+  .login-card { padding: 20px 16px !important; }
+  .login-card input { font-size: 16px !important; }
+}
+
+/* Image lazy loading blur placeholder */
+.fade-img { opacity: 0; transition: opacity .3s ease; }
+.fade-img.loaded { opacity: 1; }
