@@ -2,8 +2,8 @@
 
 Short version: **dump Neon → restore into a *fresh empty database on the VPS Postgres* → verify → flip
 `DATABASE_URL` → keep Neon paused as the rollback.** The tool for all of it is
-[`neon-to-vps.sh`](./neon-to-vps.sh); this file is the part the script cannot do for you (cloud
-consoles, DNS, webhooks) plus the traps.
+[`neon-to-vps.sh`](./neon-to-vps.sh) and the cutover helper [`switch-db.sh`](./switch-db.sh); this file is
+the part no script can do for you (cloud consoles, DNS, webhooks) plus the traps.
 
 ---
 
@@ -18,6 +18,27 @@ consoles, DNS, webhooks) plus the traps.
 | A generated `POSTGRES_PASSWORD` (not a reused one) | the VPS `db` service auth |
 
 Nothing in `neon-to-vps.sh` ever writes to `SRC_URL`. Neon stays exactly as it was — that *is* the rollback.
+
+### "DB URL" means the connection string, not the API URL
+This is **not** a connection string and cannot be used by `pg_dump`/Prisma:
+```
+https://ep-xxxx.apirest.<region>.aws.neon.tech/neondb/rest/v1     ← PostgREST: row API, needs a JWT
+```
+What you need is:
+```
+postgresql://<user>:<password>@ep-xxxx.<region>.aws.neon.tech/neondb?sslmode=require      ← direct
+postgresql://<user>:<password>@ep-xxxx-pooler.<region>.aws.neon.tech/neondb?sslmode=require  ← pooled (works for the app, use direct for the dump)
+```
+Neon Console → your project → **Connection Details** → toggle *Pooled* **off** → copy. `switch-db.sh`
+refuses anything that is not `postgresql://…` on purpose, so a paste of the `/rest/v1` URL fails loudly
+instead of bricking the app at 3am.
+
+**If you genuinely cannot get the connection string** (project deleted credentials, no console access):
+the only other route is to copy rows over the REST API — `GET /rest/v1/<table>?select=*&order=id&offset=…&limit=1000`
+with the `service_role` JWT, then `POST` them into the VPS table and run `sequences`. It works for this
+schema (24 tables, all with an integer `id` except `Media`, which is cuid) but it is slower and it needs
+the service key, which you should rotate anyway. Say the word and I will write it as
+`deploy/rest-to-postgres.js`.
 
 ## 1. What is actually in there (read from this repo, not guessed)
 
@@ -89,12 +110,19 @@ docker compose -f deploy/docker-compose.vps.yml stop app          # or Dokploy �
 ./deploy/neon-to-vps.sh catchup      # orders that arrived during the restore; also fixes sequences
 ./deploy/neon-to-vps.sh verify       # clean again
 ```
-Then in Dokploy → your service → Environment:
+Then flip the connection string — either in Dokploy → your service → Environment
 ```
 DATABASE_URL = postgresql://sinzo:THE_POSTGRES_PASSWORD@db:5432/sinzo_live
 DEPLOY_CHANNEL = vps
 ```
-Restart the service (`DATABASE_URL` is server-side, so a restart is enough — no rebuild needed) and:
+or, if the env lives in a `.env` next to the compose file, with the helper that backs the file up,
+restarts, health-gates and **rolls itself back** if `/api/health` never answers 200:
+```bash
+./deploy/switch-db.sh --env-file .env \
+  --url 'postgresql://sinzo:THE_POSTGRES_PASSWORD@db:5432/sinzo_live'
+./deploy/switch-db.sh --env-file .env --rollback        # undo, any time
+```
+(`DATABASE_URL` is server-side, so a restart is enough — no rebuild.) Then:
 ```bash
 docker compose -f deploy/docker-compose.vps.yml up -d app
 ./deploy/neon-to-vps.sh verify    # optional: same numbers, now against the live target
