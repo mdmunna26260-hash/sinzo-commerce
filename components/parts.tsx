@@ -71,7 +71,9 @@ export function ProductCard({ p, wish, rd }: { p: CardProduct; wish?: boolean; r
         )}
         <div className="price">
           <b>৳{p.price.toLocaleString("en-IN")}</b>
-          {p.comparePrice && p.comparePrice > p.price && (<><s>৳{p.comparePrice.toLocaleString("en-IN")}</s><span className="off">Save ৳{(p.comparePrice - p.price).toLocaleString("en-IN")}</span></>)}
+          {/* discount badge ("Save ৳X") removed per request — the struck compare price stays so the
+              saving is still readable without a promo-y label on every card */}
+          {p.comparePrice && p.comparePrice > p.price && <s>৳{p.comparePrice.toLocaleString("en-IN")}</s>}
         </div>
       </div>
     </Link>
