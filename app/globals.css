@@ -2564,3 +2564,65 @@ html.theme-transition *::after {
 @media (prefers-reduced-motion: reduce) {
   .qadd, .qadd-pop { transition: none; animation: none; }
 }
+
+/* ============================================================
+   14. TRACK ORDER — one lookup field + the courier's live trail
+   components live in app/track/client.tsx; the status payload comes from
+   /api/track/courier (see lib/steadfast.ts readLiveStatus).
+   Appended at EOF on purpose: mid-file rules here lose to later .pdp-actions /
+   .qty / responsive blocks, and `!important` is not how this file resolves that.
+   ============================================================ */
+.trk-form { display: grid; gap: 10px; }
+.trk-input {
+  font-size: 16px; min-height: 52px; padding: 0 16px; width: 100%;
+  border: 1px solid var(--line); border-radius: 10px;
+  background: var(--card, #fff); color: var(--text); letter-spacing: .04em;
+}
+.trk-input::placeholder { color: var(--muted); letter-spacing: .02em; }
+.trk-input:focus-visible { outline: 2px solid var(--text); outline-offset: 1px; border-color: var(--text); }
+.trk-go { width: 100%; margin-top: 4px; min-height: 50px; border-radius: 10px; }
+.trk-phone { display: grid; gap: 7px; padding: 12px 12px 10px; border: 1px dashed var(--line); border-radius: 12px; animation: trkReveal .18s ease-out both; }
+.trk-phone > label { font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+.trk-hint { font-size: 11.5px; color: var(--muted); line-height: 1.45; }
+
+.trk-live {
+  background: var(--card, #fff); border: 1px solid var(--line); border-radius: 14px;
+  padding: 16px 18px 18px; margin-bottom: 18px;
+}
+.trk-live-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.trk-live-flag { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.trk-dot { flex: none; width: 8px; height: 8px; border-radius: 99px; background: var(--ok); animation: trkPulse 2.2s ease-in-out infinite; }
+.trk-dot-stale { background: var(--muted); animation: none; }
+.trk-live-meta { font-size: 10.5px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+.trk-refresh {
+  margin-left: auto; font: inherit; font-size: 12px; line-height: 1; padding: 7px 13px;
+  border-radius: 99px; border: 1px solid var(--line); background: transparent; color: var(--text); cursor: pointer;
+}
+.trk-refresh:hover { background: rgba(20, 20, 20, .06); }
+.trk-refresh:disabled { opacity: .55; cursor: default; }
+.trk-status { margin: 11px 0 3px; font-size: 19px; font-weight: 600; line-height: 1.25; }
+.trk-timeline { list-style: none; margin: 15px 0 0; padding: 0 0 0 19px; border-left: 2px solid var(--line); }
+.trk-timeline li { position: relative; padding-bottom: 14px; }
+.trk-timeline li:last-child { padding-bottom: 0; }
+.trk-timeline li::before {
+  content: ""; position: absolute; left: -26px; top: 4px; width: 10px; height: 10px;
+  border-radius: 99px; background: var(--card, #fff); border: 2px solid var(--line);
+}
+.trk-timeline li.now::before { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(154, 123, 79, .16); }
+.trk-ev-label { font-size: 13.5px; font-weight: 600; }
+.trk-ev-meta { font-size: 12px; color: var(--muted); margin-top: 2px; }
+.trk-refs { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); font-size: 11.5px; color: var(--muted); }
+.trk-refs b { color: var(--text); font-weight: 600; letter-spacing: .02em; }
+.trk-note { margin-top: 10px; font-size: 12px; color: var(--muted); }
+@keyframes trkReveal { from { opacity: 0; transform: translateY(-4px); } }
+@keyframes trkPulse { 50% { opacity: .3; } }
+
+:root[data-theme="dark"] .trk-input { background: #24242a; border-color: #3a3a3a; color: #f3f0ea; }
+:root[data-theme="dark"] .trk-live { background: #1c1c20; border-color: #34343a; }
+:root[data-theme="dark"] .trk-refresh:hover { background: rgba(243, 240, 234, .1); }
+:root[data-theme="dark"] .trk-timeline li::before { background: #1c1c20; }
+
+@media (prefers-reduced-motion: reduce) {
+  .trk-phone, .trk-dot { animation: none; }
+  .trk-input, .trk-refresh { transition: none; }
+}

@@ -31,7 +31,7 @@ export async function createConsignment(order: any): Promise<{ ok: boolean; conf
   };
   try {
     const res = await fetch(cfg.apiUrl + "/create_order", {
-      method: "POST", headers: authHeaders(cfg), body: JSON.stringify(body), signal: AbortSignal.timeout(30000),
+      method: "POST", headers: authHeaders(cfg), body: JSON.stringify(body), signal: AbortSignal.timeout(30000), cache: "no-store",
     });
     const json: any = await res.json().catch(() => ({}));
     if (!res.ok || json.status >= 400) return { ok: false, configured: true, error: json.message || `HTTP ${res.status}` };
@@ -51,7 +51,7 @@ export async function checkStatusByTracking(trackingCode: string): Promise<{ ok:
   if (!cfg.configured) return { ok: false, configured: false, error: "Not Configured" };
   try {
     const res = await fetch(`${cfg.apiUrl}/status_by_trackingcode/${encodeURIComponent(trackingCode)}`, {
-      headers: authHeaders(cfg), signal: AbortSignal.timeout(20000),
+      headers: authHeaders(cfg), signal: AbortSignal.timeout(20000), cache: "no-store",
     });
     const json: any = await res.json().catch(() => ({}));
     if (!res.ok) return { ok: false, configured: true, error: json.message || `HTTP ${res.status}` };
@@ -64,7 +64,7 @@ export async function checkStatusByConsignment(consignmentId: string): Promise<{
   if (!cfg.configured) return { ok: false, configured: false, error: "Not Configured" };
   try {
     const res = await fetch(`${cfg.apiUrl}/status_by_cid/${encodeURIComponent(consignmentId)}`, {
-      headers: authHeaders(cfg), signal: AbortSignal.timeout(20000),
+      headers: authHeaders(cfg), signal: AbortSignal.timeout(20000), cache: "no-store",
     });
     const json: any = await res.json().catch(() => ({}));
     if (!res.ok) return { ok: false, configured: true, error: json.message || `HTTP ${res.status}` };
@@ -76,7 +76,7 @@ export async function checkBalance(): Promise<{ ok: boolean; configured: boolean
   const cfg = await steadfastCfg();
   if (!cfg.configured) return { ok: false, configured: false, error: "Not Configured" };
   try {
-    const res = await fetch(cfg.apiUrl + "/get_balance", { headers: authHeaders(cfg), signal: AbortSignal.timeout(20000) });
+    const res = await fetch(cfg.apiUrl + "/get_balance", { headers: authHeaders(cfg), signal: AbortSignal.timeout(20000), cache: "no-store" });
     const json: any = await res.json().catch(() => ({}));
     if (!res.ok || json.status >= 400) return { ok: false, configured: true, error: json.message || `HTTP ${res.status}`, data: json };
     return { ok: true, configured: true, data: json }; // { status:200, current_balance }
@@ -104,7 +104,9 @@ export function mapSteadfastStatus(raw?: string | null): { label: string; tone: 
   if (s.endsWith("approval_pending")) return { label: "Processing (Approval Pending)", tone: "info" };
   if (s === "picked_up" || s === "in_transit") return { label: s === "picked_up" ? "Picked Up" : "In Transit", tone: "info" };
   if (s === "unknown") return { label: "Status Unknown — Contact Support", tone: "warn" };
-  return { label: raw ? raw.replace(/_/g, " ") : "Unknown", tone: "info" };
+  if (!raw) return { label: "Unknown", tone: "info" };
+  const words = raw.replace(/[_-]+/g, " ").trim();
+  return { label: words.charAt(0).toUpperCase() + words.slice(1), tone: "info" };
 }
 
 /* ============ FREE Steadfast fraud check (merchant web feature) ============
@@ -137,7 +139,7 @@ function mergeCookies(...sets: string[]): string {
 }
 
 async function stfLogin(email: string, password: string): Promise<string> {
-  const r0 = await fetch("https://steadfast.com.bd/login", { redirect: "manual", signal: AbortSignal.timeout(20000) });
+  const r0 = await fetch("https://steadfast.com.bd/login", { redirect: "manual", signal: AbortSignal.timeout(20000), cache: "no-store" });
   const html = await r0.text();
   const token = /name="_token"\s+value="(.*?)"/.exec(html)?.[1] || /name="_token" value="(.*?)"/.exec(html)?.[1];
   if (!token) throw new Error("Steadfast login page changed (no CSRF token)");
@@ -202,4 +204,114 @@ export async function steadfastFreeFraudCheck(phone: string): Promise<FreeFraudR
     }
     return { configured: true, ok: false, provider: "Steadfast (free)", error: String(e?.message || e) };
   }
+}
+
+/* ============ live status, normalized for the storefront ============
+   The courier payload is not stable across API versions: the status can sit at the top
+   level or under `data`/`result`, and the event list may be called tracking_history,
+   events or status_history with date/time/created_at. So we look the same three things
+   up in every place they might be, and read ONLY customer-safe fields — the raw response
+   also carries the recipient's name, phone and address, and none of that may leave a
+   public tracking endpoint. */
+export type LiveEvent = { label: string; at: string | null; location: string | null };
+export type LiveStatus = {
+  raw: string | null;
+  label: string;
+  tone: "ok" | "warn" | "bad" | "info";
+  events: LiveEvent[];
+  courier: string | null;
+  consignmentId: string | null;
+  trackingCode: string | null;
+  updatedAt: string | null;
+};
+
+const HISTORY_KEYS = ["tracking_history", "history", "events", "status_history", "trackings", "timeline", "status_list"];
+const isObj = (v: any) => !!v && typeof v === "object" && !Array.isArray(v);
+
+function firstString(objs: any[], keys: string[]): string | null {
+  for (const o of objs) {
+    if (!o) continue;
+    for (const k of keys) {
+      const v = o[k];
+      if (typeof v === "string" && v.trim()) return v.trim();
+      // ids are often numeric; keep them as text so the UI can print them verbatim
+      if (typeof v === "number" && Number.isFinite(v)) return String(v);
+    }
+  }
+  return null;
+}
+
+/** "2026-09-15 11:20:00" parses in Chrome but not Safari — normalise the space before Date(). */
+export function parseCourierDate(s?: string | null): Date | null {
+  if (!s) return null;
+  const raw = String(s).trim();
+  if (!raw) return null;
+  const isoish = /\d{4}-\d{2}-\d{2}[ T]\d{2}:/.test(raw) && !/Z|[+-]\d{2}:?\d{2}$/.test(raw) ? raw.replace(" ", "T") : raw;
+  const d = new Date(/^\d+$/.test(isoish) ? Number(isoish) * (isoish.length <= 10 ? 1000 : 1) : isoish);
+  return isNaN(d.getTime()) ? null : d;
+}
+
+export function readLiveStatus(json: any): LiveStatus | null {
+  if (!isObj(json)) return null;
+  const objs = [json, isObj(json.data) ? json.data : null, isObj(json.result) ? json.result : null, isObj(json.consignment) ? json.consignment : null].filter(Boolean) as any[];
+  // `status` on these payloads is usually the HTTP code (200), so it is deliberately not a status key.
+  const raw = firstString(objs, ["delivery_status", "current_status", "courier_status", "order_status", "consignment_status"]);
+  let rows: any[] = [];
+  for (const o of objs) {
+    for (const k of HISTORY_KEYS) {
+      if (Array.isArray(o?.[k]) && o[k].length) { rows = o[k]; break; }
+    }
+    if (rows.length) break;
+  }
+
+  const events: LiveEvent[] = rows
+    .filter((e: any) => isObj(e) || typeof e === "string")
+    .map((e: any) => {
+      const one = typeof e === "string" ? { status: e } : e;
+      const v = firstString([one], ["status", "state", "delivery_status", "title", "message", "description", "note"]) || "";
+      return {
+        label: mapSteadfastStatus(v).label,
+        at: firstString([one], ["date", "time", "created_at", "updated_at", "status_date", "event_time", "at"]),
+        location: firstString([one], ["location", "area", "city", "branch", "station", "center", "from", "warehouse"]),
+        _d: parseCourierDate(firstString([one], ["date", "time", "created_at", "updated_at", "status_date", "event_time", "at"]))?.getTime() ?? null,
+      };
+    });
+  // chronological, oldest first — the UI renders a top-down trail with the newest at the end.
+  events.sort((a: any, b: any) => (a._d ?? 0) - (b._d ?? 0));
+  for (const e of events) delete (e as any)._d;
+  const trimmed = (events.length > 14 ? events.slice(-14) : events) as LiveEvent[];
+
+  if (!raw && !trimmed.length) return null;
+  const m = mapSteadfastStatus(raw);
+  const last = trimmed[trimmed.length - 1];
+  return {
+    raw: raw ?? null,
+    // if the header status is missing but a trail exists, the newest event is the truth.
+    label: raw ? m.label : last?.label || "In Transit",
+    tone: raw ? m.tone : "info",
+    events: trimmed,
+    courier: firstString(objs, ["courier_name", "courier", "service_name", "provider"]),
+    consignmentId: firstString(objs, ["consignment_id", "consignmentId", "cid"]),
+    trackingCode: firstString(objs, ["tracking_code", "trackingCode", "tracking_number", "waybill"]),
+    updatedAt: firstString(objs, ["updated_at", "status_updated_at", "last_update", "last_updated"]) || last?.at || null,
+  };
+}
+
+/* Short-lived live cache, shared by every caller that hits the courier for a status.
+   Two reasons: the customer's "refresh" button must not turn into a Steadfast hammer,
+   and the public tracking endpoint's per-IP limiter (15/min) would otherwise be burned by
+   one impatient shopper. Keyed by whichever identifier we asked about. In-process only —
+   a cold instance simply re-reads the courier, which is the correct fallback. */
+const LIVE_TTL_MS = 60_000;
+const liveCache = new Map<string, { at: number; body: any }>();
+
+export function cachedLiveBody(key: string, force = false): { body: any; at: number } | null {
+  if (force) return null;
+  const hit = liveCache.get(key);
+  return hit && Date.now() - hit.at < LIVE_TTL_MS ? { body: hit.body, at: hit.at } : null;
+}
+
+export function rememberLiveBody(key: string, body: any) {
+  if (liveCache.size > 500) liveCache.clear(); // cheap bound; keys are shopper-supplied
+  liveCache.set(key, { at: Date.now(), body });
 }

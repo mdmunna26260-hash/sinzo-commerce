@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { checkStatusByTracking, checkStatusByConsignment, mapSteadfastStatus } from "@/lib/steadfast";
+import { checkStatusByTracking, checkStatusByConsignment, mapSteadfastStatus, readLiveStatus, cachedLiveBody, rememberLiveBody } from "@/lib/steadfast";
 import { parseOrderCode } from "@/lib/slug";
 import { rateLimit } from "@/lib/auth";
 import { getClientIp } from "@/lib/ua";
@@ -64,8 +64,11 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "Too many lookups. Please wait a minute." }, { status: 429 });
   }
   const u = new URL(req.url);
-  const code = (u.searchParams.get("code") || "").trim().slice(0, 64);
+  // `q` is the single-field lookup the storefront now sends; `code` stays accepted so the
+  // admin panel and every old /track?code=… link (emails, push, account page) keep working.
+  const code = (u.searchParams.get("q") || u.searchParams.get("code") || "").trim().slice(0, 64);
   const phone = normalizeBDPhone(u.searchParams.get("phone") || "");
+  const force = u.searchParams.get("refresh") === "1";
   if (!code) return NextResponse.json({ error: "Enter your tracking number or order code." }, { status: 400 });
 
   try {
@@ -109,18 +112,29 @@ export async function GET(req: Request) {
     }
 
     if (!order) {
-      // Not ours → ask Steadfast directly (credentials stay server-side, keys never exposed)
-      const r = await checkStatusByTracking(code);
-      if (r.ok && r.data?.delivery_status !== undefined) {
-        const m = mapSteadfastStatus(r.data.delivery_status);
-        return NextResponse.json({ source: "steadfast", courierName: "Steadfast", status: m.label, tone: m.tone, courierStatusRaw: r.data.delivery_status, items: [] });
-      }
-      if (/^\d{6,}$/.test(code)) {
-        const rc = await checkStatusByConsignment(code);
-        if (rc.ok && rc.data?.delivery_status !== undefined) {
-          const m = mapSteadfastStatus(rc.data.delivery_status);
-          return NextResponse.json({ source: "steadfast", courierName: "Steadfast", status: m.label, tone: m.tone, courierStatusRaw: rc.data.delivery_status, items: [] });
-        }
+      // Not ours → ask Steadfast directly (credentials stay server-side, keys never exposed).
+      // A courier tracking number is long and unguessable, so this stays a single-field lookup,
+      // and the customer gets the full live trail rather than only the current status.
+      const cached = cachedLiveBody("tk:" + code.toLowerCase(), force);
+      if (cached) return NextResponse.json({ ...cached.body, items: [], cached: true, checkedAt: new Date(cached.at).toISOString() });
+      for (const [kind, call] of [["tracking", () => checkStatusByTracking(code)], [/^\d{6,}$/.test(code) ? "cid" : "", () => checkStatusByConsignment(code)]] as [string, () => Promise<any>][]) {
+        if (!kind) continue;
+        const r = await call();
+        // Read the courier's reply through the normalizer, not one hard-coded key: a status
+        // nested under `data` or named `current_status` used to be treated as "no answer",
+        // which silently degraded a live shipment to the stored status.
+        const live = readLiveStatus(r.data);
+        if (!r.ok || (!live?.raw && !live?.events.length)) continue;
+        const m = mapSteadfastStatus(live.raw);
+        const body = {
+          source: "steadfast", status: live.label, tone: live.tone,
+          courierName: live.courier || "Steadfast", courierStatusRaw: live.raw,
+          consignmentId: live?.consignmentId || null, live,
+          matchedBy: kind === "cid" ? "consignment" : "tracking",
+          notice: live?.events?.length ? undefined : "The courier reports a status but no event history for this shipment.",
+        };
+        rememberLiveBody("tk:" + code.toLowerCase(), body);
+        return NextResponse.json({ ...body, items: [], checkedAt: new Date().toISOString() });
       }
       return NextResponse.json(GENERIC_MISS, { status: 404 });
     }
@@ -133,20 +147,38 @@ export async function GET(req: Request) {
       courierName: order.courierName || null, consignmentId: order.courierConsignmentId || null,
     };
 
-    // on courier → live status
+    // on courier → live status (with the event trail, so "In Transit" says where and when)
     if (order.courierConsignmentId) {
+      const key = "cid:" + order.courierConsignmentId;
+      const cached = cachedLiveBody(key, force);
+      if (cached) return NextResponse.json({ ...base, ...cached.body, cached: true, checkedAt: new Date(cached.at).toISOString() });
+
       let r = await checkStatusByConsignment(order.courierConsignmentId);
-      if (!r.ok) {
-        let tc = ""; try { tc = JSON.parse(order.courierTracking || "{}").tracking_code || ""; } catch {}
-        if (tc) r = await checkStatusByTracking(tc);
+      let tc = ""; try { tc = JSON.parse(order.courierTracking || "{}").tracking_code || ""; } catch {}
+      let live = readLiveStatus(r.data);
+      if ((!r.ok || (!live?.raw && !live?.events.length)) && tc) {
+        r = await checkStatusByTracking(tc);
+        live = readLiveStatus(r.data);
       }
-      if (r.ok && r.data?.delivery_status) {
-        const m = mapSteadfastStatus(r.data.delivery_status);
-        return NextResponse.json({ ...base, source: "steadfast", courierStatusRaw: r.data.delivery_status, status: m.label, tone: m.tone });
+
+      if (r.ok && (live?.raw || live?.events.length)) {
+        const m = mapSteadfastStatus(live.raw);
+        const body = {
+          source: "steadfast", status: live.label, tone: live.tone,
+          courierStatusRaw: live.raw, live,
+          courierName: live.courier || order.courierName || "Steadfast",
+          // never echo the courier's id blindly if we already know ours — one number, one label
+          trackingCode: live.trackingCode || (tc || null),
+        };
+        rememberLiveBody(key, body);
+        return NextResponse.json({ ...base, ...body, checkedAt: new Date().toISOString() });
       }
       // API issue → fall back to last stored status honestly (no fake live claim)
       const m = mapSteadfastStatus(order.courierStatus);
-      return NextResponse.json({ ...base, source: "stored", status: m.label, tone: m.tone, notice: "Live courier status is unavailable right now — showing the last recorded status." });
+      return NextResponse.json({
+        ...base, source: "stored", status: m.label, tone: m.tone, live: null,
+        notice: "Live courier status is unavailable right now — showing the last recorded status.",
+      });
     }
 
     // not on courier yet → honest order status

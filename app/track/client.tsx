@@ -11,31 +11,65 @@ const dayMonthYear = (d: string) => new Date(d).toLocaleDateString("en-GB", { da
 const LABEL: Record<string, string> = { COD: "Cash on Delivery", BKASH: "bKash", NAGAD: "Nagad", SSLCOMMERZ: "Card / SSLCommerz" };
 const PAY: Record<string, string> = { PENDING: "not paid yet", PAID: "paid", FAILED: "payment failed", REFUNDED: "refunded" };
 
+/* Courier timestamps arrive in whatever shape the integration has this month —
+   "2026-09-15 11:20:00" parses in Chrome and fails in Safari, so normalise before Date(). */
+const cdate = (v?: string | null) => {
+  if (!v) return null;
+  const raw = String(v).trim();
+  if (!raw) return null;
+  const fixed = /\d{4}-\d{2}-\d{2}[ T]\d{2}:/.test(raw) && !/Z|[+-]\d{2}:?\d{2}$/.test(raw) ? raw.replace(" ", "T") : raw;
+  const d = new Date(/^\d+$/.test(fixed) ? Number(fixed) * (fixed.length <= 10 ? 1000 : 1) : fixed);
+  return isNaN(d.getTime()) ? null : d;
+};
+const stamp = (v?: string | null) => { const d = cdate(v); return d ? d.toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : (v || ""); };
+const ago = (v?: string | null) => {
+  const d = cdate(v); if (!d) return "";
+  const s = Math.round((Date.now() - d.getTime()) / 1000);
+  if (s < 45) return "just now";
+  if (s < 3600) return Math.round(s / 60) + " min ago";
+  if (s < 86400) return Math.round(s / 3600) + " h ago";
+  return dayMonthYear(d.toISOString());
+};
+
 export default function TrackClient() {
   const sp = useSearchParams();
+  // One field for everything: courier tracking number, consignment ID, ORD-… code or a mobile
+  // number. The endpoint works out which one it is, so the page never asks "which is it?".
   const [code, setCode] = useState(sp.get("code") || sp.get("t") || "");
-  const [phone, setPhone] = useState(() => { try { return localStorage.getItem("sz_track_phone") || ""; } catch { return ""; } });
+  // The phone is only ever needed to unlock an ORD-… code. It arrives from the account page's
+  // link, or from this browser's last lookup, and stays OUT of the URL and off the screen unless
+  // the server actually asks for it.
+  const [phone, setPhone] = useState(() => sp.get("phone") || (() => { try { return localStorage.getItem("sz_track_phone") || ""; } catch { return ""; } })());
+  const [askPhone, setAskPhone] = useState(false);
   const [result, setResult] = useState<any>(null);
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
-  const lookup = async (c: string) => {
-    if (!c.trim()) return;
-    setBusy(true); setErr(""); setResult(null);
+  const lookup = async (c: string, mode: "search" | "refresh" = "search") => {
+    const v = (c || "").trim();
+    if (!v) return;
+    if (mode === "refresh") setRefreshing(true); else { setBusy(true); setErr(""); setResult(null); }
     try {
-      const qs = new URLSearchParams({ code: c.trim() });
+      const qs = new URLSearchParams({ q: v });
       if (phone.trim()) qs.set("phone", phone.trim());
-      try { localStorage.setItem("sz_track_phone", phone.trim()); } catch {}
+      if (mode === "refresh") qs.set("refresh", "1");
       const r = await fetch("/api/track/courier?" + qs.toString());
       const j = await r.json();
-      if (r.ok) setResult(j); else setErr(j.error || "We couldn't find that order — check the code and mobile number.");
-    } catch { setErr("Network error — please try again."); }
-    setBusy(false);
+      if (r.ok) { setResult(j); setAskPhone(false); }
+      else if (j.needPhone) { setAskPhone(true); setErr(j.error || "Confirm the mobile number you ordered with."); }
+      else setErr(j.error || "We couldn't find that order — check the code and mobile number.");
+    } catch { setErr(mode === "refresh" ? "Couldn't refresh right now." : "Network error — please try again."); }
+    if (mode === "refresh") setRefreshing(false); else setBusy(false);
   };
   useEffect(() => { const c = sp.get("code") || sp.get("t"); if (c) lookup(c); /* eslint-disable-next-line */ }, []);
 
-  const currentIdx = result ? STEPS.indexOf(result.status) : -1;
-  const isCancelled = result?.status === "CANCELLED" || result?.status === "RETURNED";
+  // The endpoint sends a customer-facing LABEL in `status` ("Shipped", "Order Received
+  // (Pending)") and the raw enum in `orderStatus`. The stepper and the cancelled branch need
+  // the enum — matching STEPS against the label silently killed the progress bar for every
+  // order that is not already with the courier.
+  const currentIdx = result ? STEPS.indexOf(result.orderStatus || "") : -1;
+  const isCancelled = result?.orderStatus === "CANCELLED" || result?.orderStatus === "RETURNED";
 
   const items: any[] = result?.items || [];
   const totalQty = items.reduce((a: number, i: any) => a + (i.qty || 1), 0);
@@ -52,31 +86,83 @@ export default function TrackClient() {
       <div className="eyebrow">Order tracking</div>
       <h1 style={{ fontSize: "clamp(28px,3.4vw,38px)", margin: "8px 0 6px" }}>Where&apos;s my parcel?</h1>
       <p style={{ color: "var(--muted)", fontSize: 14, marginBottom: 22 }}>
-        Enter your courier tracking number or consignment ID. Using an <b>ORD-… order code</b>? Add the mobile number you ordered with.
+        One box, anything you have: courier tracking number, consignment ID, your <b>ORD-…</b> code — or just the mobile number you ordered with.
       </p>
-      <form onSubmit={(e) => { e.preventDefault(); lookup(code); }}>
-        <div style={{ display: "grid", gap: 12 }}>
-          <input
-            placeholder="Tracking number or ORD-XXXX"
-            value={code} onChange={(e) => setCode(e.target.value)}
-            autoCapitalize="characters" spellCheck={false} autoComplete="off"
-            style={{ fontSize: 16, minHeight: 52, padding: "0 16px", border: "1px solid var(--line)", borderRadius: 10, background: "#fff", width: "100%", letterSpacing: ".04em" }}
-          />
-          <input
-            type="tel" inputMode="numeric" placeholder="Mobile number (01XXXXXXXXX)"
-            value={phone} onChange={(e) => setPhone(e.target.value)}
-            style={{ fontSize: 16, minHeight: 52, padding: "0 16px", border: "1px solid var(--line)", borderRadius: 10, background: "#fff", width: "100%", letterSpacing: ".04em" }}
-          />
-        </div>
-        <button className="btn" style={{ width: "100%", marginTop: 14, minHeight: 50, borderRadius: 10 }} disabled={busy || !code.trim()} type="submit">
+      <form className="trk-form" onSubmit={(e) => { e.preventDefault(); lookup(code); }}>
+        <label className="sr-only" htmlFor="trk-q">Tracking number, consignment ID or order code</label>
+        <input
+          id="trk-q" className="trk-input" placeholder="Tracking number / consignment ID / ORD-1001"
+          value={code} onChange={(e) => setCode(e.target.value)}
+          autoCapitalize="characters" spellCheck={false} autoComplete="off" enterKeyHint="go"
+        />
+        {askPhone && (
+          <div className="trk-phone">
+            <label htmlFor="trk-phone">Mobile number you ordered with</label>
+            <input
+              id="trk-phone" className="trk-input" type="tel" inputMode="numeric" autoComplete="tel-national"
+              autoFocus placeholder="01XXXXXXXXX" value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              onBlur={() => {
+                try { localStorage.setItem("sz_track_phone", phone.trim()); } catch {}
+                // they just typed it — no need to press Track again
+                if (/^01[3-9]\d{8}$/.test(phone.trim()) && code.trim()) lookup(code);
+              }}
+            />
+            <span className="trk-hint">Only used to prove the code is yours. Never shown, never saved in the address bar.</span>
+          </div>
+        )}
+        <button className="btn trk-go" disabled={busy || !code.trim()} type="submit">
           {busy ? "Checking…" : "Track Order"}
         </button>
       </form>
 
-      {err && <div className="noti err" style={{ marginTop: 18 }}>{err}</div>}
+      {err && <div className="noti err" role="alert" style={{ marginTop: 18 }}>{err}</div>}
 
       {result && (
         <div style={{ marginTop: 28 }}>
+          {/* Live courier status — the answer to "where is it", straight from the courier */}
+          {(result.live || result.source === "steadfast" || result.source === "stored") && (
+            <div className="trk-live" role="status" aria-live="polite">
+              <div className="trk-live-head">
+                {/* dot and label are one flex item so a long courier name never strands the dot */}
+                <span className="trk-live-flag">
+                  <span className={"trk-dot" + (result.source === "stored" ? " trk-dot-stale" : "")} aria-hidden="true" />
+                  <span className="trk-live-meta">
+                    {result.source === "stored"
+                      ? "Last recorded status"
+                      // "cached" is our throttle, not something a shopper needs to read: the
+                      // answer is at most a minute old either way, so show when it was checked.
+                      : "Live from " + (result.courierName || "Steadfast") + " · checked " + ago(result.checkedAt)}
+                  </span>
+                </span>
+                {result.source !== "stored" && (
+                  <button type="button" className="trk-refresh" onClick={() => lookup(code, "refresh")} disabled={refreshing}>
+                    {refreshing ? "Checking…" : "Refresh"}
+                  </button>
+                )}
+              </div>
+              <div className="trk-status" style={{ color: TONE[result.tone] || TONE.info }}>{result.status}</div>
+              {!!result.live?.updatedAt && <div className="trk-ev-meta">Courier update · {stamp(result.live.updatedAt)}</div>}
+              {!!result.live?.events?.length && (
+                <ol className="trk-timeline">
+                  {result.live.events.map((ev: any, k: number) => (
+                    <li key={k} className={k === result.live.events.length - 1 ? "now" : undefined}>
+                      <div className="trk-ev-label">{ev.label}</div>
+                      <div className="trk-ev-meta">{[ev.at ? stamp(ev.at) : null, ev.location].filter(Boolean).join(" · ") || "—"}</div>
+                    </li>
+                  ))}
+                </ol>
+              )}
+              {(result.consignmentId || result.live?.trackingCode) && (
+                <div className="trk-refs">
+                  {result.consignmentId && <span>Consignment <b>{result.consignmentId}</b></span>}
+                  {result.live?.trackingCode && <span>Tracking <b>{result.live.trackingCode}</b></span>}
+                </div>
+              )}
+              {result.notice && <div className="trk-note">{result.notice}</div>}
+            </div>
+          )}
+
           {/* Status header */}
           <div style={{ background: "#fff", border: "1px solid var(--line)", borderRadius: 14, padding: "22px 20px", marginBottom: 18 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 8 }}>
@@ -128,11 +214,10 @@ export default function TrackClient() {
             ) : null}
 
             {/* Courier info */}
-            {result.courierName && (
+            {result.courierName && !(result.live || result.source === "steadfast" || result.source === "stored") && (
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 14, padding: "10px 14px", background: "#f8f7f5", borderRadius: 10, flexWrap: "wrap" }}>
                 <span style={{ fontSize: 13, fontWeight: 600 }}>{result.courierName}</span>
                 {result.consignmentId && <span style={{ fontSize: 12, color: "var(--muted)" }}>· {result.consignmentId}</span>}
-                {result.source === "steadfast" && <span style={{ marginLeft: "auto", fontSize: 10.5, color: "var(--ok)" }}>● Live</span>}
               </div>
             )}
             {result.notice && <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 8 }}>{result.notice}</div>}
