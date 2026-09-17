@@ -2,6 +2,11 @@
 # Move the SINZO database from Neon onto the self-hosted Postgres on the VPS.
 # Companion to deploy/NEON-TO-VPS.md — read that first, it has the Dokploy/DNS/webhook steps.
 #
+# ⚠ Not usable against the current source: Neon is on Postgres 18 (measured 2026-09-17) and this script's
+#   client tools come from the postgres:16-alpine `db` image, so `pg_dump` would abort on version mismatch.
+#   Use deploy/vps-migrate.sh instead — same phases, but it runs the tools in a postgres:18-alpine container
+#   on the db service's network and finds Dokploy's compose project by itself.
+#
 #   ./deploy/neon-to-vps.sh precheck     sizes + row counts on both sides; changes nothing
 #   ./deploy/neon-to-vps.sh dump         pg_dump SRC → backup/neon-<ts>.dump   (-Fc, --no-sync)
 #   ./deploy/neon-to-vps.sh restore      pg_restore into DST (refuses a non-empty DST)
@@ -178,7 +183,7 @@ cmd_catchup() {
   # pg_dump/pg_restore have no --truncate in PG ≤ 17, so the reload is explicit:
   # one TRUNCATE over the whole set, then a data-only COPY parent-first in one transaction.
   local listed="" t want=""
-  for t in $CATCHUP_TABLES; do listed="$listed'\"$t\"',"; want="$want ${t}"; done; listed="${listed%,}"
+  for t in $CATCHUP_TABLES; do listed="$listed'\"$t\"',"; want="$want ${t} "; done; listed="${listed%,}"
   local targets
   targets="$(sql "$DST_URL" "${CLOSURE_SQL_TMPL/LIST/$listed}")"
   [ -n "$targets" ] || die "could not resolve the table list on the target — is the schema restored there?"

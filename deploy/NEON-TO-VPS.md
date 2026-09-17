@@ -1,13 +1,38 @@
 # Moving the database from Neon to the VPS
 
 Short version: **dump Neon → restore into a *fresh empty database on the VPS Postgres* → verify → flip
-`DATABASE_URL` → keep Neon paused as the rollback.** The tool for all of it is
-[`neon-to-vps.sh`](./neon-to-vps.sh) and the cutover helper [`switch-db.sh`](./switch-db.sh); this file is
-the part no script can do for you (cloud consoles, DNS, webhooks) plus the traps.
+`DATABASE_URL` → keep Neon paused as the rollback.**
+
+Two tools, pick by one fact — the Postgres major of the Neon source:
+
+| | use |
+|---|---|
+| [`vps-migrate.sh`](./vps-migrate.sh) | **use this one.** Runs on the VPS host with no repo checkout, finds Dokploy's compose project off the
+  running container, and gets `pg_dump`/`psql` from a throwaway `postgres:18-alpine` container — required, because
+  Neon is on **PG 18** (measured below) and `pg_dump` aborts when its client major is older than the source. |
+| [`neon-to-vps.sh`](./neon-to-vps.sh) | the older runner, still fine if your source is ≤ the `db` image (PG 16); it takes `RUNNER=container`
+  from `deploy/docker-compose.vps.yml`. Kept because `switch-db.sh` and the Vercel-era notes refer to it. |
+| [`switch-db.sh`](./switch-db.sh) | cutover helper either way: backs up the env file, writes the new URL, restarts, health-gates, self-rolls-back. |
+
+This file is the part no script can do for you (cloud consoles, DNS, webhooks) plus the traps.
+
+## 0. Measured on 2026-09-17 against your actual project — read this before the run
+
+| Fact | Value | What it means for the run |
+|---|---|---|
+| Neon project / region | `sinzo` = `dark-pond-52917738`, `aws-ap-southeast-1` | every query from the VPS pays a WAN round-trip today |
+| Server version | **Postgres 18** | `postgres:16-alpine`'s `pg_dump` refuses it → `TOOL_IMAGE=postgres:18-alpine` (the default in `vps-migrate.sh`). The `db` service can stay on 16. |
+| Branches | `production` (primary, endpoint `ep-gentle-boat-azlgwrh8`) **and** `new-store` (`ep-morning-mouse-azjvybnu`) | **check which endpoint host the app's `DATABASE_URL` actually names** (`vps-migrate.sh discover` prints it, masked). Migrating the other branch is silent data loss. |
+| Data size | 101 MB on `production` | ~100 MB dump; 20 GB free on the box is ample |
+| Transfer quota | **5.12 GB of 5 GB used** (period ends 2026-10-01) | connections can start failing any time; the dump costs one more ~101 MB |
+| Why the quota ran out | images are stored as `Media.data bytea` and the app streams them, so every product picture is Neon egress | the day the DB is local this collapses to near zero — this migration *is* the fix, not a workaround |
+| Who serves the shop today | the **VPS**: `sinzooffcial.com` → `162.4.112.68`, no `x-vercel-id`, and `server.sinzooffcial.com` answers identically | no DNS work and no Vercel teardown is needed for the DB move; only `DATABASE_URL` changes |
+| VPS `db` service | `postgres:16-alpine`, `POSTGRES_DB=sinzo`, **no published port** (host `5432` answers RST) | nothing to firewall afterwards; but it also means the restore **must** run on the box, from a container joined to the compose network |
+| Panel/API access | Neon **API key can read the project but cannot reveal the DB password**; SQL-over-HTTP needs a connection string too; Dokploy's tRPC paths differ in this build | the direct connection string has to come from you (Console → Connection Details, *Pooled* off) or from `/etc/dokploy/compose/*/.env`, which `vps-migrate.sh` greps for you as root |
 
 ---
 
-## 0. Before you start
+## 0b. Before you start
 
 | Need | Why |
 |---|---|
@@ -76,74 +101,107 @@ restore into a non-empty database — that refusal is the feature. Two honest pa
 
 ## 3. The run
 
+Get the one script onto the box (the repo is private, so pull it with a token that never reaches the command line):
+
 ```bash
-cd /path/to/sinzo-commerce                      # wherever the repo is checked out on the VPS
-docker compose -f deploy/docker-compose.vps.yml up -d db          # app stays LIVE for now
-docker compose -f deploy/docker-compose.vps.yml exec -T db \
-  psql -U sinzo -d postgres -c 'CREATE DATABASE sinzo_live OWNER sinzo;'
-
-export SRC_URL='postgresql://user:pass@ep-xxx.ap-southeast-1.aws.neon.tech/neondb?sslmode=require'
-export DST_URL='postgresql://sinzo:THE_POSTGRES_PASSWORD@127.0.0.1:5432/sinzo_live'
-export RUNNER=container                           # psql/pg_dump come from the postgres:16 image
-export CATCHUP_TABLES='Order OrderItem Product ProductVariant Customer Coupon Review InventoryMovement AbandonedCheckout PushSubscription'
-
-./deploy/neon-to-vps.sh precheck                  # sizes, image bytes, what already exists
-./deploy/neon-to-vps.sh plan                      # every command it would run — read it once
-./deploy/neon-to-vps.sh dump                      # store live throughout
-./deploy/neon-to-vps.sh restore
-./deploy/neon-to-vps.sh verify                    # must end with "verify clean"
+read -rs -p 'GitHub token (paste, it is not echoed): ' GHT; echo
+git clone --depth 1 "https://oauth2:${GHT}@github.com/mdmunna26260-hash/sinzo-commerce.git" /tmp/mig
+unset GHT; cp /tmp/mig/deploy/vps-migrate.sh /usr/local/bin/; rm -rf /tmp/mig; chmod +x /usr/local/bin/vps-migrate.sh
 ```
 
-`RUNNER=container` still reaches the DB through `127.0.0.1` **inside** the container — and you need it,
-because `deploy/docker-compose.vps.yml` publishes no port for `db` (verified: the `db` service has only
-`image: postgres:16-alpine`, no `ports:`), so nothing listens on the host's 5432. If you prefer the host,
-add a temporary `ports: ["127.0.0.1:5432:5432"]` to the `db` service and `export RUNNER=host`.
+Then, as root on the VPS host (Dokploy → your server → Terminal, or ssh) — the store stays live until step 6:
 
-**Version floor:** `pg_dump` aborts when the source server is a newer major than the client. The compose
-image is `postgres:16-alpine` — enough for Neon on PG ≤ 16. `precheck` prints both versions; if your Neon
-branch is 17, run the same commands from a `postgres:17-alpine` container (or bump the service image).
+```bash
+docker ps --format '{{.Names}} {{.Image}}' | grep -i postgres || true   # if no db: docker compose up -d db
+vps-migrate.sh discover     # which DB the app really points at, disk, compose project — read it
+vps-migrate.sh check        # version gate + both sides reachable + emptiness (asks for the Neon URL once)
+vps-migrate.sh plan         # prints the whole run, executes nothing
+vps-migrate.sh prep         # CREATE DATABASE sinzo_live
+vps-migrate.sh dump         # ~101 MB, store live
+vps-migrate.sh restore
+vps-migrate.sh verify       # must end: "verify clean"
+```
+
+`SRC_URL` resolution order is: your env → `/dev/shm/sinzo-src-url` (0600, tmpfs, removed by `forget`) → a
+`neon.tech` URL grepped out of `/etc/dokploy/compose` (de-pooled automatically: `-pooler` removed) → a
+hidden prompt. It is never written to the data disk and never echoed unmasked.
+
+Cutover — only this part wants the app stopped, and it is the 2–5 minute window:
+
+```bash
+vps-migrate.sh catchup      # stop the app in Dokploy first: TRUNCATE + data-only reload + setval
+vps-migrate.sh verify       # clean again
+vps-migrate.sh url          # prints the DATABASE_URL to paste into Dokploy (env, then redeploy)
+```
+
+If you use `neon-to-vps.sh` instead: `RUNNER=container` reaches the DB through `127.0.0.1` **inside** the
+`db` container, because the service publishes no port (verified 2026-09-17: host `5432` answers RST, so
+nothing is exposed — and also nothing is reachable from the host). To use the host path, add a temporary
+`ports: ["127.0.0.1:5432:5432"]` and `RUNNER=host`.
+
+**Version floor (this is the one that bit):** `pg_dump` aborts when the source server is a newer major than the
+client, and your Neon is **PG 18** while `deploy/docker-compose.vps.yml` is `postgres:16-alpine`.
+`vps-migrate.sh` therefore runs client tools in its own `TOOL_IMAGE=postgres:18-alpine` container joined to the
+`db` service's network (and rewrites a `127.0.0.1` target URL to `@db:` for you). `neon-to-vps.sh` cannot dump
+this source — its `precheck` only warns. Do **not** "fix" it by bumping the `db` service to 18 before the
+restore: a PG 18 data directory cannot be read by a PG 16 server, and `pgdata` is a named volume that survives.
 
 ### Cutover (the only window that needs the app down)
 
 ```bash
-docker compose -f deploy/docker-compose.vps.yml stop app          # or Dokploy → Stop
-./deploy/neon-to-vps.sh catchup      # orders that arrived during the restore; also fixes sequences
-./deploy/neon-to-vps.sh verify       # clean again
+docker compose -p <project> stop app            # or Dokploy → app → Stop   (<project> = from `discover`)
+vps-migrate.sh catchup      # orders that arrived while the restore ran; TRUNCATE+COPY, then setval
+vps-migrate.sh verify       # must be clean again
 ```
-Then flip the connection string — either in Dokploy → your service → Environment
+Then flip the connection string — `vps-migrate.sh url` prints it. Either in Dokploy → app service → Environment:
 ```
 DATABASE_URL = postgresql://sinzo:THE_POSTGRES_PASSWORD@db:5432/sinzo_live
 DEPLOY_CHANNEL = vps
 ```
-or, if the env lives in a `.env` next to the compose file, with the helper that backs the file up,
-restarts, health-gates and **rolls itself back** if `/api/health` never answers 200:
+or, if the env lives in a `.env` next to the compose file, with the helper that backs the file up, restarts,
+health-gates and **rolls itself back** if `/api/health` never answers 200:
 ```bash
-./deploy/switch-db.sh --env-file .env \
+./switch-db.sh --env-file /etc/dokploy/compose/<dir>/.env \
   --url 'postgresql://sinzo:THE_POSTGRES_PASSWORD@db:5432/sinzo_live'
-./deploy/switch-db.sh --env-file .env --rollback        # undo, any time
+./switch-db.sh --env-file /etc/dokploy/compose/<dir>/.env --rollback      # undo, any time
 ```
-(`DATABASE_URL` is server-side, so a restart is enough — no rebuild.) Then:
-```bash
-docker compose -f deploy/docker-compose.vps.yml up -d app
-./deploy/neon-to-vps.sh verify    # optional: same numbers, now against the live target
-```
+`switch-db.sh` is a repo file; if you did not keep the checkout, edit the env in the panel instead — it is the
+same two lines. `DATABASE_URL` is server-side, so a **restart** is enough, no rebuild. Then start the app and
+re-run `vps-migrate.sh verify` (Neon has stopped moving, so the two sides should now be permanently equal
+until the first new order lands on the VPS).
 
 ### Proof it actually works — do these three, in order
 
 ```bash
 curl -s https://sinzooffcial.com/api/health
-docker compose -f deploy/docker-compose.vps.yml exec -T app node scripts/verify-db-migration.js
+vps-migrate.sh verify
 ```
-and then **place a real ৳1 test order and cancel it**, because an out-of-sync sequence does not show up in
-any count — it shows up as a 500 at checkout:
+and then **place a real ৳1 test order and cancel it**, because an out-of-sync sequence does not show up in any
+count — it shows up as a 500 at checkout:
 ```bash
-docker compose -f deploy/docker-compose.vps.yml exec -T db \
+docker compose -p <project> exec -T db \
   psql -U sinzo -d sinzo_live -c 'select id,code,"createdAt" from "Order" order by id desc limit 3;'
 ```
 `id` must be the old max **+1**, not a number that already existed.
 
+`scripts/verify-db-migration.js` (the Prisma-side twin of `verify`) **cannot be run inside the VPS app
+container**: `Dockerfile` copies only `.next`, `node_modules`, `public`, `package.json`, `prisma` and
+`next.config.mjs` into the runner image — `scripts/` is not in it. Same reason `scripts/ensure-db.js` in the
+image `CMD` always prints "skipped". If you want the Prisma-level check, copy it in first:
+```bash
+APPC=$(docker ps -q --filter label=com.docker.compose.service=app | head -1)
+docker cp /var/backups/sinzo-migration/verify-db-migration.js "$APPC":/tmp/v.js   # or from the clone
+docker compose -p <project> exec -T -e SRC_URL="$SRC_URL" app node /tmp/v.js
+```
+
 ## 4. Things that bite afterwards
 
+- **The app image has no `scripts/`** (verified in `Dockerfile`: only `.next`, `node_modules`, `public`,
+  `package.json`, `prisma`, `next.config.mjs` are copied). So the boot-time `node scripts/ensure-db.js`
+  never runs on the VPS — it prints "skipped" and carries on. Harmless today (the schema is already
+  migrated on the source), but it means "the container fixes the column itself" is not true on this box.
+  Decide separately whether to add `COPY --from=builder /app/scripts ./scripts` (it also switches on the
+  boot-time schema writes, so do not bundle it with a migration).
 - **Sequences.** A full `pg_dump -Fc` restore embeds `setval`, so it is already right after `restore`
   (measured: `last_value = max(id) = 41`). A `--data-only` reload — i.e. `catchup` — does **not**, which is
   why `catchup` runs the `sequences` pass automatically. Skip it and the first customer order fails with
@@ -192,6 +250,23 @@ plus 41 orders and 3 `Media` rows holding 469 kB of image bytes.
 - `catchup` data-only reload with 5 new source orders → money/id/freshness all flagged before the fix, and the
   app's own `order.create` failed with `P2002`; after the `sequences` pass the same insert returned `id=47`.
 - `scripts/verify-db-migration.js` — exit 0 when aligned, exit 1 on drift, `--json` emits pure JSON for CI.
+On 2026-09-17 the project itself was measured through the Neon API (`GET /projects`, `/endpoints`,
+`/branches`, `/roles`): PG 18, region `aws-ap-southeast-1`, `production` branch `br-empty-fire-azq55s4e` at
+105 848 832 bytes (101 MB), a second branch `new-store` also with a read_write endpoint, roles
+`neondb_owner` + `authenticated`/`anonymous`/`authenticator` (left over from the PostgREST experiment),
+`data_transfer_bytes` 5 122 544 195 against a 5 GB allowance, period 2026-09-01 → 2026-10-01. The API key
+cannot return a password (`store_passwords: true` only means Neon stores them for the console).
+
+`vps-migrate.sh` was exercised against a stubbed `docker` + `psql`/`pg_dump`/`pg_restore` (24 real tables from
+`schema.prod.prisma`, 8 orders, 212 Media rows, 101 MB of image bytes): `check` passed, `plan` printed the run
+and executed nothing, `dump` → `restore` → `verify` ended "verify clean", and each guard fired —
+`TOOL_IMAGE=postgres:16-alpine` → dies with the exact override to use; `restore` into a target holding 24
+tables → refuses; `prep` onto a non-empty `sinzo_live` → refuses and prints the deliberate drop command;
+one extra order on the source → `verify` flags the row and exits 1. `catchup` resolved the FK closure to the
+10 requested tables and ran the `setval` pass. Also fixed while testing: the last entry of `CATCHUP_TABLES`
+was always reported as "auto-included" (a membership test that never matched the final item) in **both**
+scripts, and `plan` died on the missing dump instead of printing the restore step.
+
 - Bugs found and fixed while testing it: `pg_dump --truncate` does not exist in PG ≤ 17 (so truncate is
   explicit + an FK-closure expansion), a single-quoted SQL template that swallowed its own quotes, `sql()`
   leaking its banner into captured values, `nextval()` in the verify step burning an id per run,
