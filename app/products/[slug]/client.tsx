@@ -55,7 +55,7 @@ function Countdown({ ends }: { ends: string }) {
   );
 }
 
-export default function ProductPageClient({ product, sizeChartHtml, sizeChartImage, soldCount, saleEnds, preorder = false, preorderDate = null, soldMode = "fixed", colorFamily = [] }: { product: P; sizeChartHtml: string | null; sizeChartImage: string | null; soldCount?: number | null; saleEnds?: string | null; preorder?: boolean; preorderDate?: string | null; soldMode?: string | null; colorFamily?: ColorFamilyItem[] }) {
+export default function ProductPageClient({ product, sizeChartHtml, sizeChartImage, soldCount, saleEnds, preorder = false, preorderDate = null, soldMode = "fixed", colorFamily = [], policies }: { product: P; sizeChartHtml: string | null; sizeChartImage: string | null; soldCount?: number | null; saleEnds?: string | null; preorder?: boolean; preorderDate?: string | null; soldMode?: string | null; colorFamily?: ColorFamilyItem[]; policies?: { inside?: string; outside?: string; freeAt?: number; codLabel?: string } }) {
   const { add } = useCart();
   const router = useRouter();
   const N = product.images.length;
@@ -479,12 +479,46 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
         </div>
       </div>
 
-      {product.description && (
-        <section className="section" style={{ padding: "10px 0 46px" }}>
-          <div className="section-head"><div><div className="eyebrow">The details</div><h2>About this product</h2></div></div>
-          <FormattedDescription text={product.description} />
-        </section>
-      )}
+      {/* ---- expandable rows (the reference: label left, + right, thin rules) ----
+          native <details>/<summary> on purpose: no state, no JS round-trip, keyboard + screen-reader
+          semantics for free, and — important — the full text ships inside the server HTML, so collapsing
+          it visually does not hide it from Google or from the SSR render. */}
+      <section className="section" style={{ padding: "10px 0 46px" }}>
+        <div className="section-head"><div><div className="eyebrow">The details</div><h2>About this product</h2></div></div>
+        <div className="acc">
+          {(product.description || product.shortDesc) && (
+            <details className="acc-item">
+              <summary><span>Description</span><i className="acc-ico" aria-hidden="true" /></summary>
+              <div className="acc-body">
+                {product.description ? <FormattedDescription text={product.description} /> : <p>{product.shortDesc}</p>}
+              </div>
+            </details>
+          )}
+
+          <details className="acc-item">
+            <summary><span>Return &amp; care</span><i className="acc-ico" aria-hidden="true" /></summary>
+            <div className="acc-body">
+              <h4>7-day return &amp; exchange</h4>
+              <p>Not the right fit? Tell us within 7 days of delivery — returns are free, we arrange the courier pickup. Keep the tags and original packaging on, and the piece unworn and unwashed. Size or colour exchange is possible while stock allows.</p>
+              <h4>Caring for it</h4>
+              <p>Follow the care label inside the garment first, it is written for that exact fabric. As a rule: cold wash cotton and linen separately or inside out, no tumble dry, reshape while damp and iron on the reverse. Fold knitwear, hang shirting, and keep suede and wool away from damp.</p>
+            </div>
+          </details>
+
+          <details className="acc-item">
+            <summary><span>Delivery</span><i className="acc-ico" aria-hidden="true" /></summary>
+            <div className="acc-body">
+              <ul className="acc-list">
+                <li>Inside Dhaka — usually {policies?.inside || "1-2 days"}</li>
+                <li>Outside Dhaka — usually {policies?.outside || "2-4 days"}</li>
+                <li>Cash on Delivery available all over Bangladesh</li>
+                {policies?.freeAt ? <li>Free delivery on orders over ৳{policies.freeAt.toLocaleString("en-IN")}</li> : null}
+                <li>Track the parcel any time with your order code on the tracking page</li>
+              </ul>
+            </div>
+          </details>
+        </div>
+      </section>
 
       {/* size chart modal */}
       {chart && (sizeChartImage || sizeChartHtml) && (

@@ -187,7 +187,10 @@ export default async function PDP({ params, searchParams }: { params: { slug: st
         <div style={{ padding: "22px 0 0", fontSize: 12.5, color: "var(--muted)" }}>
           <Link href="/">Home</Link> / <Link href="/products">Shop</Link> {(p as any).category && String((p as any).category.name || "").trim().toLowerCase() !== String(p.title || "").trim().toLowerCase() && <>/ <Link href={"/products?category=" + (p as any).category.slug}>{(p as any).category.name}</Link></>} / <span style={{ color: "var(--text)" }}>{p.title}</span>
         </div>
+        {/* The Delivery row reads the same admin shipping fields the checkout uses (with the same
+            fallback strings), so the PDP can never contradict what the buyer pays or waits for. */}
         <ProductPageClient
+          policies={{ inside: s.shipping?.estimateInside, outside: s.shipping?.estimateOutside, freeAt: s.shipping?.freeShippingThreshold || 0 }}
           sizeChartImage={p.sizeChartImage || null}
           soldCount={p.soldCount ?? null}
           saleEnds={p.saleEnds ? p.saleEnds.toISOString() : null}
