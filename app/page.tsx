@@ -49,7 +49,7 @@ function CatTile({ c, rd }: { c: any; rd?: number }) {
           <img>; this tile is passed into <Carousel> (a client component), and React refuses function props
           across that boundary — it threw while serializing the payload, so the server HTML looked fine
           (curl/SEO saw the page) and every browser replaced it with the OOPS card after hydration. */}
-      <SmartImg src={tileSrc} alt={c.name} fallback={seed} />
+      <SmartImg src={tileSrc} alt={c.name} fallback={seed} sizes="(max-width: 899px) 45vw, 23vw" widths={[300, 600, 1000]} />
       <div className="ctile-label"><span>{c.description?.slice(0, 40) || "Collection"}</span><h3>{c.name}</h3></div>
     </Link>
   );
@@ -130,7 +130,21 @@ async function HomeContent() {
   const sections: Record<string, React.ReactNode> = {
     hero: (
       <section className="hero" key="hero">
-        {hp.heroImage && <SmartImg className="hero-img" priority src={vb(hp.heroImage)} alt={cfg.store?.name || "Hero"} />}
+        {hp.heroImage && (
+          <>
+            {/* LCP element: hand the URL to the preload scanner instead of waiting for the client
+                component to render. Next hoists this <link> out of the body into <head>. */}
+            <link
+              rel="preload"
+              as="image"
+              fetchPriority="high"
+              href={imgSrc(vb(hp.heroImage), 1200)}
+              imageSrcSet={[600, 1000, 1200].map((n) => `${imgSrc(vb(hp.heroImage), n)} ${n}w`).join(", ")}
+              imageSizes="100vw"
+            />
+            <SmartImg className="hero-img" priority src={vb(hp.heroImage)} alt={cfg.store?.name || "Hero"} sizes="100vw" widths={[600, 1000, 1200]} />
+          </>
+        )}
         <div className="hero-overlay">
           <div className="hero-content">
             <div className="eyebrow" style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -140,8 +154,9 @@ async function HomeContent() {
             <h1>{hp.heroTitle}</h1>
             <p>{hp.heroSubtitle}</p>
             <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-              <Link className="btn" href="/products">{hp.heroCta || "Shop Now"}</Link>
-              <Link className="btn btn-ghost" href="/track">Track Order</Link>
+              {/* the two highest-intent clicks on the site, above the fold: warm them right away */}
+              <Link className="btn" href="/products" prefetch>{hp.heroCta || "Shop Now"}</Link>
+              <Link className="btn btn-ghost" href="/track" prefetch>Track Order</Link>
             </div>
           </div>
         </div>
@@ -189,7 +204,7 @@ async function HomeContent() {
       <section className="section container" style={{ paddingTop: 0 }} key="promo">
         <div className="promo-split reveal">
           <div className="ps-img">
-            {hp.promoImage && <SmartImg src={vb(hp.promoImage)} alt={hp.promoTitle} />}
+            {hp.promoImage && <SmartImg src={vb(hp.promoImage)} alt={hp.promoTitle} sizes="(max-width: 899px) 92vw, 46vw" widths={[600, 1000, 1200]} />}
           </div>
           <div className="ps-body">
             <div className="eyebrow" style={{ display: "flex", alignItems: "center", gap: 10 }}>

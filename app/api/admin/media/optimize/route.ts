@@ -28,8 +28,14 @@ export async function POST(req: Request) {
     take: 400,
   });
   const NEED = ["w300", "w600", "w1000", "w1200"];
+  /* force=1 re-encodes media that already has a complete variant set. Needed whenever the encoder
+     settings in lib/image-variants.ts change (quality ladder, effort): the URLs are cached for a
+     year, so re-encoding only ever *shrinks* the same picture and the index swap is what republishes
+     it. Old variant rows are deleted below so the blobs do not pile up in the DB. */
+  const force = new URL(req.url).searchParams.get("force") === "1";
   const legacy = candidates
     .filter((r) => {
+      if (force) return true;
       if (!r.variantsJson) return true;
       try { const idx = JSON.parse(r.variantsJson); return NEED.some((k) => !idx[k]?.id); } catch { return true; }
     })
@@ -41,6 +47,8 @@ export async function POST(req: Request) {
       const row = await db.media.findUnique({ where: { id } });
       if (!row) continue;
       const v = await generateVariants(Buffer.from(row.data));
+      const prevIds: string[] = [];
+      try { const idx = JSON.parse(row.variantsJson || "{}"); for (const k of NEED) if (idx[k]?.id) prevIds.push(idx[k].id); } catch {}
       const mk = async (data: Buffer, tag: string) => {
         const r = await db.media.create({ data: { filename: tag + ".webp", mime: "image/webp", size: data.length, data } });
         return { id: r.id, size: r.size };
@@ -50,6 +58,8 @@ export async function POST(req: Request) {
         width: v.width, height: v.height, blurData: v.blur,
         variantsJson: JSON.stringify({ w300, w600, w1000, w1200 }),
       }});
+      /* drop the replaced blobs — the new variant ids are already what the URL resolves to */
+      if (prevIds.length) await db.media.deleteMany({ where: { id: { in: prevIds } } }).catch(() => {});
       optimized++;
     } catch {}
   }

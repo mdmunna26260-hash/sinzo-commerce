@@ -7,10 +7,14 @@ export type VariantSet = {
 
 const WIDTHS = [300, 600, 1000, 1200];
 
+/* Quality ladder tuned for byte weight rather than maximum fidelity: the 1000/1200 variants are what
+   phones pull for the hero and the promo block (a 275KB w1200 was measured on / at 390px). At q74-76
+   garment photos look the same and land 25-30% smaller. effort 5 only costs time at upload. */
 async function one(input: Buffer, width: number): Promise<Buffer> {
+  const q = width <= 300 ? 72 : width <= 600 ? 78 : 74;
   return sharp(input)
     .resize({ width, withoutEnlargement: true })
-    .webp({ quality: width <= 300 ? 72 : 80, effort: 4 })
+    .webp({ quality: q, effort: 5 })
     .toBuffer();
 }
 

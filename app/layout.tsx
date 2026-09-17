@@ -140,7 +140,10 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <link rel="icon" href="/icon-192.png" sizes="192x192" type="image/png" />
         <link rel="mask-icon" href="/icon-192.png" color="#141414" />
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        {/* No font preconnect or stylesheet on purpose: the theme heading/body fonts are a <select> of
+            system stacks (Didot/Bodoni/Georgia plus the UI sans), so nothing is ever downloaded from
+            Google. The old preconnect was a free DNS+TCP+TLS round trip on every view. If a real webfont
+            is added later, put the preconnect and the stylesheet link back in together. */}
         {gtmId ? (
           <script id="gtm" dangerouslySetInnerHTML={{ __html: `(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src='https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);})(window,document,'script','dataLayer','${gtmId}');` }} />
         ) : null}

@@ -99,6 +99,13 @@ const nextConfig = {
       { source: "/admin", headers: [{ key: "Cache-Control", value: "private, no-store, must-revalidate" }] },
       { source: "/admin/:path*", headers: [{ key: "Cache-Control", value: "private, no-store, must-revalidate" }] },
       { source: "/api/:path*", headers: [{ key: "Cache-Control", value: "private, no-store, must-revalidate" }] },
+      /* Product images must NOT inherit the no-store above. The media route already answers with a
+         1-year immutable Cache-Control, but this /api/:path* rule was applied on top of it, so every
+         product photo came back "private, no-store" - measured on the live site: 744KB of images on /
+         at 390px, re-downloaded on every single page view. Media ids are immutable (a re-upload mints
+         a new id), so caching them forever is safe. This rule has to stay AFTER /api/:path*: the last
+         matching Cache-Control wins (that is how /products keeps PUBLIC_HTML instead of the no-store). */
+      { source: "/api/media/:path*", headers: [{ key: "Cache-Control", value: "public, max-age=31536000, immutable, s-maxage=31536000, stale-while-revalidate=86400" }] },
       /* Storefront catalogue pages: cacheable at the edge, revalidated by the browser.
          (Stock badges can therefore lag up to 60s; the cart/checkout re-checks price
          and stock against the DB, so an oversell can't come from this.) */
