@@ -1,6 +1,5 @@
 import type { CSSProperties } from "react";
 import Link from "next/link";
-import WishHeart from "./wish-heart";
 import CardImg from "./card-img";
 
 export { imgSrc, imgSrcSet } from "./img-src";
@@ -37,7 +36,7 @@ export function sortSizes(sizes: string[]): string[] {
   });
 }
 
-export function ProductCard({ p, wish, rd }: { p: CardProduct; wish?: boolean; rd?: number }) {
+export function ProductCard({ p, rd }: { p: CardProduct; rd?: number }) {
   const off = p.comparePrice && p.comparePrice > p.price ? Math.round((1 - p.price / p.comparePrice) * 100) : 0;
   return (
     <Link className="pcard reveal" href={"/products/" + p.slug} style={rd != null ? ({ "--rd": rd } as CSSProperties) : undefined}>
@@ -52,8 +51,6 @@ export function ProductCard({ p, wish, rd }: { p: CardProduct; wish?: boolean; r
             <span className="badge">FLASH</span>
           )}
         </div>
-        <WishHeart id={p.id} />
-        {wish ? <div className="pcard-quick"><button type="button">In your wishlist</button></div> : null}
       </div>
       <div className="pcard-info">
         <div className="pcard-title">{p.title}</div>

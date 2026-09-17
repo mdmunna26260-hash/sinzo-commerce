@@ -194,36 +194,6 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   return <Ctx.Provider value={{ lines, count, subtotal, ready, add, setQty, updateLine, remove, clear }}>{children}</Ctx.Provider>;
 }
 
-/* ============ Wishlist (guest, localStorage) ============ */
-let memoryWishlist: number[] | null = null;
-function loadWishlist(): number[] {
-  if (memoryWishlist) return memoryWishlist;
-  try {
-    const parsed = JSON.parse(localStorage.getItem("sz_wishlist") || "[]");
-    memoryWishlist = Array.isArray(parsed) ? parsed.filter((x) => typeof x === "number") : [];
-  } catch { memoryWishlist = []; }
-  return memoryWishlist!;
-}
-function saveWishlist(ids: number[]) {
-  memoryWishlist = ids;
-  try { localStorage.setItem("sz_wishlist", JSON.stringify(ids)); } catch {}
-}
-export function useWishlist() {
-  const [ids, setIds] = useState<number[]>([]);
-  useEffect(() => { setIds([...loadWishlist()]);
-    const h = () => setIds([...loadWishlist()]);
-    window.addEventListener("sz_wishlist_changed", h);
-    return () => window.removeEventListener("sz_wishlist_changed", h);
-  }, []);
-  const toggle = (id: number) => {
-    const cur = loadWishlist();
-    saveWishlist(cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]);
-    setIds([...loadWishlist()]);
-    window.dispatchEvent(new Event("sz_wishlist_changed"));
-  };
-  return { ids, toggle, has: (id: number) => ids.includes(id) };
-}
-
 /* ============ Toast ============ */
 export function toast(msg: string) {
   const t = document.createElement("div");

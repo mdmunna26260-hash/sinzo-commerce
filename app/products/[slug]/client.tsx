@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCart, useWishlist, trackEvent, toast } from "@/components/store";
+import { useCart, trackEvent, toast } from "@/components/store";
 import { imgSrc, imgSrcSet } from "@/components/parts";
 import { warmImage, warmWhenIdle } from "@/components/img-warm";
 import { trackRecentlyViewed } from "@/components/recently-viewed";
@@ -58,7 +58,6 @@ function Countdown({ ends }: { ends: string }) {
 export default function ProductPageClient({ product, sizeChartHtml, sizeChartImage, soldCount, saleEnds, preorder = false, preorderDate = null, soldMode = "fixed", colorFamily = [] }: { product: P; sizeChartHtml: string | null; sizeChartImage: string | null; soldCount?: number | null; saleEnds?: string | null; preorder?: boolean; preorderDate?: string | null; soldMode?: string | null; colorFamily?: ColorFamilyItem[] }) {
   const { add } = useCart();
   const router = useRouter();
-  const wishlist = useWishlist();
   const N = product.images.length;
 
   // ---------- gallery state ----------
@@ -446,12 +445,6 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
             </>
           )}
 
-          <div className="opt-label">Quantity</div>
-          <div className="qty">
-            <button onClick={() => setQty(Math.max(1, qty - 1))} aria-label="Decrease">−</button>
-            <span>{qty}</span>
-            <button onClick={() => setQty(Math.min(qty + 1, preorder ? 99 : (avail || 1)))} aria-label="Increase">+</button>
-          </div>
           <div style={{ marginTop: 10 }}>
             {preorder ? (
               <span className="stock-note">Pre-order — ships by {preDateStr}</span>
@@ -461,14 +454,19 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
           </div>
 
           <div className="pdp-actions">
-            <button className="btn" disabled={(avail <= 0 && !preorder) || adding} aria-busy={adding || undefined} onClick={addLine}>
-              {adding && <span className="spinner" aria-hidden="true" />}<span style={adding ? { marginLeft: 8 } : undefined}>{adding ? "Adding…" : preorder ? "Pre-order" : "Add to Cart"}</span>
-            </button>
-            <button className="btn btn-accent" disabled={(avail <= 0 && !preorder) || buying} aria-busy={buying || undefined} onClick={buyNow}>
+            <div className="pdp-buy-row">
+              <div className="qty" role="group" aria-label="Quantity">
+                <button type="button" onClick={() => setQty(Math.max(1, qty - 1))} aria-label="Decrease quantity">−</button>
+                <span>{qty}</span>
+                <button type="button" onClick={() => setQty(Math.min(qty + 1, preorder ? 99 : (avail || 1)))} aria-label="Increase quantity">+</button>
+              </div>
+              <button className="btn pdp-add" disabled={(avail <= 0 && !preorder) || adding} aria-busy={adding || undefined} onClick={addLine}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M3.6 7.6h11L13.7 18.6a1.7 1.7 0 0 1-1.7 1.5H6.3a1.7 1.7 0 0 1-1.7-1.5z"/><path d="M6.7 7.6V6.1a3.6 3.6 0 0 1 7.2 0v1.5"/><path d="M19.7 2.8v4.4M17.5 5h4.4"/></svg>
+                {adding && <span className="spinner" aria-hidden="true" />}<span style={adding ? { marginLeft: 8 } : undefined}>{adding ? "Adding…" : preorder ? "Pre-order" : "Add to Cart"}</span>
+              </button>
+            </div>
+            <button className="btn pdp-buy" disabled={(avail <= 0 && !preorder) || buying} aria-busy={buying || undefined} onClick={buyNow}>
               {buying && <span className="spinner" aria-hidden="true" />}<span style={buying ? { marginLeft: 8 } : undefined}>{buying ? "Processing…" : "Buy Now"}</span>
-            </button>
-            <button className="btn btn-outline glass" style={{ flex: "0 0 auto", minWidth: 0, padding: "13px 16px" }} onClick={() => wishlist.toggle(product.id)} aria-label="Wishlist">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill={wishlist.has(product.id) ? "currentColor" : "none"} stroke="currentColor" strokeWidth="1.5"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21.2l7.8-7.8 1-1a5.5 5.5 0 0 0 0-7.8z"/></svg>
             </button>
           </div>
 

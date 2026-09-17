@@ -41,7 +41,7 @@ function check(name, cond, extra) {
   const needle = (live?.title || "").split(" ").slice(-1)[0] || live?.title || "";
 
   // storefront pages (PDP uses a real product slug from the DB)
-  for (const p of ["/", "/products", "/cart", "/checkout", "/track", "/wishlist", "/products/" + slug, "/collections/best-sellers"]) {
+  for (const p of ["/", "/products", "/cart", "/checkout", "/track", "/products/" + slug, "/collections/best-sellers"]) {
     const r = await fetch(BASE + p);
     check("GET " + p, r.status === 200, "(" + r.status + ")");
   }
