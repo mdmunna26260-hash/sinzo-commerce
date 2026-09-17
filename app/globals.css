@@ -2491,8 +2491,9 @@ html.theme-transition *::after {
    Bare "+" on the right of the price row (reference design: text left, plus right).
    It reuses .icon-btn, so it inherits the same ghost look + 40px touch target as the
    header icons; the card's own <Link> is untouched, the button is its sibling.
-   Phones always show it; pointer devices reveal it with the card hover/focus so the
-   home rows stay editorial. The "+" turns into a tick for ~400ms when the add lands.
+   Always visible on every device (an earlier hover-reveal was dropped: on a desktop grid it
+   hid the control completely, which is the whole point of the feature).
+   The "+" turns into a tick for ~400ms when the add lands.
    ============================================================ */
 .pcard-cell { position: relative; }
 @media (min-width: 1500px) {
@@ -2502,23 +2503,23 @@ html.theme-transition *::after {
 .pcard .price { padding-right: 36px; }
 
 .qadd {
-  /* inside the card on purpose: a negative offset here overhangs the grid gutter and gets
-     clipped by any ancestor with overflow, and it reads as misaligned against the price text */
+  /* Inside the card on purpose: a negative offset overhangs the grid gutter and gets clipped
+     by any ancestor with overflow. ALWAYS visible — an affordance you must hover to discover
+     is one shoppers skip, and hover never fires on touch at all. Size comes from .icon-btn
+     (36px, 40px on touch), so no hit-area rules are duplicated here. */
   position: absolute; z-index: 5; right: 8px; bottom: 2px;
-  width: 34px; height: 34px; min-width: 34px; min-height: 34px;
   display: inline-flex; align-items: center; justify-content: center;
   padding: 0; border: none; background: none; color: var(--text);
   border-radius: 99px; cursor: pointer;
-  opacity: 0; transform: scale(.82); pointer-events: none;
-  transition: opacity .2s ease, transform .2s cubic-bezier(.22,.61,.36,1), color .18s ease, background .18s ease;
+  transition: color .18s ease, background .18s ease, transform .18s ease;
 }
 .qadd svg { width: 19px; height: 19px; }
-.pcard-cell:hover .qadd, .pcard-cell:focus-within .qadd, .qadd:focus-visible { opacity: 1; transform: none; pointer-events: auto; }
-@media (hover: none), (max-width: 899px) { .qadd { opacity: 1; transform: none; pointer-events: auto; } }
 /* plain rgba, not color-mix(): older Android WebViews drop the whole declaration, and a
    hover circle is decoration, not something to gate the feature on */
-.qadd:hover { color: var(--text); background: rgba(20, 20, 20, .08); }
+.pcard-cell:hover .qadd { background: rgba(20, 20, 20, .06); }
+.qadd:hover { color: var(--text); background: rgba(20, 20, 20, .12); }
 .qadd:active { transform: scale(.9) }
+.qadd:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
 .qadd.busy { color: var(--accent); background: none; }
 
 .qadd-pop {
