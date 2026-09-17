@@ -161,6 +161,19 @@ getent hosts db >/dev/null && echo "db service present" || echo "NO db service �
 printenv DATABASE_URL | sed -E 's#:[^@]*@#:•••@#'         # which Neon endpoint the live app really uses
 ```
 
+If the deployed image predates this commit and you would rather not rebuild, install the helper from inside
+the container — `node:20` has a global `fetch` and nothing else useful is in there:
+
+```sh
+cd /app
+export GHT='<your github token>'        # read from the environment, so it is not in the node argv
+node -e 'fetch("https://raw.githubusercontent.com/mdmunna26260-hash/sinzo-commerce/main/prisma/migrate-from-neon.js",{headers:{authorization:"Bearer "+process.env.GHT}}).then(r=>{if(r.status!==200)throw new Error("HTTP "+r.status);return r.text()}).then(t=>{require("fs").writeFileSync("prisma/migrate-from-neon.js",t);console.log("installed",t.length,"bytes")}).catch(e=>{console.error(e.message);process.exit(1)})'
+unset GHT
+```
+
+(Verified 2026-09-17: that URL returns the byte-identical file — sha256 starts `678844005b3f2191`, matching the
+copy tested below. Prefer the rebuild if you were going to redeploy anyway; the file lives in `prisma/` in the image.)
+
 If `db` is absent, create one in Dokploy (Compose → add the `db` service from
 `deploy/docker-compose.vps.yml`, or Dokploy's own Postgres database service) and use the host/port it hands you.
 Then, from `/app`:
