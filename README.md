@@ -35,12 +35,12 @@ npm run dev          # http://localhost:3000
 - Premium minimal fashion design, mobile-first, announcement bar, sticky header, search with autocomplete
 - Home: hero, value props, featured collection, category tiles, promo banner, best sellers, reviews, newsletter
 - Product listing: search, category/price/size/availability/on-sale filters, sorting
-- Product page: gallery, variants (size/color) with per-variant stock, size chart modal, quantity, add-to-cart, buy-now, wishlist, reviews + review submission, related products, sticky mobile add-to-cart, ViewContent tracking
+- Product page: gallery, variants (size/color) with per-variant stock, size chart modal, quantity, add-to-cart, buy-it-now, reviews + review submission, related products, sticky mobile add-to-cart, ViewContent tracking
 - Collections pages (`/collections/best-sellers`, `new-arrivals`, `sale`)
 - Cart: quantities, free-shipping progress bar, coupon validation, order summary
 - **COD Checkout**: name/phone/address validation (BD mobile regex), Inside/Outside Dhaka zone with admin-configurable fees, order notes, coupons, fraud screening, server-side price & stock verification (client prices are never trusted)
 - Order confirmation page with order code, **public order tracking** (code + phone → status timeline)
-- Guest wishlist (localStorage), newsletter subscription, 404 page, sitemap.xml, robots.txt, manifest (PWA-ready)
+- Newsletter subscription, 404 page, sitemap.xml, robots.txt, manifest (PWA-ready)
 
 ### Admin panel (`/admin`)
 - **Secure login**: bcrypt hashes, HMAC-signed httpOnly session cookie, rate limiting (8 attempts/10 min), role-based permissions (6 roles), case-insensitive email
@@ -80,7 +80,7 @@ prisma/schema.prisma      21 models (see spec §59)
 prisma/seed.js            realistic demo data
 lib/                      db, auth+RBAC, settings engine, CAPI, steadfast, risk, audit
 app/api/                  30 REST endpoints (public + admin, permission-guarded)
-app/                      storefront (home, products, pdp, cart, checkout, track, wishlist)
+app/                      storefront (home, products, pdp, cart, checkout, track)
 app/admin/(panel)/        13 admin pages behind session guard
 components/               storefront chrome, cart/tracking services, admin sidebar
 scripts/smoke.js          end-to-end smoke test (npm run test)

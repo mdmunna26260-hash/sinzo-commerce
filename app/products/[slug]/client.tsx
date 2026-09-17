@@ -462,11 +462,11 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
               </div>
               <button className="btn pdp-add" disabled={(avail <= 0 && !preorder) || adding} aria-busy={adding || undefined} onClick={addLine}>
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M3.6 7.6h11L13.7 18.6a1.7 1.7 0 0 1-1.7 1.5H6.3a1.7 1.7 0 0 1-1.7-1.5z"/><path d="M6.7 7.6V6.1a3.6 3.6 0 0 1 7.2 0v1.5"/><path d="M19.7 2.8v4.4M17.5 5h4.4"/></svg>
-                {adding && <span className="spinner" aria-hidden="true" />}<span style={adding ? { marginLeft: 8 } : undefined}>{adding ? "Adding…" : preorder ? "Pre-order" : "Add to Cart"}</span>
+                {adding && <span className="spinner" aria-hidden="true" />}<span style={adding ? { marginLeft: 8 } : undefined}>{adding ? "Adding…" : preorder ? "Pre-order" : "Add to cart"}</span>
               </button>
             </div>
             <button className="btn pdp-buy" disabled={(avail <= 0 && !preorder) || buying} aria-busy={buying || undefined} onClick={buyNow}>
-              {buying && <span className="spinner" aria-hidden="true" />}<span style={buying ? { marginLeft: 8 } : undefined}>{buying ? "Processing…" : "Buy Now"}</span>
+              {buying && <span className="spinner" aria-hidden="true" />}<span style={buying ? { marginLeft: 8 } : undefined}>{buying ? "Processing…" : "Buy it now"}</span>
             </button>
           </div>
 

@@ -41,7 +41,7 @@ const nextConfig = {
   experimental: {
     // Client router cache: visited pages are reused from the browser's memory
     // for 30s (dynamic) / 180s (static) → back-navigation (PDP → home) and
-    // repeat clicks (cart, track, wishlist) feel INSTANT, zero server hit.
+    // repeat clicks (cart, track) feel INSTANT, zero server hit.
     // Safe here: data-heavy views (admin lists, cart, checkout) fetch fresh
     // data client-side on mount — only the page shell is cached.
     staleTimes: { dynamic: 30, static: 180 },

@@ -1031,7 +1031,6 @@ a, button, .pcard, .chip, .cat-pill, .size-btn { -webkit-tap-highlight-color: tr
 /* Bigger tap targets on touch devices */
 @media (hover: none) {
   .icon-btn { min-width: 40px; min-height: 40px; align-items: center; justify-content: center; }
-  .pcard-heart { width: 40px; height: 40px; }
   .gal-zoom { width: 44px; height: 44px; }
   .crs-arrow { width: 40px; height: 40px; }
   .st-btn, .sort-select { min-height: 44px; }
@@ -2393,36 +2392,39 @@ html.theme-transition *::after {
      Bring the plate up so the copy always lands on paper, and keep the bottom fully solid. */
   .hero-overlay { background: linear-gradient(rgba(250, 249, 247, 0) 12%, rgba(250, 249, 247, .86) 34%, rgba(250, 249, 247, .96) 62%, var(--bg) 100%) !important; }
 }
-
-/* ---------- 11. PDP buy row — outline pill + solid pill (per the reference shot: "Add to Cart" as an
-   ink outline with a bag icon next to the qty stepper, "Buy Now" as a solid ink pill full width).
-   Kept at the very END of the sheet on purpose: .pdp-actions .btn is re-declared twice earlier
-   (min-height:44px/11.5px, then the ≤899px RESPONSIVE POLISH block with 48px/15px + width:100%), and
-   those same-specificity later rules silently overrode the first attempt. 2px, not 1.6px, on the border:
-   Chromium snaps fractional border widths down to whole device pixels, so 1.6px measured back as 1px. ---------- */
-.pdp-actions { display: grid; gap: 12px; margin: 24px 0 10px; }
-.pdp-buy-row { display: flex; gap: 12px; align-items: stretch; }
+/* ---------- 11. PDP buy row (reference shot: qty stepper + outlined "Add to cart" on one line, solid
+   "Buy it now" pill full width underneath). Kept at the very END of the sheet on purpose: .pdp-actions .btn
+   is re-declared twice earlier in this file (44px/11.5px, then the ≤899px RESPONSIVE POLISH block with
+   48px/15px + width:100%), and those later same-specificity rules silently override anything written above
+   them. Border is 2px, not 1.6px — Chromium snaps fractional border widths down to whole device pixels, so
+   1.6px measured back as 1px. The stepper is deliberately the quiet element: grey outline, grey − / + and
+   grey dividers, ink number — in the reference only the button labels and the pill outline are black. ---------- */
+.pdp-actions { display: grid; gap: 16px; margin: 26px 0 10px; }
+.pdp-buy-row { display: flex; gap: 14px; align-items: stretch; }
 .pdp-actions .btn { border: 2px solid var(--text); border-radius: 999px; text-transform: none;
-  letter-spacing: .01em; font-size: 15.5px; font-weight: 500; min-height: 58px; padding: 0 26px; width: auto; }
+  letter-spacing: .01em; font-size: 17px; font-weight: 500; min-height: 60px; padding: 0 28px; width: auto; }
 .pdp-actions .pdp-add { flex: 1 1 auto; background: transparent; color: var(--text); }
 .pdp-actions .pdp-add:hover { background: var(--text); color: var(--bg); opacity: 1; }
 .pdp-actions .pdp-buy { width: 100%; }
-/* min-height (not a fixed child height) so the stepper and the two buttons end up the same box
-   height — border-box is global, so 58px here = 58px on .btn; a 58px-tall button inside a 2px border
-   used to make the stepper 62px and stretch the row past the Buy Now button. */
-.pdp-buy-row .qty { border: 2px solid var(--text); border-radius: 999px; background: transparent; align-items: stretch; min-height: 58px; }
-/* height:auto + stretch: the base .qty button (46px) and the ≤899px polish block (40px) were both
-   taller/shorter than the pill, so the − and + glyphs sat 5px above the middle of the pill. */
-.pdp-buy-row .qty button { width: 44px; height: auto; align-self: stretch; display: flex; align-items: center;
-  justify-content: center; font-size: 18px; color: var(--text); opacity: .6; transition: opacity .18s ease, transform .12s ease; }
-.pdp-buy-row .qty button:hover { opacity: 1; }
+/* min-height on the pill itself (not a fixed child height) so stepper and buttons land on the same box
+   height — box-sizing is border-box globally, so 60px here == 60px on .btn. A fixed 58px child inside a
+   2px border used to make the stepper 62px and stretch the whole row past "Buy it now". */
+.pdp-buy-row .qty { border: 2px solid var(--line); border-radius: 999px; background: transparent;
+  align-items: stretch; min-height: 60px; }
+/* height:auto + stretch: the base .qty button (46px) and the ≤899px polish block (40px) were both shorter
+   than the pill, which parked the − / + glyphs 5px above its centre. */
+.pdp-buy-row .qty button { width: 46px; height: auto; align-self: stretch; display: flex; align-items: center;
+  justify-content: center; font-size: 19px; color: var(--muted); transition: color .18s ease, transform .12s ease; }
+.pdp-buy-row .qty button:hover { color: var(--text); }
 .pdp-buy-row .qty button:active { transform: scale(.9); }
 .pdp-buy-row .qty button:focus-visible { outline: 2px solid var(--text); outline-offset: -3px; border-radius: 999px; }
-.pdp-buy-row .qty span { width: 46px; border-inline: 1px solid var(--line); align-self: stretch; font-size: 15px; }
+.pdp-buy-row .qty span { width: 48px; border-inline: 2px solid var(--line); align-self: stretch;
+  font-size: 16px; font-weight: 500; color: var(--text); }
 @media (max-width: 560px) {
-  .pdp-actions { gap: 8px; }
-  .pdp-actions .btn { font-size: 14.5px; padding: 0 16px; gap: 6px; min-height: 54px; }
-  .pdp-buy-row .qty { min-height: 54px; }
-  .pdp-buy-row .qty button { width: 42px; }
-  .pdp-buy-row .qty span { width: 36px; }
+  .pdp-actions { gap: 12px; }
+  .pdp-buy-row { gap: 10px; }
+  .pdp-actions .btn { font-size: 15.5px; padding: 0 16px; gap: 7px; min-height: 56px; }
+  .pdp-buy-row .qty { min-height: 56px; }
+  .pdp-buy-row .qty button { width: 42px; font-size: 18px; }
+  .pdp-buy-row .qty span { width: 38px; font-size: 15px; }
 }
