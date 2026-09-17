@@ -168,6 +168,14 @@ window.addEventListener("unhandledrejection",function(e){var m=String(e&&e.reaso
         <RevealInit />
         <PageViewTracker />
         <PageTransition />
+        {process.env.NODE_ENV === "development" && (
+          /* Dev-preview self-heal. This sandbox restarts and takes the dev server with it, and a
+             tab that is merely sitting there never hits the chunk-error reload above — it just keeps
+             painting the last render forever (the "+" looks like the old "Add" pill, etc.). So poll
+             quietly and reload ONCE on the down→up edge. Dev only: never emitted into the prod HTML,
+             and the 15 s floor keeps a restart storm from reloading mid-typing. */
+          <script dangerouslySetInnerHTML={{ __html: `(function(){var down=0,last=0;setInterval(function(){fetch(location.pathname,{method:"HEAD",cache:"no-store"}).then(function(r){if(down&&r.ok&&Date.now()-last>15000){last=Date.now();location.reload();}down=0;}).catch(function(){if(!down)down=Date.now();});},8000);})();` }} />
+        )}
         <script dangerouslySetInnerHTML={{ __html: `history.scrollRestoration = 'manual';` }} />
       </body>
     </html>
