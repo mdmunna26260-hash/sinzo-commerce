@@ -219,6 +219,12 @@ export default async function PDP({ params, searchParams }: { params: { slug: st
             {avgRating > 0 && <div style={{ fontSize: 15 }}>{"★".repeat(Math.round(avgRating))}<span style={{ color: "var(--muted)" }}> {avgRating.toFixed(1)} / 5</span></div>}
           </div>
           {p.reviews.length === 0 && <p style={{ color: "var(--muted)" }}>No reviews yet — be the first to review this product.</p>}
+          {p.reviews.length > 1 && (
+            <div className="reviews-hint">Swipe for all {p.reviews.length} reviews <span aria-hidden="true">→</span></div>
+          )}
+          {/* one track wrapper so phones can swipe the reviews sideways; desktop keeps the plain
+              vertical stack (the wrapper is inert there — no .reviews .review descendant selectors exist) */}
+          <div className="reviews-track">
           {p.reviews.map((r) => (
             <div className="review" key={r.id}>
               <span className="stars">{"★".repeat(r.rating)}{"☆".repeat(5 - r.rating)}</span>
@@ -239,6 +245,7 @@ export default async function PDP({ params, searchParams }: { params: { slug: st
               })()}
             </div>
           ))}
+          </div>
           <ProductPageReviewForm productId={p.id} />
         </section>
 

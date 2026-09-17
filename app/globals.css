@@ -292,6 +292,26 @@ h1, h2, h3, .serif { font-family: var(--font-head); font-weight: 500; letter-spa
 .review p { font-size: 14.5px; margin-top: 8px; }
 .verified { font-size: 10.5px; background: #e7f2ec; color: var(--ok); padding: 2px 8px; border-radius: 99px; letter-spacing: .06em; margin-left: 8px; }
 .review-form { display: grid; gap: 12px; max-width: 520px; margin-top: 26px; }
+/* Reviews on phones: instead of a long vertical stack, the cards go on a swipe rail that bleeds to
+   both screen edges (so the next card is visibly cut off — the affordance) with x-snap. The gutter is
+   24px above 640px and 16px below, hence the second override. */
+.reviews-hint { display: none; }
+@media (max-width: 899px) {
+  .reviews-hint { display: flex; align-items: center; gap: 6px; font-size: 11.5px; letter-spacing: .14em;
+    text-transform: uppercase; color: var(--muted); margin: -6px 0 12px; }
+  .reviews-track { display: flex; gap: 12px; overflow-x: auto; scroll-snap-type: x mandatory;
+    overscroll-behavior-x: contain; -webkit-overflow-scrolling: touch; scrollbar-width: none;
+    margin-inline: -24px; padding: 4px 24px 14px; }
+  .reviews-track::-webkit-scrollbar { display: none; }
+  .reviews-track .review { flex: 0 0 76%; max-width: 330px; scroll-snap-align: start; background: var(--bg);
+    border: 1px solid var(--line); border-radius: 12px; padding: 16px 16px 18px; }
+  .reviews-track .review p { font-size: 14px; }
+  .reviews-track .review img { width: 64px; height: 64px; }
+}
+@media (max-width: 640px) {
+  .reviews-track { margin-inline: -16px; padding-inline: 16px; }
+  .reviews-track .review { flex-basis: 80%; max-width: none; }
+}
 .review-form input, .review-form textarea, .review-form select { border: 1px solid var(--line); padding: 12px 14px; background: #fff; border-radius: var(--radius); width: 100%; }
 .stars-pick { display: flex; gap: 6px; font-size: 24px; cursor: pointer; user-select: none; }
 .stars-pick span { color: #d8d2c8; }
