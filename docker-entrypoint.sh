@@ -14,10 +14,24 @@
 
 set -u
 
+MIGRATE_MARKER="${MIGRATE_MARKER:-/tmp/sinzo-cutover.url}"
+
 if [ -n "${MIGRATE_ON_BOOT:-}" ] && [ "$MIGRATE_ON_BOOT" != "0" ] && [ "$MIGRATE_ON_BOOT" != "off" ]; then
   echo "[boot] MIGRATE_ON_BOOT=$MIGRATE_ON_BOOT — running prisma/migrate-from-neon.js before the app starts"
   node prisma/migrate-from-neon.js || echo "[boot] migration exited non-zero (see the log above) — starting the app anyway"
   echo "[boot] migration phase finished"
+fi
+
+# A successful MIGRATE_ON_BOOT=cutover leaves this file behind. It is what the app boots on from now on, so
+# the panel edit can happen later without the shop ever coming up on the old database in between.
+if [ -s "$MIGRATE_MARKER" ]; then
+  NEW_URL=$(cat "$MIGRATE_MARKER")
+  case "$NEW_URL" in
+    postgres*)
+      [ "$NEW_URL" != "${DATABASE_URL:-}" ] && echo "[boot] DATABASE_URL switched for this process (cutover marker: $MIGRATE_MARKER)"
+      export DATABASE_URL="$NEW_URL" ;;
+    *) echo "[boot] ignoring malformed $MIGRATE_MARKER" ;;
+  esac
 fi
 
 # historical behaviour: make sure columns added by later releases exist (no-op when scripts/ is not in the image)

@@ -205,42 +205,51 @@ How it differs from `vps-migrate.sh`, and when it is the wrong tool:
 | Sequences | `setval(next = max+1, is_called=false)` for every integer PK, then proved by reading the sequence (not `pg_sequences`, whose `last_value` is NULL in exactly that state) |
 | **Slow on big data** | it is row-by-row SQL over Prisma, not `pg_dump`. ~100 MB of `Media` took a few minutes on the test fixture; for a multi-GB database use `vps-migrate.sh` on the host instead |
 
-## 3c. Panel-only route — no terminal, no SSH, nothing to type (start here if that is your situation)
+## 3c. Panel-only route — ONE environment line (start here if you have no shell on the box)
 
 The image runs `docker-entrypoint.sh` before Next.js binds the port, and that hook runs
-`prisma/migrate-from-neon.js` **only when `MIGRATE_ON_BOOT` is set** in the panel. So the whole migration is
-two edits in Dokploy → your compose service → **Environment**, and two clicks of **Deploy**. With the variable
-unset the entrypoint does exactly what the old `CMD` did, so ordinary deploys are unaffected.
+`prisma/migrate-from-neon.js` **only while `MIGRATE_ON_BOOT` is set**. Everything else is Dokploy's own UI.
 
-**Deploy 1 — copy, shop still live on Neon.** Add to the environment:
+In Dokploy → your compose service → **Environment**, add one line, then **Deploy**:
 
 ```
-MIGRATE_ON_BOOT = full
+MIGRATE_ON_BOOT = cutover
 ```
 
-Open the deploy's **Logs** and look for `[boot] migration phase finished` plus `verify clean`. If instead it
-says `refusing to continue`, the message states exactly which line to add (usually
-`MIGRATE_DST_URL=postgresql://sinzo:<pw>@db:5432/sinzo`, where `<pw>` is the db service's `POSTGRES_PASSWORD`
-from its own Console, or the value already in the compose env). Nothing is written to the VPS database until
-that passes, and the app always starts regardless — a failed migration cannot take the shop down.
+That single deploy does, in order: derive the VPS database URL from the container's own `POSTGRES_PASSWORD`
+(host `db`, user/db `sinzo`, all overridable with `MIGRATE_DB_HOST` / `MIGRATE_DB_USER` / `MIGRATE_DB_NAME` /
+`MIGRATE_DST_URL`) → full copy, `Media` image bytes included → sequences → `verify`. **Only if verify is clean**
+it writes `/tmp/sinzo-cutover.url`, and the entrypoint exports `DATABASE_URL` from it for the app process — so
+the shop comes up on the VPS database in that same deploy, without you editing `DATABASE_URL` at all. Any
+failure leaves it on Neon, and the log says exactly which line to add. Extra downtime is the copy itself, which
+hides inside the restart the deploy was already doing.
 
-**Deploy 2 — the cutover, no downtime window needed.** Keep `MIGRATE_ON_BOOT` but set it to `final`, and in the
-same edit move the Neon connection string from `DATABASE_URL` to `MIGRATE_SRC_URL` while `DATABASE_URL` becomes
-the VPS one (`postgresql://sinzo:<pw>@db:5432/sinzo`, or delete the override if the compose file already
-provides it). Then Deploy. The hook runs *before* the app starts listening, so orders cannot land in the gap:
-it re-copies the busy tables from Neon, fixes the sequences, verifies, and only then starts Next.js against the
-VPS database. Expect `[migrate] DONE …` and `auto-added to the copy because CASCADE would empty them: …`.
+Open the deploy's **Logs**, and read for `[migrate] DONE` or `[migrate] refusing to continue`.
 
-Then delete `MIGRATE_ON_BOOT` (otherwise every future deploy re-runs the delta) and place one COD order,
-checking its id is higher than every existing one. To undo at any moment: put the Neon string back in
-`DATABASE_URL`, remove `MIGRATE_ON_BOOT`, Deploy — Neon was never written to, so that is the whole rollback.
+Then finish the job at your convenience, before the next deploy: set `DATABASE_URL` in the panel to the VPS
+value (or delete the override so the compose file's own `DATABASE_URL: postgresql://sinzo:${POSTGRES_PASSWORD}@db:5432/sinzo`
+line applies) and remove `MIGRATE_ON_BOOT`. Until you do, two protections cover you:
 
-Tested as the two deploys, on a real Postgres pair: after Deploy 1, `verify clean` with all 24 tables equal; a
-new order arriving on the source in between was picked up by Deploy 2 (`Order 4 rows`, 12 tables refreshed,
-`CollectionProduct`/`ProductImage` dragged in automatically); the first order written after the flip took
-`id = 5` with the source max at `4`; and with a deliberately wrong target password the boot logged the failure
-and the app started anyway. Caveat: this only runs if Dokploy does not override the image's entrypoint — if
-the service has a custom **Command/Entrypoint** in the panel, clear it or use route §3b instead.
+| Situation | What happens |
+|---|---|
+| container restarted, marker still in `/tmp` | the copy is skipped entirely — re-running a Neon copy after the cutover would truncate the VPS tables and overwrite newer sales |
+| new container (marker gone) and the target already has newer orders | it does NOT copy, writes the marker, and starts on the VPS database anyway: "the cutover has already happened" |
+| new container, target empty, verify fails | app starts on Neon, nothing written to the target — full rollback by doing nothing |
+
+Other `MIGRATE_ON_BOOT` values, if you want the steps separated: `full` (copy only, refuses a non-empty target,
+app stays on Neon) and `final` (the busy-tables delta for a deploy that already points `DATABASE_URL` at the VPS
+database). `DEPLOY_CHANNEL=vps` is worth setting in the same edit so orders keep being labelled by origin.
+
+Caveat: this needs Dokploy to build the image from the repo (`build: .`) and not to override the entrypoint — if
+the service has a custom Command/Entrypoint in the panel, clear it or use §3b (Console) instead.
+
+Tested as the real thing: an empty target + `cutover` → `verify clean` on 24/24 tables, the app process printed
+`APP sees: /sinzo_dst`; a second boot with the marker → `skipping the copy`; marker deleted after the VPS side
+took a newer order → `the target already holds newer orders (5 vs 4) … NOTHING is copied`, app on the VPS
+database, orders intact (`count 5, sum 3650`). Bugs found while building it: a space-separated `--only` default
+that the comma-only splitter turned into one bogus table name; a same-host guard that refused two databases on
+one host; `cutover` initially reusing `final`'s busy-tables set, which on an empty target would have booted the
+app on a database with no `Media`/`Setting`.
 
 ### Cutover (the only window that needs the app down)
 
