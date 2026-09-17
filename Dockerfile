@@ -35,6 +35,10 @@ COPY --from=builder /app/public ./public
 COPY --from=builder /app/package.json ./package.json
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/next.config.mjs ./next.config.mjs
+# entrypoint: runs prisma/migrate-from-neon.js first when MIGRATE_ON_BOOT is set in the panel, then the app
+COPY --from=builder /app/docker-entrypoint.sh /usr/local/bin/sinzo-entrypoint.sh
+RUN chmod +x /usr/local/bin/sinzo-entrypoint.sh
 EXPOSE 3000
+ENTRYPOINT ["/usr/local/bin/sinzo-entrypoint.sh"]
 # ensure DB columns on container start (runs before next start)
-CMD ["sh", "-c", "node scripts/ensure-db.js || true && npm run start"]
+CMD ["npm", "run", "start"]

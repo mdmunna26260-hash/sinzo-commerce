@@ -205,6 +205,43 @@ How it differs from `vps-migrate.sh`, and when it is the wrong tool:
 | Sequences | `setval(next = max+1, is_called=false)` for every integer PK, then proved by reading the sequence (not `pg_sequences`, whose `last_value` is NULL in exactly that state) |
 | **Slow on big data** | it is row-by-row SQL over Prisma, not `pg_dump`. ~100 MB of `Media` took a few minutes on the test fixture; for a multi-GB database use `vps-migrate.sh` on the host instead |
 
+## 3c. Panel-only route — no terminal, no SSH, nothing to type (start here if that is your situation)
+
+The image runs `docker-entrypoint.sh` before Next.js binds the port, and that hook runs
+`prisma/migrate-from-neon.js` **only when `MIGRATE_ON_BOOT` is set** in the panel. So the whole migration is
+two edits in Dokploy → your compose service → **Environment**, and two clicks of **Deploy**. With the variable
+unset the entrypoint does exactly what the old `CMD` did, so ordinary deploys are unaffected.
+
+**Deploy 1 — copy, shop still live on Neon.** Add to the environment:
+
+```
+MIGRATE_ON_BOOT = full
+```
+
+Open the deploy's **Logs** and look for `[boot] migration phase finished` plus `verify clean`. If instead it
+says `refusing to continue`, the message states exactly which line to add (usually
+`MIGRATE_DST_URL=postgresql://sinzo:<pw>@db:5432/sinzo`, where `<pw>` is the db service's `POSTGRES_PASSWORD`
+from its own Console, or the value already in the compose env). Nothing is written to the VPS database until
+that passes, and the app always starts regardless — a failed migration cannot take the shop down.
+
+**Deploy 2 — the cutover, no downtime window needed.** Keep `MIGRATE_ON_BOOT` but set it to `final`, and in the
+same edit move the Neon connection string from `DATABASE_URL` to `MIGRATE_SRC_URL` while `DATABASE_URL` becomes
+the VPS one (`postgresql://sinzo:<pw>@db:5432/sinzo`, or delete the override if the compose file already
+provides it). Then Deploy. The hook runs *before* the app starts listening, so orders cannot land in the gap:
+it re-copies the busy tables from Neon, fixes the sequences, verifies, and only then starts Next.js against the
+VPS database. Expect `[migrate] DONE …` and `auto-added to the copy because CASCADE would empty them: …`.
+
+Then delete `MIGRATE_ON_BOOT` (otherwise every future deploy re-runs the delta) and place one COD order,
+checking its id is higher than every existing one. To undo at any moment: put the Neon string back in
+`DATABASE_URL`, remove `MIGRATE_ON_BOOT`, Deploy — Neon was never written to, so that is the whole rollback.
+
+Tested as the two deploys, on a real Postgres pair: after Deploy 1, `verify clean` with all 24 tables equal; a
+new order arriving on the source in between was picked up by Deploy 2 (`Order 4 rows`, 12 tables refreshed,
+`CollectionProduct`/`ProductImage` dragged in automatically); the first order written after the flip took
+`id = 5` with the source max at `4`; and with a deliberately wrong target password the boot logged the failure
+and the app started anyway. Caveat: this only runs if Dokploy does not override the image's entrypoint — if
+the service has a custom **Command/Entrypoint** in the panel, clear it or use route §3b instead.
+
 ### Cutover (the only window that needs the app down)
 
 ```bash

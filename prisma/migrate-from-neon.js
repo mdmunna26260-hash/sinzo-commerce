@@ -30,14 +30,57 @@ const { PrismaClient } = require("@prisma/client");
 const argv = process.argv.slice(2);
 const flag = (n) => argv.includes(`--${n}`);
 const val = (n, d) => { const a = argv.find((x) => x.startsWith(`--${n}=`)); return a ? a.slice(n.length + 3) : d; };
-const LIST = (n) => val(n, "").split(",").map((s) => s.trim()).filter(Boolean);
+const LIST = (n) => val(n, "").split(/[,\s]+/).map((s) => s.trim()).filter(Boolean);   // accepts "A,B" and "A B"
 
 // normal copy: source = the app's own DATABASE_URL (Neon), target = DST_URL (the VPS database).
 // --verify-only: source = DATABASE_URL_OLD (Neon), target = DATABASE_URL (the VPS one the app now uses), so the
 // same file is the post-cutover drift check without re-pointing anything by hand.
 const VERIFY = argv.includes("--verify-only");
-const SRC = process.env.SRC_URL || (VERIFY ? process.env.DATABASE_URL_OLD : process.env.DATABASE_URL) || "";
-const DST = process.env.DST_URL || (VERIFY ? process.env.DATABASE_URL : "") || "";
+/* ------------------------------------------------------------------ boot mode (no terminal, no SSH)
+ * Dokploy's Compose panel lets you add environment variables and click Deploy. The image CMD runs this file
+ * before it starts the app, so the whole move is two panel edits and zero typing. MIGRATE_ON_BOOT values:
+ *
+ *   full   — copy everything from the app's current DATABASE_URL (Neon) into the VPS database. The app keeps
+ *            serving Neon during this; nothing on the source is modified, nothing is truncated on the target.
+ *   final  — the last delta, run from the deploy that ALREADY has DATABASE_URL = the VPS database: it copies
+ *            the busy tables from MIGRATE_SRC_URL (Neon) into the live target and re-checks. It runs before
+ *            `npm run start`, i.e. before the port is bound, so the shop cannot accept an order mid-copy and
+ *            there is no gap to paper over. Media is skipped for speed (set MIGRATE_FINAL_MEDIA=1 to include).
+ *
+ * In boot mode this file can NEVER stop the shop: every failure is logged loudly and the process exits 0 so
+ * the CMD continues. If a boot ever looks stuck, it is this — check the panel's Logs, not the app.
+ */
+const BOOT = (process.env.MIGRATE_ON_BOOT || "").trim().toLowerCase();
+const IS_BOOT = BOOT && BOOT !== "0" && BOOT !== "off" && BOOT !== "false";
+const FINAL = BOOT === "final" || BOOT === "delta";
+const FINAL_SET = "Order OrderItem Customer Product ProductVariant Coupon Review InventoryMovement AbandonedCheckout PushSubscription";
+// "the same database twice" = same host AND same database name. Host alone is not enough: on a test box both
+// ends are 127.0.0.1 with different db names, and refusing that would be a false alarm.
+const endpointOf = (u) => { try { const x = new URL(u); return `${x.hostname}:${x.port}/${x.pathname}`; } catch { return ""; } };
+
+function deriveVpsUrl() {
+  const host = process.env.MIGRATE_DB_HOST || "db";
+  const port = process.env.MIGRATE_DB_PORT || "5432";
+  const user = process.env.MIGRATE_DB_USER || "sinzo";
+  const name = process.env.MIGRATE_DB_NAME || "sinzo";
+  const pw = process.env.POSTGRES_PASSWORD || "";
+  if (!pw) return "";
+  return `postgresql://${encodeURIComponent(user)}:${encodeURIComponent(pw)}@${host}:${port}/${name}`;
+}
+
+let SRC = process.env.SRC_URL || (process.env.MIGRATE_SRC_URL || "") ||
+          (VERIFY ? process.env.DATABASE_URL_OLD : process.env.DATABASE_URL) || "";
+let DST = process.env.DST_URL || (VERIFY ? process.env.DATABASE_URL : "") || "";
+if (IS_BOOT) {
+  if (FINAL) { SRC = process.env.MIGRATE_SRC_URL || process.env.DATABASE_URL_OLD || ""; DST = process.env.DATABASE_URL || ""; }
+  else { DST = process.env.MIGRATE_DST_URL || deriveVpsUrl(); }   // full: DATABASE_URL is still Neon
+  argv.push("--page=" + (process.env.MIGRATE_PAGE || "400"));
+  if (FINAL) {
+    argv.push("--only=" + (process.env.MIGRATE_ONLY || FINAL_SET));
+    argv.push("--truncate");                       // the app is not serving yet, so a truncate set is safe
+    if (!process.env.MIGRATE_FINAL_MEDIA) argv.push("--skip=Media");   // ~100 MB of pictures would add minutes
+  }
+}
 const PAGE = Number(val("page", 400));
 const BYTES_PAGE = Number(val("bytes-page", 12));   // bytea rows are ~0.5 MB each; small pages keep the heap sane
 const DRY = flag("dry");
@@ -55,7 +98,15 @@ const lit = (x) => `'${String(x).replace(/'/g, "''")}'`;
 const idLit = (x) => lit(`public.${q(x)}`);          // → 'public."Order"' (regclass input)
 const one = async (db, sql, ...p) => (await db.$queryRawUnsafe(sql, ...p))[0];
 const num = async (db, sql, ...p) => Number((await one(db, sql, ...p)).n);
-const die = (m) => { console.error("\n✗ " + m + "\n"); process.exit(1); };
+const die = (m) => {
+  if (IS_BOOT) {
+    console.log("\n[migrate] refusing to continue: " + String(m).replace(/\n/g, "\n[migrate] "));
+    console.log("[migrate] nothing was written, and the app starts anyway — this helper never takes the shop down.");
+    console.log("[migrate] paste this whole log to whoever is helping you.");
+    process.exit(0);
+  }
+  console.error("\n✗ " + m + "\n"); process.exit(1);
+};
 const say = (m) => console.log("\n▸ " + m);
 const warn = (m) => console.log("\n! " + m);
 const ok = (m) => console.log("  ok   " + m);
@@ -78,7 +129,19 @@ async function seqGap(db, table, col) {
 }
 
 async function main() {
+  if (IS_BOOT) {
+    console.log(`[migrate] MIGRATE_ON_BOOT=${BOOT} — ${FINAL ? "final delta before the app accepts traffic" : "full copy while the shop still runs on the other database"}`);
+    console.log(`[migrate] source=${mask(SRC)} target=${mask(DST)}`);
+    if (SRC && DST && endpointOf(SRC) === endpointOf(DST))
+      return console.log("[migrate] ABORTED: source and target are on the same host. Nothing was touched.");
+  }
   if (!SRC) die("no source URL — inside the app container DATABASE_URL is the Neon string, so this should be automatic.");
+  if (IS_BOOT && !DST && !FINAL)
+    die(`could not work out the VPS database URL on its own.
+   The app container needs POSTGRES_PASSWORD in its environment to build it (MIGRATE_DB_HOST=db,
+   MIGRATE_DB_USER=sinzo, MIGRATE_DB_NAME=sinzo are already the defaults). Fix it by adding ONE line to
+   the Dokploy env, then Deploy again:
+     MIGRATE_DST_URL=postgresql://sinzo:<the db service's POSTGRES_PASSWORD>@db:5432/sinzo`);
   if (!DST) die(`DST_URL is required, e.g.
    DST_URL='postgresql://sinzo:<PW>@db:5432/sinzo' node prisma/migrate-from-neon.js
 <PW> comes from the *db* service's Console in the same panel:  printenv POSTGRES_PASSWORD
@@ -274,13 +337,35 @@ async function main() {
     else { bad(`Order_id_seq state: ${JSON.stringify(g)} — the sequence is not ahead of max(id); new orders would collide`); drift++; }
   }
   if (drift) die(`${drift} mismatch(es) — do NOT point the app at this database yet. Paste the output above.`);
-  console.log(`
+  if (FINAL) {
+    console.log(`
+[migrate] DONE — the app is now reading the VPS database, and the last ${want.length} table(s) were refreshed
+[migrate] from Neon just before it started, so no order can have slipped through the gap.
+[migrate] housekeeping: remove MIGRATE_ON_BOOT from the Dokploy env (otherwise this delta runs on every deploy),
+[migrate] then place one COD test order — its id must be higher than every id above, never one that exists.
+[migrate] Neon stays untouched as the rollback; pause it after 7–14 days, do not delete it.`);
+  } else {
+    console.log(`
 ▸ verify clean. Next: in Dokploy set the app service env
     DATABASE_URL   = ${mask(DST || "postgresql://sinzo:<PW>@db:5432/sinzo")}
     DEPLOY_CHANNEL = vps
   then RESTART (a restart is enough — DATABASE_URL is server-side, no rebuild needed), and place one COD test
   order: its id must be the old max +1. Keep Neon untouched and paused-later: that is the rollback.`);
+  }
 }
 
-main().then(() => { [src, dst].forEach((x) => x && x.$disconnect().catch(() => {})); })
-  .catch(async (e) => { warn((e && e.message ? e.message : String(e)).slice(0, 1500)); [src, dst].forEach((x) => x && x.$disconnect().catch(() => {})); process.exit(1); });
+const bye = () => [src, dst].forEach((x) => x && x.$disconnect().catch(() => {}));
+const bootDie = (msg) => {
+  console.log("\n[migrate] " + msg);
+  console.log("[migrate] the app will start anyway — this helper never takes the shop down.");
+  console.log("[migrate] paste this whole log to whoever is helping you. Nothing else was changed.");
+  bye(); process.exit(0);
+};
+
+main()
+  .then(bye)
+  .catch(async (e) => {
+    const m = (e && e.message ? e.message : String(e)).slice(0, 1500);
+    if (IS_BOOT) bootDie("FAILED: " + m);
+    warn(m); bye(); process.exit(1);
+  });
