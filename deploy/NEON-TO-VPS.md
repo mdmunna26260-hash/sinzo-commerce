@@ -146,6 +146,52 @@ client, and your Neon is **PG 18** while `deploy/docker-compose.vps.yml` is `pos
 this source — its `precheck` only warns. Do **not** "fix" it by bumping the `db` service to 18 before the
 restore: a PG 18 data directory cannot be read by a PG 16 server, and `pgdata` is a named volume that survives.
 
+## 3b. No-root route — copy from INSIDE the app container (use this if you have no host shell)
+
+`prisma/migrate-from-neon.js` needs no SSH, no `docker` CLI, no `pg_dump` and no typed credential: the app
+container already holds the Neon URL in its own `DATABASE_URL`, and it sits on the same compose network as the
+`db` service. It is in `prisma/` **on purpose** — the runner image copies `prisma/` but not `scripts/` (see
+Dockerfile), so a helper in `scripts/` would not exist inside the container.
+
+Dokploy → your Compose deployment → **app service → Console** (the terminal with the `>` prompt; `ls /app`
+must show `.next  node_modules  prisma  public`). Step 0 — find out what you actually have:
+
+```sh
+getent hosts db >/dev/null && echo "db service present" || echo "NO db service — you must create one first"
+printenv DATABASE_URL | sed -E 's#:[^@]*@#:•••@#'         # which Neon endpoint the live app really uses
+```
+
+If `db` is absent, create one in Dokploy (Compose → add the `db` service from
+`deploy/docker-compose.vps.yml`, or Dokploy's own Postgres database service) and use the host/port it hands you.
+Then, from `/app`:
+
+```sh
+DST_URL='postgresql://sinzo:<PW>@db:5432/sinzo' node prisma/migrate-from-neon.js --dry   # counts only
+DST_URL='postgresql://sinzo:<PW>@db:5432/sinzo' node prisma/migrate-from-neon.js         # full copy, app live
+```
+
+`<PW>` is `POSTGRES_PASSWORD` of the db service — read it from the **db** service's Console
+(`printenv POSTGRES_PASSWORD`); the app container does not necessarily have it.
+
+Then, with the app **stopped** (Dokploy → Stop), the delta pass — you only have to name the parents, child
+tables are dragged along automatically because `TRUNCATE … CASCADE` would empty them:
+
+```sh
+DST_URL='…' node prisma/migrate-from-neon.js --only=Order,Product,ProductVariant,Customer,Coupon,Review
+DST_URL='…' node prisma/migrate-from-neon.js --verify-only      # source=DATABASE_URL_OLD, target=DATABASE_URL
+```
+
+How it differs from `vps-migrate.sh`, and when it is the wrong tool:
+
+| | |
+|---|---|
+| Schema | if the target has no tables it runs `prisma db push` itself (an empty target loses nothing), so there is no separate "restore the schema" step |
+| Order | tables are copied parents-first, computed from `pg_constraint` on the source — never hand-maintained |
+| Paging | keyset on the **whole** primary key, so `CollectionProduct`'s composite PK cannot skip rows; `bytea` tables copy 12 rows per round-trip because the app container is capped at 768 MB (`NODE_OPTIONS`) |
+| Guards | refuses a non-empty target unless you pass a `--only`/`--truncate` set; any table that ends up with fewer rows than the source had is a hard failure, not a note |
+| Sequences | `setval(next = max+1, is_called=false)` for every integer PK, then proved by reading the sequence (not `pg_sequences`, whose `last_value` is NULL in exactly that state) |
+| **Slow on big data** | it is row-by-row SQL over Prisma, not `pg_dump`. ~100 MB of `Media` took a few minutes on the test fixture; for a multi-GB database use `vps-migrate.sh` on the host instead |
+
 ### Cutover (the only window that needs the app down)
 
 ```bash
@@ -250,6 +296,20 @@ plus 41 orders and 3 `Media` rows holding 469 kB of image bytes.
 - `catchup` data-only reload with 5 new source orders → money/id/freshness all flagged before the fix, and the
   app's own `order.create` failed with `P2002`; after the `sequences` pass the same insert returned `id=47`.
 - `scripts/verify-db-migration.js` — exit 0 when aligned, exit 1 on drift, `--json` emits pure JSON for CI.
+`prisma/migrate-from-neon.js` was then exercised against a **real** Postgres 17 pair (`sinzo_src` → `sinzo_dst`,
+no stubs): the seeded prod schema plus 40 synthetic `Media` rows of 600 kB (so the bytea paging path ran),
+18 composite-PK `CollectionProduct` rows, 60 variants. `--dry` wrote nothing; a full copy ended `verify clean`
+with all 24 tables equal and `Order.sum(total)`/`max(id)`/`max(createdAt)` matching; a `--only=Order` run printed
+`auto-added to the copy because CASCADE would empty them: OrderItem` and left both tables consistent; re-running
+without `--truncate` on a 171-row target refused and touched nothing; and the decisive test — `order.create()`
+on the target **without** an id — returned `id = 3`, old max + 1, so the first real order cannot collide.
+Bugs the fixture caught before shipping: `::regclass::text` renders `"Category"` with quotes, so the PK/FK maps
+matched nothing and the copy silently delivered 3 of 7 categories while reporting `ok`; `MAX(id)` on a cuid PK
+typed as text; `COALESCE(sum(total),'-')` mixing double precision with text; a `AS m` alias read through a
+helper expecting `.n`, which made the sequence pass advance 0 sequences on a green run; `pg_sequences.last_value`
+being NULL for the state this script creates; the target's table list being read before the schema push; and a
+keyset cursor that was computed but never passed to the next query.
+
 On 2026-09-17 the project itself was measured through the Neon API (`GET /projects`, `/endpoints`,
 `/branches`, `/roles`): PG 18, region `aws-ap-southeast-1`, `production` branch `br-empty-fire-azq55s4e` at
 105 848 832 bytes (101 MB), a second branch `new-store` also with a read_write endpoint, roles
