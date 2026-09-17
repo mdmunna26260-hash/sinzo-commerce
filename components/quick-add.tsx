@@ -202,20 +202,23 @@ export default function QuickAdd({ p }: { p: QaProduct }) {
       <button
         ref={btnRef}
         type="button"
-        className={"qadd" + (busy ? " busy" : "")}
+        className={"qadd icon-btn" + (busy ? " busy" : "")}
         aria-haspopup="dialog"
         aria-expanded={open}
         aria-label={"Quick add " + p.title + " to cart"}
-        title="Quick add"
+        title="Add to cart"
         onPointerEnter={() => { if (sizeCount > 1) void rowsFor(p.id); }}
         onClick={() => { void onTap(); }}
       >
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true">
-          <path d="M6 8h12l-1 12H7L6 8Z" />
-          <path d="M9 8V6.5a3 3 0 0 1 6 0V8" />
-          <path d="M12 11v6M9 14h6" />
-        </svg>
-        <span>Add</span>
+        {busy ? (
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+            <path d="M5 12.5l4.5 4.5L19 7.5" />
+          </svg>
+        ) : (
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+            <path d="M12 5.5v13M5.5 12h13" />
+          </svg>
+        )}
       </button>
 
       {open &&
