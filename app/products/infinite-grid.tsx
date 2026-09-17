@@ -46,6 +46,7 @@ export default function InfiniteGrid({ products }: { products: any[] }) {
             preorder: p.preorder,
             colors: p.colors,
             sizes: p.sizes ? [...new Set(p.sizes)].sort() as string[] : undefined,
+            qa: p.qa,
           }} />
         ))}
       </div>
@@ -55,7 +56,7 @@ export default function InfiniteGrid({ products }: { products: any[] }) {
         </div>
       )}
       {remaining <= 0 && products.length > 12 && (
-        <div className="inf-end">— sob product dekhano hoyeche —</div>
+        <div className="inf-end">— you have seen everything —</div>
       )}
     </>
   );

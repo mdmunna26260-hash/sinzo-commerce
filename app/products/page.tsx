@@ -128,7 +128,7 @@ async function Results({ sp, cats, sizes, unknownCategory }: { sp: SP; cats: { i
       badge: true, isNew: true, isBestSeller: true, saleEnds: true, preorder: true,
       category: { select: { name: true } },
       images: { select: { url: true }, orderBy: { position: "asc" }, take: 1 },
-      variants: { select: { size: true, color: true, stock: true } },
+      variants: { select: { id: true, size: true, color: true, stock: true, price: true }, orderBy: { id: "asc" } },
     },
   });
 
@@ -182,6 +182,16 @@ async function Results({ sp, cats, sizes, unknownCategory }: { sp: SP; cats: { i
           saleEnds: (p as any).saleEnds ? new Date((p as any).saleEnds).toISOString() : null,
           colors: Array.from(new Set(p.variants.filter((v) => (p.preorder || v.stock > 0) && v.color).map((v) => v.color!))),
           sizes: [...new Set(p.variants.filter((v) => (p.preorder || v.stock > 0) && v.size).map((v) => v.size!))].sort(),
+          /* default variant for one-tap quick add: only usable when there is nothing to choose
+             (<=1 size, <=1 colour), which is exactly when QuickAdd skips the popover */
+          qa: (() => {
+            const pick = p.variants.find((v) => v.stock > 0) || p.variants[0];
+            if (!pick) return null;
+            const sizes = new Set(p.variants.map((v) => v.size).filter(Boolean));
+            const cols = new Set(p.variants.map((v) => v.color).filter(Boolean));
+            if (sizes.size > 1 || cols.size > 1) return null;
+            return { variantId: pick.id, price: pick.price || p.price, stock: pick.stock, size: pick.size, color: pick.color };
+          })(),
         }))} />
       )}
     </ShopLayout>

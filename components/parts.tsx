@@ -1,13 +1,18 @@
 import type { CSSProperties } from "react";
 import Link from "next/link";
 import CardImg from "./card-img";
+import QuickAdd from "./quick-add";
+import { sortSizes } from "@/lib/sizes";
 
 export { imgSrc, imgSrcSet } from "./img-src";
+export { sortSizes } from "@/lib/sizes";
 
 export type CardProduct = {
   id: number; title: string; slug: string; price: number; comparePrice: number | null;
   image?: string; categoryName?: string; stock: number; isNew?: boolean; isBestSeller?: boolean;
-  colors?: string[]; sizes?: string[]; badge?: string | null; saleEnds?: string | null; preorder?: boolean; };
+  colors?: string[]; sizes?: string[]; badge?: string | null; saleEnds?: string | null; preorder?: boolean;
+  /* default (first in-stock) variant, so the one-tap path needs no roundtrip */
+  qa?: { variantId: number; price: number; stock: number; size?: string | null; color?: string | null } | null; };
 
 const BADGE_LABELS: Record<string, string> = {
   trending: "TRENDING NOW",
@@ -17,29 +22,15 @@ const BADGE_LABELS: Record<string, string> = {
   limited: "LIMITED",
 };
 
-/* serial order: numeric ascending first (28, 30, 32…), then S → M → L → XL → XXL → … */
-const SIZE_SEQ = ["XXS", "XS", "S", "M", "L", "XL", "XXL", "XXXL", "4XL"];
-function sizeRank(s: string): number {
-  const u = s.trim().toUpperCase().replace(/^3XL$/, "XXXL");
-  const i = SIZE_SEQ.indexOf(u);
-  return i === -1 ? 999 : i;
-}
-export function sortSizes(sizes: string[]): string[] {
-  return [...sizes].sort((a, b) => {
-    const na = Number(a), nb = Number(b);
-    if (!Number.isNaN(na) && !Number.isNaN(nb)) return na - nb;
-    if (!Number.isNaN(na)) return -1;
-    if (!Number.isNaN(nb)) return 1;
-    const ra = sizeRank(a), rb = sizeRank(b);
-    if (ra !== rb) return ra - rb;
-    return a.localeCompare(b);
-  });
-}
-
 export function ProductCard({ p, rd }: { p: CardProduct; rd?: number }) {
   const off = p.comparePrice && p.comparePrice > p.price ? Math.round((1 - p.price / p.comparePrice) * 100) : 0;
+  /* The cell is the positioning parent and carries the stagger delay, so the quick-add button
+     fades in with its card instead of floating over an invisible one. The <Link> stays the
+     anchor of everything it already was — the button is a sibling, not a child, because an
+     <a> may not contain interactive content. */
   return (
-    <Link className="pcard reveal" href={"/products/" + p.slug} style={rd != null ? ({ "--rd": rd } as CSSProperties) : undefined}>
+    <div className="pcard-cell" style={rd != null ? ({ "--rd": rd } as CSSProperties) : undefined}>
+    <Link className="pcard reveal" href={"/products/" + p.slug}>
       <div className="pcard-img">
         {p.image && <CardImg url={p.image} alt={p.title} slug={p.slug} />}
         <div className="pcard-badges">
@@ -74,6 +65,8 @@ export function ProductCard({ p, rd }: { p: CardProduct; rd?: number }) {
         </div>
       </div>
     </Link>
+      <QuickAdd p={p} />
+    </div>
   );
 }
 
