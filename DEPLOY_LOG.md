@@ -1,3 +1,21 @@
+# updated 2026-09-18
+
+## Clean VPS deployment — old project removed, DB fully on the VPS (LIVE)
+- **Old Dokploy project ("SINZO Commerce", Sep 2 build) deleted** — with its two
+  half-finished Postgres services. `sinzooffcial.com` + `www` + `staging` now
+  point at the new project **"SINZO Live"** (app `store`, Postgres 16 `sinzo-db`,
+  internal Docker network, no external DB port).
+- **Data move Neon → VPS:** full copy ran via `prisma/migrate-from-neon.js`
+  (all 25 tables + 53 MB Media bytea, 21 sequences advanced, money verified:
+  `Order.sum(total)=34490`, `Order.max(id)=39`), then the `MIGRATE_ON_BOOT=final`
+  deploy refreshed the 13 busy tables from Neon seconds before the app bound
+  :3000 — "no order can have slipped through the gap" (verified in deploy logs).
+- Orphan `Address` table (not in either Prisma schema, 0 rows on Neon) was
+  recreated on the VPS target so the mover's table-set check passes.
+- **Rollback:** Neon is untouched and read-only during the move — keep it for
+  7–14 days, then pause. The live write test confirmed orders now land in the
+  VPS database (next order id = 40, sequence checked, no collision possible).
+
 # updated 2026-09-14
 
 ## a35e5cd — Admin UI modernized (Stripe-style light), all 13 pages (LIVE)
