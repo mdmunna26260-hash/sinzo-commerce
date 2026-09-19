@@ -72,3 +72,4 @@
   All 3 sites verified: same CSS `b68de754dfcd86fb`, PDP checks pass.
 
 ## 2f713a6 SECURITY FIXES (2026-09-13 audit): invoice PII gate (phone required) · checkout accepts +880 phone format · WhatsApp BD JID fix (88016...) · order+stock+coupon in DB transaction (no oversell) · rate limits on public APIs · HSTS header · Product JSON-LD (SEO) · category slug update support · no hardcoded admin passwords in seed/smoke
+
