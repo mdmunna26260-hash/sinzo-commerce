@@ -44,7 +44,7 @@ export default function RelatedCarousel({ items }: { items: Item[] }) {
                 key={r.id}
                 p={{
                   id: r.id, title: r.title, slug: r.slug, price: r.price,
-                  comparePrice: r.comparePrice, image: r.images?.[0]?.url || r.image, stock: r.stock,
+                  comparePrice: r.comparePrice, image: r.images?.[0]?.url || r.image, images: r.images?.map((i) => i.url), stock: r.stock,
                   badge: r.badge, isNew: r.isNew, isBestSeller: r.isBestSeller,
                 }}
               />

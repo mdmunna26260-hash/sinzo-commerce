@@ -89,7 +89,7 @@ async function HomeContent() {
         id: true, title: true, slug: true, price: true, comparePrice: true, stock: true,
         badge: true, isNew: true, isBestSeller: true, position: true, status: true, preorder: true,
         category: { select: { name: true } },
-        images: { select: { url: true }, orderBy: { position: "asc" as const }, take: 1 },
+        images: { select: { url: true }, orderBy: { position: "asc" as const }, take: 6 },
         variants: { select: { size: true, color: true, stock: true } },
       },
     },
@@ -119,6 +119,7 @@ async function HomeContent() {
       .map((x: any) => ({
         id: x.product.id, title: x.product.title, slug: x.product.slug, price: x.product.price,
         comparePrice: x.product.comparePrice, image: x.product.images?.[0]?.url,
+        images: (x.product.images || []).map((im: any) => im.url),
         categoryName: x.product.category?.name, stock: Math.max(x.product.stock, (x.product.variants || []).reduce((s: number, v: any) => s + v.stock, 0)),
         isNew: x.product.isNew, isBestSeller: x.product.isBestSeller, badge: x.product.badge, preorder: !!x.product.preorder,
         sizes: Array.from(new Set((x.product.variants || []).filter((v: any) => (x.product.preorder || v.stock > 0) && v.size).map((v: any) => v.size))).sort(),

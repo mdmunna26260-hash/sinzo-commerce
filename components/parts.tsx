@@ -1,6 +1,7 @@
 import type { CSSProperties } from "react";
 import Link from "next/link";
 import CardImg from "./card-img";
+import CardGallery from "./card-gallery";
 import QuickAdd from "./quick-add";
 import { sortSizes } from "@/lib/sizes";
 
@@ -11,6 +12,9 @@ export type CardProduct = {
   id: number; title: string; slug: string; price: number; comparePrice: number | null;
   image?: string; categoryName?: string; stock: number; isNew?: boolean; isBestSeller?: boolean;
   colors?: string[]; sizes?: string[]; badge?: string | null; saleEnds?: string | null; preorder?: boolean;
+  /* every photo of the product (ordered) — powers the drag-to-swipe card gallery.
+     Optional: when absent/1 image the card falls back to the plain CardImg. */
+  images?: string[];
   /* default (first in-stock) variant, so the one-tap path needs no roundtrip */
   qa?: { variantId: number; price: number; stock: number; size?: string | null; color?: string | null } | null; };
 
@@ -32,7 +36,11 @@ export function ProductCard({ p, rd }: { p: CardProduct; rd?: number }) {
     <div className="pcard-cell" style={rd != null ? ({ "--rd": rd } as CSSProperties) : undefined}>
     <Link className="pcard reveal" href={"/products/" + p.slug}>
       <div className="pcard-img">
-        {p.image && <CardImg url={p.image} alt={p.title} slug={p.slug} />}
+        {(() => {
+          const gallery = (p.images || []).filter(Boolean);
+          if (gallery.length > 1) return <CardGallery images={gallery} alt={p.title} />;
+          return p.image ? <CardImg url={p.image} alt={p.title} slug={p.slug} /> : null;
+        })()}
         <div className="pcard-badges">
           {p.stock <= 0 && !p.preorder && <span className="badge">SOLD OUT</span>}
           {p.preorder && <span className="badge">Pre-Order</span>}

@@ -2626,3 +2626,38 @@ html.theme-transition *::after {
   .trk-phone, .trk-dot { animation: none; }
   .trk-input, .trk-refresh { transition: none; }
 }
+
+/* ============================================================================
+   CARD GALLERY (drag-to-swipe product photos inside a product card)
+   Lets a customer flip through every photo without opening the product page.
+   Fills .pcard-img exactly like CardImg did — no layout change, zero CLS.
+   ========================================================================== */
+.cg { position: absolute; inset: 0; overflow: hidden; touch-action: pan-y; overscroll-behavior-x: contain; }
+.cg-swipeable { cursor: grab; }
+.cg-swipeable:active { cursor: grabbing; }
+.cg-track { display: flex; height: 100%; width: 100%; will-change: transform; }
+.cg-slide { position: relative; flex: 0 0 100%; width: 100%; height: 100%; background: #eee9e2; }
+.cg-img { width: 100%; height: 100%; object-fit: cover; display: block; user-select: none; -webkit-user-drag: none; }
+/* the card's hover zoom must not fight the swipe transform */
+.cg .cg-img { transition: none; }
+.pcard:hover .pcard-img .cg-img { transform: none; }
+.cg .cg-img.nodrag { pointer-events: none; }
+
+/* dots — decorative (the whole card is a link, so no nested buttons) */
+.cg-dots {
+  position: absolute; left: 0; right: 0; bottom: 8px; z-index: 2;
+  display: flex; justify-content: center; gap: 4px; pointer-events: none;
+}
+.cg-dot {
+  width: 5px; height: 5px; border-radius: 99px; display: block;
+  background: rgba(255, 255, 255, .55);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, .12);
+  transition: width .25s ease, background .25s ease;
+}
+.cg-dot.on { width: 14px; background: #fff; }
+
+/* a wider hit area is friendly on touch; desktop keeps the subtle dots */
+@media (min-width: 900px) {
+  .cg-dot { width: 4px; height: 4px; }
+  .cg-dot.on { width: 12px; }
+}

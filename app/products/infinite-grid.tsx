@@ -41,7 +41,7 @@ export default function InfiniteGrid({ products }: { products: any[] }) {
         {shown.map((p) => (
           <ProductCard key={p.id} p={{
             id: p.id, title: p.title, slug: p.slug, price: p.price, comparePrice: p.comparePrice,
-            image: p.image, categoryName: p.categoryName, stock: p.stock,
+            image: p.image, images: p.images, categoryName: p.categoryName, stock: p.stock,
             isNew: p.isNew, isBestSeller: p.isBestSeller, badge: p.badge,
             preorder: p.preorder,
             colors: p.colors,
