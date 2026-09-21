@@ -18,7 +18,7 @@ type Data = {
   bridgeRunning: boolean; connected: boolean; me: string | null; qrPending: boolean;
   health?: { running: boolean; uptimeSec?: number; sessions?: number; connected?: number };
   devices: Device[]; stats: Stats; recent: Msg[]; templates: { key: string; name: string; enabled: boolean; mediaMode: string }[];
-  rules: Rules; defaults: Rules;
+  rules: Rules; defaults: Rules; quickReplies?: string[];
 };
 
 const when = (s: string | null) => (s ? new Date(s).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "—");
@@ -37,11 +37,12 @@ export default function WaHub() {
   const [testTo, setTestTo] = useState("");
   const [testKey, setTestKey] = useState("order_placed");
   const [workerKeyInput, setWorkerKeyInput] = useState("");
+  const [quickText, setQuickText] = useState<string | null>(null);
 
   const load = async () => {
     const r = await afetch("/api/admin/whatsapp");
     const j = await r.json().catch(() => ({}));
-    if (r.ok) { setD(j); setRules((prev) => prev ?? j.rules); }
+    if (r.ok) { setD(j); setRules((prev) => prev ?? j.rules); setQuickText((prev) => prev ?? (j.quickReplies || []).join("\n")); }
   };
   useEffect(() => { load(); const t = setInterval(load, 15000); return () => clearInterval(t); }, []);
 
@@ -62,6 +63,7 @@ export default function WaHub() {
       setMsg({ ok: false, text: j.error || "Failed" });
     }
     if (body.action === "rules" && j.rules) setRules(j.rules);
+    if (body.action === "rules" && Array.isArray(body.value?.quickReplies)) load();
     load();
   };
 
@@ -109,7 +111,8 @@ export default function WaHub() {
         <div className="acard">
           <div className="acard-h">
             <h3>Message queue</h3>
-            <div style={{ display: "flex", gap: 8 }}>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <a className="abtn sm primary" href="/admin/whatsapp/compose">New message</a>
               <button className="abtn sm" disabled={busy === "tick"} onClick={() => act({ action: "tick", limit: 5 }, "tick")}>{busy === "tick" ? "…" : "Run now"}</button>
               <button className="abtn sm" onClick={load}>Refresh</button>
             </div>
@@ -181,6 +184,30 @@ export default function WaHub() {
                 {busy === "test" ? "Sending…" : "Send test now"}
               </button>
               <div style={{ fontSize: 11.5, color: "var(--muted)" }}>Test message e <code>[TEST]</code> lekha thake ar sathe sathe pathano hoy (queue wait kore na)।</div>
+              <a className="abtn sm" href="/admin/whatsapp/compose">Nijer moto message likhun (ছবি + product card) →</a>
+            </div>
+          </div>
+
+          <div className="acard">
+            <div className="acard-h"><h3>Quick replies</h3><span style={{ fontSize: 12, color: "var(--muted)" }}>inbox + composer</span></div>
+            <div className="acard-b" style={{ display: "grid", gap: 10 }}>
+              <textarea
+                value={quickText ?? ""}
+                onChange={(e) => setQuickText(e.target.value)}
+                rows={6}
+                placeholder={"Ek line e ekta reply…"}
+                style={{ width: "100%", padding: "9px 12px", border: "1px solid #d0d5dd", borderRadius: 6, font: "inherit", fontSize: 12.5, lineHeight: 1.5, resize: "vertical" }}
+              />
+              <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                <button
+                  className="abtn primary sm"
+                  disabled={busy === "quick"}
+                  onClick={() => act({ action: "rules", value: { quickReplies: String(quickText || "").split("\n").map((l) => l.trim()).filter(Boolean) } }, "quick")}
+                >
+                  {busy === "quick" ? "Saving…" : "Save quick replies"}
+                </button>
+                <span style={{ fontSize: 11.5, color: "var(--muted)" }}>= 12 ta, ek line = ek reply (inbox ar composer e dekhabe).</span>
+              </div>
             </div>
           </div>
 

@@ -67,7 +67,11 @@ async function syncDevices(rules: WaRules, notes: string[]): Promise<{ up: boole
       if (!["PAUSED", "BANNED"].includes(row.status)) {
         updates.status = isConnected ? "CONNECTED" : live.qrPending ? "QR" : "DISCONNECTED";
       }
-      const phone = String(live.me || live.phone || "").replace(/\D/g, "").replace(/:\d+$/, "") || null;
+      // live.me looks like "8801676450711:12@s.whatsapp.net" — drop the ":device" part BEFORE the
+      // digits-only pass (doing it the other way round glued the device number onto the phone).
+      const phone = String(live.phone || "").replace(/\D/g, "")
+        || String(live.me || "").split(":")[0].split("@")[0].replace(/\D/g, "")
+        || null;
       if (phone && phone !== row.phone) updates.phone = phone;
       // NOTE: a live connection does NOT clear `consecutiveFailures` — only a message that actually
       // leaves the phone does (see the success branch below). A number that stays "connected" but keeps
@@ -197,9 +201,9 @@ export async function runWaTick(opts: { limit?: number; force?: boolean; bypass?
       if (claim.count !== 1) continue; // another worker took it
       report.claimed += 1;
 
-      const media = m.mediaJson ? (JSON.parse(m.mediaJson) as string[]).filter(Boolean) : [];
+      const media = m.mediaJson ? (JSON.parse(m.mediaJson) as string[]).filter(Boolean).slice(0, 10) : [];
       const res = media.length
-        ? await waSendMedia({ to: m.toWaId, image: media[0], caption: m.body, sessionId: device.sessionId })
+        ? await waSendMedia({ to: m.toWaId, images: media, caption: m.body, sessionId: device.sessionId })
         : await waSend(m.toWaId, m.body, device.sessionId);
 
       if (res.ok) {
@@ -212,7 +216,10 @@ export async function runWaTick(opts: { limit?: number; force?: boolean; bypass?
         sentThisTick += 1;
         report.sent += 1;
         await mirrorToInbox(m.toWaId, m.body, m.orderId ?? null);
-        await logApp("INFO", "WHATSAPP", `sent ${m.templateKey || m.kind} → ${waPretty(m.toWaId)} via ${device.name}`, { waMessageId: m.id, orderId: m.orderId });
+        const wentImages = "sentImages" in res ? Number(res.sentImages) || media.length : media.length;
+        const lostImages = "failedImages" in res ? Number(res.failedImages) || 0 : 0;
+        const photoNote = media.length ? ` (${wentImages} photo${wentImages === 1 ? "" : "s"}${lostImages ? `, ${lostImages} failed` : ""})` : "";
+        await logApp("INFO", "WHATSAPP", `sent ${m.templateKey || m.kind} → ${waPretty(m.toWaId)} via ${device.name}${photoNote}`, { waMessageId: m.id, orderId: m.orderId, images: media.length });
         continue;
       }
 

@@ -3169,3 +3169,24 @@ body:has(.admin-body) .scroll-progress { display: none !important; }
   .wa-wrap { grid-template-columns: 1fr; }
   .wa-list-body { max-height: 300px; }
 }
+
+/* ── WhatsApp Phase 2: composer + message toolkit ─────────────────────────────── */
+.wa2-grid { display: grid; grid-template-columns: 1.15fr .85fr; gap: 16px; align-items: start; }
+.wa2-thumbs { display: flex; gap: 8px; flex-wrap: wrap; }
+.wa2-thumb { position: relative; width: 74px; height: 92px; border-radius: 8px; overflow: hidden; border: 1px solid var(--ad-line); background: var(--ad-card); }
+.wa2-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.wa2-thumb button { position: absolute; top: 3px; right: 3px; width: 18px; height: 18px; line-height: 16px; border-radius: 50%; border: none; background: rgba(0,0,0,.6); color: #fff; font-size: 13px; cursor: pointer; padding: 0; }
+.wa2-thumb-tag { position: absolute; left: 0; right: 0; bottom: 0; font-size: 9px; text-align: center; background: rgba(0,0,0,.55); color: #fff; letter-spacing: .02em; }
+.wa2-pick { display: grid; gap: 2px; max-height: 260px; overflow: auto; }
+.wa2-pick-row { display: flex; gap: 10px; align-items: center; padding: 7px 8px; border: none; background: transparent; border-radius: 8px; cursor: pointer; font: inherit; color: inherit; }
+.wa2-pick-row:hover { background: rgba(154,123,79,.08); }
+.wa2-pick-row img { width: 34px; height: 42px; object-fit: cover; border-radius: 4px; }
+.wa2-pick-noimg { width: 34px; height: 42px; border-radius: 4px; background: rgba(0,0,0,.06); }
+.wa2-phone { background: #ece5dd; border-radius: 12px; padding: 14px; background-image: radial-gradient(rgba(0,0,0,.05) 1px, transparent 1px); background-size: 14px 14px; }
+.wa2-bubble { background: #dcf8c6; color: #111b21; border-radius: 10px 10px 10px 3px; padding: 9px 11px 6px; font-size: 13.5px; line-height: 1.55; box-shadow: 0 1px 1px rgba(0,0,0,.13); max-width: 100%; }
+.wa2-text { white-space: pre-wrap; word-break: break-word; }
+.wa2-time { text-align: right; font-size: 10.5px; color: #667781; margin-top: 3px; }
+.wa2-bubble-imgs { display: grid; grid-template-columns: repeat(2, 1fr); gap: 3px; border-radius: 6px; overflow: hidden; margin-bottom: 7px; position: relative; }
+.wa2-bubble-imgs img { width: 100%; height: 108px; object-fit: cover; display: block; }
+.wa2-more { position: absolute; right: 6px; bottom: 6px; background: rgba(0,0,0,.6); color: #fff; font-size: 11px; padding: 2px 7px; border-radius: 10px; }
+@media (max-width: 1000px) { .wa2-grid { grid-template-columns: 1fr; } .acard[style*="sticky"] { position: static !important; } }

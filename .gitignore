@@ -38,3 +38,9 @@ backup/
 
 # sandbox-only Prisma regen copy (blocked engine download workaround)
 prisma/_sandbox.prisma
+
+# sandbox-only dev tooling (stub bridge, harnesses, DB builder) — never shipped
+scripts/_sandbox/
+
+# WhatsApp broadcast uploads (runtime, machine-local)
+public/uploads/wa/

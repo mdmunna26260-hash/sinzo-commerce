@@ -46,7 +46,15 @@ export type WaRules = {
   stopLine: boolean;
   /** shared key scripts/wa-worker.js uses to call /api/wa/tick */
   workerKey: string;
+  /** canned replies the inbox shows above the composer (editable, no deploy needed) */
+  quickReplies: string[];
 };
+
+/** What may ride along with a message: nothing, the first product photo, or up to 3 item photos. */
+export const WA_MEDIA_MODES = ["NONE", "PRODUCT", "ORDER_ITEMS"] as const;
+/** most images one queued message may carry (WhatsApp allows more; the UI caps at 10) */
+export const WA_MEDIA_MAX = 10;
+export type WaMediaMode = (typeof WA_MEDIA_MODES)[number];
 
 export const WA_RULE_DEFAULTS: WaRules = {
   enabled: true,
@@ -60,6 +68,13 @@ export const WA_RULE_DEFAULTS: WaRules = {
   couponCode: "",
   stopLine: true,
   workerKey: "",
+  quickReplies: [
+    "Apnake dhonnobad! Apnar order ta process hocche, 1–2 din er moddhe dispatch hobe.",
+    "Parcel ta aj courier-e deya hoyeche 🚚 tracking number shiggiri pathacchi.",
+    "Size ba colour change korte chan? Amake bolun, stock thakle change kore debo.",
+    "Delivery address ta confirm korte parben please?",
+    "Ei product ta stock e ache ✅ order korte chan?",
+  ],
 };
 
 export function waRules(s: SettingsMap): WaRules {
@@ -83,7 +98,7 @@ export function inQuietHours(from: string, to: string, now = new Date()): boolea
 }
 
 /* ── templates ────────────────────────────────────────────────────────────────────────── */
-export const WA_TEMPLATE_DEFAULTS: { key: WaEvent; name: string; category: "UTILITY" | "MARKETING"; mediaMode: "NONE" | "PRODUCT"; body: string }[] = [
+export const WA_TEMPLATE_DEFAULTS: { key: WaEvent; name: string; category: "UTILITY" | "MARKETING"; mediaMode: WaMediaMode; body: string }[] = [
   {
     key: "order_placed", name: "Order placed (confirmation)", category: "UTILITY", mediaMode: "PRODUCT",
     body: [
@@ -192,8 +207,10 @@ export function validWaId(waId: string): boolean {
 
 /** Fills {variables} and DROPS any line whose placeholder had no value (so {trackingLine}
     disappears for an order that has no consignment yet instead of leaving "Tracking: "). */
-export function renderTemplate(body: string, vars: Record<string, string | number | null | undefined>): string {
+export function renderTemplate(body: string, vars: Record<string, unknown>): string {
   const marked = String(body || "").replace(/\{(\w+)\}/g, (_m, k: string) => {
+    // keys that start with "_" are internal (image lists and such) — they can never leak into a message
+    if (k.startsWith("_")) return EMPTY;
     const v = vars[k];
     return v === undefined || v === null || v === "" ? EMPTY : String(v);
   });
@@ -206,10 +223,30 @@ export function renderTemplate(body: string, vars: Record<string, string | numbe
     .trim();
 }
 
-export type WaVars = Record<string, string>;
+/* WhatsApp text limit is a character count, JS strings are UTF-16 — and Bengali/emoji are outside
+   the BMP. A plain .slice() can cut such a character in half (mojibake, or a rejected send), so
+   every clamp in the WhatsApp code goes through here: it never splits a surrogate pair, prefers to
+   cut on a line break, and keeps the limit honest for mixed Bangla + English text. */
+export function clampText(input: string, max = 4000): string {
+  const s = String(input ?? "");
+  if (s.length <= max) return s;
+  let cut = s.slice(0, max - 1);
+  const last = cut.charCodeAt(cut.length - 1);
+  if (last >= 0xd800 && last <= 0xdbff) cut = cut.slice(0, -1); // dangling high surrogate
+  const nl = cut.lastIndexOf("\n");
+  if (nl > max * 0.6) cut = cut.slice(0, nl);
+  return cut.trimEnd() + "…";
+}
+
+/** UTF-16 length in WhatsApp terms — handy for the composer counter (Bangla counts as 1 char). */
+export function textLength(input: string): number {
+  return Array.from(String(input ?? "")).length;
+}
+
+export type WaVars = Record<string, unknown>;
 
 /** Everything an order message can say, from the real order rows. */
-export async function orderVars(order: any, s: SettingsMap, rules = waRules(s)): Promise<WaVars & { _media: string | null }> {
+export async function orderVars(order: any, s: SettingsMap, rules = waRules(s)): Promise<WaVars & { _media: string | null; _itemMedia: string[]; _couponLine: string }> {
   const site = siteUrl(s);
   const items = (order.items || []) as any[];
   const lines = items.slice(0, 8).map((i) => `• ${i.title}${i.variant ? ` (${i.variant})` : ""} × ${i.qty} — ${money(i.price * i.qty)}`);
@@ -222,6 +259,9 @@ export async function orderVars(order: any, s: SettingsMap, rules = waRules(s)):
   }
   const image = items.find((i) => i.image)?.image || null;
   const coupon = rules.couponCode || "";
+  // up to 3 distinct item photos for mediaMode ORDER_ITEMS (duplicates collapse — a 3× same
+  // product order should not send the same photo three times)
+  const itemMedia = Array.from(new Set(items.map((i) => i.image).filter(Boolean).map((u: string) => mediaAbsolute(u, site) as string))).slice(0, 3);
   return {
     name: String(order.name || "").trim().split(/\s+/)[0] || "apni",
     code: order.code,
@@ -242,8 +282,27 @@ export async function orderVars(order: any, s: SettingsMap, rules = waRules(s)):
     coupon,
     couponLine: coupon ? `🎟 Poroborti order e *${coupon}* code diye discount nin.` : "",
     stopLine: rules.stopLine ? "\nOffer bondho korte 'STOP' likhun." : "",
-    _media: image ? (String(image).startsWith("http") ? String(image) : site.replace(/\/$/, "") + (String(image).startsWith("/") ? String(image) : "/" + String(image))) : null,
+    _media: mediaAbsolute(image, site),
+    _itemMedia: itemMedia,
+    _couponLine: coupon ? `🎟 Poroborti order e *${coupon}* code diye discount nin.` : "",
   };
+}
+
+/** The body + images one order event should send (shared by the worker path and the inbox panel). */
+export async function renderOrderMessage(
+  order: any,
+  tpl: { body: string; mediaMode?: string | null },
+  s: SettingsMap,
+  rules = waRules(s),
+): Promise<{ body: string; media: string[] }> {
+  const vars = await orderVars(order, s, rules);
+  const body = clampText(renderTemplate(tpl.body, vars), 4000);
+  const mode = String(tpl.mediaMode || "NONE");
+  const media =
+    mode === "PRODUCT" ? (vars._media ? [vars._media] : [])
+    : mode === "ORDER_ITEMS" ? vars._itemMedia.slice(0, 3)
+    : [];
+  return { body, media };
 }
 
 export function mediaAbsolute(url: string | null | undefined, site: string): string | null {
@@ -274,7 +333,7 @@ export async function enqueue(input: EnqueueInput): Promise<{ ok: boolean; id?: 
   const rules = waRules(s);
 
   let to = toWaId(input.to);
-  let body = String(input.body || "").trim().slice(0, 4000);
+  let body = clampText(String(input.body || "").trim(), 4000);
   if (!body) return { ok: false, reason: "empty message" };
   if (!validWaId(to)) return { ok: false, reason: `invalid number (${waPretty(to) || "—"})` };
 
@@ -297,7 +356,10 @@ export async function enqueue(input: EnqueueInput): Promise<{ ok: boolean; id?: 
         kind: input.kind || "AUTO",
         templateKey: input.templateKey || null,
         body,
-        mediaJson: input.media && input.media.length ? JSON.stringify(input.media.slice(0, 10)) : null,
+        // absolute URLs: the bridge may be on another host/port than the admin panel was
+        mediaJson: input.media && input.media.length
+          ? JSON.stringify(input.media.slice(0, WA_MEDIA_MAX).map((u) => mediaAbsolute(u, siteUrl(s))).filter(Boolean))
+          : null,
         couponCode: input.couponCode || null,
         orderId: input.orderId ?? null,
         dedupeKey: input.dedupeKey || null,
@@ -333,9 +395,7 @@ export async function enqueueOrderEvent(orderId: number, event: WaEvent, opts: {
       return { queued: false, reason: `${order.code} is ${order.status}` };
     }
 
-    const vars = await orderVars(order, s, rules);
-    const body = renderTemplate(tpl.body, vars);
-    const media = tpl.mediaMode === "PRODUCT" && vars._media ? [vars._media] : [];
+    const { body, media } = await renderOrderMessage(order, tpl, s, rules);
 
     const r = await enqueue({
       to: order.phone,
@@ -420,9 +480,12 @@ export async function sendTemplateTest(key: string, to: string): Promise<{ ok: b
   const body = "[TEST]\n" + renderTemplate(tpl.body, vars);
   const media: string[] = [];
   if (tpl.mediaMode === "PRODUCT") {
-    const img = await sampleImage();
-    const abs = mediaAbsolute(img, vars.site);
+    const abs = mediaAbsolute(await sampleImage(), String(vars.site || ""));
     if (abs) media.push(abs);
+  } else if (tpl.mediaMode === "ORDER_ITEMS") {
+    // show the owner what a real order looks like: the newest product photos in the shop
+    const imgs = await db.productImage.findMany({ where: { product: { status: "ACTIVE" } }, orderBy: { id: "desc" }, take: 2, select: { url: true } }).catch(() => []);
+    for (const i of imgs) { const abs = mediaAbsolute(i.url, String(vars.site || "")); if (abs) media.push(abs); }
   }
   const r = await enqueue({ to, body, kind: "MANUAL", templateKey: key, media, dedupeKey: null, meta: { test: true } });
   if (!r.ok) return { ok: false, id: r.id, reason: r.reason };

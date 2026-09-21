@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { requirePerm } from "@/lib/admin-guard";
 import { db } from "@/lib/db";
 import { getSettings, envFallback } from "@/lib/settings";
-import { waTemplates, waRules, WA_EVENTS, WA_TEMPLATE_DEFAULTS, renderTemplate, sampleVars, siteUrl } from "@/lib/wa-queue";
+import { waTemplates, waRules, WA_EVENTS, WA_TEMPLATE_DEFAULTS, renderTemplate, sampleVars, siteUrl, WA_MEDIA_MODES, WA_MEDIA_MAX } from "@/lib/wa-queue";
 import { logAudit } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
@@ -38,6 +38,8 @@ export async function GET(req: Request) {
   return NextResponse.json({
     events,
     variables: ["{name}", "{code}", "{amount}", "{items}", "{payment}", "{eta}", "{area}", "{link}", "{tracking}", "{courier}", "{coupon}", "{product}", "{review}", "{site}"],
+    mediaModes: WA_MEDIA_MODES,
+    maxImages: WA_MEDIA_MAX,
     siteUrl: siteUrl(s),
     rules: { enabled: rules.enabled, stopLine: rules.stopLine, couponCode: rules.couponCode },
   });
@@ -55,12 +57,12 @@ export async function PUT(req: Request) {
 
   const data: any = {};
   if (typeof b.body === "string") {
-    const body = b.body.slice(0, 2000);
+    const body = b.body.slice(0, 4000);
     if (!body.trim()) return NextResponse.json({ error: "Message body khali rakha jabe na" }, { status: 400 });
     data.body = body;
   }
   if (typeof b.enabled === "boolean") data.enabled = b.enabled;
-  if (b.mediaMode === "NONE" || b.mediaMode === "PRODUCT") data.mediaMode = b.mediaMode;
+  if (WA_MEDIA_MODES.includes(String(b.mediaMode) as any)) data.mediaMode = String(b.mediaMode);
   if (typeof b.name === "string" && b.name.trim()) data.name = b.name.trim().slice(0, 80);
   if (typeof b.resetToDefault === "boolean" && b.resetToDefault) {
     const def = WA_TEMPLATE_DEFAULTS.find((d) => d.key === key);

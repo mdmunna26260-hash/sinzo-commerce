@@ -8,7 +8,7 @@ type Tpl = {
   key: string; name: string; category: string; body: string; mediaMode: string;
   enabled: boolean; updatedAt: string | null; defaults: string; preview: string;
 };
-type Data = { events: Tpl[]; variables: string[]; siteUrl: string; rules: { enabled: boolean; stopLine: boolean; couponCode: string } };
+type Data = { events: Tpl[]; variables: string[]; siteUrl: string; rules: { enabled: boolean; stopLine: boolean; couponCode: string }; mediaModes?: string[]; maxImages?: number };
 
 export default function WaTemplates() {
   const [d, setD] = useState<Data | null>(null);
@@ -99,7 +99,7 @@ export default function WaTemplates() {
                 <div>
                   <div style={{ fontWeight: 600 }}>{t.name}</div>
                   <div style={{ fontSize: 11.5, color: "var(--muted)" }}>
-                    {t.key} · {t.mediaMode === "PRODUCT" ? "product photo attached" : "text only"}{t.updatedAt ? ` · edited ${new Date(t.updatedAt).toLocaleDateString("en-GB")}` : ""}
+                    {t.key} · {t.mediaMode === "PRODUCT" ? "product photo" : t.mediaMode === "ORDER_ITEMS" ? "up to 3 item photos" : "text only"}{t.updatedAt ? ` · edited ${new Date(t.updatedAt).toLocaleDateString("en-GB")}` : ""}
                   </div>
                 </div>
                 <button
@@ -128,7 +128,8 @@ export default function WaTemplates() {
                 <div className="af"><label>Media</label>
                   <select value={media} onChange={(e) => setMedia(e.target.value)}>
                     <option value="NONE">Text only</option>
-                    <option value="PRODUCT">Product photo (order-er item)</option>
+                    <option value="PRODUCT">Product photo (order-er shera item)</option>
+                    <option value="ORDER_ITEMS">Order-er item chhobi (max 3, alada alada)</option>
                   </select>
                 </div>
               </div>
@@ -151,7 +152,7 @@ export default function WaTemplates() {
               </div>
               <div>
                 <div style={{ fontSize: 12, color: "var(--muted)", marginBottom: 6 }}>
-                  Preview — <b>{active.key}</b> (customer ei rokom dekhe{active.mediaMode === "PRODUCT" ? " + product chhobi" : ""})
+                  Preview — <b>{active.key}</b> (customer ei rokom dekhe{active.mediaMode === "PRODUCT" ? " + product chhobi" : active.mediaMode === "ORDER_ITEMS" ? " + item chhobi (max 3)" : ""})
                 </div>
                 <div style={{ background: "#e5ded4", padding: 12, borderRadius: 10 }}>
                   <div style={{ background: "#fff", borderRadius: 10, padding: "10px 12px", fontSize: 13.5, whiteSpace: "pre-wrap", maxWidth: 360, lineHeight: 1.55, boxShadow: "0 1px 2px rgba(0,0,0,.08)" }}>

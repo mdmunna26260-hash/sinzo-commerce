@@ -2,7 +2,9 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requirePerm } from "@/lib/admin-guard";
 import { logAudit } from "@/lib/auth";
-import { waSend, waStatus } from "@/lib/wa";
+import { waSend, waSendMedia, waStatus } from "@/lib/wa";
+import { composeMessage } from "@/lib/wa-messages";
+import { waRules } from "@/lib/wa-queue";
 import { getSettings, envFallback } from "@/lib/settings";
 import { logApp } from "@/lib/logs";
 export const dynamic = "force-dynamic";
@@ -71,10 +73,25 @@ export async function POST(req: Request) {
   }
 
   const to = String(b.to || "").replace(/\D/g, "");
-  const body = String(b.body || "").trim().slice(0, 4000);
-  if (!to || !body) return NextResponse.json({ error: "to and body required" }, { status: 400 });
   const order = await db.order.findFirst({ where: { phone: to.startsWith("880") ? "0" + to.slice(3) : to }, orderBy: { id: "desc" }, select: { id: true, code: true } });
-  const r = await waSend(to, body);
+
+  /* Phase 2: a reply may carry photos and a product card. composeMessage builds the exact text the
+     customer reads (typed words + card + coupon + STOP line) with the same code the composer uses. */
+  const s = envFallback(await getSettings());
+  const rules = waRules(s);
+  const composed = await composeMessage({
+    body: b.body,
+    productId: b.productId ? Number(b.productId) : null,
+    couponCode: b.couponCode === undefined ? rules.couponCode : String(b.couponCode || ""),
+    includeStopLine: typeof b.includeStopLine === "boolean" ? b.includeStopLine : rules.stopLine,
+    images: Array.isArray(b.images) ? b.images.filter((u: any) => typeof u === "string" && u.trim()).slice(0, 10) : [],
+  });
+  const body = composed.body;
+  if (!to || !body) return NextResponse.json({ error: "to and body required" }, { status: 400 });
+
+  const r = composed.images.length
+    ? await waSendMedia({ to, images: composed.images, caption: body })
+    : await waSend(to, body);
   await db.inboxMessage.create({
     data: {
       waId: to, name: null, direction: "OUT", body,
@@ -83,9 +100,9 @@ export async function POST(req: Request) {
     },
   });
   if (!r.ok) {
-    await logApp("ERROR", "WHATSAPP", `outbound reply to ${to} failed: ${r.error || "unknown"}`, { to });
+    await logApp("ERROR", "WHATSAPP", `outbound reply to ${to} failed: ${r.error || "unknown"}`, { to, images: composed.images.length });
     return NextResponse.json({ ok: false, error: r.error || "WhatsApp bridge theke pathate parlam na", connected: r.connected }, { status: 502 });
   }
-  await logAudit(g.user.email, "WA_INBOX_REPLY", `${to}${order ? " (" + order.code + ")" : ""}: ${body.slice(0, 80)}`);
-  return NextResponse.json({ ok: true });
+  await logAudit(g.user.email, "WA_INBOX_REPLY", `${to}${order ? " (" + order.code + ")" : ""}: ${body.slice(0, 80).replace(/\n/g, " ")}${composed.images.length ? ` [+${composed.images.length} photo]` : ""}`);
+  return NextResponse.json({ ok: true, body, images: composed.images.length });
 }

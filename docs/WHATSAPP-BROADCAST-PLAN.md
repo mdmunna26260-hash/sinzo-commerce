@@ -348,3 +348,42 @@ pm2 start npm --name sinzo-web -- start
 **নিশ্চয়তা (code-এ enforced):** কোনো send web request-এর ভেতরে হয় না (শুধু `WaMessage` row লেখা হয়) → checkout কখনও WhatsApp-এর জন্য slow হবে না · cap/quiet-hours/backoff code-এ · device unbind/ban হলে delivery বন্ধ, message queue-তে থেকে যায়, SMS gateway configured থাকলে fallback · সব send Admin → Logs-এ (`kind=WHATSAPP`) · STOP লাইন template-এ আছে (Phase 3-এ opt-out auto)।
 
 **Verification (এই round):** 84-check WhatsApp harness (dev DB + stub bridge + stub SMS gateway) — key checks, device lifecycle, order→queue→send→receipt, dedupe, quiet hours, caps, retry→FAILED, auto-pause, SMS fallback, invalid number, worker script, bridge-down, master switch, test mode, তিনটা admin page · `npm test` 47/0 · `tsc` clean · production build (সব WhatsApp route build হয়েছে)।
+
+---
+
+## 15. Phase 2 — যা বানানো হলো (templates · multi-image · product card · inbox)
+
+Phase 1-এর উপরে এবার **owner-এর হাতের toolkit** যোগ হলো — এখন Admin থেকে নিজে message সাজিয়ে পাঠানো যায়,
+শুধু automatic template-এর উপর নির্ভর করতে হয় না।
+
+**নতুন কোড:**
+
+| File | কাজ |
+|---|---|
+| `lib/wa-media.ts` | ছবি upload + auto-compress: EXIF rotate → max 1600px → JPEG quality 84→52 ধরে **≤ 950 KB**; jpg/png/webp/avif/gif (≤25 MB); ফাইল যায় `public/uploads/wa/`-এ, delete API-ও আছে |
+| `lib/wa-messages.ts` | toolkit: `searchCatalog`, `catalogById`, `productCardText` (নাম + দাম + link), `composeMessage` (body + ছবি + product card + coupon + STOP লাইন), `sendNow`, `orderContext` |
+| `app/api/admin/whatsapp/media` | multipart upload — একসাথে ≤10 ছবি, প্রতি ছবির `{url,width,height,bytes,originalBytes,quality,text}` + error list; `DELETE ?url=` |
+| `app/api/admin/whatsapp/send` | compose send (body/product/ছবি/coupon/STOP) **অথবা** order-event send (`orderId\|orderCode` + `templateKey`, `immediate`) |
+| `app/api/admin/whatsapp/order` | order context: order + items + আগের message history + suggested event + preview + suggested ছবি |
+| `app/api/admin/whatsapp/preview` | catalogue search — product picker-এর ডেটা + preview + char/part counter |
+| `app/admin/(panel)/whatsapp/compose` | **New message** স্ক্রিন: live WhatsApp bubble preview, ≤10 ছবি (১ম ছবির caption হয়), product picker, coupon attach, STOP toggle, quick reply chips, order mode (`?order=ORD-…`) |
+| `app/admin/(panel)/inbox` (rewrite) | inbox-এ search + live list, order-context bar, event template chips, photo upload, product picker, quick replies, *Full composer* + `wa.me` link |
+| `lib/wa-queue.ts` `lib/wa.ts` `scripts/whatsapp-bridge.js` | multi-image send (`images[]`), ORDER_ITEMS mode (order-এর ≤3 distinct item-এর ছবি), quickReplies, Bangla-safe clamp (surrogate-safe, ≤4000 char), queue-এ media **absolute URL** হিসেবে জমা হয় (worker-এর যেই bridge-ই হোক, ছবি fetch করতে পারে) |
+
+* `templates` API/এডিটর এখন `NONE / PRODUCT / ORDER_ITEMS` media mode দেখায় (ORDER_ITEMS = order-এর আসল item ছবিগুলো), body limit 4000 char, preview caption সহ।
+* Hub-এ **Quick replies** card — এখানে লেখা reply inbox ও composer-এ chip আকারে আসে (`quickReplies[]`, ≤12 × ≤400 char)।
+* Sidebar-এ WhatsApp group → *New message*।
+
+**Acceptance (plan §11) — পাস:** panel থেকে ৩ ছবি + product link + coupon দিয়ে নিজের number-এ send ✓ · template save → reload ✓ · 1 MB-র বড় ছবি auto-compress (মূল ফাইল > 1 MB, পাঠানো ফাইল ≤ 950 KB) ✓ · inbox reply-তে ছবি + product card ✓ · Bangla লম্বা text কাটে না (code point ধরে) ✓।
+
+**Verification (এই round):** নতুন WhatsApp harness (dev DB + stub bridge + stub SMS) — **72 passed / 0 failed** (Phase 1 regression + Phase 2), `npm test` **59/0**, `tsc` clean, production build সব WhatsApp route সহ exit 0। Harness নিজের সব fixture নিজে মুছে ফেলে (orders 0 · wa 0 · devices 0)।
+
+**Verification-এ ধরা পড়া ৩টি আসল বাগ (fixed):**
+
+1. **Device number ভুল দেখাচ্ছিল** — bridge-এর `me` হয় `8801xxxxxxxxx:12@s.whatsapp.net`; আগে শুধু digit নেওয়া হতো তাই tail-এর `12` phone-এর সাথে জুড়ে যেত (`88018315959921`)। এখন `:`-এর আগের অংশ নেওয়া হয় → সঠিক number।
+2. **Panel-এর send older queue-র পিছনে পড়ে থাকত** — worker oldest-first পাঠায়, তাই panel থেকে পাঠানো message-ও queue-তে অপেক্ষা করত। এখন owner-triggered send নিজে কয়েকটি tick চালায় (শুধু message সত্যিই বেরোলে; cap/quiet-hours হলে থেমে যায়)।
+3. **Order update-এ event label হারিয়ে যেত** — `sendNow` `templateKey` forward করত না, ফলে row-তে template শূন্য থাকত (report/analytics-এ গরমিল হতো)।
+
+**চালু করার ধাপ (Phase 2-এর জন্য নতুন কিছু লাগে না):** আগের §14-এর bridge + worker চালু থাকলেই হবে — Media/Bridge-এ নতুন permission/env নেই।
+
+**সীমা (এখনো open):** broadcast/Audience builder, schedule, report, link click tracking, STOP auto-opt-out, CSV import — এগুলো **Phase 3** (ততদিন STOP লাইন message-এ থাকবে, কিন্তু STOP এলে নিজে থেকে list থেকে বাদ যাবে না — Admin → Customers-এ হাতে দেখে বাদ দিতে হবে)।

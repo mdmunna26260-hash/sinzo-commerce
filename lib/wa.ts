@@ -105,12 +105,22 @@ export async function waDeviceLogout(sessionId: string): Promise<{ ok: boolean; 
   const r = await call(`/devices/${encodeURIComponent(sessionId)}/logout`, { method: "POST" });
   return { ok: r.status === 200, error: r.data.error };
 }
-/** One image + caption (Phase 1: the order-confirmation photo). */
-export async function waSendMedia(opts: { to: string; image: string; caption?: string; sessionId?: string }): Promise<{ ok: boolean; connected: boolean; error?: string; id?: string | null }> {
-  const r = await call("/send-media", { method: "POST", body: JSON.stringify(opts) }, 45000);
+/** Images + caption. Phase 1 sent one photo (the order confirmation); the panel can now attach up
+    to 10 — the first one carries the caption, the rest ride along as a gallery. */
+export async function waSendMedia(opts: { to: string; image?: string; images?: string[]; caption?: string; sessionId?: string }): Promise<{ ok: boolean; connected: boolean; error?: string; id?: string | null; ids?: string[]; sentImages?: number; failedImages?: number }> {
+  const images = (opts.images && opts.images.length ? opts.images : opts.image ? [opts.image] : []).slice(0, 10);
+  const r = await call("/send-media", { method: "POST", body: JSON.stringify({ ...opts, images }) }, 90000);
   if (r.status === 0) return { ok: false, connected: false, error: "Bridge service cholche na (npm run wa)" };
   if (r.status === 503) return { ok: false, connected: false, error: r.data.error || "WhatsApp not connected" };
-  return { ok: !!r.data.ok, connected: true, error: r.data.error, id: r.data.id || null };
+  const ids: string[] = [];
+  if (r.data.id) ids.push(r.data.id);
+  if (Array.isArray(r.data.ids)) for (const id of r.data.ids) if (id) ids.push(id);
+  return {
+    ok: !!r.data.ok, connected: true, error: r.data.error,
+    id: ids[0] || r.data.id || null, ids,
+    sentImages: Number(r.data.sentImages ?? images.length) || 0,
+    failedImages: Number(r.data.failedImages ?? 0) || 0,
+  };
 }
 export async function waHealth(): Promise<{ running: boolean; uptimeSec?: number; sessions?: number; connected?: number }> {
   const r = await call("/health", undefined, 8000);

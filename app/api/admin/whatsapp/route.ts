@@ -49,6 +49,7 @@ export async function GET(req: Request) {
     recent,
     templates: templates.map((t) => ({ key: t.key, name: t.name, enabled: t.enabled, mediaMode: t.mediaMode, category: t.category })),
     rules: { ...rules, workerKey: rules.workerKey ? "••••" + rules.workerKey.slice(-4) : "" },
+    quickReplies: rules.quickReplies || WA_RULE_DEFAULTS.quickReplies,
     waEnabled: n.waEnabled !== false,
     waCustomerEnabled: n.waCustomerEnabled !== false,
     waNotifyNumber: n.waNotifyNumber || "",
@@ -86,6 +87,13 @@ export async function POST(req: Request) {
     for (const k of ["quietFrom", "quietTo", "testNumber", "couponCode", "workerKey"] as const) if (k in incoming) next[k] = String(incoming[k] ?? "").trim();
     for (const k of ["dailyCapDefault", "fallbackHours"] as const) if (k in incoming) next[k] = Math.max(1, Math.min(Number(incoming[k]) || (WA_RULE_DEFAULTS as any)[k], 100000));
     if (typeof incoming.workerKey === "string" && incoming.workerKey.startsWith("••")) next.workerKey = current.workerKey || "";
+    // canned inbox replies (Phase 2) — plain strings, capped so a paste bomb can't bloat settings
+    if (Array.isArray(incoming.quickReplies)) {
+      next.quickReplies = incoming.quickReplies
+        .map((q: any) => String(q ?? "").trim().slice(0, 400))
+        .filter(Boolean)
+        .slice(0, 12);
+    }
     await saveGroup("whatsapp", next);
     await logAudit(g.user.email, "WA_RULES_SAVE", `WhatsApp rules updated (enabled=${next.enabled}, quiet ${next.quietFrom}–${next.quietTo})`);
     return NextResponse.json({ ok: true, rules: { ...next, workerKey: next.workerKey ? "••••" + String(next.workerKey).slice(-4) : "" } });

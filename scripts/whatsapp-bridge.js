@@ -17,7 +17,7 @@
      GET  /status                        legacy: default device
      GET  /qr                            legacy: default device QR (data URL)
      POST /send        {to,message,sessionId?}
-     POST /send-media  {to,image,caption,sessionId?}
+     POST /send-media  {to,image|caption|images[],sessionId?}   (up to 10 images)
      GET  /devices                       every session + state
      POST /devices     {sessionId,name}  boot a session (QR appears)
      GET  /devices/:id/qr
@@ -241,10 +241,24 @@ async function loadImage(src) {
     const b64 = s.split(",")[1] || "";
     return Buffer.from(b64, "base64");
   }
+  // A URL that points back at this machine can be read from disk (public/) instead of a round trip;
+  // anything else is fetched over HTTP. Both paths end in a Buffer for Baileys.
+  const localCandidate = s.startsWith("/") ? path.join(__dirname, "..", "public", s) : path.join(__dirname, "..", s);
+  if (!/^https?:\/\//i.test(s) && fs.existsSync(localCandidate)) return fs.readFileSync(localCandidate);
   if (/^https?:\/\//i.test(s)) {
-    const res = await fetch(s, { signal: AbortSignal.timeout(20000) });
-    if (!res.ok) throw new Error(`image fetch ${res.status}`);
-    return Buffer.from(await res.arrayBuffer());
+    try {
+      const res = await fetch(s, { signal: AbortSignal.timeout(20000) });
+      if (res.ok) return Buffer.from(await res.arrayBuffer());
+      throw new Error(`image fetch ${res.status}`);
+    } catch (e) {
+      // last resort: the same URL as a file path (covers http://127.0.0.1:3000/uploads/…)
+      const m = /^https?:\/\/[^/]+(\/.*)$/.exec(s);
+      if (m) {
+        const p2 = path.join(__dirname, "..", "public", m[1]);
+        if (fs.existsSync(p2)) return fs.readFileSync(p2);
+      }
+      throw e;
+    }
   }
   return fs.readFileSync(s.startsWith("/") ? s : path.join(__dirname, "..", s));
 }
@@ -255,26 +269,61 @@ async function sendText(session, to, text) {
   }
   await pace(session);
   const jid = jidFor(to);
-  const r = await session.sock.sendMessage(jid, { text: String(text).slice(0, 4000) });
+  const r = await session.sock.sendMessage(jid, { text: clampText(text) });
   return { ok: true, id: r?.key?.id || null, to: jid };
 }
 
-async function sendMedia(session, to, image, caption) {
+/* WhatsApp counts characters, JS counts UTF-16 units — Bengali and emoji live outside the BMP, so a
+   plain slice() can cut a character in half. Never split a surrogate pair. */
+function clampText(input, max = 4000) {
+  const s = String(input == null ? "" : input);
+  if (s.length <= max) return s;
+  let cut = s.slice(0, max - 1);
+  const last = cut.charCodeAt(cut.length - 1);
+  if (last >= 0xd800 && last <= 0xdbff) cut = cut.slice(0, -1);
+  const nl = cut.lastIndexOf("\n");
+  if (nl > max * 0.6) cut = cut.slice(0, nl);
+  return cut.trimEnd() + "…";
+}
+
+/* One or many images. The FIRST image carries the caption (that is how a WhatsApp gallery reads:
+   photo + text, then the rest as a swipe-through set); a single broken image must never swallow the
+   message — it falls back to text, and if every image fails the text still goes. */
+async function sendMedia(session, to, images, caption) {
   if (!session || !session.connected || !session.sock) {
     return { ok: false, code: 503, error: `session ${session?.id || "?"} is not connected` };
   }
+  const list = (Array.isArray(images) ? images : images ? [images] : []).filter(Boolean).slice(0, 10);
+  const text = clampText(caption || "");
   await pace(session);
   const jid = jidFor(to);
-  let buf;
-  try {
-    buf = await loadImage(image);
-  } catch (e) {
-    // a broken image must not swallow the message — fall back to text
-    const r = await session.sock.sendMessage(jid, { text: String(caption || "").slice(0, 4000) });
-    return { ok: true, id: r?.key?.id || null, to: jid, note: `image skipped (${e?.message || "load failed"})` };
+  if (!list.length) {
+    const r = await session.sock.sendMessage(jid, { text });
+    return { ok: true, id: r?.key?.id || null, ids: [], to: jid, sentImages: 0, failedImages: 0 };
   }
-  const r = await session.sock.sendMessage(jid, { image: buf, caption: String(caption || "").slice(0, 4000) });
-  return { ok: true, id: r?.key?.id || null, to: jid, bytes: buf.length };
+
+  const ids = [];
+  let sent = 0;
+  let failed = 0;
+  const notes = [];
+  for (let i = 0; i < list.length; i++) {
+    try {
+      const buf = await loadImage(list[i]);
+      if (i > 0) await pace(session);
+      const r = await session.sock.sendMessage(jid, { image: buf, caption: i === 0 ? text : "" });
+      ids.push(r?.key?.id || null);
+      sent++;
+    } catch (e) {
+      failed++;
+      notes.push(`image ${i + 1} skipped (${e?.message || "load failed"})`);
+    }
+  }
+  if (!sent) {
+    // nothing could be attached — the customer still gets the words
+    const r = await session.sock.sendMessage(jid, { text });
+    return { ok: true, id: r?.key?.id || null, ids: [], to: jid, sentImages: 0, failedImages: failed, note: notes.join("; ") };
+  }
+  return { ok: true, id: ids[0] || null, ids, to: jid, sentImages: sent, failedImages: failed, note: notes.join("; ") || undefined };
 }
 
 /* ── HTTP ─────────────────────────────────────────────────────────────────────────────── */
@@ -351,8 +400,9 @@ const server = http.createServer(async (req, res) => {
     if (url.pathname === "/send-media" && req.method === "POST") {
       const b = await readBody(req);
       const session = (b.sessionId && sessions.get(safeId(b.sessionId))) || defaultSession();
-      if (!b.to || !b.image) return done(400, { error: "to & image required" });
-      const r = await sendMedia(session, b.to, b.image, b.caption);
+      const images = Array.isArray(b.images) && b.images.length ? b.images : b.image ? [b.image] : [];
+      if (!b.to || !images.length) return done(400, { error: "to & image(s) required" });
+      const r = await sendMedia(session, b.to, images, b.caption);
       return r.ok ? done(200, r) : done(r.code || 502, r);
     }
     if (url.pathname === "/logout" && req.method === "POST") {

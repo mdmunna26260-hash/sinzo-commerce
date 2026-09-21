@@ -2,6 +2,7 @@ import { db } from "@/lib/db";
 import { requireAdmin } from "@/lib/auth";
 import { waStatus } from "@/lib/wa";
 import { getSettings, envFallback } from "@/lib/settings";
+import { waRules } from "@/lib/wa-queue";
 import InboxClient from "./client";
 
 export const dynamic = "force-dynamic";
@@ -31,6 +32,7 @@ export default async function InboxPage({ searchParams }: { searchParams: { t?: 
   const byId = new Map(orders.map((o) => [o.id, o]));
   const status = await waStatus().catch(() => ({ running: false, connected: false, me: null as string | null }));
   const s = envFallback(await getSettings());
+  const rules = waRules(s);
 
   return (
     <>
@@ -42,6 +44,9 @@ export default async function InboxPage({ searchParams }: { searchParams: { t?: 
         initialConversations={list.map((c) => ({ ...c, order: c.orderId ? byId.get(c.orderId) || null : null }))}
         status={status}
         autoReply={(s as any).notifications?.waAutoReply || ""}
+        quick={rules.quickReplies || []}
+        couponCode={rules.couponCode || ""}
+        stopLine={rules.stopLine !== false}
       />
       <div className="cfg-note" style={{ marginTop: 16 }}>
         Bridge chalu korte server-e: <code>WA_BRIDGE_PORT=3005 npm run wa</code> (ba port 3001 free thakle shudhu
