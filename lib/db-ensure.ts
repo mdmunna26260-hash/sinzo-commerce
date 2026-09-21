@@ -130,4 +130,41 @@ async function run(): Promise<void> {
   // OrderItem pre-order flag (expected date + no stock decrement for these lines)
   await db.$executeRawUnsafe(isPg ? `ALTER TABLE "OrderItem" ADD COLUMN IF NOT EXISTS "preorder" BOOLEAN NOT NULL DEFAULT FALSE` : `ALTER TABLE "OrderItem" ADD COLUMN "preorder" BOOLEAN NOT NULL DEFAULT 0`).catch(() => {});
   await db.$executeRawUnsafe(isPg ? `ALTER TABLE "OrderItem" ADD COLUMN IF NOT EXISTS "preorderDate" TIMESTAMP(3)` : `ALTER TABLE "OrderItem" ADD COLUMN "preorderDate" DATETIME`).catch(() => {});
+  /* ── items 6–16: payments, waitlist, WhatsApp inbox, log viewer, 2FA, loyalty ── */
+  // Order packing + post-delivery review request
+  await db.$executeRawUnsafe(isPg ? `ALTER TABLE "Order" ADD COLUMN IF NOT EXISTS "packedAt" TIMESTAMP(3)` : `ALTER TABLE "Order" ADD COLUMN "packedAt" DATETIME`).catch(() => {});
+  await db.$executeRawUnsafe(isPg ? `ALTER TABLE "Order" ADD COLUMN IF NOT EXISTS "packedBy" TEXT` : `ALTER TABLE "Order" ADD COLUMN "packedBy" TEXT`).catch(() => {});
+  await db.$executeRawUnsafe(isPg ? `ALTER TABLE "Order" ADD COLUMN IF NOT EXISTS "reviewRequestedAt" TIMESTAMP(3)` : `ALTER TABLE "Order" ADD COLUMN "reviewRequestedAt" DATETIME`).catch(() => {});
+  // Admin 2FA (TOTP secret is written only after the first valid code) + logout-everywhere
+  await db.$executeRawUnsafe(isPg ? `ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "twoFactorSecret" TEXT` : `ALTER TABLE "User" ADD COLUMN "twoFactorSecret" TEXT`).catch(() => {});
+  await db.$executeRawUnsafe(isPg ? `ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "twoFactorEnabled" BOOLEAN NOT NULL DEFAULT false` : `ALTER TABLE "User" ADD COLUMN "twoFactorEnabled" BOOLEAN NOT NULL DEFAULT 0`).catch(() => {});
+  await db.$executeRawUnsafe(isPg ? `ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "sessionVersion" INTEGER NOT NULL DEFAULT 0` : `ALTER TABLE "User" ADD COLUMN "sessionVersion" INTEGER NOT NULL DEFAULT 0`).catch(() => {});
+  await db.$executeRawUnsafe(isPg ? `ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "recoveryCodes" TEXT` : `ALTER TABLE "User" ADD COLUMN "recoveryCodes" TEXT`).catch(() => {});
+  // Customer loyalty points + referral code (unique — a friend entering it rewards both sides)
+  await db.$executeRawUnsafe(isPg ? `ALTER TABLE "Customer" ADD COLUMN IF NOT EXISTS "points" INTEGER NOT NULL DEFAULT 0` : `ALTER TABLE "Customer" ADD COLUMN "points" INTEGER NOT NULL DEFAULT 0`).catch(() => {});
+  await db.$executeRawUnsafe(isPg ? `ALTER TABLE "Customer" ADD COLUMN IF NOT EXISTS "referralCode" TEXT` : `ALTER TABLE "Customer" ADD COLUMN "referralCode" TEXT`).catch(() => {});
+  await db.$executeRawUnsafe(isPg ? `ALTER TABLE "Customer" ADD COLUMN IF NOT EXISTS "referredBy" INTEGER` : `ALTER TABLE "Customer" ADD COLUMN "referredBy" INTEGER`).catch(() => {});
+  await db.$executeRawUnsafe(isPg ? `ALTER TABLE "Customer" ADD COLUMN IF NOT EXISTS "referralRewardedAt" TIMESTAMP(3)` : `ALTER TABLE "Customer" ADD COLUMN "referralRewardedAt" DATETIME`).catch(() => {});
+  await db.$executeRawUnsafe(`CREATE UNIQUE INDEX IF NOT EXISTS "Customer_referralCode_key" ON "Customer"("referralCode")`).catch(() => {});
+  // Payment rows (advance / due / refund) — paid total is the sum of the rows, never a guess
+  await db.$executeRawUnsafe(isPg
+    ? `CREATE TABLE IF NOT EXISTS "Payment" ("id" SERIAL PRIMARY KEY, "orderId" INTEGER NOT NULL, "amount" DOUBLE PRECISION NOT NULL, "method" TEXT NOT NULL DEFAULT 'bkash', "kind" TEXT NOT NULL DEFAULT 'ADVANCE', "note" TEXT, "createdBy" TEXT, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP)`
+    : `CREATE TABLE IF NOT EXISTS "Payment" ("id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, "orderId" INTEGER NOT NULL, "amount" REAL NOT NULL, "method" TEXT NOT NULL DEFAULT 'bkash', "kind" TEXT NOT NULL DEFAULT 'ADVANCE', "note" TEXT, "createdBy" TEXT, "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP)`).catch(() => {});
+  await db.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "Payment_orderId_idx" ON "Payment"("orderId")`).catch(() => {});
+  // Waitlist for out-of-stock products
+  await db.$executeRawUnsafe(isPg
+    ? `CREATE TABLE IF NOT EXISTS "Waitlist" ("id" SERIAL PRIMARY KEY, "productId" INTEGER NOT NULL, "variantId" INTEGER, "contact" TEXT NOT NULL, "note" TEXT, "notifiedAt" TIMESTAMP(3), "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP)`
+    : `CREATE TABLE IF NOT EXISTS "Waitlist" ("id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, "productId" INTEGER NOT NULL, "variantId" INTEGER, "contact" TEXT NOT NULL, "note" TEXT, "notifiedAt" DATETIME, "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP)`).catch(() => {});
+  await db.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "Waitlist_productId_idx" ON "Waitlist"("productId")`).catch(() => {});
+  // WhatsApp inbox (bridge forwards inbound messages here)
+  await db.$executeRawUnsafe(isPg
+    ? `CREATE TABLE IF NOT EXISTS "InboxMessage" ("id" SERIAL PRIMARY KEY, "waId" TEXT NOT NULL, "name" TEXT, "direction" TEXT NOT NULL, "body" TEXT NOT NULL, "orderId" INTEGER, "status" TEXT NOT NULL DEFAULT 'ok', "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP)`
+    : `CREATE TABLE IF NOT EXISTS "InboxMessage" ("id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, "waId" TEXT NOT NULL, "name" TEXT, "direction" TEXT NOT NULL, "body" TEXT NOT NULL, "orderId" INTEGER, "status" TEXT NOT NULL DEFAULT 'ok', "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP)`).catch(() => {});
+  await db.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "InboxMessage_waId_createdAt_idx" ON "InboxMessage"("waId","createdAt")`).catch(() => {});
+  // AppLog (client errors, webhooks, SMS, WhatsApp, mail, cron, backups) — the Logs screen
+  await db.$executeRawUnsafe(isPg
+    ? `CREATE TABLE IF NOT EXISTS "AppLog" ("id" SERIAL PRIMARY KEY, "level" TEXT NOT NULL DEFAULT 'INFO', "kind" TEXT NOT NULL, "message" TEXT NOT NULL, "meta" TEXT, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP)`
+    : `CREATE TABLE IF NOT EXISTS "AppLog" ("id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, "level" TEXT NOT NULL DEFAULT 'INFO', "kind" TEXT NOT NULL, "message" TEXT NOT NULL, "meta" TEXT, "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP)`).catch(() => {});
+  await db.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "AppLog_kind_createdAt_idx" ON "AppLog"("kind","createdAt")`).catch(() => {});
+  await db.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "AppLog_level_createdAt_idx" ON "AppLog"("level","createdAt")`).catch(() => {});
 }

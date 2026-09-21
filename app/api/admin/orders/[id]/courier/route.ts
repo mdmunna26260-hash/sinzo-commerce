@@ -42,6 +42,9 @@ export async function GET(req: Request, { params }: Ctx) {
       // Stock: minus exactly once, here — on Steadfast "delivered".
       // Atomic claim (Order.stockDeducted) makes repeated syncs race-safe.
       await applyDeliveryStockDeduction(order.id, order.code).catch(() => {});
+      // courier-confirmed delivery is the same event as a manual one: points + review ask
+      const { onOrderDelivered } = await import("@/lib/on-delivered");
+      await onOrderDelivered(order.id).catch(() => {});
     }
     // customer email on rider pickup / in transit (only on transition, never repeats)
     if (order.email && newStatus && beforeStatus !== newStatus && ["picked_up", "in_transit"].includes(String(newStatus))) {

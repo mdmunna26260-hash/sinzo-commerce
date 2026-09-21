@@ -16,6 +16,10 @@ export async function POST(req: Request) {
     const stack = String(b.stack || "").slice(0, 1500);
     const url = String(b.url || "").slice(0, 300);
     const ua = req.headers.get("user-agent") || "";
+    /* Mirror it into the app log (Admin → Logs) as well: the tracking table is for marketing
+       debugging, the log viewer is where a crash should be visible at 2am. */
+    const { logApp } = await import("@/lib/logs");
+    await logApp("ERROR", "CLIENT", message, { url, digest: b.digest || null, ua: ua.slice(0, 120), stack: stack.slice(0, 600) }).catch(() => {});
     await db.trackingEvent.create({
       data: {
         name: "client-error",

@@ -1,4 +1,5 @@
 "use client";
+import PdpWaitlist from "@/components/pdp-waitlist";
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -455,6 +456,10 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
               <span className="stock-note">{avail <= 5 ? `Only ${avail} left — order soon` : "In stock"}</span>
             ) : <span className="stock-note low">Sold out</span>}
           </div>
+
+          {!preorder && avail <= 0 && (
+            <PdpWaitlist productId={product.id} variantId={activeVariant?.id ?? null} title={product.title} />
+          )}
 
           <div className="pdp-actions">
             <div className="pdp-buy-row">

@@ -29,3 +29,6 @@ public/uploads/*
 .DS_Store
 *.tsbuildinfo
 backup/
+
+# database backups written by admin → Backup (never commit customer data)
+/backups

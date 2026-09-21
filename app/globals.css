@@ -3099,3 +3099,73 @@ body:has(.admin-body) .scroll-progress { display: none !important; }
 :root[data-theme="dark"] .blog-lead-img,
 :root[data-theme="dark"] .blog-card-img { background: #1b1917; }
 :root[data-theme="dark"] .blog-cta { background: color-mix(in srgb, var(--accent) 14%, transparent); }
+
+/* ════════════════════════════════════════════════════════════════════════════
+   § M — admin items 6–16 (payments · scan-to-pack · waitlist · WA inbox · slips)
+   Same language as the rest of the sheet: brand tokens, 2px radius, cream/gold.
+   ════════════════════════════════════════════════════════════════════════════ */
+
+/* Out-of-stock PDP: ask instead of dead-end */
+.waitlist { margin: 14px 0 4px; }
+.waitlist-cta {
+  display: inline-flex; align-items: center; gap: 9px; width: 100%;
+  padding: 13px 16px; border: 1px dashed var(--line, #e2ddd4); border-radius: 3px;
+  background: transparent; font: inherit; font-size: 13.5px; color: var(--text);
+  cursor: pointer; text-align: left; transition: border-color .2s ease, background .2s ease;
+}
+.waitlist-cta:hover { border-color: var(--accent); background: rgba(154,123,79,.05); }
+.waitlist-cta b { font-weight: 500; }
+.waitlist form { display: block; border: 1px solid var(--line, #e2ddd4); border-radius: 3px; padding: 14px; }
+.waitlist label { display: block; font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; }
+.waitlist input { width: 100%; padding: 11px 13px; border: 1px solid var(--line, #e2ddd4); border-radius: 2px; background: var(--bg); color: var(--text); font: inherit; font-size: 14px; }
+.waitlist-row { display: flex; gap: 8px; }
+.waitlist-row .btn { white-space: nowrap; }
+.waitlist-hint { font-size: 12px; color: var(--muted); margin-top: 8px; }
+.waitlist-err { font-size: 12.5px; color: var(--danger, #c0392b); margin-top: 8px; }
+.waitlist.done { padding: 13px 16px; border: 1px solid var(--ok, #2e7d5b); border-radius: 3px; font-size: 13.5px; }
+.waitlist.done b { color: var(--ok, #2e7d5b); margin-right: 6px; }
+
+/* Packing slip (admin ← slip, prints clean) */
+.slip-wrap { padding: 24px; display: flex; flex-direction: column; align-items: center; gap: 16px; }
+.slip-actions { display: flex; gap: 10px; }
+.slip { width: min(680px, 100%); background: #fff; color: #1b1b1b; border: 1px solid #e4e7ec; border-radius: 4px; padding: 26px 28px 34px; }
+.slip-head { display: flex; justify-content: space-between; align-items: flex-start; }
+.slip-brand { font-family: var(--font-head, Georgia, serif); font-size: 24px; letter-spacing: .16em; }
+.slip-sub { font-size: 11px; letter-spacing: .2em; text-transform: uppercase; color: #7a7a7a; margin-top: 2px; }
+.slip-code { font-family: ui-monospace, monospace; font-size: 20px; letter-spacing: .06em; margin: 14px 0 6px; padding-bottom: 10px; border-bottom: 2px solid #1b1b1b; }
+.slip-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; font-size: 13px; line-height: 1.6; margin: 14px 0; }
+.slip-cod { display: inline-block; margin-top: 6px; padding: 3px 8px; background: #f4f1ec; border: 1px solid #e0d9cd; font-weight: 600; }
+.slip-items { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 8px; }
+.slip-items th, .slip-items td { padding: 8px 6px; border-bottom: 1px solid #e9e9e9; text-align: left; }
+.slip-items th { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: #7a7a7a; }
+.slip-note { margin-top: 14px; font-size: 12.5px; background: #faf7f1; border: 1px solid #eee3d0; padding: 10px 12px; }
+.slip-foot { margin-top: 24px; font-size: 12px; color: #6b6b6b; display: flex; justify-content: space-between; }
+
+@media print {
+  .no-print, .admin-sidebar, .admin-top, .bottom-nav, .site-header, .announce { display: none !important; }
+  .slip-wrap { padding: 0; }
+  .slip { border: none; width: 100%; }
+  body { background: #fff; }
+}
+
+/* WhatsApp inbox (two panes, like a phone) */
+.wa-wrap { display: grid; grid-template-columns: 300px 1fr; gap: 16px; align-items: start; }
+.wa-list { overflow: hidden; }
+.wa-list-body { max-height: 560px; overflow: auto; }
+.wa-conv { display: block; width: 100%; padding: 10px 12px; border: none; border-bottom: 1px solid var(--line, #e4e7ec); background: transparent; cursor: pointer; font: inherit; color: inherit; transition: background .15s ease; }
+.wa-conv:hover { background: rgba(154,123,79,.06); }
+.wa-conv.on { background: rgba(154,123,79,.12); box-shadow: inset 2px 0 0 var(--accent); }
+.wa-conv-last { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; }
+.wa-thread { display: flex; flex-direction: column; min-height: 420px; }
+.wa-thread-body { flex: 1; padding: 14px; display: flex; flex-direction: column; gap: 8px; max-height: 460px; overflow: auto; }
+.wa-msg { max-width: 74%; padding: 9px 13px; border-radius: 12px; font-size: 13.5px; line-height: 1.5; white-space: pre-wrap; word-break: break-word; }
+.wa-msg.in { align-self: flex-start; background: rgba(0,0,0,.05); border-bottom-left-radius: 3px; }
+.wa-msg.out { align-self: flex-end; background: rgba(154,123,79,.16); border-bottom-right-radius: 3px; }
+.wa-reply { display: flex; gap: 8px; padding: 12px; border-top: 1px solid var(--line, #e4e7ec); }
+.wa-reply input { flex: 1; padding: 10px 12px; border: 1px solid #d0d5dd; border-radius: 5px; font: inherit; }
+.wa-quick { display: flex; gap: 6px; flex-wrap: wrap; padding: 0 12px 12px; }
+
+@media (max-width: 900px) {
+  .wa-wrap { grid-template-columns: 1fr; }
+  .wa-list-body { max-height: 300px; }
+}

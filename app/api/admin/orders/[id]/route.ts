@@ -138,6 +138,9 @@ export async function PUT(req: Request, { params }: Ctx) {
     // Stock: manual delivery triggers the one-time decrement (same as Steadfast sync)
     if (b.status === "DELIVERED") {
       await applyDeliveryStockDeduction(id, before.code).catch(() => {});
+      // points + the post-delivery review ask (idempotent, see lib/on-delivered.ts)
+      const { onOrderDelivered } = await import("@/lib/on-delivered");
+      await onOrderDelivered(id).catch(() => {});
     }
     const evtMap: Record<string, any> = { CONFIRMED: "order.confirmed", CANCELLED: "order.cancelled", SHIPPED: "order.shipped", DELIVERED: "order.delivered" };
     const evt = evtMap[b.status];
@@ -145,6 +148,11 @@ export async function PUT(req: Request, { params }: Ctx) {
       const emoji: Record<string, string> = { CONFIRMED: "✅", CANCELLED: "❌", SHIPPED: "🚚", DELIVERED: "📬" };
       notifyAdmin(evt, `${emoji[b.status] || "•"} Order ${before.code} → ${b.status}`, `${before.name} · ৳${Math.round(before.total).toLocaleString("en-IN")}`, before.code).catch(() => {});
     }
+    // customer SMS (Settings → Notifications → SMS → per-status switches)
+    import("@/lib/sms").then(async ({ autoSmsOnStatus }) => {
+      const { getSettings, envFallback } = await import("@/lib/settings");
+      await autoSmsOnStatus(envFallback(await getSettings()), b.status, before);
+    }).catch(() => {});
     // customer cancellation email (only on transition INTO cancelled)
     if (b.status === "CANCELLED" && before.email) {
       emailCustomerStatus(before.email, before.name, { code: before.code, total: before.total, area: before.area, courierName: before.courierName }, "cancelled").catch(() => {});

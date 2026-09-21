@@ -68,7 +68,15 @@ export async function POST(req: Request) {
       mode === "set" ? "STOCK_SET" : "STOCK_RESTOCK",
       `${p.title}: ${p.stock} → ${nextStock}${unitCost ? ` @ ৳${unitCost}` : ""}${note ? " · " + note : ""}`
     );
-    return NextResponse.json({ ok: true, stock: nextStock, delta: nextStock - p.stock, costUpdated: unitCost != null && unitCost > 0 });
+    /* A restock that takes a product from sold-out to available is exactly the moment the
+     waitlist was waiting for — tell them in the same request (parallel, max 10 per restock). */
+  let waited: { candidates: number; sent: number } | null = null;
+  if (p.stock <= 0 && nextStock > 0) {
+    const { getSettings, envFallback } = await import("@/lib/settings");
+    const { notifyWaitlistForProduct } = await import("@/lib/waitlist");
+    waited = await notifyWaitlistForProduct(productId, envFallback(await getSettings()), 10).catch(() => null);
+  }
+  return NextResponse.json({ ok: true, stock: nextStock, delta: nextStock - p.stock, costUpdated: unitCost != null && unitCost > 0, waitlist: waited });
   } catch (e: any) {
     return NextResponse.json({ error: e?.message || "Server error" }, { status: 500 });
   }

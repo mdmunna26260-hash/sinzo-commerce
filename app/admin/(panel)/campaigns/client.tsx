@@ -91,6 +91,14 @@ export default function CampaignClient({ campaigns, audience, unsubscribed, myEm
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
+  /* Duplicate = a fresh DRAFT with the same words. It must NOT carry the old row's id:
+     a SENT campaign refuses to be sent again, so keeping the id made the next save fail. */
+  const duplicate = (c: Campaign) => {
+    setE({ ...EMPTY, subject: c.subject, body: c.body, ctaLabel: c.ctaLabel || "", ctaUrl: c.ctaUrl || "" });
+    setMsg({ text: `Copied "${c.subject}" into a new draft — edit, then send.`, ok: true });
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
   const del = async (c: Campaign) => {
     if (!confirm(`Delete the campaign "${c.subject}"? Sends already made are not affected.`)) return;
     setBusy(true);
@@ -165,7 +173,7 @@ export default function CampaignClient({ campaigns, audience, unsubscribed, myEm
                     <td style={{ fontSize: 12.5, color: "var(--muted)", whiteSpace: "nowrap" }}>{new Date(c.sentAt || c.createdAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}</td>
                     <td style={{ whiteSpace: "nowrap" }}>
                       {c.status === "SENT"
-                        ? <button className="abtn sm" onClick={() => edit(c)}>Duplicate</button>
+                        ? <button className="abtn sm" onClick={() => duplicate(c)}>Duplicate</button>
                         : c.status === "SENDING"
                           ? <button className="abtn sm primary" disabled={busy} onClick={() => resume(c)}>Resume</button>
                           : <>

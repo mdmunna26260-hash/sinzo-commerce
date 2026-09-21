@@ -496,6 +496,8 @@ export default function OrderDetailClient({ initial }: { initial: Order }) {
             </div>
           </div>
 
+          <PaymentsCard orderId={o.id} total={o.total} />
+
           <div className="acard">
             <div className="acard-h"><h3>Courier</h3></div>
             <div className="acard-b" style={{ fontSize: 13.5 }}>
@@ -572,5 +574,107 @@ export default function OrderDetailClient({ initial }: { initial: Order }) {
         </div>
       )}
     </>
+  );
+}
+
+/* ---- Payments: what the customer has actually paid -------------------------------
+   Rows live in the Payment table; the order total never gets hand-edited to "look paid".
+   COD is the normal case here, so the balance shown is what the rider has to collect. */
+const PAY_METHODS = [["bkash", "bKash"], ["nagad", "Nagad"], ["rocket", "Rocket"], ["bank", "Bank"], ["cash", "Cash"], ["other", "Other"]];
+const PAY_KINDS = [["ADVANCE", "Advance"], ["DUE", "Collected at delivery"], ["REFUND", "Refund"]];
+
+function PaymentsCard({ orderId, total }: { orderId: number; total: number }) {
+  const router = useRouter();
+  const [rows, setRows] = useState<any[] | null>(null);
+  const [sum, setSum] = useState<any>(null);
+  const [form, setForm] = useState({ amount: "", method: "bkash", kind: "ADVANCE", note: "" });
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<{ text: string; ok: boolean } | null>(null);
+
+  const load = async () => {
+    const r = await afetch(`/api/admin/orders/${orderId}/payments`);
+    const j = await r.json().catch(() => ({}));
+    if (r.ok) { setRows(j.rows || []); setSum(j.summary || null); }
+    else setRows([]);
+  };
+  useEffect(() => { load(); }, [orderId]);
+
+  const money = (n: number) => "৳" + Number(n || 0).toLocaleString("en-IN");
+
+  const add = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setBusy(true); setMsg(null);
+    const r = await afetch(`/api/admin/orders/${orderId}/payments`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(form),
+    });
+    const j = await r.json().catch(() => ({}));
+    setBusy(false);
+    if (!r.ok || !j.ok) { setMsg({ text: j.error || "Could not save", ok: false }); return; }
+    setMsg({ text: `Saved — paid ${money(j.summary.net)}, still due ${money(j.summary.balance)}`, ok: true });
+    setForm({ amount: "", method: form.method, kind: form.kind, note: "" });
+    load(); router.refresh();
+  };
+
+  const remove = async (id: number) => {
+    if (!confirm("Remove this payment entry? The order's paid amount will drop accordingly.")) return;
+    setBusy(true);
+    const r = await afetch(`/api/admin/orders/${orderId}/payments?paymentId=${id}`, { method: "DELETE" });
+    setBusy(false);
+    if (r.ok) { load(); router.refresh(); }
+  };
+
+  return (
+    <div className="acard" style={{ marginBottom: 16 }}>
+      <div className="acard-h">
+        <h3>Payments</h3>
+        {sum && (
+          <span style={{ fontSize: 12.5 }}>
+            <b style={{ color: sum.balance <= 0.5 ? "var(--ok)" : "var(--ad-red, #b42318)" }}>
+              {sum.balance > 0.5 ? money(sum.balance) + " to collect" : sum.balance < -0.5 ? money(-sum.balance) + " overpaid" : "fully paid"}
+            </b>
+            <span style={{ color: "var(--muted)" }}> · paid {money(sum.net)} of {money(total)}</span>
+          </span>
+        )}
+      </div>
+      <div className="acard-b" style={{ fontSize: 13 }}>
+        {rows === null ? <div style={{ color: "var(--muted)" }}>Loading…</div> : rows.length === 0 ? (
+          <div style={{ color: "var(--muted)" }}>Nothing paid yet — the full {money(total)} is due at delivery.</div>
+        ) : (
+          <table className="tbl" style={{ marginBottom: 12 }}>
+            <thead><tr><th>When</th><th>Kind</th><th>Method</th><th>Amount</th><th></th></tr></thead>
+            <tbody>
+              {rows.map((r) => (
+                <tr key={r.id}>
+                  <td style={{ fontSize: 12, color: "var(--muted)", whiteSpace: "nowrap" }}>{new Date(r.createdAt).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</td>
+                  <td>{r.kind}</td>
+                  <td>{r.method}{r.note ? <div style={{ fontSize: 11.5, color: "var(--muted)" }}>{r.note}</div> : null}</td>
+                  <td style={{ fontVariantNumeric: "tabular-nums", fontWeight: 600, color: r.kind === "REFUND" ? "var(--ad-red, #b42318)" : undefined }}>{r.kind === "REFUND" ? "−" : ""}{money(r.amount)}</td>
+                  <td><button className="abtn sm" disabled={busy} onClick={() => remove(r.id)} title="Remove entry">✕</button></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+
+        <form onSubmit={add} style={{ display: "grid", gap: 8, borderTop: "1px solid var(--line)", paddingTop: 12 }}>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <input value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} type="number" min="1" step="0.01" placeholder="Amount ৳" required style={{ width: 120, padding: "8px 10px", border: "1px solid #d0d5dd", borderRadius: 5 }} />
+            <select value={form.method} onChange={(e) => setForm({ ...form, method: e.target.value })} style={{ padding: "8px 10px", border: "1px solid #d0d5dd", borderRadius: 5 }}>
+              {PAY_METHODS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+            </select>
+            <select value={form.kind} onChange={(e) => setForm({ ...form, kind: e.target.value })} style={{ padding: "8px 10px", border: "1px solid #d0d5dd", borderRadius: 5 }}>
+              {PAY_KINDS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+            </select>
+            {sum && sum.balance > 0.5 && (
+              <button type="button" className="abtn sm" onClick={() => setForm({ ...form, amount: String(Math.round(sum.balance)) })} title="Fill the remaining balance">Full {money(sum.balance)}</button>
+            )}
+          </div>
+          <input value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} placeholder="Note — bKash TrxID, rider name…" style={{ padding: "8px 10px", border: "1px solid #d0d5dd", borderRadius: 5 }} />
+          <button className="abtn primary" type="submit" disabled={busy || !form.amount} style={{ justifySelf: "start" }}>{busy ? "…" : "Add payment"}</button>
+          {msg && <div className={"noti " + (msg.ok ? "ok" : "err")}>{msg.text}</div>}
+        </form>
+      </div>
+    </div>
   );
 }

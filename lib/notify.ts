@@ -4,7 +4,9 @@ import { waSend, waStatus } from "./wa";
 
 /* Notification abstraction (PDF §38): in-app center (always) + Telegram + SMTP email.
    Channels are independent; unconfigured channels are skipped honestly (never faked). */
-export type NotifyEvent = "order.placed" | "order.confirmed" | "order.cancelled" | "order.shipped" | "order.delivered" | "test";
+export type NotifyEvent =
+  | "order.placed" | "order.confirmed" | "order.cancelled" | "order.shipped" | "order.delivered"
+  | "payment" | "sms" | "waitlist" | "inbox" | "backup" | "test";
 
 async function sendTelegram(token: string, chatId: string, text: string): Promise<boolean> {
   try {

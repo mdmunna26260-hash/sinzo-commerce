@@ -12,6 +12,9 @@ const pino = require("pino");
 
 const PORT = Number(process.env.WA_BRIDGE_PORT || 3001);
 const KEY = process.env.WA_BRIDGE_KEY || "local-bridge";
+/* Where inbound customer messages are forwarded: the store's own webhook (Admin → Inbox).
+   Point WA_APP_URL at the site (default: the local dev server). */
+const APP_URL = process.env.WA_APP_URL || "http://127.0.0.1:3000";
 const AUTH_DIR = path.join(__dirname, "..", "wa-session");
 
 let sock = null;
@@ -34,6 +37,37 @@ async function start() {
       logger: pino({ level: "silent" }),
       browser: ["SINZO Commerce", "Chrome", "1.0"],
     });
+    /* ---- inbound messages → store inbox ---------------------------------------
+       Everything that arrives from a customer is POSTed to the app, which stores it, links it
+       to an order when the number matches one, and notifies the admin. Groups and our own
+       outgoing echoes are skipped; a media message is stored as a labelled placeholder so the
+       thread still reads correctly. */
+    sock.ev.on("messages.upsert", async (ev) => {
+      try {
+        if (ev.type !== "notify") return;
+        for (const m of ev.messages || []) {
+          const jid = m.key?.remoteJid || "";
+          if (!jid.endsWith("@s.whatsapp.net") || m.key?.fromMe) continue;
+          const msg = m.message || {};
+          const text =
+            msg.conversation ||
+            msg.extendedTextMessage?.text ||
+            msg.imageMessage?.caption ||
+            msg.videoMessage?.caption ||
+            (msg.imageMessage ? "[image]" : msg.videoMessage ? "[video]" : msg.documentMessage ? "[document]" : msg.audioMessage ? "[voice note]" : "");
+          if (!text) continue;
+          const waId = jid.split("@")[0];
+          await fetch(APP_URL.replace(/\/$/, "") + "/api/wa/inbound", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "x-bridge-key": KEY },
+            body: JSON.stringify({ waId, name: m.pushName || null, body: String(text).slice(0, 4000), at: Number(m.messageTimestamp || 0) || null }),
+          }).catch((e) => console.log("inbound forward failed:", e?.message || e));
+        }
+      } catch (e) {
+        console.log("inbound handler error:", e?.message || e);
+      }
+    });
+
     sock.ev.on("creds.update", saveCreds);
     sock.ev.on("connection.update", (u) => {
       const { connection, lastDisconnect, qr } = u;

@@ -5,6 +5,8 @@ import { getCustomerSessionFromRequest, verifyCustomerToken } from "@/lib/custom
 import { Header, Footer, Announcement } from "@/components/chrome";
 import { redirect } from "next/navigation";
 import AccountClient from "./client";
+import { getSettings as _getSettings } from "@/lib/settings";
+import { loyaltyCfg, pointsValue, ensureReferralCode } from "@/lib/loyalty";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "My Account" };
@@ -18,6 +20,15 @@ export default async function AccountPage({ searchParams }: { searchParams: { ct
   const s = await getSettings();
   const cfg = publicSettings(s);
   const cats = await getCategories();
+  /* Rewards strip: points are only motivating if the customer can see the balance and their own
+     invite code without asking support. */
+  const lcfg = loyaltyCfg(s as any);
+  const myCode = lcfg.enabled ? await ensureReferralCode(customer.id, customer.name).catch(() => "") : "";
+  const rewards = {
+    enabled: lcfg.enabled, points: customer.points, value: pointsValue(customer.points, lcfg),
+    code: myCode, minRedeem: lcfg.minRedeem, redeemPoints: lcfg.redeemPoints,
+    siteUrl: process.env.NEXT_PUBLIC_SITE_URL || "https://sinzooffcial.com",
+  };
 
   return (
     <>
@@ -25,6 +36,7 @@ export default async function AccountPage({ searchParams }: { searchParams: { ct
       <Header storeName={cfg.store?.name || "Store"} categories={cats.map((c) => ({ name: c.name, slug: c.slug }))} />
       <AccountClient
         customer={{ name: customer.name, phone: customer.phone, email: customer.email, address: customer.address, area: customer.area }}
+        rewards={rewards}
         token={searchParams?.ct || ""}
         orders={orders.map((o) => ({
           code: o.code, status: o.status, total: o.total, paymentMethod: o.paymentMethod, paymentStatus: o.paymentStatus,

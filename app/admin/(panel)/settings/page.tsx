@@ -22,6 +22,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: any
     ...s.notifications,
     telegramBotToken: s.notifications?.telegramBotToken ? "••••••••" + s.notifications.telegramBotToken.slice(-4) : "",
     smtp: { ...s.notifications?.smtp, pass: s.notifications?.smtp?.pass ? "••••••••" + s.notifications.smtp.pass.slice(-2) : "" },
+    sms: { ...s.notifications?.sms, apiKey: s.notifications?.sms?.apiKey ? "••••••••" + s.notifications.sms.apiKey.slice(-4) : "" },
   };
   return <SettingsClient user={user} userCount={userCount} hasCourier={hasCourier} collections={collections} groups={{
     store: s.store, theme: s.theme, shipping: s.shipping, homepage: s.homepage,
