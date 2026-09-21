@@ -9,10 +9,12 @@ import { ThemeIconToggle, ThemeSwitchRow } from "./theme-toggle";
 const NAV: { group: string; items: { href: string; label: string; icon: string; badge?: string }[] }[] = [
   { group: "Overview", items: [
     { href: "/admin/dashboard", label: "Dashboard", icon: "M3 13h8V3H3v10zm10 8h8V11h-8v10zM3 21h8v-6H3v6zM13 9h8V3h-8v6z" },
+    { href: "/admin/profit", label: "Profit & Margin", icon: "M23 6l-9.5 9.5-5-5L1 18M17 6h6v6M3 22h18" },
   ]},
   { group: "Commerce", items: [
     { href: "/admin/orders", label: "Orders", icon: "M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4zM3 6h18M16 10a4 4 0 0 1-8 0", badge: "pending" },
     { href: "/admin/products", label: "Products", icon: "M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" },
+    { href: "/admin/stock", label: "Stock", icon: "M3 3h18v4H3zM5 7v14h14V7M9 11h6", badge: "stock" },
     { href: "/admin/catalog", label: "Categories & Collections", icon: "M4 6h16M4 12h16M4 18h10" },
     { href: "/admin/customers", label: "Customers", icon: "M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zm14 10v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" },
     { href: "/admin/coupons", label: "Coupons", icon: "M20 12v6a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v2m-5 0 2 2-2 2h-4" },
@@ -20,9 +22,12 @@ const NAV: { group: string; items: { href: string; label: string; icon: string; 
   { group: "Engagement", items: [
     { href: "/admin/reviews", label: "Reviews", icon: "M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01z" },
     { href: "/admin/marketing", label: "Marketing", icon: "M3 11l18-7-7 18-2.5-7.5z" },
+    { href: "/admin/campaigns", label: "Newsletter", icon: "M4 4h16v16H4zM4 7l8 6 8-6" },
+    { href: "/admin/blog", label: "Blog", icon: "M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M16 13H8M16 17H8M11 9H8" },
   ]},
   { group: "Growth tools", items: [
     { href: "/admin/analytics", label: "Advanced Analytics", icon: "M23 6l-9.5 9.5-5-5L1 18M17 6h6v6" },
+    { href: "/admin/couriers", label: "Couriers & RTO", icon: "M1 3h15v13H1zM16 8h4l3 3v5h-7M5.5 20a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5zm13 0a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z" },
     { href: "/admin/tracking", label: "Tracking & Pixels", icon: "M22 12h-4l-3 9L9 3l-3 9H2" },
     { href: "/admin/settings", label: "Settings", icon: "M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zm7.4-3a7.4 7.4 0 0 0-.1-1.2l2-1.6-2-3.4-2.4 1a7.5 7.5 0 0 0-2-1.2L14.5 2h-4l-.4 2.6a7.5 7.5 0 0 0-2 1.2l-2.4 1-2 3.4 2 1.6a7.4 7.4 0 0 0 0 2.4l-2 1.6 2 3.4 2.4-1a7.5 7.5 0 0 0 2 1.2l.4 2.6h4l.4-2.6a7.5 7.5 0 0 0 2-1.2l2.4-1.6c.06-.4.1-.8.1-1.2z" },
     { href: "/admin/users", label: "Team", icon: "M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z" },

@@ -3029,3 +3029,73 @@ body:has(.admin-body) .scroll-progress { display: none !important; }
 :root[data-theme="dark"] .policy-fact { background: #191816; border-color: #2a2825; }
 :root[data-theme="dark"] .policy-note { background: color-mix(in srgb, var(--accent) 15%, transparent); }
 :root[data-theme="dark"] .steps li::before { color: #12110f; }
+
+/* ---------- L. Blog (/blog, /blog/<slug>) ----------
+   Same language as the rest of the storefront: cream, one gold accent, a serif headline and the
+   2px radius. A journal page is read, not shopped, so the type is bigger, the measure is ~72
+   characters and nothing moves while the eye is on it. Card image rules live in .blog-*-img so
+   the variant ladder in app/blog/page.tsx has a fixed box to load into (no CLS). */
+
+.blog-wrap { padding: 34px 0 84px; }
+
+.blog-head { max-width: 700px; margin-bottom: 36px; }
+.blog-head h1 { font-family: var(--font-head); font-size: clamp(30px, 4.6vw, 46px); font-weight: 400; line-height: 1.12; letter-spacing: -0.005em; margin: 12px 0 14px; }
+.blog-lede { color: var(--muted); font-size: 15.5px; line-height: 1.75; max-width: 620px; }
+
+.blog-meta { font-size: 10.5px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted); }
+
+/* the featured post — two columns of equal height, the image filling its half */
+.blog-lead { display: grid; grid-template-columns: 1.05fr 1fr; align-items: stretch; border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; margin-bottom: 8px; }
+.blog-lead-img { overflow: hidden; background: color-mix(in srgb, var(--accent) 8%, var(--bg)); }
+.blog-lead-img img { width: 100%; height: 100%; object-fit: cover; transition: transform .7s cubic-bezier(.22,.61,.36,1); }
+.blog-lead:hover .blog-lead-img img { transform: scale(1.03); }
+.blog-lead-body { padding: clamp(22px, 3.2vw, 40px); display: flex; flex-direction: column; justify-content: center; gap: 10px; }
+.blog-lead-body h2 { font-family: var(--font-head); font-size: clamp(22px, 2.6vw, 31px); font-weight: 400; line-height: 1.22; }
+.blog-lead-body p { color: var(--muted); font-size: 14.5px; line-height: 1.7; }
+.blog-more { font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--accent); margin-top: 6px; }
+.blog-lead:hover .blog-more { text-decoration: underline; text-underline-offset: 4px; }
+
+.blog-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 30px 26px; margin-top: 44px; }
+.blog-card { display: flex; flex-direction: column; gap: 8px; }
+.blog-card-img { overflow: hidden; border-radius: var(--radius); aspect-ratio: 4 / 3; background: color-mix(in srgb, var(--accent) 8%, var(--bg)); margin-bottom: 4px; }
+.blog-card-img img { width: 100%; height: 100%; object-fit: cover; transition: transform .6s cubic-bezier(.22,.61,.36,1); }
+.blog-card:hover .blog-card-img img { transform: scale(1.04); }
+.blog-card h3 { font-family: var(--font-head); font-size: 18.5px; font-weight: 400; line-height: 1.3; }
+.blog-card p { color: var(--muted); font-size: 13.5px; line-height: 1.65; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+
+.blog-empty { text-align: center; padding: 72px 20px; color: var(--muted); display: grid; gap: 20px; justify-items: center; }
+
+/* article */
+.blog-crumbs { font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); margin: 26px 0 26px; display: flex; gap: 8px; flex-wrap: wrap; }
+.blog-crumbs a { color: var(--accent); }
+.blog-post { max-width: 760px; margin: 0 auto; }
+.blog-post h1 { font-family: var(--font-head); font-size: clamp(28px, 4.4vw, 43px); font-weight: 400; line-height: 1.14; margin: 12px 0 14px; }
+.blog-standfirst { font-size: 16.5px; line-height: 1.7; color: var(--muted); margin-bottom: 28px; }
+.blog-hero { margin: 0 0 34px; }
+.blog-hero img { width: 100%; border-radius: var(--radius); }
+.blog-body { font-size: 16.5px; line-height: 1.85; }
+.blog-body p { margin-bottom: 22px; }
+.blog-body h2 { font-family: var(--font-head); font-size: clamp(20px, 2.4vw, 25px); font-weight: 400; line-height: 1.3; margin: 38px 0 14px; }
+.blog-draft { font-size: 12.5px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--accent); border: 1px dashed var(--accent); border-radius: var(--radius); padding: 10px 14px; margin-bottom: 22px; }
+.blog-cta { margin-top: 44px; padding: 24px; border: 1px solid var(--line); border-radius: var(--radius); background: color-mix(in srgb, var(--accent) 6%, transparent); display: flex; align-items: center; justify-content: space-between; gap: 18px; flex-wrap: wrap; }
+.blog-cta b { font-family: var(--font-head); font-size: 19px; font-weight: 400; display: block; margin-bottom: 4px; }
+.blog-cta div div { color: var(--muted); font-size: 13.5px; }
+.blog-more-sec { margin-top: 70px; border-top: 1px solid var(--line); padding-top: 36px; }
+.blog-more-sec > h2 { font-family: var(--font-head); font-size: 23px; font-weight: 400; margin-bottom: 4px; }
+
+@media (max-width: 1100px) { .blog-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 900px) {
+  .blog-lead { grid-template-columns: 1fr; }
+  .blog-lead-img { aspect-ratio: 16 / 10; }
+}
+@media (max-width: 640px) {
+  .blog-grid { grid-template-columns: 1fr; gap: 26px; margin-top: 34px; }
+  .blog-wrap { padding: 22px 0 64px; }
+  .blog-body { font-size: 16px; line-height: 1.8; }
+  .blog-cta { flex-direction: column; align-items: flex-start; }
+}
+
+/* dark theme: the tint/hero boxes need their own value or they read as white slabs */
+:root[data-theme="dark"] .blog-lead-img,
+:root[data-theme="dark"] .blog-card-img { background: #1b1917; }
+:root[data-theme="dark"] .blog-cta { background: color-mix(in srgb, var(--accent) 14%, transparent); }

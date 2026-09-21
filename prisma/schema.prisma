@@ -278,9 +278,35 @@ model AbandonedCheckout {
 }
 
 model Subscriber {
-  id        Int      @id @default(autoincrement())
-  email     String   @unique
-  createdAt DateTime @default(now())
+  id             Int       @id @default(autoincrement())
+  email          String    @unique
+  // one-click unsubscribe from a campaign email (HMAC-signed link, see lib/campaign.ts).
+  // Kept on the row rather than deleting it, so re-subscribing is a flag flip and the
+  // export still shows who left.
+  unsubscribed   Boolean   @default(false)
+  unsubscribedAt DateTime?
+  createdAt      DateTime  @default(now())
+}
+
+// One newsletter send. The body is plain text with the same paragraph rules as a blog post;
+// {{name}} and {{unsubscribe}} are filled per recipient at send time. Progress columns let a
+// long list be sent in batches across several requests instead of one long-running one.
+model Campaign {
+  id        Int       @id @default(autoincrement())
+  subject   String
+  body      String
+  ctaLabel  String?
+  ctaUrl    String?
+  status    String    @default("DRAFT") // DRAFT | SENDING | SENT
+  total     Int       @default(0)
+  sent      Int       @default(0)
+  failed    Int       @default(0)
+  // last Subscriber id this campaign has processed — lets a big list go out in batches
+  // across several requests, and survive the list changing mid-send
+  cursorId  Int       @default(0)
+  sentAt    DateTime?
+  createdBy String?
+  createdAt DateTime  @default(now())
 }
 
 model AuditLog {

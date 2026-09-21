@@ -101,3 +101,17 @@ export function tokenFromRequest(req?: Request): string | null {
   if (!ALLOW_URL_TOKEN) return null; // never read the token from the query string in production
   return new URL(req.url).searchParams.get("t");
 }
+
+/* ---- Signed one-click unsubscribe (marketing emails) ----
+   The link in a campaign email carries an HMAC of the address, signed with the same app secret
+   as session tokens. Without it any visitor could unsubscribe any address by guessing it. */
+export function unsubscribeToken(email: string): string {
+  return crypto.createHmac("sha256", SECRET).update(String(email || "").trim().toLowerCase()).digest("hex").slice(0, 32);
+}
+export function verifyUnsubscribe(email: string, k?: string | null): boolean {
+  const want = unsubscribeToken(email);
+  const got = String(k || "");
+  if (got.length !== want.length) return false;
+  const enc = new TextEncoder();
+  try { return crypto.timingSafeEqual(enc.encode(got), enc.encode(want)); } catch { return false; }
+}

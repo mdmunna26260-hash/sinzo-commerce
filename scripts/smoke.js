@@ -45,6 +45,40 @@ function check(name, cond, extra) {
     const r = await fetch(BASE + p);
     check("GET " + p, r.status === 200, "(" + r.status + ")");
   }
+  // admin reports that were added with the profit/stock/blog/newsletter/couriers batch.
+  // The pages are server-rendered behind the cookie set by the login above, so a 200 plus the
+  // page's own heading is the cheap proof that they compile AND that their queries run.
+  if (adminAuthed) {
+    for (const [path, heading] of [
+      ["/admin/profit", "Profit &amp; Margin"],
+      ["/admin/stock", "Stock ledger"],
+      ["/admin/blog", "New post"],
+      ["/admin/campaigns", "New campaign"],
+      ["/admin/couriers", "Couriers &amp; RTO"],
+    ]) {
+      const r = await fetch(BASE + path, { headers: { cookie } });
+      const html = await r.text();
+      check("GET " + path, r.status === 200 && html.includes(heading), "(status=" + r.status + ")");
+    }
+    // the newsletter audience endpoint must answer with real numbers, not a 500
+    const camp = await req("/api/admin/campaigns");
+    check("newsletter audience endpoint", camp.status === 200 && typeof camp.body?.audience === "number", JSON.stringify(camp.body).slice(0, 90));
+    // a restock without a quantity must be refused (validation, not a silent write)
+    const bad = await req("/api/admin/stock", { method: "POST", body: JSON.stringify({ productId: live?.id, qty: 0 }) });
+    check("restock rejects a zero quantity", bad.status === 400, "(status=" + bad.status + ")");
+  }
+  // the journal is public and must exist even with nothing published
+  {
+    const r = await fetch(BASE + "/blog");
+    const html = await r.text();
+    check("GET /blog", r.status === 200 && /Journal/.test(html), "(status=" + r.status + ")");
+  }
+  // unsubscribe is signed: a guessed token must never unsubscribe somebody
+  {
+    const r = await fetch(BASE + "/api/newsletter/unsubscribe?e=nobody@example.com&k=deadbeefdeadbeefdeadbeefdeadbeef");
+    check("forged unsubscribe link refused", r.status === 400, "(status=" + r.status + ")");
+  }
+
   // search api (search a word from a real product title)
   r = await req("/api/search?q=" + encodeURIComponent(needle));
   check("search finds existing product", r.body?.products?.length > 0, "(q=" + needle + ")");

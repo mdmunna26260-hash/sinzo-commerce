@@ -35,6 +35,15 @@ async function run(): Promise<void> {
       ? `ALTER TABLE "ProductVariant" ADD COLUMN IF NOT EXISTS "image" TEXT`
       : `ALTER TABLE "ProductVariant" ADD COLUMN "image" TEXT`)
     .catch(() => {});
+  // Subscriber: one-click unsubscribe (newsletter campaigns)
+  await db.$executeRawUnsafe(isPg ? `ALTER TABLE "Subscriber" ADD COLUMN IF NOT EXISTS "unsubscribed" BOOLEAN NOT NULL DEFAULT false` : `ALTER TABLE "Subscriber" ADD COLUMN "unsubscribed" BOOLEAN NOT NULL DEFAULT 0`).catch(() => {});
+  await db.$executeRawUnsafe(isPg ? `ALTER TABLE "Subscriber" ADD COLUMN IF NOT EXISTS "unsubscribedAt" TIMESTAMP(3)` : `ALTER TABLE "Subscriber" ADD COLUMN "unsubscribedAt" DATETIME`).catch(() => {});
+  // Campaign: one newsletter send per row (subject/body + batch progress columns)
+  await db.$executeRawUnsafe(isPg
+    ? `CREATE TABLE IF NOT EXISTS "Campaign" ("id" SERIAL PRIMARY KEY, "subject" TEXT NOT NULL, "body" TEXT NOT NULL, "ctaLabel" TEXT, "ctaUrl" TEXT, "status" TEXT NOT NULL DEFAULT 'DRAFT', "total" INTEGER NOT NULL DEFAULT 0, "sent" INTEGER NOT NULL DEFAULT 0, "failed" INTEGER NOT NULL DEFAULT 0, "cursorId" INTEGER NOT NULL DEFAULT 0, "sentAt" TIMESTAMP(3), "createdBy" TEXT, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP)`
+    : `CREATE TABLE IF NOT EXISTS "Campaign" ("id" INTEGER PRIMARY KEY AUTOINCREMENT, "subject" TEXT NOT NULL, "body" TEXT NOT NULL, "ctaLabel" TEXT, "ctaUrl" TEXT, "status" TEXT NOT NULL DEFAULT 'DRAFT', "total" INTEGER NOT NULL DEFAULT 0, "sent" INTEGER NOT NULL DEFAULT 0, "failed" INTEGER NOT NULL DEFAULT 0, "cursorId" INTEGER NOT NULL DEFAULT 0, "sentAt" DATETIME, "createdBy" TEXT, "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP)`)
+    .catch(() => {});
+  await db.$executeRawUnsafe(isPg ? `ALTER TABLE "Campaign" ADD COLUMN IF NOT EXISTS "cursorId" INTEGER NOT NULL DEFAULT 0` : `ALTER TABLE "Campaign" ADD COLUMN "cursorId" INTEGER NOT NULL DEFAULT 0`).catch(() => {});
   // AbandonedCheckout: email + recovery tracking columns
   await db.$executeRawUnsafe(isPg ? `ALTER TABLE "AbandonedCheckout" ADD COLUMN IF NOT EXISTS "email" TEXT` : `ALTER TABLE "AbandonedCheckout" ADD COLUMN "email" TEXT`).catch(() => {});
   await db.$executeRawUnsafe(isPg ? `ALTER TABLE "AbandonedCheckout" ADD COLUMN IF NOT EXISTS "recoveryEmailedAt" TIMESTAMP(3)` : `ALTER TABLE "AbandonedCheckout" ADD COLUMN "recoveryEmailedAt" DATETIME`).catch(() => {});

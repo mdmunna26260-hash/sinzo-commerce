@@ -283,6 +283,7 @@ export function Footer({ cfg }: { cfg: any }) {
             <Link prefetch href="/track">Track Order</Link>
             <Link prefetch href="/returns#delivery">Shipping</Link>
             <Link prefetch href="/returns">Returns &amp; Exchange</Link>
+            <Link prefetch href="/blog">Journal</Link>
             <a href={store.whatsapp ? waLink(store.whatsapp) : "#"} target="_blank" rel="noreferrer noopener">WhatsApp Support</a>
           </div>
           <div>

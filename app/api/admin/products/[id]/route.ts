@@ -56,6 +56,15 @@ export async function PUT(req: Request, { params }: Ctx) {
       }
     }
     await db.product.update({ where: { id }, data });
+    /* Stock typed straight into the product form used to leave no trace at all, which is how a
+       ledger stops being able to answer "why is this 3?" — a delivery, a return and a typo all
+       looked the same. Record the difference as an adjustment (the dedicated Stock page writes
+       RESTOCK rows with a supplier note). */
+    if (data.stock !== before.stock) {
+      await db.inventoryMovement
+        .create({ data: { productId: id, delta: data.stock - before.stock, reason: "ADJUST", ref: g.user.email } })
+        .catch(() => {});
+    }
     // sync images
     const urls: string[] = b.images || [];
     for (const img of before.images) if (!urls.includes(img.url)) await db.productImage.delete({ where: { id: img.id } });
