@@ -431,3 +431,65 @@ model BlogPost {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// WhatsApp broadcast & automation (Baileys multi-device).
+// Phase 1: devices + outbox queue + worker + auto order messages.
+// Nothing here is sent inside a web request — every message is a WaMessage row
+// that scripts/wa-worker.js picks up, paces and hands to the bridge.
+// ─────────────────────────────────────────────────────────────────────────────
+model WaDevice {
+  id           Int       @id @default(autoincrement())
+  name         String
+  sessionId    String    @unique // .wa-auth/<sessionId>/ — the keys never leave that folder
+  phone        String?
+  status       String    @default("DISCONNECTED") // CONNECTED | DISCONNECTED | QR | PAUSED | BANNED
+  isDefault    Boolean   @default(false)
+  dailyCap     Int       @default(50) // warm-up: 50 → 150 → 300 → 400
+  sentToday    Int       @default(0)
+  sentDate     String? // YYYY-MM-DD, the day sentToday belongs to (counter reset)
+  warmupStage  Int       @default(0) // 0 new · 1 2nd week · 2 3rd week · 3 mature
+  consecutiveFailures Int @default(0) // auto-pause when a number keeps failing
+  lastSeenAt   DateTime?
+  lastError    String?
+  createdAt    DateTime  @default(now())
+}
+
+model WaTemplate {
+  id        Int      @id @default(autoincrement())
+  key       String   @unique // order_placed | order_confirmed | … | custom
+  name      String
+  category  String   @default("UTILITY") // UTILITY | MARKETING
+  body      String // {name} {code} {amount} {tracking} {link} {coupon} {product} {items} {area} {eta}
+  mediaMode String   @default("NONE") // NONE | PRODUCT | CUSTOM
+  enabled   Boolean  @default(true) // per-event switch for the automatic events
+  updatedAt DateTime @updatedAt
+}
+
+model WaMessage {
+  id            Int       @id @default(autoincrement())
+  deviceId      Int?
+  toWaId        String // 8801XXXXXXXXX (digits only, country code)
+  kind          String    @default("AUTO") // AUTO | BROADCAST | REPLY | MANUAL
+  templateKey   String?
+  body          String
+  mediaJson     String? // JSON: image URLs, one per line in the message
+  couponCode    String?
+  orderId       Int?
+  broadcastId   Int?
+  status        String    @default("QUEUED") // QUEUED | SENDING | SENT | DELIVERED | READ | FAILED | SKIPPED
+  attempts      Int       @default(0)
+  error         String?
+  dedupeKey     String?   @unique // "order_placed:1042" — an order never gets the same message twice
+  bridgeId      String? // WhatsApp message id — delivery/read receipts match on this
+  nextAttemptAt DateTime?
+  lockedAt      DateTime?
+  meta          String? // JSON: code / name / amount / area — what the queue screen shows
+  queuedAt      DateTime  @default(now())
+  sentAt        DateTime?
+  deliveredAt   DateTime?
+  readAt        DateTime?
+  @@index([status, nextAttemptAt])
+  @@index([dedupeKey])
+  @@index([toWaId])
+}

@@ -98,18 +98,6 @@ export async function notifyAdmin(evt: NotifyEvent, title: string, body: string,
   return { inApp, telegram, email, whatsapp };
 }
 
-/* Customer order-confirmation via WhatsApp (linked device). */
-export async function whatsappCustomerOrder(to: string, name: string, order: { code: string; total: number; area: string; items: { title: string; qty: number; price: number }[] }) {
-  try {
-    const s = envFallback(await getSettings());
-    const n = s.notifications || {};
-    if (n.waCustomerEnabled === false) return { configured: false };
-    const lines = order.items.map((i) => `• ${i.title} × ${i.qty} — ৳${Math.round(i.price * i.qty).toLocaleString("en-IN")}`).join("\n");
-    const msg = `Hi ${name}! 🛒\n\nApnar order confirm hoyeche *${order.code}*\n\n${lines}\n\n*Total: ৳${Math.round(order.total).toLocaleString("en-IN")}* (COD)\nDelivery: ${order.area === "INSIDE_DHAKA" ? "1–2 din (Inside Dhaka)" : "2–4 din (Outside Dhaka)"}\n\nDhonnobad! 🙏`;
-    return { configured: true, result: await waSend(to, msg) };
-  } catch { return { configured: false }; }
-}
-
 /* Canonical public site URL for links inside emails */
 export function storeUrl(s: any): string {
   const raw = s?.seo?.siteUrl || process.env.NEXT_PUBLIC_SITE_URL || "";

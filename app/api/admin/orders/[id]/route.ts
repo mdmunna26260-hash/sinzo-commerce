@@ -148,6 +148,11 @@ export async function PUT(req: Request, { params }: Ctx) {
       const emoji: Record<string, string> = { CONFIRMED: "✅", CANCELLED: "❌", SHIPPED: "🚚", DELIVERED: "📬" };
       notifyAdmin(evt, `${emoji[b.status] || "•"} Order ${before.code} → ${b.status}`, `${before.name} · ৳${Math.round(before.total).toLocaleString("en-IN")}`, before.code).catch(() => {});
     }
+    // customer WhatsApp for this transition (queued — the worker paces it; dedupeKey stops repeats)
+    await import("@/lib/wa-queue").then(async ({ eventForStatus, enqueueOrderEvent }) => {
+      const ev = eventForStatus(b.status);
+      if (ev) await enqueueOrderEvent(id, ev);
+    }).catch(() => {});
     // customer SMS (Settings → Notifications → SMS → per-status switches)
     import("@/lib/sms").then(async ({ autoSmsOnStatus }) => {
       const { getSettings, envFallback } = await import("@/lib/settings");

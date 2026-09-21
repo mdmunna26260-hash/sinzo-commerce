@@ -7,7 +7,7 @@ import { detectSource, getClientIp } from "@/lib/ua";
 import { rateLimit } from "@/lib/auth";
 import { orderCode } from "@/lib/slug";
 import { normalizeBDPhone, isValidBDPhone } from "@/lib/phone";
-import { notifyAdmin, emailCustomerOrder, whatsappCustomerOrder } from "@/lib/notify";
+import { notifyAdmin, emailCustomerOrder } from "@/lib/notify";
 
 export const dynamic = "force-dynamic";
 
@@ -190,8 +190,10 @@ export async function POST(req: Request) {
       customData: { currency: "BDT", value: total, content_type: "product", num_items: orderItems.reduce((a, i) => a + i.qty, 0), contents: orderItems.map((i) => ({ id: String(i.productId), quantity: i.qty, item_price: i.price })) },
     }).catch(() => {});
 
-    // customer order-confirmation WhatsApp (linked device, if enabled)
-    whatsappCustomerOrder(cleanPhone, String(name).trim(), { code, total, area, items: orderItems.map((i) => ({ title: i.title + (i.preorder ? " [Pre-order]" : ""), qty: i.qty, price: i.price })) }).catch(() => {});
+    // customer order-confirmation WhatsApp — written to the outbox here, sent by the worker
+    // (lib/wa-queue → scripts/wa-worker.js, respecting caps/quiet hours/pacing). A blocked
+    // number or a sleeping bridge can never slow this request down.
+    await import("@/lib/wa-queue").then(({ enqueueOrderEvent }) => enqueueOrderEvent(order.id, "order_placed")).catch(() => {});
 
     // customer order-confirmation email (if email given + SMTP configured)
     if (email) {

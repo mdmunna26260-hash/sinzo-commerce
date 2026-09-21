@@ -24,12 +24,17 @@ const NAV: { group: string; items: { href: string; label: string; icon: string; 
   ]},
   { group: "Engagement", items: [
     { href: "/admin/reviews", label: "Reviews", icon: "M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01z" },
-    { href: "/admin/inbox", label: "WhatsApp Inbox", icon: "M21 12a8 8 0 0 1-8 8H7l-4 3 1.2-4.2A8 8 0 1 1 21 12zM8.5 11h.01M12 11h.01M15.5 11h.01" },
     { href: "/admin/sms", label: "SMS", icon: "M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2zM8 9h8M8 13h5" },
     { href: "/admin/loyalty", label: "Loyalty & Referral", icon: "M12 2l2.9 6 6.1.9-4.5 4.3 1.1 6.3L12 16.6 6.4 19.5l1.1-6.3L3 8.9 9.1 8z" },
     { href: "/admin/marketing", label: "Marketing", icon: "M3 11l18-7-7 18-2.5-7.5z" },
     { href: "/admin/campaigns", label: "Newsletter", icon: "M4 4h16v16H4zM4 7l8 6 8-6" },
     { href: "/admin/blog", label: "Blog", icon: "M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M16 13H8M16 17H8M11 9H8" },
+  ]},
+  { group: "WhatsApp", items: [
+    { href: "/admin/whatsapp", label: "Broadcast & Queue", icon: "M3 11l18-7-7 18-2.5-7.5zM14 14l4-4" },
+    { href: "/admin/whatsapp/devices", label: "Devices", icon: "M7 2h10a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2zM11 18h2" },
+    { href: "/admin/whatsapp/templates", label: "Templates", icon: "M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M9 13h6M9 17h4" },
+    { href: "/admin/inbox", label: "Inbox", icon: "M21 12a8 8 0 0 1-8 8H7l-4 3 1.2-4.2A8 8 0 1 1 21 12zM8.5 11h.01M12 11h.01M15.5 11h.01" },
   ]},
   { group: "Growth tools", items: [
     { href: "/admin/analytics", label: "Advanced Analytics", icon: "M23 6l-9.5 9.5-5-5L1 18M17 6h6v6" },

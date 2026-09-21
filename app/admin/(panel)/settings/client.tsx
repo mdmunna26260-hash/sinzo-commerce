@@ -610,6 +610,21 @@ export default function SettingsClient({ groups, user, userCount, hasCourier, co
               <input value={g.notifications?.waAutoReply || ""} onChange={(e) => setG({ ...g, notifications: { ...g.notifications, waAutoReply: e.target.value } })} placeholder="Assalamu alaikum {name}! Sinzo te message pathanor jonno dhonnobad — apnar order niye help lagle likhun." />
               <div style={{ fontSize: 11.5, color: "var(--muted)", marginTop: 4 }}>Kono customer prothom bar WhatsApp korle ei text ta auto pathano hobe (bridge linked thakle).</div>
             </div>
+          <div className="acard" style={{ marginTop: 16 }}>
+            <div className="acard-h"><h3>WhatsApp broadcast &amp; devices</h3><span style={{ fontSize: 12, color: "var(--muted)" }}>queue · caps · templates</span></div>
+            <div className="acard-b" style={{ fontSize: 13, color: "var(--muted)", display: "grid", gap: 8 }}>
+              <div>
+                Order-confirm, 2–3 number-er device manager, QR pairing, daily caps, quiet hours, retry + SMS fallback —
+                shob ek jaygay. Kono message web request-er vitore jay na: order hole row queue-te joma hoy,
+                <code> npm run wa:worker </code> seta pathay.
+              </div>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                <a className="abtn" href="/admin/whatsapp">Broadcast &amp; Queue</a>
+                <a className="abtn" href="/admin/whatsapp/devices">Devices</a>
+                <a className="abtn" href="/admin/whatsapp/templates">Templates</a>
+              </div>
+            </div>
+          </div>
             <div className="af full"><label>WhatsApp bridge key (x-bridge-key)</label>
               <input value={g.notifications?.waBridgeKey || ""} onChange={(e) => setG({ ...g, notifications: { ...g.notifications, waBridgeKey: e.target.value } })} placeholder="local-bridge" autoCapitalize="none" />
               <div style={{ fontSize: 11.5, color: "var(--muted)", marginTop: 4 }}>Bridge chalanor somoy <code>WA_BRIDGE_KEY</code> same rakhte hobe — inbound message ei key diye verify hoy.</div>

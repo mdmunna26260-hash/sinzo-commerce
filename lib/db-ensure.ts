@@ -167,4 +167,115 @@ async function run(): Promise<void> {
     : `CREATE TABLE IF NOT EXISTS "AppLog" ("id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, "level" TEXT NOT NULL DEFAULT 'INFO', "kind" TEXT NOT NULL, "message" TEXT NOT NULL, "meta" TEXT, "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP)`).catch(() => {});
   await db.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "AppLog_kind_createdAt_idx" ON "AppLog"("kind","createdAt")`).catch(() => {});
   await db.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "AppLog_level_createdAt_idx" ON "AppLog"("level","createdAt")`).catch(() => {});
+
+  /* ── WhatsApp broadcast & automation (Phase 1): devices, outbox queue, templates ── */
+  await db.$executeRawUnsafe(isPg
+    ? `CREATE TABLE IF NOT EXISTS "WaDevice" (
+        "id" SERIAL PRIMARY KEY,
+        "name" TEXT NOT NULL,
+        "sessionId" TEXT NOT NULL,
+        "phone" TEXT,
+        "status" TEXT NOT NULL DEFAULT 'DISCONNECTED',
+        "isDefault" BOOLEAN NOT NULL DEFAULT false,
+        "dailyCap" INTEGER NOT NULL DEFAULT 50,
+        "sentToday" INTEGER NOT NULL DEFAULT 0,
+        "sentDate" TEXT,
+        "warmupStage" INTEGER NOT NULL DEFAULT 0,
+        "consecutiveFailures" INTEGER NOT NULL DEFAULT 0,
+        "lastSeenAt" TIMESTAMP(3),
+        "lastError" TEXT,
+        "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )`
+    : `CREATE TABLE IF NOT EXISTS "WaDevice" (
+        "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+        "name" TEXT NOT NULL,
+        "sessionId" TEXT NOT NULL,
+        "phone" TEXT,
+        "status" TEXT NOT NULL DEFAULT 'DISCONNECTED',
+        "isDefault" BOOLEAN NOT NULL DEFAULT 0,
+        "dailyCap" INTEGER NOT NULL DEFAULT 50,
+        "sentToday" INTEGER NOT NULL DEFAULT 0,
+        "sentDate" TEXT,
+        "warmupStage" INTEGER NOT NULL DEFAULT 0,
+        "consecutiveFailures" INTEGER NOT NULL DEFAULT 0,
+        "lastSeenAt" DATETIME,
+        "lastError" TEXT,
+        "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )`).catch(() => {});
+  await db.$executeRawUnsafe(`CREATE UNIQUE INDEX IF NOT EXISTS "WaDevice_sessionId_key" ON "WaDevice"("sessionId")`).catch(() => {});
+  await db.$executeRawUnsafe(isPg
+    ? `CREATE TABLE IF NOT EXISTS "WaTemplate" (
+        "id" SERIAL PRIMARY KEY,
+        "key" TEXT NOT NULL,
+        "name" TEXT NOT NULL,
+        "category" TEXT NOT NULL DEFAULT 'UTILITY',
+        "body" TEXT NOT NULL,
+        "mediaMode" TEXT NOT NULL DEFAULT 'NONE',
+        "enabled" BOOLEAN NOT NULL DEFAULT true,
+        "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )`
+    : `CREATE TABLE IF NOT EXISTS "WaTemplate" (
+        "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+        "key" TEXT NOT NULL,
+        "name" TEXT NOT NULL,
+        "category" TEXT NOT NULL DEFAULT 'UTILITY',
+        "body" TEXT NOT NULL,
+        "mediaMode" TEXT NOT NULL DEFAULT 'NONE',
+        "enabled" BOOLEAN NOT NULL DEFAULT 1,
+        "updatedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )`).catch(() => {});
+  await db.$executeRawUnsafe(`CREATE UNIQUE INDEX IF NOT EXISTS "WaTemplate_key_key" ON "WaTemplate"("key")`).catch(() => {});
+  await db.$executeRawUnsafe(isPg
+    ? `CREATE TABLE IF NOT EXISTS "WaMessage" (
+        "id" SERIAL PRIMARY KEY,
+        "deviceId" INTEGER,
+        "toWaId" TEXT NOT NULL,
+        "kind" TEXT NOT NULL DEFAULT 'AUTO',
+        "templateKey" TEXT,
+        "body" TEXT NOT NULL,
+        "mediaJson" TEXT,
+        "couponCode" TEXT,
+        "orderId" INTEGER,
+        "broadcastId" INTEGER,
+        "status" TEXT NOT NULL DEFAULT 'QUEUED',
+        "attempts" INTEGER NOT NULL DEFAULT 0,
+        "error" TEXT,
+        "dedupeKey" TEXT,
+        "bridgeId" TEXT,
+        "nextAttemptAt" TIMESTAMP(3),
+        "lockedAt" TIMESTAMP(3),
+        "meta" TEXT,
+        "queuedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "sentAt" TIMESTAMP(3),
+        "deliveredAt" TIMESTAMP(3),
+        "readAt" TIMESTAMP(3)
+      )`
+    : `CREATE TABLE IF NOT EXISTS "WaMessage" (
+        "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+        "deviceId" INTEGER,
+        "toWaId" TEXT NOT NULL,
+        "kind" TEXT NOT NULL DEFAULT 'AUTO',
+        "templateKey" TEXT,
+        "body" TEXT NOT NULL,
+        "mediaJson" TEXT,
+        "couponCode" TEXT,
+        "orderId" INTEGER,
+        "broadcastId" INTEGER,
+        "status" TEXT NOT NULL DEFAULT 'QUEUED',
+        "attempts" INTEGER NOT NULL DEFAULT 0,
+        "error" TEXT,
+        "dedupeKey" TEXT,
+        "bridgeId" TEXT,
+        "nextAttemptAt" DATETIME,
+        "lockedAt" DATETIME,
+        "meta" TEXT,
+        "queuedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "sentAt" DATETIME,
+        "deliveredAt" DATETIME,
+        "readAt" DATETIME
+      )`).catch(() => {});
+  await db.$executeRawUnsafe(`CREATE UNIQUE INDEX IF NOT EXISTS "WaMessage_dedupeKey_key" ON "WaMessage"("dedupeKey")`).catch(() => {});
+  await db.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "WaMessage_status_nextAttemptAt_idx" ON "WaMessage"("status","nextAttemptAt")`).catch(() => {});
+  await db.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "WaMessage_toWaId_idx" ON "WaMessage"("toWaId")`).catch(() => {});
+  await db.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "WaMessage_orderId_idx" ON "WaMessage"("orderId")`).catch(() => {});
 }

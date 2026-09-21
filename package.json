@@ -13,6 +13,7 @@
     "db:seed": "node prisma/seed.js",
     "db:studio": "prisma studio",
     "wa": "node scripts/whatsapp-bridge.js",
+    "wa:worker": "node scripts/wa-worker.js",
     "postinstall": "prisma generate",
     "test": "node scripts/smoke.js",
     "db:push:prod": "prisma db push --schema prisma/schema.prod.prisma",
