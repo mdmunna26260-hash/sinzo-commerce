@@ -5,7 +5,7 @@ import CardGallery from "./card-gallery";
 import QuickAdd from "./quick-add";
 import { sortSizes } from "@/lib/sizes";
 
-export { imgSrc, imgSrcSet, CARD_WIDTHS, CARD_SIZES, PDP_WIDTHS, PDP_SIZES, THUMB_WIDTHS } from "./img-src";
+export { imgSrc, imgSrcSet, CARD_WIDTHS, CARD_SIZES, PDP_WIDTHS, PDP_SIZES, PDP_SRC_WIDTH, THUMB_WIDTHS } from "./img-src";
 export { sortSizes } from "@/lib/sizes";
 
 export type CardProduct = {

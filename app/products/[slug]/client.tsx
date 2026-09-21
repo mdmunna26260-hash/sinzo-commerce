@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCart, trackEvent, toast } from "@/components/store";
-import { imgSrc, imgSrcSet, PDP_WIDTHS, PDP_SIZES, THUMB_WIDTHS } from "@/components/parts";
+import { imgSrc, imgSrcSet, PDP_WIDTHS, PDP_SIZES, PDP_SRC_WIDTH, THUMB_WIDTHS } from "@/components/parts";
 import { warmImage, warmWhenIdle } from "@/components/img-warm";
 import { trackRecentlyViewed } from "@/components/recently-viewed";
 import MobileGallery from "@/components/mobile-gallery";
@@ -309,7 +309,7 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
           >
             {mainSrc ? (
               <img
-                src={imgSrc(mainSrc, 800) || mainSrc}
+                src={imgSrc(mainSrc, PDP_SRC_WIDTH) || mainSrc}
                 srcSet={imgSrcSet(mainSrc, PDP_WIDTHS)}
                 sizes={PDP_SIZES}
                 alt={product.images[img]?.alt || product.title}

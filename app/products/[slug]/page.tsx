@@ -7,7 +7,7 @@ import { getCategories } from "@/lib/catalog";
 import { Header, Footer, Announcement } from "@/components/chrome";
 import { ProductCard } from "@/components/parts";
 
-import { imgSrc } from "@/components/img-src";
+import { imgSrc, PDP_WIDTHS, PDP_SIZES, PDP_SRC_WIDTH } from "@/components/img-src";
 import ProductPageClient from "./client";
 import ProductPageReviewForm from "./review-form";
 import RecentlyViewedServer from "@/components/recently-viewed-server";
@@ -174,10 +174,17 @@ export default async function PDP({ params, searchParams }: { params: { slug: st
         <link
           rel="preload"
           as="image"
-          href={pv(first, 1000)}
-          /* must match the gallery's srcset/sizes exactly, or the preload is wasted bandwidth */
-          imageSrcSet={[600, 1000, 1200].map((w) => `${pv(first, w)} ${w}w`).join(", ")}
-          imageSizes="(max-width: 900px) 100vw, 45vw"
+          /* These three props MUST describe the same candidate set the galleries render, or the
+             browser preloads one file and then requests another. They used to drift three ways:
+             widths [600,1000,1200] against the galleries' [400,600,800,1000], `45vw` against the
+             desktop column's calc(52vw - 120px), and a 900px breakpoint against the galleries'
+             899px — so a 390px phone at DPR 3 preloaded w1200 and then displayed w1000, and a
+             1440px desktop at DPR 1 preloaded w1000 and displayed w800. Both galleries and this
+             preload now read PDP_WIDTHS / PDP_SIZES / PDP_SRC_WIDTH from components/img-src.ts,
+             so they can only ever move together. */
+          href={pv(first, PDP_SRC_WIDTH)}
+          imageSrcSet={PDP_WIDTHS.map((w) => `${pv(first, w)} ${w}w`).join(", ")}
+          imageSizes={PDP_SIZES}
           fetchPriority="high"
         />
       )}
