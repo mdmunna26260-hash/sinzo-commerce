@@ -2684,3 +2684,187 @@ html.theme-transition *::after {
   .cg-dot { width: 4px; height: 4px; }
   .cg-dot.on { width: 12px; }
 }
+
+/* ====================================================================
+   MODERN UI PASS — home page + global polish (2026-09-21)
+   --------------------------------------------------------------------
+   Design language er sathe consistent: cream + gold + serif, minimal luxury.
+   Sob effect shudhu transform/opacity — compositor-friendly (ANIMATIONS-REPORT
+   er niyom: width/height/top/left animate korbo na, box-shadow o na).
+
+   Scroll-driven effect gulo `animation-timeline` diye — JS scroll listener
+   chara, main thread e kono kaj nei. J document gulo support kore na
+   (Firefox default, purono Safari) tara purono behaviour e thake:
+   prottek ta `@supports` er vetore, tai kichu vangar risk nei.
+   ==================================================================== */
+
+/* ---------- A. Tokens from color-mix (theme change hole sob follow korbe) ---------- */
+:root {
+  --tint-accent: rgba(154, 123, 79, .10);
+  --tint-line: rgba(20, 20, 20, .06);
+}
+@supports (color: color-mix(in srgb, red 50%, blue)) {
+  :root {
+    --tint-accent: color-mix(in srgb, var(--accent) 10%, transparent);
+    --tint-line: color-mix(in srgb, var(--text) 6%, transparent);
+  }
+}
+
+/* ---------- B. Scroll progress bar (pure CSS scroll timeline) ---------- */
+.scroll-progress { display: none; }
+@supports (animation-timeline: scroll()) {
+  .scroll-progress {
+    display: block;
+    position: fixed; top: 0; left: 0; right: 0; height: 2px;
+    z-index: 60; pointer-events: none;
+    background: var(--accent);
+    box-shadow: 0 0 10px var(--tint-accent);
+    transform-origin: 0 50%;
+    animation: spGrow linear both;
+    animation-timeline: scroll(root block);
+  }
+  @keyframes spGrow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+}
+
+/* ---------- C. Hero: media wrapper + scroll parallax + scroll cue ---------- */
+/* The <img> itself keeps its kenburns entrance; the WRAPPER carries the scroll
+   parallax, so the two animations never fight (ek element e ek animation). */
+.hero-media {
+  position: relative;
+  height: 72vh; min-height: 440px; max-height: 700px;
+  overflow: hidden;
+}
+.hero-media .hero-img { height: 100%; min-height: 0; max-height: none; }
+@media (max-width: 900px) { .hero-media { height: 64vh; } }
+
+@supports (animation-timeline: scroll()) {
+  .hero-media {
+    animation: heroPar linear both;
+    animation-timeline: scroll(root block);
+    animation-range: 0 80vh;
+  }
+  /* scale 1.12 = translate korar jonno overflow room, nohoile niche faka dekhto */
+  @keyframes heroPar { to { transform: translate3d(0, 5%, 0) scale(1.12); } }
+}
+
+.hero-cue {
+  position: absolute; left: 48px; bottom: 32px; z-index: 2;
+  display: flex; align-items: center; gap: 12px;
+  font-size: 9.5px; letter-spacing: .24em; text-transform: uppercase; color: var(--muted);
+}
+.hero-cue i { display: block; width: 48px; height: 1px; background: var(--line); position: relative; overflow: hidden; }
+.hero-cue i::after {
+  content: ""; position: absolute; inset: 0; background: var(--accent);
+  transform: translateX(-100%);
+}
+@supports (animation-timeline: scroll()) {
+  .hero-cue i::after { animation: cueSlide 2.6s cubic-bezier(.22,.61,.36,1) infinite; }
+  @keyframes cueSlide {
+    0%   { transform: translateX(-100%); }
+    55%  { transform: translateX(100%); }
+    100% { transform: translateX(100%); }
+  }
+}
+@media (max-width: 900px) { .hero-cue { display: none; } }
+
+/* Hero type: beshi confident, editorial — desktop e content column o wide */
+@media (min-width: 901px) { .hero-content { max-width: 640px; } }
+.hero-content h1 { font-size: clamp(40px, 5.6vw, 76px); line-height: 1.02; letter-spacing: -0.022em; }
+.hero-content p { font-size: clamp(15px, 1.1vw, 17.5px); max-width: 430px; }
+
+/* ---------- D. Fluid section rhythm + editorial headings (HOME only) ---------- */
+/* `.home` scope: fluid padding ekta bhalo rhythm, kintu eita PDP/collection er
+   layout o nirbe — sei page gulo ei pass er baire thakuk. */
+.home .section { padding: clamp(56px, 7vw, 104px) 0; }
+.home .section-head2 { margin-bottom: clamp(24px, 3vw, 40px); }
+.home .section-head2 h2 { font-size: clamp(26px, 3vw, 42px); letter-spacing: -0.022em; line-height: 1.08; }
+.home .sh-eyebrow { letter-spacing: .3em; }
+.home .sh-no { position: relative; padding-right: 2px; }
+
+/* ---------- E. Category BENTO grid (desktop) ---------- */
+/* Prothom tile 2x2 ney; baki gulo 4/5 portrait — tai row height tader thekei
+   ashe, kono fixed row height set korte hoy na (robust, content jai hok na keno). */
+@media (min-width: 1100px) {
+  .cat-grid-desktop {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-auto-rows: auto;
+    grid-auto-flow: dense;
+    gap: 20px;
+  }
+  .cat-grid-desktop > .ctile:first-child {
+    grid-column: span 2;
+    grid-row: span 2;
+    aspect-ratio: auto;
+  }
+  .cat-grid-desktop > .ctile:first-child .ctile-label { padding: 110px 30px 30px; }
+  .cat-grid-desktop > .ctile:first-child .ctile-label h3 { font-size: clamp(30px, 2.8vw, 44px); }
+  .cat-grid-desktop > .ctile:first-child .ctile-label span { font-size: 11.5px; }
+}
+@media (min-width: 1500px) {
+  .cat-grid-desktop { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+}
+
+/* ---------- F. Testimonials — seamless marquee (desktop) ---------- */
+.qmarquee {
+  overflow: hidden;
+  /* edge fade — cards hard-cut na kore melt hoy */
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 5%, #000 95%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 5%, #000 95%, transparent);
+}
+.qmarquee-track { display: flex; width: max-content; animation: qmar linear infinite; }
+.qmarquee-track > .quote2 { flex: 0 0 340px; margin-right: 28px; }
+/* quote2 base rule e !important ache (border-radius: 0, border: none) — marquee te card look.
+   Background `var(--card)`: dark theme e #1b1917, nohoile dark canvas e sada card vese jeto. */
+.qmarquee-track > .quote2 {
+  border: 1px solid var(--line) !important;
+  border-radius: var(--radius) !important;
+  background: var(--card);
+  padding: 28px 26px 24px;
+}
+@keyframes qmar { from { transform: translate3d(0, 0, 0); } to { transform: translate3d(-50%, 0, 0); } }
+.qmarquee:hover .qmarquee-track { animation-play-state: paused; }
+@media (max-width: 1099px) { .qmarquee { display: none; } }
+/* 900–1099px: marquee off, tai grid fallback ta-i dekhbe; >=1100px marquee-i jayga ney */
+@media (min-width: 1100px) { .qgrid-fallback { display: none !important; } }
+
+/* ---------- G. Mobile tab bar — active indicator (ANIMATIONS-REPORT #8) ---------- */
+/* Active tab er already ekta filled pill ache; ei line ta tar uporer edge e base —
+   pill er VETORE na (top:2px dile pill er bhitore vese thakto, clutter lagto). */
+.tab-item.active::after {
+  content: ""; position: absolute; top: 0; left: 50%;
+  width: 20px; height: 2px; border-radius: 2px; background: var(--accent);
+  box-shadow: 0 0 8px var(--tint-accent);
+  animation: tabIn .3s cubic-bezier(.34,1.56,.64,1) both;
+}
+@keyframes tabIn {
+  from { opacity: 0; transform: translateX(-50%) scaleX(.2); }
+  to   { opacity: 1; transform: translateX(-50%) scaleX(1); }
+}
+
+/* ---------- H. Toast — real enter AND exit (declarative, no keyframes) ---------- */
+/* Element er age `animation: fadeup .25s ease` chilo — kenona ekta animation,
+   exit chilo na (toast hatath uye jeto). Ekhon transition + @starting-style,
+   ar `translate` (transform noy) karon .toast centering er jonno
+   transform: translateX(-50%) already use kore — duita compose hoy. */
+.toast {
+  animation: none;
+  opacity: 1;
+  transition: opacity .3s var(--ease), translate .3s var(--ease);
+}
+@starting-style { .toast { opacity: 0; translate: 0 16px; } }
+.toast.out { opacity: 0; translate: 0 10px; transition-duration: .32s; }
+@supports not (translate: 0 16px) {
+  /* translate property na thakle purono fade-in ta-i rakhi (graceful) */
+  .toast { animation: fadeup .25s ease; }
+  .toast.out { opacity: 0; }
+}
+
+/* ---------- I. Reduced motion: notun sob kichu off ---------- */
+@media (prefers-reduced-motion: reduce) {
+  .scroll-progress { display: none; }
+  .hero-media, .hero-cue i::after, .qmarquee-track, .tab-item.active::after {
+    animation: none !important;
+  }
+  .qmarquee { overflow-x: auto; }          /* scroll kore dekhbe, nijei cholbe na */
+  .toast { transition: none; }
+}
