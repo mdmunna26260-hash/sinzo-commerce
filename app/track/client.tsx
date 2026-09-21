@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { imgSrc } from "@/components/img-src";
+import { imgSrc, imgSrcSet } from "@/components/img-src";
 
 const TONE: Record<string, string> = { ok: "var(--ok)", warn: "#9a7b1e", bad: "var(--danger)", info: "var(--text)" };
 const STEPS = ["PENDING", "CONFIRMED", "PROCESSING", "PACKED", "SHIPPED", "DELIVERED"];
@@ -233,7 +233,7 @@ export default function TrackClient() {
               <div key={k} style={{ display: "flex", alignItems: "center", gap: 10, padding: "7px 0", borderBottom: k === items.length - 1 ? "none" : "1px dashed var(--line)" }}>
                 {i.image ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={imgSrc(i.image, 300)} alt="" width={38} height={48} loading="lazy" decoding="async"
+                  <img src={imgSrc(i.image, 200)} srcSet={imgSrcSet(i.image, [200, 300])} sizes="38px" alt="" width={38} height={48} loading="lazy" decoding="async"
                     style={{ width: 38, height: 48, objectFit: "cover", borderRadius: 6, border: "1px solid var(--line)", flex: "0 0 auto" }} />
                 ) : (
                   <span aria-hidden style={{ width: 38, height: 48, borderRadius: 6, border: "1px dashed var(--line)", flex: "0 0 auto", display: "inline-block" }} />

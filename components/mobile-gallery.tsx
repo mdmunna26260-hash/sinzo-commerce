@@ -46,6 +46,18 @@ export default function MobileGallery({ images, title, active, onIndexChange }: 
     strip.scrollTo({ left: el.offsetLeft - strip.clientWidth / 2 + el.clientWidth / 2, behavior: "smooth" });
   }, [active]);
 
+  /* Only the slides the shopper can actually reach get an <img>: the browser happily fetched
+     every lazy slide of a horizontal track (5 x w800 on a phone = ~400KB of the PDP's budget).
+     A newly activated slide renders immediately, its neighbours are pre-warmed. */
+  const [seen, setSeen] = useState<number[]>(() => [0, 1, 2].filter((i) => i < N));
+  useEffect(() => {
+    setSeen((s) => {
+      const want = [active - 1, active, active + 1].filter((i) => i >= 0 && i < N);
+      const missing = want.filter((i) => !s.includes(i));
+      return missing.length ? [...s, ...missing].sort((a, b) => a - b) : s;
+    });
+  }, [active, N]);
+
   // preload neighbours for instant swipe feel
   useEffect(() => {
     [active - 1, active + 1].forEach((i) => {
@@ -134,9 +146,9 @@ export default function MobileGallery({ images, title, active, onIndexChange }: 
           {images.map((im, i) => (
             <div className="mgal-slide" key={i}>
               {!loaded[i] && <div className="sk sk-img" style={{ position: "absolute", inset: 0 }} />}
-              <img
-                src={imgSrc(im.url, 1000) || im.url}
-                srcSet={[600, 1000, 1200].map((w) => `${imgSrc(im.url, w)} ${w}w`).join(", ") || undefined}
+              {seen.includes(i) && <img
+                src={imgSrc(im.url, 800) || im.url}
+                srcSet={[400, 600, 800, 1000].map((w) => `${imgSrc(im.url, w)} ${w}w`).join(", ") || undefined}
                 sizes="100vw"
                 alt={im.alt || `${title} — image ${i + 1}`}
                 draggable={false}
@@ -144,7 +156,7 @@ export default function MobileGallery({ images, title, active, onIndexChange }: 
                 decoding={i === active ? "sync" : "async"}
                 onLoad={() => setLoaded((l) => ({ ...l, [i]: true }))}
                 className={"mgal-img" + (loaded[i] ? " loaded" : "")}
-              />
+              />}
             </div>
           ))}
         </div>
@@ -175,7 +187,9 @@ export default function MobileGallery({ images, title, active, onIndexChange }: 
               onClick={() => onIndexChange(i)}
             >
               <img
-                src={imgSrc(im.url, 300) || im.url}
+                src={imgSrc(im.url, 200) || im.url}
+                srcSet={[200, 300].map((w) => `${imgSrc(im.url, w)} ${w}w`).join(", ") || undefined}
+                sizes="56px"
                 alt=""
                 loading={Math.abs(i - active) <= 1 ? "eager" : "lazy"}
                 decoding="async"

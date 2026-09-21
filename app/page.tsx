@@ -140,10 +140,10 @@ async function HomeContent() {
               as="image"
               fetchPriority="high"
               href={imgSrc(vb(hp.heroImage), 1200)}
-              imageSrcSet={[600, 1000, 1200].map((n) => `${imgSrc(vb(hp.heroImage), n)} ${n}w`).join(", ")}
+              imageSrcSet={[600, 1000].map((n) => `${imgSrc(vb(hp.heroImage), n)} ${n}w`).join(", ")}
               imageSizes="100vw"
             />
-            <SmartImg className="hero-img" priority src={vb(hp.heroImage)} alt={cfg.store?.name || "Hero"} sizes="100vw" widths={[600, 1000, 1200]} />
+            <SmartImg className="hero-img" priority src={vb(hp.heroImage)} alt={cfg.store?.name || "Hero"} sizes="100vw" widths={[600, 1000]} />
           </>
         )}
         <div className="hero-overlay">
@@ -205,7 +205,7 @@ async function HomeContent() {
       <section className="section container" style={{ paddingTop: 0 }} key="promo">
         <div className="promo-split reveal">
           <div className="ps-img">
-            {hp.promoImage && <SmartImg src={vb(hp.promoImage)} alt={hp.promoTitle} sizes="(max-width: 899px) 92vw, 46vw" widths={[600, 1000, 1200]} />}
+            {hp.promoImage && <SmartImg src={vb(hp.promoImage)} alt={hp.promoTitle} sizes="(max-width: 899px) 92vw, 46vw" widths={[600, 1000]} />}
           </div>
           <div className="ps-body">
             <div className="eyebrow" style={{ display: "flex", alignItems: "center", gap: 10 }}>

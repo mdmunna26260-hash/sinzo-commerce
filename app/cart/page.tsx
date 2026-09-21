@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useCart, toast } from "@/components/store";
-import { imgSrc } from "@/components/parts";
+import { imgSrc, imgSrcSet } from "@/components/parts";
 
 /* Cart — original clean layout + "Continue Shopping" button on top. */
 export default function CartPage() {
@@ -126,7 +126,7 @@ export default function CartPage() {
         <div>
           {lines.map((l) => (
             <div className="cart-row" key={l.key}>
-              <Link href={"/products/" + l.slug}><img src={imgSrc(l.image, 300) || l.image} alt={l.title} loading="lazy" decoding="async" width={100} height={126} /></Link>
+              <Link href={"/products/" + l.slug}><img src={imgSrc(l.image, 200) || l.image} srcSet={imgSrcSet(l.image, [200, 300])} sizes="100px" alt={l.title} loading="lazy" decoding="async" width={100} height={126} /></Link>
               <div>
                 <div className="t"><Link href={"/products/" + l.slug}>{l.title}</Link></div>
                 <div className="v">{[l.color].filter(Boolean).join(" · ")}</div>

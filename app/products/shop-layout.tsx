@@ -31,12 +31,17 @@ export default function ShopLayout({ count, cats, sizes, children }: {
     const start = () => setUpdating(true);
     // programmatic pushes (sort select, filter drawer, chips-less controls)
     window.addEventListener("sz_nav_start", start);
-    // Link clicks (category pills, removable chips, header category links)
+    // Link clicks (category pills, removable chips, header category links).
+    // BUBBLE phase on purpose: a click that another component cancelled (e.g. a swipe on a
+    // product card's photo gallery, or its arrows) navigates nowhere, so nothing is "updating".
+    // In the capture phase this used to fire first for those clicks too and — because the
+    // navigation never happened — the results area stayed dimmed and unclickable forever.
     const onClick = (e: MouseEvent) => {
+      if (e.defaultPrevented) return;
       const el = e.target as HTMLElement | null;
       if (el?.closest?.("a[href*='/products']")) setUpdating(true);
     };
-    document.addEventListener("click", onClick, true);
+    document.addEventListener("click", onClick);
     return () => {
       window.removeEventListener("sz_nav_start", start);
       document.removeEventListener("click", onClick, true);

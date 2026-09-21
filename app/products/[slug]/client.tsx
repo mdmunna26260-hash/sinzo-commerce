@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCart, trackEvent, toast } from "@/components/store";
-import { imgSrc, imgSrcSet } from "@/components/parts";
+import { imgSrc, imgSrcSet, PDP_WIDTHS, PDP_SIZES, THUMB_WIDTHS } from "@/components/parts";
 import { warmImage, warmWhenIdle } from "@/components/img-warm";
 import { trackRecentlyViewed } from "@/components/recently-viewed";
 import MobileGallery from "@/components/mobile-gallery";
@@ -309,9 +309,9 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
           >
             {mainSrc ? (
               <img
-                src={imgSrc(mainSrc, 1000) || mainSrc}
-                srcSet={imgSrcSet(mainSrc, [600, 1000, 1200])}
-                sizes="(max-width: 900px) 100vw, 45vw"
+                src={imgSrc(mainSrc, 800) || mainSrc}
+                srcSet={imgSrcSet(mainSrc, PDP_WIDTHS)}
+                sizes={PDP_SIZES}
                 alt={product.images[img]?.alt || product.title}
                 className={"pdp-img" + (hoverZoom ? " hz" : "")}
                 fetchPriority="high"
@@ -348,7 +348,8 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
             <div className="thumbs">
               {product.images.map((im, i) => (
                 <button key={i} className={i === img ? "active" : ""} onClick={() => goTo(i)} aria-label={"Image " + (i + 1)}>
-                  <img src={imgSrc(im.url, 300) || im.url} alt={im.alt} loading="lazy" decoding="async" width={72} height={96} />
+                  <img src={imgSrc(im.url, 200) || im.url} srcSet={imgSrcSet(im.url, THUMB_WIDTHS)} sizes="72px"
+                       alt={im.alt} loading="lazy" decoding="async" width={72} height={96} />
                 </button>
               ))}
             </div>
@@ -390,7 +391,8 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
                   title={`${product.colorName || product.title} (current)`}
                 >
                   {product.colorImage
-                    ? <img src={imgSrc(product.colorImage, 300) || product.colorImage} alt={product.colorName || product.title} width={44} height={44} loading="lazy" decoding="async" />
+                    ? <img src={imgSrc(product.colorImage, 200) || product.colorImage} srcSet={imgSrcSet(product.colorImage, THUMB_WIDTHS)} sizes="44px"
+                           alt={product.colorName || product.title} width={44} height={44} loading="lazy" decoding="async" />
                     : <span className="color-swatch-fallback" aria-hidden>{(product.colorName || "?").slice(0, 1)}</span>}
                 </Link>
                 {colorFamily.map((c) => (
@@ -406,7 +408,8 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
                     title={c.colorName || c.slug}
                   >
                     {c.colorImage
-                      ? <img src={imgSrc(c.colorImage, 300) || c.colorImage} alt={c.colorName || c.slug} width={44} height={44} loading="lazy" decoding="async" />
+                      ? <img src={imgSrc(c.colorImage, 200) || c.colorImage} srcSet={imgSrcSet(c.colorImage, THUMB_WIDTHS)} sizes="44px"
+                             alt={c.colorName || c.slug} width={44} height={44} loading="lazy" decoding="async" />
                       : <span className="color-swatch-fallback" aria-hidden>{(c.colorName || "?").slice(0, 1)}</span>}
                   </Link>
                 ))}

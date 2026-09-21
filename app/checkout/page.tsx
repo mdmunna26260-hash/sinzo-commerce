@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCart, trackEvent, toast, captureAttribution, newEventId, setTrackingPhone } from "@/components/store";
 import { normalizeBDPhone, isValidBDPhone } from "@/lib/phone";
-import { imgSrc } from "@/components/parts";
+import { imgSrc, imgSrcSet } from "@/components/parts";
 
 declare global { interface Window { __SZ_SHIPPING?: any; __SZ_CHECKOUT?: any } }
 
@@ -252,7 +252,7 @@ export default function CheckoutPage() {
           )}
           {lines.map((l) => (
             <div className="mini-item" key={l.key}>
-              <img src={imgSrc(l.image, 300) || l.image} alt="" width={52} height={66} loading="lazy" decoding="async" />
+              <img src={imgSrc(l.image, 200) || l.image} srcSet={imgSrcSet(l.image, [200, 300])} sizes="52px" alt="" width={52} height={66} loading="lazy" decoding="async" />
               <div style={{ flex: 1 }}>
                 <div className="m">{l.title}{l.preorder && <span className="po-tag">Pre-order</span>}</div>
                 <div className="s">{[l.size, l.color].filter(Boolean).join(" · ")}</div>

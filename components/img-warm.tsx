@@ -16,8 +16,8 @@ function pickWarmWidth(): number {
     const dpr = window.devicePixelRatio || 1;
     const vw = window.innerWidth <= 900 ? window.innerWidth : Math.min(window.innerWidth * 0.45, 360);
     const need = vw * dpr;
-    for (const w of [600, 1000, 1200]) if (w >= need) return w;
-    return 1200;
+    for (const w of [400, 600, 800, 1000]) if (w >= need) return w;
+    return 1000;
   } catch { return 1000; }
 }
 

@@ -6,7 +6,7 @@ import { imgSrc } from "./img-src";
    - srcset for /api/media/ and /uploads/seed/ URLs → mobile downloads a
      ~600-1000px WebP instead of the full-size original (big LCP win).
    - subtle fade-in on decode; `v` (cache-bust) changes when admin saves. */
-export default function SmartImg({ src, alt, className, fallback = "/uploads/seed/hero.jpg", priority, sizes = "100vw", widths = [600, 1000, 1200] }: {
+export default function SmartImg({ src, alt, className, fallback = "/uploads/seed/hero.jpg", priority, sizes = "100vw", widths = [600, 1000] }: {
   src?: string; alt: string; className?: string; fallback?: string; priority?: boolean;
   /* The rendered width of the placement. Without these every SmartImg claimed 100vw, so a
      190px category tile on a phone asked for the 1200px variant - 6x the pixels it can show. */

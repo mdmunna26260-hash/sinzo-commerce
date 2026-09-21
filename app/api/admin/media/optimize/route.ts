@@ -1,8 +1,15 @@
 import { NextResponse } from "next/server";
 import { requirePerm } from "@/lib/admin-guard";
 import { db } from "@/lib/db";
-import { generateVariants } from "@/lib/image-variants";
+import { generateVariants, VARIANT_WIDTHS } from "@/lib/image-variants";
 export const dynamic = "force-dynamic";
+export const maxDuration = 60;
+
+/* Keeps the variant index in step with the storefront ladder.
+   Chunked on purpose (5 images per call) so a single request never runs into a lambda timeout:
+   the caller loops until `done`. After a deploy this is what turns the ~500 media rows that
+   predate the pipeline — and any row missing a newly added width — into real variants, instead
+   of letting them fall back to the full-size original. */
 export async function POST(req: Request) {
   const g = await requirePerm("products", req);
   if ("res" in g) return g.res;
@@ -25,9 +32,8 @@ export async function POST(req: Request) {
   const candidates = await db.media.findMany({
     where: { id: { in: refIds }, mime: { startsWith: "image/" } },
     select: { id: true, variantsJson: true },
-    take: 400,
   });
-  const NEED = ["w300", "w600", "w1000", "w1200"];
+  const NEED = VARIANT_WIDTHS.map((w) => "w" + w);
   /* force=1 re-encodes media that already has a complete variant set. Needed whenever the encoder
      settings in lib/image-variants.ts change (quality ladder, effort): the URLs are cached for a
      year, so re-encoding only ever *shrinks* the same picture and the index swap is what republishes
@@ -40,7 +46,7 @@ export async function POST(req: Request) {
       try { const idx = JSON.parse(r.variantsJson); return NEED.some((k) => !idx[k]?.id); } catch { return true; }
     })
     .map((r) => ({ id: r.id }));
-  if (!legacy.length) return NextResponse.json({ done: true, remaining: 0 });
+  if (!legacy.length) return NextResponse.json({ done: true, remaining: 0, total: candidates.length });
   let optimized = 0;
   for (const { id } of legacy.slice(0, 5)) {
     try {
@@ -53,16 +59,19 @@ export async function POST(req: Request) {
         const r = await db.media.create({ data: { filename: tag + ".webp", mime: "image/webp", size: data.length, data } });
         return { id: r.id, size: r.size };
       };
-      const [w300, w600, w1000, w1200] = await Promise.all([mk(v.w300, "w300"), mk(v.w600, "w600"), mk(v.w1000, "w1000"), mk(v.w1200, "w1200")]);
+      const keys = Object.keys(v.variants);
+      const index: Record<string, { id: string; size: number }> = {};
+      const made = await Promise.all(keys.map((k) => mk(v.variants[k], k)));
+      keys.forEach((k, i) => { index[k] = made[i]; });
       await db.media.update({ where: { id }, data: {
         width: v.width, height: v.height, blurData: v.blur,
-        variantsJson: JSON.stringify({ w300, w600, w1000, w1200 }),
+        variantsJson: JSON.stringify(index),
       }});
       /* drop the replaced blobs — the new variant ids are already what the URL resolves to */
       if (prevIds.length) await db.media.deleteMany({ where: { id: { in: prevIds } } }).catch(() => {});
       optimized++;
-    } catch {}
+    } catch { /* keep going: one bad image must not stall the migration */ }
   }
   const remaining = legacy.length - optimized;
-  return NextResponse.json({ ok: true, optimized, remaining, done: remaining <= 0 });
+  return NextResponse.json({ ok: true, optimized, remaining, done: remaining <= 0, total: candidates.length });
 }

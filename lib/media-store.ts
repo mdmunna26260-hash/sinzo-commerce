@@ -9,14 +9,18 @@ export async function createMediaWithVariants(buf: Buffer, mime: string, keepRat
     }});
     return { id: row.id, size: row.size };
   };
-  const [b300, b600, b1000, b1200] = await Promise.all([
-    mk(v.w300, "w300"), mk(v.w600, "w600"), mk(v.w1000, "w1000"), mk(v.w1200, "w1200"),
-  ]);
+  /* Every ladder width is stored, so any surface (card thumb, gallery slide, PDP hero, banner)
+     finds its own file ready — nothing falls back to the full-size original. */
+  const keys = Object.keys(v.variants);
+  const stored = await Promise.all(keys.map((k) => mk(v.variants[k], k)));
+  const index: Record<string, { id: string; size: number }> = {};
+  keys.forEach((k, i) => { index[k] = stored[i]; });
+
   const primary = await db.media.create({ data: {
     filename: "img-" + Date.now().toString(36) + ".webp", mime: "image/webp",
     size: v.original.length, data: v.original,
     width: v.width, height: v.height, blurData: v.blur,
-    variantsJson: JSON.stringify({ w300: b300, w600: b600, w1000: b1000, w1200: b1200 }),
+    variantsJson: JSON.stringify(index),
   }});
   return { primaryId: primary.id, width: v.width, height: v.height };
 }

@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { imgSrc, imgSrcSet } from "./img-src";
+import { imgSrc, imgSrcSet, CARD_WIDTHS, CARD_SIZES } from "./img-src";
 import { warmImage, warmWhenIdle } from "./img-warm";
 
 /* Neutral placeholder if a product image ever fails to load (keeps layout) */
@@ -59,9 +59,9 @@ export default function CardImg({ url, alt, slug }: { url: string; alt: string; 
         // shared element morph: clicked card image morphs into PDP hero
         try { ref.current?.style.setProperty("view-transition-name", "product-hero"); } catch {}
       }}
-      src={err ? FALLBACK : imgSrc(url, 600)}
-      srcSet={err ? undefined : imgSrcSet(url, [300, 600, 1000, 1200])}
-      sizes="(max-width: 600px) 50vw, (max-width: 1200px) 33vw, 300px"
+      src={err ? FALLBACK : imgSrc(url, 400)}
+      srcSet={err ? undefined : imgSrcSet(url, CARD_WIDTHS)}
+      sizes={CARD_SIZES}
       alt={alt}
       loading="lazy"
       decoding="async"
