@@ -3,7 +3,18 @@ import { getSettings } from "./settings";
 /* Client for the local WhatsApp bridge (scripts/whatsapp-bridge.js, binds 127.0.0.1).
    The bridge runs Baileys (WhatsApp linked-device protocol) — status is always real. */
 const FALLBACK = "http://127.0.0.1:3001";
-function key() { return process.env.WA_BRIDGE_KEY || "local-bridge"; }
+/* The key the bridge expects. Settings win over env so the admin panel stays the single place a
+   shop owner configures things — the bridge itself is started with the same value
+   (`WA_BRIDGE_KEY=… npm run wa`); both sides falling back to "local-bridge" keeps a local
+   machine working with no configuration at all. */
+async function key(): Promise<string> {
+  try {
+    const s = await getSettings();
+    const configured = (s as any).notifications?.waBridgeKey;
+    if (configured) return String(configured);
+  } catch {}
+  return process.env.WA_BRIDGE_KEY || "local-bridge";
+}
 async function base(): Promise<string> {
   try {
     const s = await getSettings();
@@ -14,7 +25,7 @@ async function call(pathname: string, init?: RequestInit): Promise<any> {
   try {
     const res = await fetch((await base()) + pathname, {
       ...init,
-      headers: { "Content-Type": "application/json", "x-bridge-key": key(), ...(init?.headers || {}) },
+      headers: { "Content-Type": "application/json", "x-bridge-key": await key(), ...(init?.headers || {}) },
       signal: AbortSignal.timeout(15000),
     });
     return { status: res.status, data: await res.json().catch(() => ({})) };

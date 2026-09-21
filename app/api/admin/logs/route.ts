@@ -2,60 +2,58 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requirePerm } from "@/lib/admin-guard";
 import { logAudit } from "@/lib/auth";
+import { APP_LOG_KINDS, APP_LOG_LEVELS, logApp } from "@/lib/logs";
+
 export const dynamic = "force-dynamic";
 
-/* App log API: the Logs screen's data + retention actions.
-   Client crashes, webhook calls, SMS/WhatsApp/mail results and backup runs all land in AppLog,
-   so "something broke last night" is answerable from the admin panel instead of a server shell. */
+/* App log viewer (admin menu item 12) — the place to look when something broke at 2am:
+   browser crashes, SMS/WhatsApp failures, courier webhooks, cron and backup runs. */
+
 export async function GET(req: Request) {
   const g = await requirePerm("settings", req);
   if ("res" in g) return g.res;
-  const { ensureExtraTables } = await import("@/lib/db-ensure");
-  await ensureExtraTables().catch(() => {});
-  const url = new URL(req.url);
-  const level = (url.searchParams.get("level") || "").toUpperCase();
-  const kind = (url.searchParams.get("kind") || "").toUpperCase();
-  const q = (url.searchParams.get("q") || "").trim();
-  const take = Math.min(500, Number(url.searchParams.get("take") || 200));
-  const since = url.searchParams.get("since") ? new Date(url.searchParams.get("since")!) : null;
+  const sp = new URL(req.url).searchParams;
+  const level = (sp.get("level") || "").toUpperCase();
+  const kind = (sp.get("kind") || "").toUpperCase();
+  const q = (sp.get("q") || "").trim().slice(0, 120);
+  const days = Math.min(365, Math.max(1, Number(sp.get("days") || 7)));
+  const limit = Math.min(500, Math.max(10, Number(sp.get("limit") || 100)));
+  const since = new Date(Date.now() - days * 86400_000);
 
-  const where: any = {};
-  if (level) where.level = level;
-  if (kind) where.kind = kind;
-  if (since && !isNaN(since.getTime())) where.createdAt = { gte: since };
+  const where: any = { createdAt: { gte: since } };
+  if (APP_LOG_LEVELS.includes(level as any)) where.level = level;
+  if (APP_LOG_KINDS.includes(kind as any)) where.kind = kind;
   if (q) where.OR = [{ message: { contains: q } }, { meta: { contains: q } }];
 
-  const [rows, byLevel, byKind] = await Promise.all([
-    db.appLog.findMany({ where, orderBy: { id: "desc" }, take }),
-    db.appLog.groupBy({ by: ["level"], _count: { _all: true } }),
-    db.appLog.groupBy({ by: ["kind"], _count: { _all: true } }),
+  const { ensureExtraTables } = await import("@/lib/db-ensure");
+  await ensureExtraTables().catch(() => {});
+
+  const rows = await db.appLog.findMany({ where, orderBy: { id: "desc" }, take: limit });
+  const [errors24, warns24, total] = await Promise.all([
+    db.appLog.count({ where: { level: "ERROR", createdAt: { gte: new Date(Date.now() - 86400_000) } } }),
+    db.appLog.count({ where: { level: "WARN", createdAt: { gte: new Date(Date.now() - 86400_000) } } }),
+    db.appLog.count(),
   ]);
-  return NextResponse.json({
-    rows,
-    levels: Object.fromEntries(byLevel.map((r) => [r.level, r._count._all])),
-    kinds: Object.fromEntries(byKind.map((r) => [r.kind, r._count._all])),
-  });
+  /* Per-kind counters: one count() per log kind. (A findMany/groupBy over the same window comes
+     back empty in this runtime, counts are exact and cheap here — there are only a handful.) */
+  const kindCounts = await Promise.all(APP_LOG_KINDS.map(async (k) => ({ kind: k, n: await db.appLog.count({ where: { kind: k, createdAt: { gte: since } } }) })));
+  return NextResponse.json({ ok: true, rows, counters: { errors24, warns24, total, byKind: kindCounts.filter((k) => k.n > 0).sort((a, b) => b.n - a.n) } });
 }
 
+/** Clear what is not worth keeping: one row, everything older than N days, or the lot. */
 export async function DELETE(req: Request) {
   const g = await requirePerm("settings", req);
   if ("res" in g) return g.res;
-  const url = new URL(req.url);
-  const scope = url.searchParams.get("scope") || "old";
-  const days = Number(url.searchParams.get("days") || 30);
-  if (scope === "all") {
-    const r = await db.appLog.deleteMany({});
-    await logAudit(g.user.email, "LOGS_CLEARED", `all (${r.count} rows)`);
-    return NextResponse.json({ ok: true, removed: r.count });
-  }
-  if (scope === "id") {
-    const id = Number(url.searchParams.get("id"));
+  const sp = new URL(req.url).searchParams;
+  const id = Number(sp.get("id"));
+  if (id) {
     await db.appLog.delete({ where: { id } }).catch(() => {});
     return NextResponse.json({ ok: true, removed: 1 });
   }
-  // keep INFO for the archive window, but drop resolved noise sooner
-  const cut = new Date(Date.now() - Math.max(1, days) * 864e5);
-  const r = await db.appLog.deleteMany({ where: { createdAt: { lt: cut } } });
-  await logAudit(g.user.email, "LOGS_PRUNED", `older than ${days} days (${r.count} rows)`);
-  return NextResponse.json({ ok: true, removed: r.count, days });
+  const older = Number(sp.get("olderThanDays"));
+  const where = older > 0 ? { createdAt: { lt: new Date(Date.now() - older * 86400_000) } } : {};
+  const r = await db.appLog.deleteMany({ where });
+  await logApp("INFO", "CRON", `log cleanup: removed ${r.count} row(s)${older ? ` older than ${older} days` : ""}`);
+  await logAudit(g.user.email, "LOGS_CLEAR", older ? `older than ${older} days (${r.count})` : `all (${r.count})`);
+  return NextResponse.json({ ok: true, removed: r.count });
 }

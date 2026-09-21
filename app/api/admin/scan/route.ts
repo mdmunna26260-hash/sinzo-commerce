@@ -19,6 +19,9 @@ async function resolveOrder(raw: string) {
   const or: any[] = [{ code: v }, { code: upper }, { courierConsignmentId: v }, { courierConsignmentId: upper }];
   if (/^\d+$/.test(v)) or.push({ id: Number(v) });
   if (digits && digits !== v) or.push({ id: Number(digits) });
+  /* "1031" typed/scanned without the prefix still finds ORD-1031 (and "ord-1031" too).
+     endsWith keeps ORD-1031 from matching ORD-10310. */
+  if (digits.length >= 3) or.push({ code: { endsWith: digits } });
   return db.order.findFirst({
     where: { OR: or },
     include: { items: true },

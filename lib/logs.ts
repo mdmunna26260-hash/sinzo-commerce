@@ -1,22 +1,32 @@
 import { db } from "./db";
 
-/* One table for everything that happens in the background: client crashes, browser reports,
-   webhook calls, SMS gateway answers, WhatsApp bridge sends, backup runs.
-   The Logs screen (admin → Logs) reads it, so a failure is something the owner can see
-   instead of something that only exists in a server log nobody opens. */
-export type LogKind = "CLIENT" | "WEBHOOK" | "SMS" | "WHATSAPP" | "MAIL" | "CRON" | "BACKUP";
-export type LogLevel = "INFO" | "WARN" | "ERROR";
+/* App-level log (admin menu item 12).
+   Every caller here can be a webhook or a background job, so logApp NEVER throws and never
+   blocks the caller's response — a logging failure must not fail the thing being logged. */
+
+export const APP_LOG_LEVELS = ["INFO", "WARN", "ERROR"] as const;
+export const APP_LOG_KINDS = ["CLIENT", "WEBHOOK", "SMS", "WHATSAPP", "MAIL", "BACKUP", "CRON", "ORDER", "AUTH"] as const;
+export type LogLevel = (typeof APP_LOG_LEVELS)[number];
+export type LogKind = (typeof APP_LOG_KINDS)[number];
 
 export async function logApp(level: LogLevel, kind: LogKind, message: string, meta?: unknown): Promise<void> {
   try {
+    const { ensureExtraTables } = await import("./db-ensure");
+    await ensureExtraTables();
     await db.appLog.create({
       data: {
-        level, kind,
-        message: String(message).slice(0, 500),
-        meta: meta === undefined ? null : JSON.stringify(meta).slice(0, 2000),
+        level,
+        kind,
+        message: String(message || "").slice(0, 1000),
+        meta: meta === undefined ? null : JSON.stringify(meta).slice(0, 4000),
       },
     });
-  } catch {
-    /* logging must never be the thing that breaks a request */
+  } catch (e) {
+    // last resort: the console (visible in `pm2 logs` / docker logs on the server)
+    console.error(`[applog:${level}/${kind}] ${message}`, meta ?? "", e instanceof Error ? e.message : "");
   }
+}
+
+export function levelTone(level: string) {
+  return level === "ERROR" ? "err" : level === "WARN" ? "warn" : "ok";
 }

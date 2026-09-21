@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requirePerm } from "@/lib/admin-guard";
 import { logAudit } from "@/lib/auth";
-import { PAYMENT_KINDS, methodLabel, paymentSummary, summarize, type PaymentRow } from "@/lib/payments";
+import { PAYMENT_KINDS, methodLabel, paymentStatusFor, paymentSummary, summarize, type PaymentRow } from "@/lib/payments";
 export const dynamic = "force-dynamic";
 type Ctx = { params: { id: string } };
 
@@ -44,7 +44,7 @@ export async function POST(req: Request, { params }: Ctx) {
 
   const rows = (await db.payment.findMany({ where: { orderId: id } })) as PaymentRow[];
   const after = summarize(order.total, rows);
-  const paymentStatus = after.refunded > 0 && after.net <= 0 ? "REFUNDED" : after.net <= 0 ? "PENDING" : after.balance <= 0.5 ? "PAID" : "PENDING";
+  const paymentStatus = paymentStatusFor(after);
   if (paymentStatus !== order.paymentStatus) await db.order.update({ where: { id }, data: { paymentStatus } });
 
   await logAudit(g.user.email, "ORDER_PAYMENT", `${order.code}: +৳${amount} (${kind} · ${methodLabel(method)}) → paid ৳${after.net} / due ৳${after.balance}${before.net !== after.net ? ` (was ৳${before.net})` : ""}`);
@@ -66,6 +66,10 @@ export async function DELETE(req: Request, { params }: Ctx) {
   const order = await db.order.findUnique({ where: { id: row.orderId } });
   const rows = (await db.payment.findMany({ where: { orderId: row.orderId } })) as PaymentRow[];
   const after = summarize(order?.total || 0, rows);
-  await logAudit(g.user.email, "ORDER_PAYMENT_DELETE", `${order?.code}: removed ৳${row.amount} ${row.kind} entry`);
-  return NextResponse.json({ ok: true, summary: after, rows });
+  /* the order has to follow the money in both directions: removing the row that made an order
+     "PAID" must put it back to PARTIAL/PENDING, otherwise the ledger lies. */
+  const paymentStatus = paymentStatusFor(after);
+  if (order && paymentStatus !== order.paymentStatus) await db.order.update({ where: { id: order.id }, data: { paymentStatus } });
+  await logAudit(g.user.email, "ORDER_PAYMENT_DELETE", `${order?.code}: removed ৳${row.amount} ${row.kind} entry → paid ৳${after.net} / due ৳${after.balance} (${paymentStatus})`);
+  return NextResponse.json({ ok: true, summary: after, paymentStatus, rows });
 }
