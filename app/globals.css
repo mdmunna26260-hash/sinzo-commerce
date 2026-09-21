@@ -2827,19 +2827,10 @@ html.theme-transition *::after {
 /* 900–1099px: marquee off, tai grid fallback ta-i dekhbe; >=1100px marquee-i jayga ney */
 @media (min-width: 1100px) { .qgrid-fallback { display: none !important; } }
 
-/* ---------- G. Mobile tab bar — active indicator (ANIMATIONS-REPORT #8) ---------- */
-/* Active tab er already ekta filled pill ache; ei line ta tar uporer edge e base —
-   pill er VETORE na (top:2px dile pill er bhitore vese thakto, clutter lagto). */
-.tab-item.active::after {
-  content: ""; position: absolute; top: 0; left: 50%;
-  width: 20px; height: 2px; border-radius: 2px; background: var(--accent);
-  box-shadow: 0 0 8px var(--tint-accent);
-  animation: tabIn .3s cubic-bezier(.34,1.56,.64,1) both;
-}
-@keyframes tabIn {
-  from { opacity: 0; transform: translateX(-50%) scaleX(.2); }
-  to   { opacity: 1; transform: translateX(-50%) scaleX(1); }
-}
+/* ---------- G. Mobile tab bar ---------- */
+/* Active tab er filled pill-ta-i indicator. Ei pass e ekta alada sonali line
+   (`::after` + tabIn keyframe) add kora hoyechilo, kintu pill er sathe duita
+   indicator ekshathe clutter lagchilo — tai remove kora holo. Tab bar ager moto. */
 
 /* ---------- H. Toast — real enter AND exit (declarative, no keyframes) ---------- */
 /* Element er age `animation: fadeup .25s ease` chilo — kenona ekta animation,
@@ -2862,7 +2853,7 @@ html.theme-transition *::after {
 /* ---------- I. Reduced motion: notun sob kichu off ---------- */
 @media (prefers-reduced-motion: reduce) {
   .scroll-progress { display: none; }
-  .hero-media, .hero-cue i::after, .qmarquee-track, .tab-item.active::after {
+  .hero-media, .hero-cue i::after, .qmarquee-track {
     animation: none !important;
   }
   .qmarquee { overflow-x: auto; }          /* scroll kore dekhbe, nijei cholbe na */
