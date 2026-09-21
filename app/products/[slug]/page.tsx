@@ -104,9 +104,77 @@ export default async function PDP({ params, searchParams }: { params: { slug: st
   const variantStock = p.variants.reduce((sum, v) => sum + v.stock, 0);
   const totalStock = Math.max(p.stock, variantStock);
 
-  // JSON-LD (schema.org Product) → price/stock/review stars in Google results
+  // JSON-LD (schema.org Product) → price/stock/review stars in Google results.
+  // Shape follows Google's Merchant listing spec (checked against
+  // developers.google.com/search/docs/appearance/structured-data/merchant-listing, updated
+  // 2026-09-08). Three things in here used to be invisible to Google:
+  //   · `shippingDetails` / `hasMerchantReturnPolicy` were sitting on Product. Google reads them
+  //     from the OFFER — at Product level they are ignored, so the shipping and free-returns
+  //     annotations never had anything to read.
+  //   · the strikethrough price used `PriceSpecification.previousPrice`, which is not a
+  //     schema.org property; the supported form is a UnitPriceSpecification carrying
+  //     `priceType: https://schema.org/StrikethroughPrice`.
+  //   · `shippingRate` was a `ShippingRateSettings` with a `label`. It must be a
+  //     MonetaryAmount with a numeric `value` + `currency`, and it must carry the real courier
+  //     charge, or Google treats the whole shipping block as unusable.
   const siteBase = (process.env.NEXT_PUBLIC_SITE_URL || "https://sinzooffcial.com").replace(/\/$/, "");
   const absImg = (u?: string) => (u ? (u.startsWith("http") ? u : siteBase + u) : undefined);
+
+  /* The admin types delivery windows as free text ("1-2 days"), Google wants min/max day counts.
+     No number in the string → the widest sensible window; never emit NaN. */
+  const dayRange = (raw?: unknown): [number, number] => {
+    const m = String(raw || "").match(/(\d+)\s*(?:-|–|—|to)\s*(\d+)/i);
+    if (m) return [Number(m[1]), Number(m[2])];
+    const one = String(raw || "").match(/(\d+)/);
+    return one ? [Number(one[1]), Number(one[1])] : [1, 3];
+  };
+  const deliveryTime = (est: unknown) => {
+    const [min, max] = dayRange(est);
+    return {
+      "@type": "ShippingDeliveryTime",
+      // handlingTime = our own packing time, transitTime = the courier's, so the two never
+      // get conflated with whatever the estimate string happens to say
+      handlingTime: { "@type": "QuantitativeValue", minValue: 0, maxValue: 1, unitCode: "DAY" },
+      transitTime: { "@type": "QuantitativeValue", minValue: min, maxValue: max, unitCode: "DAY" },
+    };
+  };
+  /* A rate we can actually state. Null (field never configured / not a number) → that
+     destination is left out entirely rather than advertising a shipping price we don't know —
+     an invented "৳0" would read as free delivery country-wide. */
+  const money = (v: unknown) => {
+    const n = typeof v === "string" ? Number(v) : v;
+    return typeof n === "number" && Number.isFinite(n) && n >= 0
+      ? { "@type": "MonetaryAmount", value: String(Math.round(n)), currency: "BDT" }
+      : null;
+  };
+  /* Two rates exist (inside Dhaka vs everywhere else). Google takes both as separate
+     configurations and the more specific one — the Dhaka region — wins for Dhaka addresses.
+     The free-over-threshold promise can't be expressed here: shippingRate has no subtotal
+     condition, so the cart and PDP totals blocks remain the only place that says it. */
+  const rateInside = money(s.shipping?.insideDhaka);
+  const rateOutside = money(s.shipping?.outsideDhaka);
+  const shippingDetails = [
+    ...(rateInside ? [{
+      "@type": "OfferShippingDetails",
+      shippingRate: rateInside,
+      shippingDestination: [{ "@type": "DefinedRegion", addressCountry: "BD", addressRegion: ["Dhaka"] }],
+      deliveryTime: deliveryTime(s.shipping?.estimateInside),
+    }] : []),
+    ...(rateOutside ? [{
+      "@type": "OfferShippingDetails",
+      shippingRate: rateOutside,
+      shippingDestination: [{ "@type": "DefinedRegion", addressCountry: "BD" }],
+      deliveryTime: deliveryTime(s.shipping?.estimateOutside),
+    }] : []),
+  ];
+  const onSale = !!(p.comparePrice && p.comparePrice > p.price);
+  const saleEnd = p.saleEnds && p.saleEnds.getTime() > Date.now() ? p.saleEnds : null;
+  // Google's sale-duration rule: when `price` on the Offer is the discounted price, the window
+  // goes on the Offer itself (`validThrough` / `priceValidUntil`) — not on the priceSpecification,
+  // where `priceValidUntil` doesn't apply at all. A live flash sale therefore sets the expiry;
+  // everything else keeps the rolling 60-day window.
+  const priceValidUntil = (saleEnd || new Date(Date.now() + 1000 * 60 * 60 * 24 * 60)).toISOString().slice(0, 10);
+
   const jsonLd: Record<string, unknown> = {
     "@context": "https://schema.org",
     "@type": "Product",
@@ -114,7 +182,9 @@ export default async function PDP({ params, searchParams }: { params: { slug: st
     // clean(): the raw DB string has trailing whitespace and newlines, which show up
     // verbatim in Google's snippet and in the JSON-LD preview tool
     description: clean(p.shortDesc || (p.description ? p.description.slice(0, 300) : "")) || clean(p.title),
-    image: p.images?.[0]?.url ? [absImg(p.images[0].url)] : [],
+    // every image in the gallery, in the order the page shows them — Google's merchant listing
+    // recommendation is multiple images (it prefers having 1:1 and 4:3 crops to choose from)
+    image: (p.images || []).map((i) => absImg(i.url)).filter(Boolean).slice(0, 8),
     sku: p.sku || undefined,
     url: siteBase + "/products/" + p.slug,
     brand: { "@type": "Brand", name: s.store?.name || "SINZO" },
@@ -122,36 +192,32 @@ export default async function PDP({ params, searchParams }: { params: { slug: st
       "@type": "Offer",
       priceCurrency: "BDT",
       price: String(p.price),
+      itemCondition: "https://schema.org/NewCondition",
       availability: p.preorder
         ? "https://schema.org/PreOrder"
         : totalStock > 0 ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
       url: siteBase + "/products/" + p.slug,
-      priceValidUntil: new Date(Date.now() + 1000 * 60 * 60 * 24 * 60).toISOString().slice(0, 10),
-      ...(p.comparePrice && p.comparePrice > p.price ? {
+      priceValidUntil,
+      // sale price: the Offer's `price` above is the discounted one, so the struck-through
+      // original is declared as the strikethrough price type (Google supports no other value)
+      ...(onSale ? {
         priceSpecification: {
-          "@type": "PriceSpecification",
-          price: String(p.price), priceCurrency: "BDT",
-          previousPrice: String(p.comparePrice),
-          valueAddedTaxIncluded: false,
+          "@type": "UnitPriceSpecification",
+          priceType: "https://schema.org/StrikethroughPrice",
+          price: String(p.comparePrice),
+          priceCurrency: "BDT",
         },
-        ...(p.saleEnds ? { validFor: { "@type": "QuantitativeValue", maxValue: Math.max(0, Math.round((new Date(p.saleEnds).getTime() - Date.now()) / 86400000)) }, unitText: "DAY" } : {}),
       } : {}),
       ...(p.preorder && p.preorderDate ? { availabilityStarts: new Date(p.preorderDate).toISOString().slice(0, 10) } : {}),
-    },
-    ...(s.shipping?.estimateInside || s.shipping?.insideDhaka != null ? {
-      shippingDetails: {
-        "@type": "OfferShippingDetails",
-        shippingDestination: { "@type": "DefinedRegion", addressCountry: "BD" },
-        shippingRate: { "@type": "ShippingRateSettings", shippingRateCurrency: "BDT", label: "BDT" },
+      ...(shippingDetails.length ? { shippingDetails } : {}),
+      hasMerchantReturnPolicy: {
+        "@type": "MerchantReturnPolicy",
+        applicableCountry: "BD",
+        returnPolicyCategory: "https://schema.org/MerchantReturnFiniteReturnWindow",
+        merchantReturnDays: 7,
+        returnMethod: "https://schema.org/ReturnByMail",
+        returnFees: "https://schema.org/FreeReturn",
       },
-    } : {}),
-    hasMerchantReturnPolicy: {
-      "@type": "MerchantReturnPolicy",
-      applicableCountry: "BD",
-      returnPolicyCategory: "https://schema.org/MerchantReturnFiniteReturnWindow",
-      merchantReturnDays: 7,
-      returnMethod: "https://schema.org/ReturnByMail",
-      returnFees: "https://schema.org/FreeReturn",
     },
   };
   if (p.sku) jsonLd.sku = p.sku;
@@ -163,6 +229,18 @@ export default async function PDP({ params, searchParams }: { params: { slug: st
       bestRating: "5",
       worstRating: "1",
     };
+    /* The individual reviews too: `aggregateRating` produces the stars, `review` is what Google
+       can quote as snippet text. These are exactly the reviews rendered in the section further
+       down this page — markup for a rating that isn't visible on the page is a policy violation,
+       so the array stays tied to that same approved, newest-first list. Capped at 10 only to keep
+       the payload small; `reviewCount` above still counts every approved review. */
+    jsonLd.review = p.reviews.slice(0, 10).map((r) => ({
+      "@type": "Review",
+      reviewRating: { "@type": "Rating", ratingValue: r.rating, bestRating: 5, worstRating: 1 },
+      author: { "@type": "Person", name: clean(r.name) || "Customer" },
+      datePublished: new Date(r.createdAt).toISOString().slice(0, 10),
+      reviewBody: clean(r.text).slice(0, 1000),
+    }));
   }
 
   const first = p.images?.[0]?.url;

@@ -121,6 +121,59 @@ function check(name, cond, extra) {
     check("PDP <title> has no double space (DB trailing spaces)", !/<title>[^<]*[ ]{2}/.test(pdp));
     check("PDP never renders raw undefined", !/>\s*undefined\s*</.test(pdp));
     check("PDP emits Product JSON-LD", /application\/ld\+json/.test(pdp) && /"@type":"Product"/.test(pdp));
+    /* 3b) the JSON-LD must stay in the shape Google's Merchant listing spec reads. Each check
+       below is written as a consistency rule, not a fixed value, so the same script can run
+       against any store (a fresh install with no shipping configured, a shop with no reviews
+       yet, a live flash sale) without needing fixtures. */
+    const plain = pdp.replace(/<!-- -->/g, ""); // React separates JSX text nodes with comments
+    const blocks = [...pdp.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)];
+    let prod = null;
+    for (const b of blocks) { try { const o = JSON.parse(b[1]); if (o && o["@type"] === "Product") { prod = o; break; } } catch {} }
+    check("PDP Product JSON-LD parses", !!prod);
+    if (prod) {
+      // two shapes Google silently ignores, both of which used to be here
+      check("no ShippingRateSettings / previousPrice leftovers", !/"ShippingRateSettings"|"previousPrice"/.test(JSON.stringify(prod)));
+      check("shipping + returns hang off the Offer, not off Product", prod.shippingDetails === undefined && prod.hasMerchantReturnPolicy === undefined);
+      const off = prod.offers || {};
+      const ship = off.shippingDetails;
+      check("offer.shippingDetails is well formed (or absent when no rate is configured)",
+        ship === undefined || (Array.isArray(ship) && ship.length > 0 && ship.every((s) =>
+          s["@type"] === "OfferShippingDetails" &&
+          s.shippingRate?.["@type"] === "MonetaryAmount" &&
+          /^\d+$/.test(String(s.shippingRate?.value)) &&
+          s.shippingRate?.currency === "BDT" &&
+          s.shippingDestination?.[0]?.["@type"] === "DefinedRegion" &&
+          s.shippingDestination?.[0]?.addressCountry === "BD")),
+        JSON.stringify(ship));
+      check("returns policy is the finite-window form Google supports",
+        !off.hasMerchantReturnPolicy || (off.hasMerchantReturnPolicy.returnPolicyCategory === "https://schema.org/MerchantReturnFiniteReturnWindow" &&
+          Number(off.hasMerchantReturnPolicy.merchantReturnDays) > 0));
+      check("offer declares a new item with a future priceValidUntil",
+        off.itemCondition === "https://schema.org/NewCondition" &&
+        /^\d{4}-\d{2}-\d{2}$/.test(off.priceValidUntil || "") &&
+        off.priceValidUntil >= new Date().toISOString().slice(0, 10),
+        "(priceValidUntil=" + off.priceValidUntil + ")");
+      // the price Google is fed must be the price a human sees on the same page
+      const priceBlock = plain.match(/class="pdp-price">([\s\S]{0,300}?)<\/div>/)?.[1] || "";
+      const shownNow = Number((priceBlock.match(/<b>৳([\d,]+)<\/b>/) || [])[1]?.replace(/,/g, "") || 0);
+      const shownWas = Number((priceBlock.match(/<s>৳([\d,]+)<\/s>/) || [])[1]?.replace(/,/g, "") || 0);
+      check("marked-up price equals the price printed on the page", shownNow > 0 && Math.round(Number(off.price)) === shownNow,
+        "(ld=" + off.price + " page=" + shownNow + ")");
+      check("strikethrough price matches the struck price on the page",
+        shownWas === 0 ? off.priceSpecification === undefined
+          : (off.priceSpecification?.priceType === "https://schema.org/StrikethroughPrice" &&
+             Math.round(Number(off.priceSpecification?.price)) === shownWas),
+        "(ld=" + (off.priceSpecification?.price ?? "none") + " page=" + shownWas + ")");
+      // stars only ever for reviews that are actually rendered further down the page
+      const shownReviews = Number((plain.match(/Reviews \((\d+)\)/) || [])[1] ?? 0);
+      check("aggregateRating appears exactly when reviews are visible on the page",
+        shownReviews === 0 ? prod.aggregateRating === undefined
+          : (prod.aggregateRating?.reviewCount === String(shownReviews) && Array.isArray(prod.review) && prod.review.length > 0),
+        "(page=" + shownReviews + " ld=" + prod.aggregateRating?.reviewCount + " review[]=" + (prod.review || []).length + ")");
+      check("every marked-up review has an author, a date and a 1-5 rating",
+        !prod.review || prod.review.every((r) => r.author?.name && /^\d{4}-\d{2}-\d{2}$/.test(r.datePublished || "") &&
+          Number(r.reviewRating?.ratingValue) >= 1 && Number(r.reviewRating?.ratingValue) <= 5));
+    }
     // 4) an ORD- code alone must not be a lookup key (enumeration guard)
     if (code) {
       const t1 = await req("/api/track/courier?code=" + encodeURIComponent(code));
