@@ -3,7 +3,7 @@ import { afetch, withToken } from "@/lib/afetch";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
-const TABS = ["Store", "Theme", "Homepage Layout", "Shipping", "Courier", "Checkout & Fraud", "Notifications", "SEO & Maintenance"];
+const TABS = ["Store", "Theme", "Homepage Layout", "Shipping", "Policies", "Courier", "Checkout & Fraud", "Notifications", "SEO & Maintenance"];
 const MAP: Record<string, string> = { Store: "store", Theme: "theme", Shipping: "shipping", Courier: "courier", "Checkout & Fraud": "__multi", "SEO & Maintenance": "__multi2" };
 
 function CourierTestBadge() {
@@ -392,6 +392,42 @@ export default function SettingsClient({ groups, user, userCount, hasCourier, co
             </div>
           </div>
         </>
+      )}
+
+      {tab === "Policies" && (
+        <div className="acard"><div className="acard-h"><h3>Returns &amp; Exchange</h3></div>
+          <div className="acard-b form-grid">
+            <div className="full" style={{ fontSize: 12.5, color: "var(--muted)" }}>
+              Ei value gulo /returns page e dekhay <b>ar</b> Google er Product markup e <code>MerchantReturnPolicy</code> hisebe jay.
+              Ek jaygay bodlale dutoi bodle jabe — page ar markup kokhono alada hobe na.
+            </div>
+            <F k="returnDays" label="Return window (days from delivery)" type="number" group="policies" />
+            <F k="damageReportHours" label="Hours to report a wrong/damaged item" type="number" group="policies" />
+            <F k="refundTime" label="Refund time (as shown to customer)" group="policies" />
+            <F k="refundMethod" label="Refund method (COD orders)" group="policies" />
+            <F k="updated" label="Last updated (shown on the page)" group="policies" />
+            <div className="af full">
+              <label>Exchange note</label>
+              <textarea rows={3} value={g.policies?.exchangeNote ?? ""} onChange={(e) => setG({ ...g, policies: { ...g.policies, exchangeNote: e.target.value } })} />
+            </div>
+            <div className="af full">
+              <label>What can&apos;t be returned (ek line e ekta)</label>
+              <textarea rows={4} value={g.policies?.nonReturnable ?? ""} onChange={(e) => setG({ ...g, policies: { ...g.policies, nonReturnable: e.target.value } })} placeholder={"Innerwear, for hygiene reasons.\nWorn or washed items."} />
+            </div>
+            <div className="af full">
+              <label>Extra note (optional — page er niche ekta section hisebe dekhay)</label>
+              <textarea rows={3} value={g.policies?.note ?? ""} onChange={(e) => setG({ ...g, policies: { ...g.policies, note: e.target.value } })} />
+            </div>
+            <div className="af full">
+              <label style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 13.5 }}>
+                <input type="checkbox" checked={g.policies?.freeReturnCourier !== false} onChange={(e) => setG({ ...g, policies: { ...g.policies, freeReturnCourier: e.target.checked } })} />
+                Return courier amra bori (free return)
+              </label>
+              <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 4 }}>Uncheck korle page e &quot;you send it back&quot; dekhabe, ar Google markup e <code>ReturnFeesCustomerResponsibility</code> jabe.</div>
+            </div>
+            <div className="full">{saveBtn("policies")}</div>
+          </div>
+        </div>
       )}
 
       {tab === "Shipping" && (

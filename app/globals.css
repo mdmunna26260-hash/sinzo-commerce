@@ -2950,3 +2950,82 @@ body:has(.admin-body) .scroll-progress { display: none !important; }
 @media (prefers-reduced-motion: reduce) {
   .sdr, .footer { animation: none !important; }
 }
+
+/* ---------- K. Policy page (/returns) ----------
+   Deliberately quiet: a policy page is read, not browsed. Long measure for the prose, a sticky
+   contents rail on desktop so a customer can jump straight to "Refunds", and the numbers pulled
+   out of the paragraphs into a 4-up strip — those four values are what people actually come for. */
+.policy-head { padding: 40px 0 8px; max-width: 820px; }
+.policy-head h1 { font-size: clamp(30px, 4vw, 46px); line-height: 1.06; letter-spacing: -0.02em; margin: 10px 0 14px; }
+.policy-lead { font-size: clamp(15px, 1.15vw, 17px); color: var(--muted); max-width: 640px; }
+.policy-facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin: 26px 0 14px; }
+@media (min-width: 760px) { .policy-facts { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; } }
+.policy-fact {
+  border: 1px solid var(--line); border-radius: var(--radius); background: var(--card);
+  padding: 14px 15px; display: flex; flex-direction: column; gap: 3px;
+}
+.policy-fact b { font-family: var(--font-head); font-weight: 500; font-size: clamp(17px, 1.5vw, 21px); line-height: 1.1; }
+.policy-fact span { font-size: 11.5px; line-height: 1.4; color: var(--muted); letter-spacing: .01em; }
+.policy-stamp { font-size: 11.5px; color: var(--muted); letter-spacing: .04em; }
+
+.policy-wrap { display: block; padding-bottom: 70px; }
+@media (min-width: 1000px) {
+  .policy-wrap { display: grid; grid-template-columns: 210px minmax(0, 1fr); gap: 64px; align-items: start; }
+}
+/* Sticky rail: top offset clears the sticky header (72px) plus breathing room. */
+.policy-nav { display: none; }
+@media (min-width: 1000px) {
+  .policy-nav { display: flex; flex-direction: column; gap: 9px; position: sticky; top: 96px; }
+  .policy-nav .eyebrow { margin-bottom: 5px; }
+  .policy-nav a { font-size: 13px; color: var(--muted); padding: 2px 0; border-left: 2px solid transparent; padding-left: 11px; margin-left: -13px; transition: color .2s ease, border-color .2s ease; }
+  .policy-nav a:hover { color: var(--text); border-left-color: var(--accent); }
+}
+
+.policy { max-width: 760px; }
+.policy section { padding: 30px 0; border-top: 1px solid var(--line); }
+.policy section:first-child { border-top: 0; padding-top: 6px; }
+.policy h2 { font-size: clamp(19px, 2.1vw, 25px); letter-spacing: -0.012em; margin-bottom: 12px; }
+.policy p { color: var(--muted); margin: 0 0 13px; }
+.policy p:last-child { margin-bottom: 0; }
+.policy p b, .policy p strong { color: var(--text); font-weight: 600; }
+.policy a { color: var(--accent); text-decoration: underline; text-underline-offset: 3px; }
+
+.policy-list { list-style: none; margin: 0 0 13px; display: flex; flex-direction: column; gap: 9px; }
+.policy-list li { position: relative; padding-left: 20px; color: var(--muted); }
+.policy-list li::before { content: "—"; position: absolute; left: 0; color: var(--accent); }
+
+/* numbered steps — the counter lives in the marker so the markup stays a plain <ol> */
+.steps { list-style: none; counter-reset: st; margin: 0 0 4px; padding: 0; }
+.steps li { position: relative; padding-left: 44px; margin-bottom: 18px; }
+.steps li:last-child { margin-bottom: 0; }
+.steps li::before {
+  counter-increment: st; content: counter(st);
+  position: absolute; left: 0; top: 1px; width: 28px; height: 28px; border-radius: 50%;
+  display: grid; place-items: center; background: var(--accent); color: #fff;
+  font-size: 12.5px; font-variant-numeric: tabular-nums;
+}
+.steps b { display: block; font-weight: 600; color: var(--text); margin-bottom: 3px; }
+.steps span { color: var(--muted); }
+
+.policy-note {
+  border-left: 2px solid var(--accent); border-radius: 0 var(--radius) var(--radius) 0;
+  background: color-mix(in srgb, var(--accent) 7%, transparent);
+  padding: 13px 16px; color: var(--muted); margin: 16px 0 0;
+}
+.policy-note b { color: var(--text); }
+
+.policy-table { width: 100%; border-collapse: collapse; margin: 4px 0 16px; font-size: 14px; }
+.policy-table th, .policy-table td { text-align: left; padding: 11px 10px; border-bottom: 1px solid var(--line); }
+.policy-table th { font-size: 11px; letter-spacing: .16em; text-transform: uppercase; color: var(--muted); font-weight: 500; }
+.policy-table td { font-variant-numeric: tabular-nums; }
+.policy-table tr:last-child td { border-bottom: 0; }
+
+.policy-cta { display: flex; flex-wrap: wrap; gap: 10px; margin: 18px 0 22px; }
+.policy-meta { display: grid; grid-template-columns: auto 1fr; gap: 6px 18px; font-size: 13.5px; margin: 0; }
+.policy-meta dt { color: var(--muted); }
+.policy-meta dd { color: var(--text); }
+
+/* dark theme: the tint and the card need their own values or the strip goes flat white */
+:root[data-theme="dark"] .policy-fact { background: #191816; border-color: #2a2825; }
+:root[data-theme="dark"] .policy-note { background: color-mix(in srgb, var(--accent) 15%, transparent); }
+:root[data-theme="dark"] .steps li::before { color: #12110f; }

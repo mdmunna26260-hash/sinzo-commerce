@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { clean } from "@/lib/search";
 import { db } from "@/lib/db";
 import { getSettings, publicSettings } from "@/lib/settings";
+import { readPolicy } from "@/lib/policy";
 import { getCategories } from "@/lib/catalog";
 import { Header, Footer, Announcement } from "@/components/chrome";
 import { ProductCard } from "@/components/parts";
@@ -85,6 +86,7 @@ export default async function PDP({ params, searchParams }: { params: { slug: st
 
   const s = await getSettings();
   const cfg = publicSettings(s);
+  const pol = readPolicy(s);
   const cats = await getCategories();
   const relSelect = { id: true, title: true, slug: true, price: true, comparePrice: true, stock: true, badge: true, isNew: true, isBestSeller: true, categoryId: true, preorder: true, images: { select: { url: true, alt: true }, take: 1 }, variants: { select: { size: true, stock: true } } } as const;
   const sizesOf = (r: typeof related[number]) => Array.from(new Set((r.variants || []).filter((v) => (r.preorder ? !!v.size : v.stock > 0 && v.size)).map((v) => v.size!))).sort((a, b) => {
@@ -210,13 +212,21 @@ export default async function PDP({ params, searchParams }: { params: { slug: st
       } : {}),
       ...(p.preorder && p.preorderDate ? { availabilityStarts: new Date(p.preorderDate).toISOString().slice(0, 10) } : {}),
       ...(shippingDetails.length ? { shippingDetails } : {}),
+      /* Return terms come from admin → Policies (lib/policy.ts), the same values the /returns
+         page prints — Google requires the marked-up policy to be the one the site actually
+         shows, and this is the only way the two can't drift apart. `merchantReturnLink` is the
+         recommended pointer at that page. */
       hasMerchantReturnPolicy: {
         "@type": "MerchantReturnPolicy",
         applicableCountry: "BD",
         returnPolicyCategory: "https://schema.org/MerchantReturnFiniteReturnWindow",
-        merchantReturnDays: 7,
+        merchantReturnDays: pol.returnDays,
         returnMethod: "https://schema.org/ReturnByMail",
-        returnFees: "https://schema.org/FreeReturn",
+        // ReturnFeesCustomerResponsibility (not ReturnShippingFees) is the value for "the buyer
+        // arranges and pays the return courier" — the latter would additionally require a
+        // returnShippingFeesAmount we have no number for.
+        returnFees: pol.freeReturnCourier ? "https://schema.org/FreeReturn" : "https://schema.org/ReturnFeesCustomerResponsibility",
+        merchantReturnLink: siteBase + "/returns",
       },
     },
   };

@@ -12,6 +12,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: base, changeFrequency: "daily", priority: 1 },
     { url: base + "/products", changeFrequency: "daily", priority: 0.9 },
     { url: base + "/track", priority: 0.5, changeFrequency: "monthly" as const },
+    // the returns/exchange + delivery policy — the same page the PDP's MerchantReturnPolicy
+    // points at with merchantReturnLink, so Google and the customer read one document
+    { url: base + "/returns", priority: 0.4, changeFrequency: "monthly" as const },
     // Category FILTER urls were removed: /products?category=x renders the same grid as
     // /products (and unknown slugs used to render ALL products), so they only created
     // duplicate pages that compete with /products and with /collections/<slug>.

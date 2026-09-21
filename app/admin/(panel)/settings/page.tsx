@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 import { requireAdmin } from "@/lib/auth";
 import { getSettings, envFallback } from "@/lib/settings";
+import { POLICY_DEFAULTS } from "@/lib/policy";
 import { getSessionUser } from "@/lib/auth";
 import SettingsClient from "./client";
 export const dynamic = "force-dynamic";
@@ -26,5 +27,8 @@ export default async function SettingsPage({ searchParams }: { searchParams: any
     store: s.store, theme: s.theme, shipping: s.shipping, homepage: s.homepage,
     checkout: s.checkout, fraud: s.fraud, seo: s.seo, maintenance: s.maintenance, courier: courierCfg,
     notifications: notificationsCfg, homeSections: s.homeSections,
+    // defaults first, then whatever is stored — so a fresh install opens this tab showing the
+    // real values the /returns page is already rendering instead of a wall of empty boxes
+    policies: { ...POLICY_DEFAULTS, ...(s.policies || {}) },
   }} />;
 }

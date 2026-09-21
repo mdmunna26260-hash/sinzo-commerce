@@ -174,6 +174,22 @@ function check(name, cond, extra) {
         !prod.review || prod.review.every((r) => r.author?.name && /^\d{4}-\d{2}-\d{2}$/.test(r.datePublished || "") &&
           Number(r.reviewRating?.ratingValue) >= 1 && Number(r.reviewRating?.ratingValue) <= 5));
     }
+    /* 3c) the returns policy page and the policy Google is told must be the same policy.
+       admin → Policies feeds both (lib/policy.ts), so this pair can only break together. */
+    const ret = await (await fetch(BASE + "/returns")).text();
+    const retText = ret.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ");
+    check("returns page responds with the policy", /Returns &amp; Exchange/.test(ret) && /Last updated/.test(ret));
+    const retDays = Number((retText.match(/You have (\d+) days from the day the parcel is delivered/) || [])[1] || 0);
+    check("returns page states the return window", retDays > 0, "(parsed " + retDays + ")");
+    check("returns page shows the delivery charges", /Inside Dhaka/.test(retText) && /Outside Dhaka/.test(retText));
+    check("footer links Returns & Exchange to /returns", /href="\/returns"/.test(pdp));
+    check("footer's Shipping link is not dead either", /href="\/returns#delivery"/.test(pdp));
+    if (prod) {
+      const rp = prod.offers?.hasMerchantReturnPolicy;
+      check("marked-up return window equals the one printed on /returns",
+        !!rp && rp.merchantReturnDays === retDays, "(ld=" + rp?.merchantReturnDays + " page=" + retDays + ")");
+      check("merchantReturnLink points at /returns", String(rp?.merchantReturnLink || "").endsWith("/returns"), rp?.merchantReturnLink);
+    }
     // 4) an ORD- code alone must not be a lookup key (enumeration guard)
     if (code) {
       const t1 = await req("/api/track/courier?code=" + encodeURIComponent(code));
