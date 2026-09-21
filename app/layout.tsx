@@ -160,6 +160,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
 window.addEventListener("error",function(e){var s=e&&e.target&&e.target.src||"";if(s&&s.indexOf("/_next/")>-1)r("chunk load fail: "+s.split("/").pop());},true);
 window.addEventListener("unhandledrejection",function(e){var m=String(e&&e.reason&&e.reason.message||e&&e.reason||"");if(m.indexOf("dynamically imported module")>-1||m.indexOf("Loading chunk")>-1||m.indexOf("ChunkLoadError")>-1)r("chunk reject: "+m.slice(0,200));});}catch(e){}})();` }} />
         <CartProvider>
+        {/* Reading-progress bar for the whole storefront. `animation-timeline: scroll(root)` in
+            globals.css drives it — no JS scroll listener, and browsers without the feature never
+            show it (display:none until @supports matches). The admin panel has its own layout and
+            is excluded by `body:has(.admin-body)`. */}
+        <div className="scroll-progress" aria-hidden />
         {children}
         <BottomNav />
         </CartProvider>

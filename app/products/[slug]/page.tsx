@@ -222,8 +222,9 @@ export default async function PDP({ params, searchParams }: { params: { slug: st
           sizeChartHtml={p.category?.sizeChart || null}
           colorFamily={colorFamily}
         />
-        {/* Reviews */}
-        <section className="reviews">
+        {/* Reviews — the first block past the fold on a PDP, and the one surface that had no
+            entrance at all. `.sdr` drives it from a CSS view() timeline (see globals.css §J). */}
+        <section className="reviews sdr">
           <div className="section-head">
             <div><div className="eyebrow">Customer feedback</div><h2>Reviews ({p.reviews.length})</h2></div>
             {avgRating > 0 && <div style={{ fontSize: 15 }}>{"★".repeat(Math.round(avgRating))}<span style={{ color: "var(--muted)" }}> {avgRating.toFixed(1)} / 5</span></div>}

@@ -89,12 +89,22 @@ export function Header({ storeName, categories }: { storeName: string; categorie
   }, [count, ready]);
   useEffect(() => {
     lastY.current = window.scrollY;
+    /* rAF-throttled, exactly like components/bottom-nav.tsx. Without this the handler ran on
+       EVERY scroll event — a 120Hz phone fires ~120/s, and each one past the 8px gate called
+       setHid(), i.e. a React render mid-scroll. One frame = one decision. */
+    let ticking = false;
     const onScroll = () => {
-      const y = window.scrollY;
-      headerRef.current?.classList.toggle("scrolled", y > 24);
-      if (Math.abs(y - lastY.current) < 8) return; // ignore tiny scrolls
-      setHid(y > lastY.current && y > 120);
-      lastY.current = y;
+      if (ticking) return;
+      ticking = true;
+      requestAnimationFrame(() => {
+        const y = window.scrollY;
+        headerRef.current?.classList.toggle("scrolled", y > 24);
+        if (Math.abs(y - lastY.current) >= 8) { // ignore tiny scrolls
+          setHid(y > lastY.current && y > 120);
+          lastY.current = y;
+        }
+        ticking = false;
+      });
     };
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);

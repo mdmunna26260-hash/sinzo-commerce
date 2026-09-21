@@ -269,20 +269,12 @@ async function HomeContent() {
 
   return (
     <CartProvider>
-      {/* Reading-progress bar. `animation-timeline: scroll(root)` CSS-e cholay — kono
-          JS scroll listener nei, tai main thread e zero kaj. Support na thakle CSS
-          e `display: none` (page.tsx er kichu korte hoy na). */}
-      <div className="scroll-progress" aria-hidden />
       <Announcement text={hp.announcement} />
       <Header storeName={cfg.store?.name || "Store"} categories={cats.map((c) => ({ name: c.name, slug: c.slug }))} />
 
-      {/* `.home` scope — ei pass er fluid rhythm/typography shudhu home page e.
-          PDP, collection, recently-viewed er layout ager moto-i thake. */}
-      <div className="home">
-        {sectionCfg.filter((x) => x.enabled).map((x) => (
-          <Fragment key={x.id}>{sections[x.id] ? <SafeSection id={x.id}>{sections[x.id]}</SafeSection> : null}</Fragment>
-        ))}
-      </div>
+      {sectionCfg.filter((x) => x.enabled).map((x) => (
+        <Fragment key={x.id}>{sections[x.id] ? <SafeSection id={x.id}>{sections[x.id]}</SafeSection> : null}</Fragment>
+      ))}
 
       <Footer cfg={{ ...cfg, _nav: { categories: cats.map((c) => ({ name: c.name, slug: c.slug })) } }} />
     </CartProvider>
