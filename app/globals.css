@@ -42,10 +42,10 @@ h1, h2, h3, .serif { font-family: var(--font-head); font-weight: 500; letter-spa
   padding: 13px 28px; font-size: 12px; letter-spacing: 0.18em; text-transform: uppercase;
   border-radius: var(--radius); transition: all .18s ease; min-height: 46px;
 }
-.btn:hover { opacity: 0.86; }
+@media (hover: hover) { .btn:hover { opacity: 0.86; } }
 .btn:disabled { opacity: 0.45; cursor: not-allowed; }
 .btn-outline { background: transparent; color: var(--text); }
-.btn-outline:hover { background: var(--text); color: var(--bg); opacity: 1; }
+@media (hover: hover) { .btn-outline:hover { background: var(--text); color: var(--bg); opacity: 1; } }
 .btn-accent { background: var(--accent); border-color: var(--accent); color: #fff; }
 .btn-sm { padding: 8px 16px; min-height: 36px; font-size: 11px; }
 .link-underline { border-bottom: 1px solid var(--text); padding-bottom: 2px; font-size: 12px; letter-spacing: .14em; text-transform: uppercase; }
@@ -128,8 +128,8 @@ h1, h2, h3, .serif { font-family: var(--font-head); font-weight: 500; letter-spa
 /* product card */
 .pcard { position: relative; }
 .pcard-img { position: relative; overflow: hidden; aspect-ratio: var(--img-ratio, 3 / 4); background: #eee9e2; border-radius: var(--radius); }
-.pcard-img img { width: 100%; height: 100%; object-fit: cover; transition: transform .6s ease; }
-.pcard:hover .pcard-img img { transform: scale(1.05); }
+.pcard-img img { width: 100%; height: 100%; object-fit: cover; transition: transform .6s ease; -webkit-user-drag: none; }
+@media (hover: hover) { .pcard:hover .pcard-img img { transform: scale(1.05); } }
 .pcard-badges { position: absolute; top: 0; left: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 5px; z-index: 3; }
 /* Unified badge chip — matches reference look (small light chip, dark text, top-left, no border) */
 .badge { display: inline-block; background: #f7f5f1; color: #17150f; font-size: 10px; letter-spacing: .02em; padding: 4px 9px; border-radius: 4px; font-weight: 600; line-height: 1.2; }
@@ -146,7 +146,7 @@ h1, h2, h3, .serif { font-family: var(--font-head); font-weight: 500; letter-spa
 /* collection tile */
 .ctile { position: relative; overflow: hidden; aspect-ratio: 4/5; background: #e9e4dc; }
 .ctile img { width: 100%; height: 100%; object-fit: cover; transition: transform .7s ease; }
-.ctile:hover img { transform: scale(1.06); }
+@media (hover: hover) { .ctile:hover img { transform: scale(1.06); } }
 .ctile-label { position: absolute; inset: auto 0 0 0; padding: 60px 24px 22px; background: linear-gradient(transparent, rgba(0,0,0,.55)); color: #fff; }
 .ctile-label h3 { font-size: 24px; }
 .ctile-label span { font-size: 11px; letter-spacing: .18em; text-transform: uppercase; opacity: .85; }
@@ -263,7 +263,7 @@ h1, h2, h3, .serif { font-family: var(--font-head); font-weight: 500; letter-spa
 .pdp-main-img .pdp-img.hz { transform: scale(1.9); cursor: crosshair; transition: transform .12s ease-out; } /* arrows hidden — swipe + thumbnails + lightbox handle navigation */
 .gal-count { position: absolute; bottom: 12px; left: 12px; background: rgba(255,255,255,.92); font-size: 11px; letter-spacing: .12em; padding: 4px 12px; border-radius: 99px; z-index: 3; color: var(--text); }
 .gal-zoom { position: absolute; top: 12px; right: 12px; width: 40px; height: 40px; border-radius: 99px; background: rgba(255,255,255,.94); border: 1px solid var(--line); color: var(--text); display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 3; transition: background .2s ease, transform .2s ease; }
-.gal-zoom:hover { background: #fff; transform: scale(1.06); }
+@media (hover: hover) { .gal-zoom:hover { background: #fff; transform: scale(1.06); } }
 
 /* lightbox */
 .lightbox { position: fixed; inset: 0; background: rgba(250,249,247,.98); z-index: 120; display: flex; align-items: center; justify-content: center; animation: lbfade .2s ease; }
@@ -705,9 +705,13 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 13.5px; }
 
 /* ---------- home carousel ---------- */
 .crs { position: relative; margin: 0 -24px; } /* full-bleed inside container */
-.crs-track { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; -ms-overflow-style: none; touch-action: pan-x pan-y; }
+/* `touch-action: pan-y` = the browser may keep the VERTICAL axis (a vertical drag still
+   scrolls the page normally) and the horizontal axis is ours — see components/swipe-rail.ts.
+   Leaving both axes to the browser (pan-x pan-y) plus mandatory scroll-snap is what made a
+   thumb swipe on iOS scroll the page and leave the rail put ("swipe korle change hoy na"). */
+.crs-track { display: flex; overflow-x: auto; scrollbar-width: none; -ms-overflow-style: none; overscroll-behavior-x: contain; touch-action: pan-y; }
 .crs-track::-webkit-scrollbar { display: none; }
-.crs-page { flex: 0 0 100%; min-width: 100%; scroll-snap-align: center; padding: 0 24px; box-sizing: border-box; }
+.crs-page { flex: 0 0 100%; min-width: 100%; padding: 0 24px; box-sizing: border-box; }
 .crs-page .grid { grid-template-columns: repeat(2, 1fr) !important; gap: 18px 10px; display: grid; }
 .crs-page .grid.grid-3 { grid-template-columns: repeat(2, 1fr) !important; }
 .crs-page .quote { height: 100%; }
@@ -1079,6 +1083,17 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 13.5px; }
 }
 /* Android chrome 300ms tap highlight off — cleaner taps */
 a, button, .pcard, .chip, .cat-pill, .size-btn { -webkit-tap-highlight-color: transparent; }
+
+/* One tap = one tap.
+   iOS spends the first tap on an element that has something to show on `:hover`, and it can
+   also read two quick taps as a double-tap zoom (the viewport allows zooming, see layout.tsx).
+   Both make a product need two taps before it opens, so:
+   - every hover effect that moves or reveals something is wrapped in `@media (hover: hover)`
+     above — a touch screen keeps the plain, always-visible design (and the phone-perf win);
+   - `manipulation` keeps panning and pinch-zoom but removes double-tap-to-zoom;
+   - the images inside a link refuse the native drag that can also eat the click. */
+a, button, [role="button"], label, summary, input, select, textarea,
+.qadd, .tab-item, .chip, .cat-pill, .size-btn, .crs-arrow, .rel-arrow, .badge { touch-action: manipulation; }
 /* Bigger tap targets on touch devices */
 @media (hover: none) {
   .icon-btn { min-width: 40px; min-height: 40px; align-items: center; justify-content: center; }
@@ -1374,8 +1389,8 @@ a, button, .pcard, .chip, .cat-pill, .size-btn { -webkit-tap-highlight-color: tr
 
 /* ---------- 8. REVIEW — star pick + submit hover ---------- */
 .stars-pick span { transition: transform 180ms ease, color 180ms ease; }
-.stars-pick span:hover { transform: scale(1.15); }
-.review-form .btn:hover { transform: translateY(-1px); box-shadow: 0 4px 16px rgba(0,0,0,.10); }
+@media (hover: hover) { .stars-pick span:hover { transform: scale(1.15); } }
+@media (hover: hover) { .review-form .btn:hover { transform: translateY(-1px); box-shadow: 0 4px 16px rgba(0,0,0,.10); } }
 
 /* cart drawer glass (mobile slide-in) */
 @media (max-width: 899px) {
@@ -1543,8 +1558,11 @@ body:has(.admin-body) { padding-bottom: 0 !important; }
   /* product cards: slightly tighter gap, hover lift */
   .grid-4 { gap: 26px 20px; }
   .pcard { transition: transform 250ms cubic-bezier(.22,.61,.36,1); }
-  .pcard:hover { transform: translateY(-3px); }
-  .pcard:hover .pcard-img img { transform: scale(1.04); }
+  /* hover lift: pointer devices only — on a touch screen iOS spends the FIRST tap on the hover */
+  @media (hover: hover) {
+    .pcard:hover { transform: translateY(-3px); }
+    .pcard:hover .pcard-img img { transform: scale(1.04); }
+  }
 
   /* product page: info column breathing */
   .pdp { gap: 56px; }
@@ -1648,16 +1666,16 @@ input::placeholder, textarea::placeholder { color: #b0aaa1; }
 .rel-scroll {
   display: flex;
   overflow-x: auto;
-  scroll-snap-type: x mandatory;
   scrollbar-width: none;
   -ms-overflow-style: none;
+  overscroll-behavior-x: contain;
+  touch-action: pan-y;          /* horizontal is ours (swipe-rail), vertical stays native */
   -webkit-overflow-scrolling: touch;
 }
 .rel-scroll::-webkit-scrollbar { display: none; }
 .rel-page {
   flex: 0 0 100%;
   min-width: 100%;
-  scroll-snap-align: start;
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 14px 10px;
@@ -1888,7 +1906,7 @@ input::placeholder, textarea::placeholder { color: #b0aaa1; }
   justify-content: center;
 }
 .color-swatch img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.color-swatch:hover { transform: scale(1.06); }
+@media (hover: hover) { .color-swatch:hover { transform: scale(1.06); } }
 .color-swatch.active {
   border: 2px solid var(--text);
   box-shadow: 0 0 0 3px var(--bg), 0 0 0 4.5px var(--text);
@@ -2483,7 +2501,7 @@ html.theme-transition *::after {
 .pdp-actions .btn { border: 2px solid var(--text); border-radius: 999px; text-transform: none;
   letter-spacing: .01em; font-size: 17px; font-weight: 500; min-height: 60px; padding: 0 28px; width: auto; }
 .pdp-actions .pdp-add { flex: 1 1 auto; background: transparent; color: var(--text); }
-.pdp-actions .pdp-add:hover { background: var(--text); color: var(--bg); opacity: 1; }
+@media (hover: hover) { .pdp-actions .pdp-add:hover { background: var(--text); color: var(--bg); opacity: 1; } }
 .pdp-actions .pdp-buy { width: 100%; }
 /* min-height on the pill itself (not a fixed child height) so stepper and buttons land on the same box
    height — box-sizing is border-box globally, so 60px here == 60px on .btn. A fixed 58px child inside a
@@ -2575,8 +2593,8 @@ html.theme-transition *::after {
 .qadd svg { width: 19px; height: 19px; }
 /* plain rgba, not color-mix(): older Android WebViews drop the whole declaration, and a
    hover circle is decoration, not something to gate the feature on */
-.pcard-cell:hover .qadd { background: rgba(20, 20, 20, .06); }
-.qadd:hover { color: var(--text); background: rgba(20, 20, 20, .12); }
+@media (hover: hover) { .pcard-cell:hover .qadd { background: rgba(20, 20, 20, .06); } }
+@media (hover: hover) { .qadd:hover { color: var(--text); background: rgba(20, 20, 20, .12); } }
 .qadd:active { transform: scale(.9) }
 .qadd:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
 .qadd.busy { color: var(--accent); background: none; }
@@ -2943,6 +2961,21 @@ html.theme-transition *::after {
   @keyframes sdrIn { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: none; } }
 }
 
+/* ---------- J2. Touch screens: entrances fade, they never move the tap target ----------
+   A tap is delivered only if the element under the finger is where it was when the finger
+   landed. Every entrance animation here slides its block up (16px `.reveal`, 18px `.sdr`) and
+   that slide is running exactly when a shopper scrolls a new row of products into view and
+   taps the first one — WebKit then drops the click and the product needs a SECOND tap
+   ("iPhone e product e click korle page open hoy na, 2 bar korte hoy"). Pointer devices keep
+   the slide; touch devices keep the same fade, with the element nailed to its final position.
+   The @keyframes override has to sit after the @supports block above: the last matching
+   definition of a keyframe name wins. */
+@media (hover: none) {
+  .reveal { transform: none; }
+  .reveal.in { transform: none; }
+  @keyframes sdrIn { from { opacity: 0; } to { opacity: 1; } }
+}
+
 /* the progress bar is storefront-only — the admin panel has its own layout and its own scroll
    containers (same `body:has(.admin-body)` guard the tab bar uses) */
 body:has(.admin-body) .scroll-progress { display: none !important; }
@@ -3048,7 +3081,7 @@ body:has(.admin-body) .scroll-progress { display: none !important; }
 .blog-lead { display: grid; grid-template-columns: 1.05fr 1fr; align-items: stretch; border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; margin-bottom: 8px; }
 .blog-lead-img { overflow: hidden; background: color-mix(in srgb, var(--accent) 8%, var(--bg)); }
 .blog-lead-img img { width: 100%; height: 100%; object-fit: cover; transition: transform .7s cubic-bezier(.22,.61,.36,1); }
-.blog-lead:hover .blog-lead-img img { transform: scale(1.03); }
+@media (hover: hover) { .blog-lead:hover .blog-lead-img img { transform: scale(1.03); } }
 .blog-lead-body { padding: clamp(22px, 3.2vw, 40px); display: flex; flex-direction: column; justify-content: center; gap: 10px; }
 .blog-lead-body h2 { font-family: var(--font-head); font-size: clamp(22px, 2.6vw, 31px); font-weight: 400; line-height: 1.22; }
 .blog-lead-body p { color: var(--muted); font-size: 14.5px; line-height: 1.7; }
@@ -3059,7 +3092,7 @@ body:has(.admin-body) .scroll-progress { display: none !important; }
 .blog-card { display: flex; flex-direction: column; gap: 8px; }
 .blog-card-img { overflow: hidden; border-radius: var(--radius); aspect-ratio: 4 / 3; background: color-mix(in srgb, var(--accent) 8%, var(--bg)); margin-bottom: 4px; }
 .blog-card-img img { width: 100%; height: 100%; object-fit: cover; transition: transform .6s cubic-bezier(.22,.61,.36,1); }
-.blog-card:hover .blog-card-img img { transform: scale(1.04); }
+@media (hover: hover) { .blog-card:hover .blog-card-img img { transform: scale(1.04); } }
 .blog-card h3 { font-family: var(--font-head); font-size: 18.5px; font-weight: 400; line-height: 1.3; }
 .blog-card p { color: var(--muted); font-size: 13.5px; line-height: 1.65; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 

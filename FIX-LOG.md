@@ -242,6 +242,56 @@ the first version of this script used `findUnique` on a lower-cased email, misse
 That fallback and a cleanup of the stray row are in. End-to-end: old pass 200 → set new → new 200 /
 old 401 → restore → 200.
 
+## 12 · iPhone: a product needed two taps, and the rails would not swipe (2026-09-22)
+
+Reported from the owner's own phone: "home page ba product page ba you may also like section theke
+product e click korle page open hoy na, 2 bar korte hoy" and "mobile e product swipe korle change
+hoy na". Both were reproductions on a real device, so this entry is written to be read next time a
+touch gesture misbehaves — each cause below is a *class* of bug, not a one-off.
+
+**Why one tap did nothing (three causes, all removed).**
+
+1. **Hover styling on a touch screen.** iOS honours the *first* tap on an element that has
+   something to show on `:hover` — the tap becomes the hover and no `click` is synthesized, so the
+   second tap is the one that navigates. Every hover rule in `globals.css` whose effect moves or
+   repaints the thing under the finger (product card image zoom, collection tiles, `.qadd` circle,
+   `.pdp-add`, review stars, blog images, …) is now inside `@media (hover: hover)`. Desktop is
+   untouched; a phone keeps the plain, always-visible design.
+2. **Double-tap zoom.** The viewport allows zooming (`maximumScale: 5`), so two quick taps can be
+   read as a zoom instead of two clicks. Tappable elements now carry `touch-action: manipulation`
+   — pan and pinch still work, double-tap-to-zoom is off. Card images also refuse the native image
+   drag (`-webkit-user-drag: none`), which can eat the click the same way.
+3. **Entrance animations were moving the tap target.** `.reveal` (JS/IntersectionObserver) and
+   `.sdr` (scroll-driven `view()`) both slide their block up 16–18px while it enters the viewport
+   — exactly when a shopper scrolls a row of products in and taps the first card. WebKit drops the
+   click when the element under the finger has moved, so on touch devices both keep the fade and
+   drop the movement (`@media (hover: none)`, §J2).
+
+Also fixed while in there: `app/products/shop-layout.tsx` added its `document` click listener
+without the capture flag but removed it with `capture: true` — the listener was never detached, so
+one stale handler per visit to `/products` kept dimming (`pointer-events: none`) a grid that was
+not updating.
+
+**Why the swipe did nothing.** The rails relied on native horizontal scrolling with
+`scroll-snap-type: x mandatory` and `touch-action: pan-x pan-y`, i.e. both axes left to the
+browser. On a phone the first few pixels decide the axis: a slightly diagonal thumb swipe is read
+as a page scroll and the rail never moves, and when the browser does take the rail, mandatory snap
+can bounce it back to the page it started on. Now the horizontal axis is ours:
+`components/swipe-rail.ts` (new, shared by the home rails and the PDP "related products" rail)
+drives `scrollLeft` 1:1 with the finger, locks the axis after 6px, advances a page on 18% travel
+or a 0.35px/ms flick, springs back otherwise, and swallows the click that follows a drag.
+`touch-action: pan-y` in CSS keeps the vertical axis native, so the page still scrolls normally.
+The repeated gesture machine is the one already proven in `card-gallery.tsx`; the decision itself
+(`railTarget`) is pure and unit-tested. `card-gallery.tsx` also learned to swallow a click only
+after a *horizontal* drag past 12px, so tap wobble can no longer cancel a tap.
+
+**Verified.** `tsc --noEmit` clean · production `next build` exit 0 · smoke suite 59/0 against the
+dev server · `railTarget` 16/16 (`scripts/_sandbox/rail-test.mjs`) · served CSS re-checked for
+every gated hover rule, the `pan-y` rails and the touch reveal override
+(`scripts/_sandbox/css-audit.mjs`) · home, `/products` and a PDP all 200 with the rails, related
+carousel and 18 product cards rendering. What a sandbox cannot prove is the iPhone itself: the
+gesture/hover heuristics above only exist in WebKit on a touch screen.
+
 ## NOT changed — deliberately
 
 - **Checkout pricing**: `POST /api/checkout` already re-loads products and re-prices server-side

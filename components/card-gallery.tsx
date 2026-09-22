@@ -146,7 +146,10 @@ export default function CardGallery({ images, alt, className = "" }: Props) {
     const flick = Math.abs(v) > VELOCITY;
     let next = idx;
     if (far || flick) next = Math.max(0, Math.min(N - 1, idx + (d.dx < 0 ? 1 : -1)));
-    if (Math.abs(d.dx) > 8) {                 // it was a drag, not a tap → don't navigate
+    /* Only a real horizontal drag may kill the click that follows it. `d.dx` is written by the
+       axis-locked move handler, and the 12px floor keeps the small wobble every tap has on a
+       phone from swallowing the tap itself (iPhone report: "product e click korle 2 bar lagbe"). */
+    if (d.axis === "x" && Math.abs(d.dx) > 12) {
       swallowed.current = true;
       window.setTimeout(() => { swallowed.current = false; }, 350);
     }
