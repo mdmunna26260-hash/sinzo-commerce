@@ -15,6 +15,7 @@ export async function GET(req: Request) {
     ...s.notifications,
     telegramBotToken: mask(s.notifications?.telegramBotToken || ""),
     smtp: { ...s.notifications?.smtp, pass: mask(s.notifications?.smtp?.pass || "") },
+    sms: { ...(s.notifications as any)?.sms, apiKey: mask((s.notifications as any)?.sms?.apiKey || "") },
   };
   return NextResponse.json({ settings: { ...s, courier, integrations, notifications }, hasCourierKeys: !!s.courier?.apiKey, hasMetaToken: !!s.integrations?.metaAccessToken });
 }

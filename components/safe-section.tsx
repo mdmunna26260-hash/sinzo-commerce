@@ -22,6 +22,13 @@ export default class SafeSection extends Component<{ id?: string; children: Reac
   componentDidCatch(error: Error, info: ErrorInfo) {
     if (typeof window === "undefined") return;
     console.error("Section render error:", this.props.id, error);
+    /* A rebuilt/redeployed bundle shows up here as a webpack module error — the section alone
+       would disappear and the page would look half-empty forever. The root layout's recovery
+       script (one reload per minute, capped) walks the tab back to a consistent build instead. */
+    if (/reading 'call'|Loading chunk|ChunkLoadError|dynamically imported module/.test(String(error?.message || ""))) {
+      const heal = (window as unknown as { __szHeal?: (m: string) => void }).__szHeal;
+      try { heal?.("section " + (this.props.id || "?") + " bundle: " + String(error?.message || "").slice(0, 120)); } catch {}
+    }
     try {
       fetch("/api/client-error", {
         method: "POST", headers: { "Content-Type": "application/json" }, keepalive: true,

@@ -10,7 +10,7 @@ import { AppearancePicker } from "@/components/theme-toggle";
 const STATUSES = ["PENDING", "CONFIRMED", "PROCESSING", "PACKED", "SHIPPED", "DELIVERED", "CANCELLED", "RETURNED", "ON_HOLD"];
 const money = (n: number) => "৳" + Math.round(n).toLocaleString("en-IN");
 
-export default function AccountClient({ customer, orders, token }: { customer: any; orders: any[]; token: string }) {
+export default function AccountClient({ customer, orders, token, rewards }: { customer: any; orders: any[]; token: string; rewards?: any }) {
   const router = useRouter();
   const [tab, setTab] = useState<"orders" | "profile">("orders");
   // cache phone once → Meta advanced matching on every event
@@ -56,6 +56,20 @@ export default function AccountClient({ customer, orders, token }: { customer: a
         </div>
         <button className="btn btn-outline btn-sm" onClick={logout}>Sign out</button>
       </div>
+
+      {rewards?.enabled && (
+        <div className="stat-strip" style={{ maxWidth: 720, marginTop: 22 }}>
+          <div className="kpi"><div className="k-label">Reward points</div><div className="k-val">{rewards.points}</div><div className="k-sub">≈ ৳{rewards.value} off ({rewards.redeemPoints} pts = ৳100)</div></div>
+          <div className="kpi">
+            <div className="k-label">Your referral code</div>
+            <div className="k-val" style={{ fontFamily: "ui-monospace, monospace", fontSize: 18 }}>{rewards.code || "—"}</div>
+            <div className="k-sub">
+              <button className="chip" style={{ cursor: "pointer" }} onClick={() => navigator.clipboard?.writeText(`${rewards.siteUrl}/?ref=${rewards.code}`)}>Copy invite link</button>
+              {" "}Friend order korle duijoner jonno points
+            </div>
+          </div>
+        </div>
+      )}
 
       <div style={{ display: "flex", gap: 8, margin: "26px 0 22px" }}>
         <button className={"chip" + (tab === "orders" ? " active" : "")} style={{ cursor: "pointer" }} onClick={() => setTab("orders")}>My Orders ({orders.length})</button>

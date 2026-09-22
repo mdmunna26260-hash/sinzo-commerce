@@ -1,11 +1,10 @@
 import type { CSSProperties } from "react";
 import Link from "next/link";
-import CardImg from "./card-img";
-import CardGallery from "./card-gallery";
+import CardMedia from "./card-media";
 import QuickAdd from "./quick-add";
 import { sortSizes } from "@/lib/sizes";
 
-export { imgSrc, imgSrcSet, CARD_WIDTHS, CARD_SIZES, PDP_WIDTHS, PDP_SIZES, THUMB_WIDTHS } from "./img-src";
+export { imgSrc, imgSrcSet, CARD_WIDTHS, CARD_SIZES, PDP_WIDTHS, PDP_SIZES, PDP_SRC_WIDTH, THUMB_WIDTHS } from "./img-src";
 export { sortSizes } from "@/lib/sizes";
 
 export type CardProduct = {
@@ -35,12 +34,9 @@ export function ProductCard({ p, rd }: { p: CardProduct; rd?: number }) {
   return (
     <div className="pcard-cell" style={rd != null ? ({ "--rd": rd } as CSSProperties) : undefined}>
     <Link className="pcard reveal" href={"/products/" + p.slug}>
-      <div className="pcard-img">
-        {(() => {
-          const gallery = (p.images || []).filter(Boolean);
-          if (gallery.length > 1) return <CardGallery images={gallery} alt={p.title} />;
-          return p.image ? <CardImg url={p.image} alt={p.title} slug={p.slug} /> : null;
-        })()}
+      {/* photo(s) + the image pagination dots under them — see components/card-media.tsx.
+          The badges are passed as children so they stay inside the clipped image box. */}
+      <CardMedia images={p.images} image={p.image} alt={p.title} slug={p.slug}>
         <div className="pcard-badges">
           {p.stock <= 0 && !p.preorder && <span className="badge">SOLD OUT</span>}
           {p.preorder && <span className="badge">Pre-Order</span>}
@@ -50,7 +46,7 @@ export function ProductCard({ p, rd }: { p: CardProduct; rd?: number }) {
             <span className="badge">FLASH</span>
           )}
         </div>
-      </div>
+      </CardMedia>
       <div className="pcard-info">
         <div className="pcard-title">{p.title}</div>
         <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 8 }}>

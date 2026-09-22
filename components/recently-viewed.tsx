@@ -27,7 +27,10 @@ export default function RecentlyViewed({ currentId }: { currentId: number }) {
   if (!items.length) return null;
 
   return (
-    <section className="section" style={{ paddingTop: 10 }}>
+    // `.sdr` = CSS view() entrance (globals.css §J). This strip mounts after the localStorage
+    // read, so it is usually inserted below the fold; if it ever lands already on screen the
+    // timeline is past its entry range and the strip simply shows at full opacity.
+    <section className="section sdr" style={{ paddingTop: 10 }}>
       <div className="section-head"><div><div className="eyebrow">Your history</div><h2>Recently Viewed</h2></div></div>
       <div className="recent-strip">
         {items.map((item) => (

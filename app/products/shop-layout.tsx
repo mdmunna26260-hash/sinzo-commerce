@@ -41,10 +41,14 @@ export default function ShopLayout({ count, cats, sizes, children }: {
       const el = e.target as HTMLElement | null;
       if (el?.closest?.("a[href*='/products']")) setUpdating(true);
     };
-    document.addEventListener("click", onClick);
+    /* The capture flag has to agree between add and remove or the listener is never detached.
+       Removing it with `true` (as this used to) left a stale handler on `document` for every
+       mount — they accumulated over navigations and dimmed a grid that was not updating. */
+    const opts: AddEventListenerOptions = { capture: false };
+    document.addEventListener("click", onClick, opts);
     return () => {
       window.removeEventListener("sz_nav_start", start);
-      document.removeEventListener("click", onClick, true);
+      document.removeEventListener("click", onClick, opts);
     };
   }, []);
 

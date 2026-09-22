@@ -13,12 +13,15 @@
     "db:seed": "node prisma/seed.js",
     "db:studio": "prisma studio",
     "wa": "node scripts/whatsapp-bridge.js",
+    "wa:worker": "node scripts/wa-worker.js",
     "postinstall": "prisma generate",
     "test": "node scripts/smoke.js",
     "db:push:prod": "prisma db push --schema prisma/schema.prod.prisma",
     "db:seed:prod": "prisma generate --schema prisma/schema.prod.prisma && node prisma/seed.js",
     "admin:passwd": "node scripts/set-admin-password.js",
-    "db:verify": "node scripts/verify-db-migration.js"
+    "db:verify": "node scripts/verify-db-migration.js",
+    "schema:sync": "node scripts/sync-prod-schema.js",
+    "backup": "node scripts/backup.js"
   },
   "dependencies": {
     "@prisma/client": "5.22.0",

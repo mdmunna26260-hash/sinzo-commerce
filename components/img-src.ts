@@ -51,6 +51,18 @@ export const CARD_SIZES =
 export const PDP_WIDTHS = [400, 600, 800, 1000];
 export const PDP_SIZES = `(max-width: 899px) 100vw, calc(52vw - 120px)`;
 
+/* The hero of one PDP is rendered by THREE places, and they have to agree candidate-for-candidate
+   or the browser downloads one file for the preload and a *different* one for the <img> (which is
+   the opposite of a preload — it is pure waste):
+     1. app/products/[slug]/page.tsx   — <link rel="preload"> in the head (server-rendered)
+     2. app/products/[slug]/client.tsx — desktop gallery, shown at >= 900px
+     3. components/mobile-gallery.tsx  — swipe gallery, shown at <= 899px
+   All three therefore read PDP_WIDTHS + PDP_SIZES from here. PDP_SIZES covers both galleries on
+   purpose: its <= 899px branch is exactly the mobile gallery's `100vw`, and its other branch is
+   the desktop gallery's column width. PDP_SRC_WIDTH is the plain `src` every one of them declares
+   for browsers without srcset support — the preload's `href` has to mirror it for the same reason. */
+export const PDP_SRC_WIDTH = 800;
+
 /* small square/portrait thumbs: PDP strip (72px), mobile strip (56px), cart rows (100px),
    checkout lines (52px), order rows (38px), colour swatches (44px) */
 export const THUMB_WIDTHS = [200, 300];

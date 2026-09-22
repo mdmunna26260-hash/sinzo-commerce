@@ -25,7 +25,7 @@ const SECRET = resolveSecret();
 const ALLOW_URL_TOKEN = process.env.AUTH_URL_TOKEN
   ? process.env.AUTH_URL_TOKEN === "1"
   : !IS_PROD;
-export type SessionUser = { id: number; email: string; name: string; role: string; exp: number };
+export type SessionUser = { id: number; email: string; name: string; role: string; exp: number; sv?: number };
 
 export const ROLE_PERMS: Record<string, string[]> = {
   SUPER_ADMIN: ["*"],
@@ -60,12 +60,46 @@ export function verifyToken(token?: string | null): SessionUser | null {
     return user;
   } catch { return null; }
 }
+/* "Log out everywhere" (Admin → Security) bumps User.sessionVersion. A token carrying an older
+   version is dead — that is what makes the button real instead of a promise. Tokens minted
+   before this feature have no `sv` and keep working until they expire (7 days).
+   This check lives here (not only in the cookie path) because API calls can also present the
+   token as `Authorization: Bearer …`: skipping it there would have left a stolen token usable
+   after the owner pressed the button. */
+export async function verifySessionToken(token?: string | null): Promise<SessionUser | null> {
+  const user = verifyToken(token);
+  if (!user) return null;
+  if (user.sv !== undefined) {
+    const u = await db.user.findUnique({ where: { id: user.id }, select: { sessionVersion: true, active: true } }).catch(() => null);
+    if (!u || !u.active || u.sessionVersion !== user.sv) return null;
+  }
+  return user;
+}
 export async function getSessionUser(): Promise<SessionUser | null> {
   const { cookies } = await import("next/headers");
   // primary: httpOnly cookie set by the API · fallback: JS-set cookie for browsers
   // that block Set-Cookie from fetch responses (embedded/preview browsers)
   const c = cookies().get("sz_session") || cookies().get("sz_session_fb");
-  return verifyToken(c?.value);
+  return verifySessionToken(c?.value);
+}
+
+/* ---- second step of admin login (TOTP) ---------------------------------------
+   The password step hands back a short-lived, HMAC-signed ticket instead of a session;
+   nothing is logged in until the 6-digit code checks out. Same secret as the session,
+   so a forged ticket cannot outlive its window or name a different account. */
+export function sessionTicket(userId: number, sv: number, minutes = 5): string {
+  const body = Buffer.from(JSON.stringify({ id: userId, sv, p: "2fa", exp: Date.now() + minutes * 60_000 })).toString("base64url");
+  return body + "." + sign(body);
+}
+export function verifySessionTicket(ticket?: string | null): { id: number; sv: number } | null {
+  if (!ticket || !ticket.includes(".")) return null;
+  const [body, sig] = ticket.split(".");
+  try {
+    if (!crypto.timingSafeEqual(new TextEncoder().encode(sig), new TextEncoder().encode(sign(body)))) return null;
+    const p = JSON.parse(Buffer.from(body, "base64url").toString());
+    if (p.p !== "2fa" || !p.exp || p.exp < Date.now()) return null;
+    return { id: Number(p.id), sv: Number(p.sv) || 0 };
+  } catch { return null; }
 }
 export function sessionCookie(token: string) {
   return { name: "sz_session", value: token, httpOnly: true, sameSite: "lax" as const, secure: IS_PROD, path: "/", maxAge: 60 * 60 * 24 * 7 };
@@ -100,4 +134,18 @@ export function tokenFromRequest(req?: Request): string | null {
   if (auth?.startsWith("Bearer ")) return auth.slice(7);
   if (!ALLOW_URL_TOKEN) return null; // never read the token from the query string in production
   return new URL(req.url).searchParams.get("t");
+}
+
+/* ---- Signed one-click unsubscribe (marketing emails) ----
+   The link in a campaign email carries an HMAC of the address, signed with the same app secret
+   as session tokens. Without it any visitor could unsubscribe any address by guessing it. */
+export function unsubscribeToken(email: string): string {
+  return crypto.createHmac("sha256", SECRET).update(String(email || "").trim().toLowerCase()).digest("hex").slice(0, 32);
+}
+export function verifyUnsubscribe(email: string, k?: string | null): boolean {
+  const want = unsubscribeToken(email);
+  const got = String(k || "");
+  if (got.length !== want.length) return false;
+  const enc = new TextEncoder();
+  try { return crypto.timingSafeEqual(enc.encode(got), enc.encode(want)); } catch { return false; }
 }

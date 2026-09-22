@@ -6,7 +6,8 @@ function csv(rows: any[][]): string {
 }
 export async function GET(req: Request) {
   const type = new URL(req.url).searchParams.get("type") || "orders";
-  const g = await requirePerm(type === "products" ? "products" : "orders");
+  const PERM: Record<string, string> = { products: "products", payments: "orders", waitlist: "products", loyalty: "customers", logs: "settings" };
+  const g = await requirePerm(PERM[type] || "orders", req);
   if ("res" in g) return g.res;
   let rows: any[][] = [];
   if (type === "orders") {
@@ -37,6 +38,18 @@ export async function GET(req: Request) {
   } else if (type === "coupons") {
     const cs = await db.coupon.findMany();
     rows = [["Code", "Type", "Value", "Used", "Limit", "Active"]]; for (const c of cs) rows.push([c.code, c.type, c.value, c.usedCount, c.usageLimit, c.active]);
+  } else if (type === "payments") {
+    const ps = await db.payment.findMany({ include: { order: true }, orderBy: { id: "desc" } });
+    rows = [["When", "Order", "Customer", "Kind", "Method", "Amount", "By", "Note"]];
+    for (const p of ps) rows.push([p.createdAt.toISOString(), p.order?.code, p.order?.name, p.kind, p.method, p.amount, p.createdBy, p.note]);
+  } else if (type === "waitlist") {
+    const ws = await db.waitlist.findMany({ include: { product: true }, orderBy: { id: "desc" } });
+    rows = [["Added", "Product", "Contact", "Note", "Notified"]];
+    for (const w of ws) rows.push([w.createdAt.toISOString(), w.product?.title, w.contact, w.note, w.notifiedAt?.toISOString() || ""]);
+  } else if (type === "loyalty") {
+    const cs = await db.customer.findMany({ orderBy: { points: "desc" } });
+    rows = [["Name", "Phone", "Points", "Referral code", "Referred by", "Rewarded"]];
+    for (const c of cs) rows.push([c.name, c.phone, c.points, c.referralCode, c.referredBy, c.referralRewardedAt?.toISOString() || ""]);
   } else { return new Response("Unknown type", { status: 400 }); }
   return new Response("\ufeff" + csv(rows), { headers: { "Content-Type": "text/csv; charset=utf-8", "Content-Disposition": `attachment; filename="${type}-${Date.now()}.csv"` } });
 }

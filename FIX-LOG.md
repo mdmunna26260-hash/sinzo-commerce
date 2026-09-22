@@ -242,6 +242,254 @@ the first version of this script used `findUnique` on a lower-cased email, misse
 That fallback and a cleanup of the stray row are in. End-to-end: old pass 200 → set new → new 200 /
 old 401 → restore → 200.
 
+## 12 · iPhone: a product needed two taps, and the rails would not swipe (2026-09-22)
+
+Reported from the owner's own phone: "home page ba product page ba you may also like section theke
+product e click korle page open hoy na, 2 bar korte hoy" and "mobile e product swipe korle change
+hoy na". Both were reproductions on a real device, so this entry is written to be read next time a
+touch gesture misbehaves — each cause below is a *class* of bug, not a one-off.
+
+**Why one tap did nothing (three causes, all removed).**
+
+1. **Hover styling on a touch screen.** iOS honours the *first* tap on an element that has
+   something to show on `:hover` — the tap becomes the hover and no `click` is synthesized, so the
+   second tap is the one that navigates. Every hover rule in `globals.css` whose effect moves or
+   repaints the thing under the finger (product card image zoom, collection tiles, `.qadd` circle,
+   `.pdp-add`, review stars, blog images, …) is now inside `@media (hover: hover)`. Desktop is
+   untouched; a phone keeps the plain, always-visible design.
+2. **Double-tap zoom.** The viewport allows zooming (`maximumScale: 5`), so two quick taps can be
+   read as a zoom instead of two clicks. Tappable elements now carry `touch-action: manipulation`
+   — pan and pinch still work, double-tap-to-zoom is off. Card images also refuse the native image
+   drag (`-webkit-user-drag: none`), which can eat the click the same way.
+3. **Entrance animations were moving the tap target.** `.reveal` (JS/IntersectionObserver) and
+   `.sdr` (scroll-driven `view()`) both slide their block up 16–18px while it enters the viewport
+   — exactly when a shopper scrolls a row of products in and taps the first card. WebKit drops the
+   click when the element under the finger has moved, so on touch devices both keep the fade and
+   drop the movement (`@media (hover: none)`, §J2).
+
+Also fixed while in there: `app/products/shop-layout.tsx` added its `document` click listener
+without the capture flag but removed it with `capture: true` — the listener was never detached, so
+one stale handler per visit to `/products` kept dimming (`pointer-events: none`) a grid that was
+not updating.
+
+**Why the swipe did nothing.** The rails relied on native horizontal scrolling with
+`scroll-snap-type: x mandatory` and `touch-action: pan-x pan-y`, i.e. both axes left to the
+browser. On a phone the first few pixels decide the axis: a slightly diagonal thumb swipe is read
+as a page scroll and the rail never moves, and when the browser does take the rail, mandatory snap
+can bounce it back to the page it started on. Now the horizontal axis is ours:
+`components/swipe-rail.ts` (new, shared by the home rails and the PDP "related products" rail)
+drives `scrollLeft` 1:1 with the finger, locks the axis after 6px, advances a page on 18% travel
+or a 0.35px/ms flick, springs back otherwise, and swallows the click that follows a drag.
+`touch-action: pan-y` in CSS keeps the vertical axis native, so the page still scrolls normally.
+The repeated gesture machine is the one already proven in `card-gallery.tsx`; the decision itself
+(`railTarget`) is pure and unit-tested. `card-gallery.tsx` also learned to swallow a click only
+after a *horizontal* drag past 12px, so tap wobble can no longer cancel a tap.
+
+**Verified.** `tsc --noEmit` clean · production `next build` exit 0 · smoke suite 59/0 against the
+dev server · `railTarget` 16/16 (`scripts/_sandbox/rail-test.mjs`) · served CSS re-checked for
+every gated hover rule, the `pan-y` rails and the touch reveal override
+(`scripts/_sandbox/css-audit.mjs`) · home, `/products` and a PDP all 200 with the rails, related
+carousel and 18 product cards rendering. What a sandbox cannot prove is the iPhone itself: the
+gesture/hover heuristics above only exist in WebKit on a touch screen.
+
+## 13 · Photo pagination dots under the image (home · products · PDP) + progress bar off on mobile (2026-09-22)
+
+Owner's reference (a PacSun-style card): one dot per product **photo**, placed **under** the image,
+the current one bigger and dark, the rest small and light, updating as you swipe. Minimal, no
+animation beyond a short colour/size transition.
+
+- **Cards (home rails, `/products` grid, "you may also like")** — the dots used to be painted on
+  top of the photo (5px white / 14px white pill, `.cg-dots`). `.pcard-img` clips its content
+  (`overflow: hidden` — the sliding track needs it), so the row cannot live inside the gallery
+  either: new `components/card-media.tsx` owns the media block, `CardGallery` reports its index up
+  (`onIndexChange`) and the wrapper draws `.pcard-dots`. The row is absolutely positioned inside the
+  14px `.pcard-info` already leaves above the title, so a card with several photos is exactly as
+  tall as its single-photo neighbours and grid rows never go ragged.
+- **PDP (mobile)** — `.mgal-dots` also floated over the photo (7px / 20px dark pill). It is now a
+  normal row between the image and the thumbnail strip with the same sizes as the card dots
+  (6px / 9px), and its hit area is trimmed from ±19px to ±13px so it can overlap neither the photo
+  above nor the thumbnails below. One photo renders no dots (the counter chip covers that case).
+- **Related rail** now receives the product's whole photo list (6-photo cap, same as the grid)
+  instead of only the cover, so its cards can carry dots and the drag gallery too.
+- **Rail dots** (`.crs-dots`) keep their job but adopt the same language — the active page is a
+  bigger dark dot instead of an 18px pill, the inactive ones are lighter.
+- **Dark theme** — the dots now sit on the page background, so the old "dark dots for the light
+  image mat" override is inverted: inactive dots flip to `rgba(255,255,255,.26)`, the active one
+  stays `var(--text)` (light in dark mode).
+- **Progress bar** — `.scroll-progress` is hidden below 900px (the storefront's mobile split) on
+  request: on a phone the 2px line only read as a broken bar under the status bar. Desktop keeps it.
+
+Verified: `tsc --noEmit` clean · production `next build` exit 0 · smoke 59/0 · served HTML and CSS
+re-checked against a dev product carrying three photos (home: 4 dot rows + 4 drag galleries,
+`/products`: 1 + 1, PDP: dots in flow under the image and before the thumb strip). Those two extra
+photos live in `public/uploads/demo/` and exist only in this dev DB — `public/uploads/*` is
+git-ignored, so nothing about them ships.
+
+## 14 · PDP desktop dots below the image — and the "Hydration failed" scare (2026-09-22)
+
+**a) The dev-preview error was a stale build, not the dots.** The owner saw *"Hydration failed
+because the initial UI does not match what was rendered on the server"* (1 of 2 errors) plus the
+storefront's Oops card. The crash reporter (every `app/error.tsx` / `components/safe-section.tsx`
+failure POSTs to `/api/client-error` → `AppLog` + `TrackingEvent`, i.e. Admin → Logs / Tracking)
+had two rows at 16:07:58:
+
+```
+section featured:    Cannot read properties of undefined (reading 'call')
+section bestsellers: Cannot read properties of undefined (reading 'call')
+  at options.factory (…/_next/static/chunks/webpack.js:715)
+```
+
+That is the webpack runtime failing to find a module factory — the chunk *loaded* fine, the module
+id inside it no longer exists. It matches the dev-server log for the same window, where a
+production `next build` had just run over the `.next` of the **live** dev server (500s from
+`webpack-runtime.js`). A prod build overwrites the dev server's webpack runtime, so the open tab
+receives an HTML/JS pair that cannot hydrate → overlay error + root error boundary + the two
+section fallbacks (the sections legitimately disappear because `SafeSection` caught it). After
+`rm -rf .next` + restart the same browser went on to load `/`, `/products`, a PDP and `/cart` with
+zero further reports — no dot markup was involved.
+
+- **Hardening**: the layout's recovery script only watched for *failed* chunk requests; this
+  failure is a request that succeeds and then throws. It now also matches the webpack signature
+  above, reports it (with the bundle filename) to Admin → Logs, and reloads once with the
+  cache-busting `_r` — same one-per-session guard, so a reload loop is impossible.
+- **Ops note**: never run `next build` while a dev server owns that `.next`. Stop the dev server
+  first, then wipe `.next` before starting it again (second time this has hit; the first was the
+  same-day `MODULE_NOT_FOUND './8948.js'`).
+
+**b) Desktop PDP dots now sit under the image too** (owner: *"PDP-র ডেস্কটপেও ছবির নিচে একই ডট"*).
+They used to be white pills floating over the bottom of the photo (8px, active 20px wide with a
+4px radius). They are now the same row as everywhere else — one 6px light dot per photo, the
+current one 9px and `var(--text)`, only a `.18s` colour/size transition.
+
+- `.pdp-gallery-desktop` is `display: contents`, so the row is a grid item of `.pdp-gallery`
+  (`72px` thumbs | photo): `grid-column: 2; grid-row: 2` puts it exactly under the photo while the
+  thumbnail rail keeps column 1 — the same reading order as mobile (photo → dots → thumbs).
+- Desktop means a pointer, so these stay real `role="tab"` buttons (click to jump, Tab + Enter
+  works, visible focus ring); on the cards the dots stay decorative because the whole card is one
+  `<a>`. `::after { inset: -10px -6px }` grows the 6px hit area without touching the photo above or
+  the thumbnails below.
+- Dark theme picks the desktop dots up with the others (inactive `rgba(255,255,255,.26)`).
+- Deleted a leftover liquid-glass override (`rgba(20,20,20,.18)` + `backdrop-filter:none`) that was
+  written for the over-the-photo dots and silently fought `.mgal-dots`' own alpha.
+
+Verified: `tsc --noEmit` clean · production `next build` exit 0 · smoke 59/0 · served HTML on the
+3-photo dev product reads `mobile gallery → main image → gal-dots (3 buttons, 1 active) → thumbs` ·
+served CSS carries the new `.gal-dots` rules, the old absolute/white-pill rule and the stale
+override are gone · all 5 inline scripts pass `node --check` · dev DB back to baseline (ORD-1001
+only, WaMessage 0).
+
+## 15 · The preview's "Oops" card, for real — self-healing that repeats (2026-09-22 late)
+
+The owner's screenshot showed the storefront's Oops card while every server check returned 200
+(`curl` on all routes, and the whole smoke suite). The crash reporter had the answer again:
+
+```
+16:21:02  stale bundle: … (reading 'call') @ webpack.js?v=1790094056174     ← the §14 monitor
+16:21:02  section featured / bestsellers: … (reading 'call')
+16:21:06  after the automatic _r reload   section featured / bestsellers: …   url "/?_r=…"
+16:26:12  clean .next, fresh load         section featured / bestsellers: …
+```
+
+The stack is the tell — it is **not** a failed request:
+
+```
+mountLazyComponent → readChunk → initializeModuleChunk → requireModule → __webpack_require__ → options.factory (undefined)
+```
+
+The Flight payload asks for a module whose chunk the client runtime *already believes* is installed.
+`next dev` reassigns which module lives in which chunk on every recompilation (each newly compiled
+route, each edited file), so a tab that loaded a page before a recompile asks for a chunk it will
+never re-fetch and the module is simply not in it any more. Measured with a probe: chunk **files**
+stay byte-identical across compiles (`app-pages-internals.js` md5 unchanged after compiling four more
+routes) and only the build id moves — so it is the client's in-memory chunk → module map that goes
+stale. That is why no amount of curl/SSR checking can see it, and why only a reload fixes it. The two
+sections that fail are the ones whose client components are lazily mounted (`Carousel` + the cards
+inside it); the same code path is what a deploy produces in a phone's tab (see `app/error.tsx`).
+
+**Why the card stayed on screen**: both recovery paths were one-shot *per tab*.
+- the layout's chunk-error script started with `if (sessionStorage.getItem("sz_chunk_err")) return;`
+  — it had already healed the tab once at 16:21:02, so every later failure was ignored;
+- `app/error.tsx` started with `if (!attempts.includes(key))` — the key was already recorded, so the
+  boundary rendered the card and never retried.
+
+**Fix — same idea in both places, a time-based budget instead of a session-wide flag:**
+- `app/layout.tsx` recovery script: one reload per minute, at most five per tab, and every occurrence
+  is still reported to `/api/client-error` (that report is how this was diagnosed). It now matches the
+  webpack signature (`Cannot read properties of undefined (reading 'call')`) and not just failed chunk
+  requests / import rejections, and it exposes `window.__szHeal` for other components.
+- `app/error.tsx`: up to 3 reloads per error, never two inside 15 s, and an attempt stops counting
+  after 10 minutes — a tab that lives through a later deploy heals again instead of sitting on the card.
+- `components/safe-section.tsx`: when a *section* dies from the same bundle error, it asks the root
+  script to heal, so a half-empty page recovers by itself instead of staying half-empty.
+
+**Executable verification** (runs the real string out of `app/layout.tsx`):
+`node scripts/_sandbox/heal-test.mjs` → **8/8** — heals a stale bundle, keeps the `_r` cache-buster,
+refuses a second reload inside a minute, reloads again after one, caps at 5 per tab, and still reports
+every failure. Plus `tsc --noEmit` clean · production build exit 0 · smoke 59/0 · the served bundles
+carry the new logic (`app/error.js` → budget + TTL, `app/page.js` → the heal hookup), and all inline
+scripts pass `node --check`.
+
+**Ops notes** (both now recorded): never run `next build` while a dev server owns that `.next`; and
+after any restart/rebuild the open tabs must reload — the dev-only watchdog does that automatically
+for the preview (that is what clears the card without anyone clicking).
+
+## 16 · Why the product page kept falling into the Oops card — the "immutable" dev chunks (2026-09-22 night)
+
+Root cause, with a one-line proof:
+
+```
+$ curl -sI http://127.0.0.1:3001/_next/static/chunks/app-pages-internals.js
+Cache-Control: public, max-age=31536000, immutable
+```
+
+That header came from **our own** rule in `next.config.mjs` (`source: "/_next/static/:path*"`), written
+on the production-only assumption in its comment — "hashed filenames". In `next dev` the filenames are
+**not** hashed (`app/page.js`, `app-pages-internals.js`, `main-app.js`, `not-found-boundary.js`,
+`redirect-boundary.js` …) and their **content changes on every recompile**. So any browser that touched
+the dev preview cached those chunks **for a year and never revalidated**:
+
+- after a rebuild (or `rm -rf .next`) the browser kept the old copies while the fresh HTML/flight
+  payload expected the new ones → webpack `options.factory` undefined → sections disappeared, then the
+  route fell into `app/error.tsx` → the Oops card;
+- only the two chunks referenced as `…?v=<build id>` were ever re-fetched (their query changed);
+  everything else came out of the year-long cache. That is why **reloads did not help — not even the
+  automatic `_r` ones added in §15** — and why it hit `/` and `/products/[slug]` in the browser but
+  never in `curl`.
+
+**Fix**
+- `next.config.mjs`: the static-asset rule is now environment-aware — `immutable, max-age=31536000`
+  **only in production** (where Next hashes the names) and `no-store, must-revalidate` in development.
+  Verified by curl: dev chunks (with and without `?v=`) answer `no-store`; prod chunks answer
+  `immutable` and every URL carries a content hash.
+- The preview now runs from a **production build**, so the poisoned URLs can never be reused. A new
+  `distDir` override (`NEXT_DIST_DIR`, default `.next` — Docker/deploys untouched) lets `npm run build`
+  write `.next-prod` **without touching the dev server's `.next`** (sharing one directory is what
+  corrupted builds in §14). Preview = `NEXT_DIST_DIR=.next-prod next start -p 3001`; the dev server
+  used for smoke runs moved to `:3002`. Because production chunk names are content-hashed
+  (`loading-9745a1ccd6968308.js`), a browser holding the old unhashed URLs simply never asks for them
+  again — no cache clearing needed on the owner's side.
+- `.gitignore`: `.next-prod`.
+
+**Test order** (owner's request) — placed through the production preview's own API with the exact
+payload the checkout page sends:
+
+```
+POST /api/checkout → 200 {"ok":true,"code":"ORD-1006","total":970,"risk":"LOW"}
+  Order      ORD-1006 · COD · subtotal 890 + delivery 80 = 970 · INSIDE_DHAKA · PENDING · customerId 6
+  OrderItem  Relaxed Heavyweight Tee (variant #34, S/White) ×1
+  Customer   "Test Customer (Arena)" 01700000099 created
+  WhatsApp   AUTO order-confirm QUEUED → 8801700000099 (no device connected in this sandbox)
+  Tracking   POST /api/track/order {code, phone} → 200 · PENDING · ৳970 · 1 item
+  Success    /order/success?code=ORD-1006 renders the confirmation + invoice link
+  Admin      login 200 · order visible in /api/admin/orders (list + detail), status PENDING
+  Stock      unchanged on purpose — this design deducts stock at DELIVERY (stockDeducted stays false)
+```
+
+Verified: `tsc --noEmit` clean · production build exit 0 · smoke **59/0** (run against the dev server)
+· preview pages 200 with hashed chunk URLs · dev + prod cache headers checked by curl. The §14/§15
+self-healing stays (it is what saves a real deploy in an open tab); with the cache actually fixed it
+should stop being needed in dev.
+
 ## NOT changed — deliberately
 
 - **Checkout pricing**: `POST /api/checkout` already re-loads products and re-prices server-side

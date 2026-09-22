@@ -55,9 +55,9 @@ function CatTile({ c, rd }: { c: any; rd?: number }) {
   );
 }
 
-function Quote({ r, rd }: { r: any; rd?: number }) {
+function Quote({ r, rd, plain }: { r: any; rd?: number; plain?: boolean }) {
   return (
-    <div className="quote2 reveal" style={rd != null ? ({ "--rd": rd } as CSSProperties) : undefined}>
+    <div className={"quote2" + (plain ? "" : " reveal")} style={!plain && rd != null ? ({ "--rd": rd } as CSSProperties) : undefined}>
       <span className="q-mark" aria-hidden>“</span>
       <span className="stars">{"★".repeat(r.rating)}{"☆".repeat(5 - r.rating)}</span>
       <p>{r.text}</p>
@@ -143,8 +143,15 @@ async function HomeContent() {
               imageSrcSet={[600, 1000].map((n) => `${imgSrc(vb(hp.heroImage), n)} ${n}w`).join(", ")}
               imageSizes="100vw"
             />
-            <SmartImg className="hero-img" priority src={vb(hp.heroImage)} alt={cfg.store?.name || "Hero"} sizes="100vw" widths={[600, 1000]} />
+            <div className="hero-media">
+              {/* The <img> keeps its kenburns entrance; this wrapper carries the scroll-driven
+                  parallax, so the two animations never fight over one element. */}
+              <SmartImg className="hero-img" priority src={vb(hp.heroImage)} alt={cfg.store?.name || "Hero"} sizes="100vw" widths={[600, 1000]} />
+            </div>
           </>
+        )}
+        {hp.heroImage && (
+          <div className="hero-cue" aria-hidden><i /><span>Scroll</span></div>
         )}
         <div className="hero-overlay">
           <div className="hero-content">
@@ -240,7 +247,18 @@ async function HomeContent() {
           <div className="grid grid-2q">{reviews.slice(0, 2).map((r, idx) => <Quote key={r.id} r={r} rd={idx % 2} />)}</div>
           <div className="grid grid-2q">{reviews.slice(2, 4).map((r, idx) => <Quote key={r.id} r={r} rd={idx % 2} />)}</div>
         </Carousel>
-        <div className="desktop-only">
+        {/* Desktop marquee: 4+ reviews thakle ekta seamless band — ek set er por hubohu
+            second copy, tai -50% translate korle loop dekha jay na. Duration content er
+            sathe scale kore (per-review ~11s), nohoile kom review e charto cholto.
+            Kom review hole marquee ta meaningless — tokhon grid e fallback. */}
+        {reviews.length >= 4 && (
+          <div className="qmarquee">
+            <div className="qmarquee-track" style={{ animationDuration: `${reviews.length * 11}s` }}>
+              {[...reviews, ...reviews].map((r, i) => <Quote key={"qm" + i} r={r} plain />)}
+            </div>
+          </div>
+        )}
+        <div className={reviews.length >= 4 ? "desktop-only qgrid-fallback" : "desktop-only"}>
           <div className="grid grid-3">
             {reviews.map((r, idx) => <Quote key={r.id} r={r} rd={idx % 3} />)}
           </div>

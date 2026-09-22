@@ -7,7 +7,7 @@ import { detectSource, getClientIp } from "@/lib/ua";
 import { rateLimit } from "@/lib/auth";
 import { orderCode } from "@/lib/slug";
 import { normalizeBDPhone, isValidBDPhone } from "@/lib/phone";
-import { notifyAdmin, emailCustomerOrder, whatsappCustomerOrder } from "@/lib/notify";
+import { notifyAdmin, emailCustomerOrder } from "@/lib/notify";
 
 export const dynamic = "force-dynamic";
 
@@ -127,6 +127,20 @@ export async function POST(req: Request) {
           create: { phone: cleanPhone, name: String(name).trim(), address: String(address).trim(), area, email: email || null },
         });
 
+        /* Referral: the code a friend shared. Attribution happens ONCE, on the customer's first
+           order — the bonus itself only pays out when this order is delivered (lib/loyalty.ts),
+           so a cancelled or returned parcel earns nobody anything. */
+        let referralCode: string | null = null;
+        if (body.referralCode) {
+          const clean = String(body.referralCode).trim().toUpperCase().slice(0, 24);
+          const referrer = await tx.customer.findFirst({ where: { referralCode: clean } });
+          if (referrer && referrer.id !== customer.id && !customer.referredBy) {
+            await tx.customer.update({ where: { id: customer.id }, data: { referredBy: referrer.id } });
+            referralCode = clean;
+          }
+        }
+        if (referralCode) body.attribution = { ...(attribution || {}), referral: referralCode };
+
         // create order
         const order = await tx.order.create({
           data: {
@@ -136,7 +150,7 @@ export async function POST(req: Request) {
             couponCode: appliedCode, paymentMethod: paymentMethod || "COD", paymentStatus: "PENDING",
             status: risk.level === "HIGH" ? "ON_HOLD" : "PENDING",
             riskLevel: risk.level, riskFlags: risk.flags.join(", ") || null,
-            source: detectSource(attribution), attribution: attribution ? JSON.stringify(attribution) : null,
+            source: detectSource(body.attribution || attribution), attribution: (body.attribution || attribution) ? JSON.stringify(body.attribution || attribution) : null,
             channel: deployChannel(),
             ip, customerId: customer.id,
             items: { create: orderItems.map((i) => ({ productId: i.productId, variantId: i.variantId, title: i.title, variant: i.variant, price: i.price, qty: i.qty, image: i.image, preorder: !!i.preorder, preorderDate: i.preorderDate ? new Date(i.preorderDate) : null })) },
@@ -176,8 +190,10 @@ export async function POST(req: Request) {
       customData: { currency: "BDT", value: total, content_type: "product", num_items: orderItems.reduce((a, i) => a + i.qty, 0), contents: orderItems.map((i) => ({ id: String(i.productId), quantity: i.qty, item_price: i.price })) },
     }).catch(() => {});
 
-    // customer order-confirmation WhatsApp (linked device, if enabled)
-    whatsappCustomerOrder(cleanPhone, String(name).trim(), { code, total, area, items: orderItems.map((i) => ({ title: i.title + (i.preorder ? " [Pre-order]" : ""), qty: i.qty, price: i.price })) }).catch(() => {});
+    // customer order-confirmation WhatsApp — written to the outbox here, sent by the worker
+    // (lib/wa-queue → scripts/wa-worker.js, respecting caps/quiet hours/pacing). A blocked
+    // number or a sleeping bridge can never slow this request down.
+    await import("@/lib/wa-queue").then(({ enqueueOrderEvent }) => enqueueOrderEvent(order.id, "order_placed")).catch(() => {});
 
     // customer order-confirmation email (if email given + SMTP configured)
     if (email) {

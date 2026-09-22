@@ -156,10 +156,50 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         ) : null}
       </head>
       <body>
-        <script dangerouslySetInnerHTML={{ __html: `(function(){try{var k="sz_chunk_err";if(sessionStorage.getItem(k))return;var r=function(m){try{sessionStorage.setItem(k,"1");fetch("/api/client-error",{method:"POST",headers:{"Content-Type":"application/json"},keepalive:true,body:JSON.stringify({message:m,url:location.pathname+location.search})}).catch(function(){});}catch(e){}setTimeout(function(){try{var u=new URL(location.href);if(!u.searchParams.has("_r")){u.searchParams.set("_r",String(Date.now()));location.replace(u.toString());return;}}catch(e){}location.reload();},50);};
-window.addEventListener("error",function(e){var s=e&&e.target&&e.target.src||"";if(s&&s.indexOf("/_next/")>-1)r("chunk load fail: "+s.split("/").pop());},true);
-window.addEventListener("unhandledrejection",function(e){var m=String(e&&e.reason&&e.reason.message||e&&e.reason||"");if(m.indexOf("dynamically imported module")>-1||m.indexOf("Loading chunk")>-1||m.indexOf("ChunkLoadError")>-1)r("chunk reject: "+m.slice(0,200));});}catch(e){}})();` }} />
+        <script dangerouslySetInnerHTML={{ __html: `(function(){
+  try{
+    var K="sz_chunk_err", MAX=5, GAP=60000;
+    /* A rebuilt bundle under an open tab is the one crash we cannot prevent: the page in memory
+       asks for a module that no longer exists in the chunk it loads and webpack throws
+       "Cannot read properties of undefined (reading 'call')". This used to be handled once per
+       tab, so a tab that had already been healed once sat on a half-broken page (or the Oops
+       card) afterwards. Now the reload budget is time-based: one reload per minute, at most five
+       per tab — enough to walk out of any rebuild or deploy, never a reload loop. */
+    var used=function(){try{return JSON.parse(sessionStorage.getItem(K)||"null")||{n:0,at:0};}catch(e){return {n:0,at:0};}};
+    var heal=function(m){
+      try{ fetch("/api/client-error",{method:"POST",headers:{"Content-Type":"application/json"},keepalive:true,
+             body:JSON.stringify({message:m,url:location.pathname+location.search})}).catch(function(){}); }catch(e){}
+      var s=used(), now=Date.now();
+      if(s.n>=MAX||now-(s.at||0)<GAP) return;            /* budget spent — leave the page alone */
+      try{ sessionStorage.setItem(K,JSON.stringify({n:s.n+1,at:now})); }catch(e){}
+      setTimeout(function(){
+        try{var u=new URL(location.href);
+            if(!u.searchParams.has("_r")){u.searchParams.set("_r",String(Date.now()));location.replace(u.toString());return;}}catch(e){}
+        location.reload();
+      },50);
+    };
+    /* components/safe-section.tsx catches a section-level failure so the rest of the page can
+       still render — but if that failure is the bundle itself, the section would just vanish.
+       Expose the heal so a missing section can also walk the tab back to a consistent build. */
+    window.__szHeal=heal;
+    window.addEventListener("error",function(e){
+      var s=e&&e.target&&e.target.src||"";
+      if(s&&s.indexOf("/_next/")>-1){ heal("chunk load fail: "+s.split("/").pop()); return; }
+      var m=String(e&&e.message||"");
+      if(m.indexOf("reading 'call'")>-1) heal("stale bundle: "+m.slice(0,120)+" @ "+String(e&&e.filename||"").split("/").pop());
+    },true);
+    window.addEventListener("unhandledrejection",function(e){
+      var m=String(e&&e.reason&&e.reason.message||e&&e.reason||"");
+      if(m.indexOf("dynamically imported module")>-1||m.indexOf("Loading chunk")>-1||m.indexOf("ChunkLoadError")>-1) heal("chunk reject: "+m.slice(0,200));
+    });
+  }catch(e){}
+})();` }} />
         <CartProvider>
+        {/* Reading-progress bar for the whole storefront. `animation-timeline: scroll(root)` in
+            globals.css drives it — no JS scroll listener, and browsers without the feature never
+            show it (display:none until @supports matches). The admin panel has its own layout and
+            is excluded by `body:has(.admin-body)`. */}
+        <div className="scroll-progress" aria-hidden />
         {children}
         <BottomNav />
         </CartProvider>

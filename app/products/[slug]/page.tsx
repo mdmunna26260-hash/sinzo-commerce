@@ -3,11 +3,12 @@ import { notFound } from "next/navigation";
 import { clean } from "@/lib/search";
 import { db } from "@/lib/db";
 import { getSettings, publicSettings } from "@/lib/settings";
+import { readPolicy } from "@/lib/policy";
 import { getCategories } from "@/lib/catalog";
 import { Header, Footer, Announcement } from "@/components/chrome";
 import { ProductCard } from "@/components/parts";
 
-import { imgSrc } from "@/components/img-src";
+import { imgSrc, PDP_WIDTHS, PDP_SIZES, PDP_SRC_WIDTH } from "@/components/img-src";
 import ProductPageClient from "./client";
 import ProductPageReviewForm from "./review-form";
 import RecentlyViewedServer from "@/components/recently-viewed-server";
@@ -85,8 +86,11 @@ export default async function PDP({ params, searchParams }: { params: { slug: st
 
   const s = await getSettings();
   const cfg = publicSettings(s);
+  const pol = readPolicy(s);
   const cats = await getCategories();
-  const relSelect = { id: true, title: true, slug: true, price: true, comparePrice: true, stock: true, badge: true, isNew: true, isBestSeller: true, categoryId: true, preorder: true, images: { select: { url: true, alt: true }, take: 1 }, variants: { select: { size: true, stock: true } } } as const;
+  /* `images` is capped at 6 (same as the /products grid): the card draws its own photo dots and
+     drag gallery, so the rail needs the whole photo list, not just the cover. */
+  const relSelect = { id: true, title: true, slug: true, price: true, comparePrice: true, stock: true, badge: true, isNew: true, isBestSeller: true, categoryId: true, preorder: true, images: { select: { url: true, alt: true }, orderBy: { position: "asc" }, take: 6 }, variants: { select: { size: true, stock: true } } } as const;
   const sizesOf = (r: typeof related[number]) => Array.from(new Set((r.variants || []).filter((v) => (r.preorder ? !!v.size : v.stock > 0 && v.size)).map((v) => v.size!))).sort((a, b) => {
     const na = Number(a), nb = Number(b);
     if (!Number.isNaN(na) && !Number.isNaN(nb)) return na - nb;
@@ -104,9 +108,77 @@ export default async function PDP({ params, searchParams }: { params: { slug: st
   const variantStock = p.variants.reduce((sum, v) => sum + v.stock, 0);
   const totalStock = Math.max(p.stock, variantStock);
 
-  // JSON-LD (schema.org Product) → price/stock/review stars in Google results
+  // JSON-LD (schema.org Product) → price/stock/review stars in Google results.
+  // Shape follows Google's Merchant listing spec (checked against
+  // developers.google.com/search/docs/appearance/structured-data/merchant-listing, updated
+  // 2026-09-08). Three things in here used to be invisible to Google:
+  //   · `shippingDetails` / `hasMerchantReturnPolicy` were sitting on Product. Google reads them
+  //     from the OFFER — at Product level they are ignored, so the shipping and free-returns
+  //     annotations never had anything to read.
+  //   · the strikethrough price used `PriceSpecification.previousPrice`, which is not a
+  //     schema.org property; the supported form is a UnitPriceSpecification carrying
+  //     `priceType: https://schema.org/StrikethroughPrice`.
+  //   · `shippingRate` was a `ShippingRateSettings` with a `label`. It must be a
+  //     MonetaryAmount with a numeric `value` + `currency`, and it must carry the real courier
+  //     charge, or Google treats the whole shipping block as unusable.
   const siteBase = (process.env.NEXT_PUBLIC_SITE_URL || "https://sinzooffcial.com").replace(/\/$/, "");
   const absImg = (u?: string) => (u ? (u.startsWith("http") ? u : siteBase + u) : undefined);
+
+  /* The admin types delivery windows as free text ("1-2 days"), Google wants min/max day counts.
+     No number in the string → the widest sensible window; never emit NaN. */
+  const dayRange = (raw?: unknown): [number, number] => {
+    const m = String(raw || "").match(/(\d+)\s*(?:-|–|—|to)\s*(\d+)/i);
+    if (m) return [Number(m[1]), Number(m[2])];
+    const one = String(raw || "").match(/(\d+)/);
+    return one ? [Number(one[1]), Number(one[1])] : [1, 3];
+  };
+  const deliveryTime = (est: unknown) => {
+    const [min, max] = dayRange(est);
+    return {
+      "@type": "ShippingDeliveryTime",
+      // handlingTime = our own packing time, transitTime = the courier's, so the two never
+      // get conflated with whatever the estimate string happens to say
+      handlingTime: { "@type": "QuantitativeValue", minValue: 0, maxValue: 1, unitCode: "DAY" },
+      transitTime: { "@type": "QuantitativeValue", minValue: min, maxValue: max, unitCode: "DAY" },
+    };
+  };
+  /* A rate we can actually state. Null (field never configured / not a number) → that
+     destination is left out entirely rather than advertising a shipping price we don't know —
+     an invented "৳0" would read as free delivery country-wide. */
+  const money = (v: unknown) => {
+    const n = typeof v === "string" ? Number(v) : v;
+    return typeof n === "number" && Number.isFinite(n) && n >= 0
+      ? { "@type": "MonetaryAmount", value: String(Math.round(n)), currency: "BDT" }
+      : null;
+  };
+  /* Two rates exist (inside Dhaka vs everywhere else). Google takes both as separate
+     configurations and the more specific one — the Dhaka region — wins for Dhaka addresses.
+     The free-over-threshold promise can't be expressed here: shippingRate has no subtotal
+     condition, so the cart and PDP totals blocks remain the only place that says it. */
+  const rateInside = money(s.shipping?.insideDhaka);
+  const rateOutside = money(s.shipping?.outsideDhaka);
+  const shippingDetails = [
+    ...(rateInside ? [{
+      "@type": "OfferShippingDetails",
+      shippingRate: rateInside,
+      shippingDestination: [{ "@type": "DefinedRegion", addressCountry: "BD", addressRegion: ["Dhaka"] }],
+      deliveryTime: deliveryTime(s.shipping?.estimateInside),
+    }] : []),
+    ...(rateOutside ? [{
+      "@type": "OfferShippingDetails",
+      shippingRate: rateOutside,
+      shippingDestination: [{ "@type": "DefinedRegion", addressCountry: "BD" }],
+      deliveryTime: deliveryTime(s.shipping?.estimateOutside),
+    }] : []),
+  ];
+  const onSale = !!(p.comparePrice && p.comparePrice > p.price);
+  const saleEnd = p.saleEnds && p.saleEnds.getTime() > Date.now() ? p.saleEnds : null;
+  // Google's sale-duration rule: when `price` on the Offer is the discounted price, the window
+  // goes on the Offer itself (`validThrough` / `priceValidUntil`) — not on the priceSpecification,
+  // where `priceValidUntil` doesn't apply at all. A live flash sale therefore sets the expiry;
+  // everything else keeps the rolling 60-day window.
+  const priceValidUntil = (saleEnd || new Date(Date.now() + 1000 * 60 * 60 * 24 * 60)).toISOString().slice(0, 10);
+
   const jsonLd: Record<string, unknown> = {
     "@context": "https://schema.org",
     "@type": "Product",
@@ -114,7 +186,9 @@ export default async function PDP({ params, searchParams }: { params: { slug: st
     // clean(): the raw DB string has trailing whitespace and newlines, which show up
     // verbatim in Google's snippet and in the JSON-LD preview tool
     description: clean(p.shortDesc || (p.description ? p.description.slice(0, 300) : "")) || clean(p.title),
-    image: p.images?.[0]?.url ? [absImg(p.images[0].url)] : [],
+    // every image in the gallery, in the order the page shows them — Google's merchant listing
+    // recommendation is multiple images (it prefers having 1:1 and 4:3 crops to choose from)
+    image: (p.images || []).map((i) => absImg(i.url)).filter(Boolean).slice(0, 8),
     sku: p.sku || undefined,
     url: siteBase + "/products/" + p.slug,
     brand: { "@type": "Brand", name: s.store?.name || "SINZO" },
@@ -122,36 +196,40 @@ export default async function PDP({ params, searchParams }: { params: { slug: st
       "@type": "Offer",
       priceCurrency: "BDT",
       price: String(p.price),
+      itemCondition: "https://schema.org/NewCondition",
       availability: p.preorder
         ? "https://schema.org/PreOrder"
         : totalStock > 0 ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
       url: siteBase + "/products/" + p.slug,
-      priceValidUntil: new Date(Date.now() + 1000 * 60 * 60 * 24 * 60).toISOString().slice(0, 10),
-      ...(p.comparePrice && p.comparePrice > p.price ? {
+      priceValidUntil,
+      // sale price: the Offer's `price` above is the discounted one, so the struck-through
+      // original is declared as the strikethrough price type (Google supports no other value)
+      ...(onSale ? {
         priceSpecification: {
-          "@type": "PriceSpecification",
-          price: String(p.price), priceCurrency: "BDT",
-          previousPrice: String(p.comparePrice),
-          valueAddedTaxIncluded: false,
+          "@type": "UnitPriceSpecification",
+          priceType: "https://schema.org/StrikethroughPrice",
+          price: String(p.comparePrice),
+          priceCurrency: "BDT",
         },
-        ...(p.saleEnds ? { validFor: { "@type": "QuantitativeValue", maxValue: Math.max(0, Math.round((new Date(p.saleEnds).getTime() - Date.now()) / 86400000)) }, unitText: "DAY" } : {}),
       } : {}),
       ...(p.preorder && p.preorderDate ? { availabilityStarts: new Date(p.preorderDate).toISOString().slice(0, 10) } : {}),
-    },
-    ...(s.shipping?.estimateInside || s.shipping?.insideDhaka != null ? {
-      shippingDetails: {
-        "@type": "OfferShippingDetails",
-        shippingDestination: { "@type": "DefinedRegion", addressCountry: "BD" },
-        shippingRate: { "@type": "ShippingRateSettings", shippingRateCurrency: "BDT", label: "BDT" },
+      ...(shippingDetails.length ? { shippingDetails } : {}),
+      /* Return terms come from admin → Policies (lib/policy.ts), the same values the /returns
+         page prints — Google requires the marked-up policy to be the one the site actually
+         shows, and this is the only way the two can't drift apart. `merchantReturnLink` is the
+         recommended pointer at that page. */
+      hasMerchantReturnPolicy: {
+        "@type": "MerchantReturnPolicy",
+        applicableCountry: "BD",
+        returnPolicyCategory: "https://schema.org/MerchantReturnFiniteReturnWindow",
+        merchantReturnDays: pol.returnDays,
+        returnMethod: "https://schema.org/ReturnByMail",
+        // ReturnFeesCustomerResponsibility (not ReturnShippingFees) is the value for "the buyer
+        // arranges and pays the return courier" — the latter would additionally require a
+        // returnShippingFeesAmount we have no number for.
+        returnFees: pol.freeReturnCourier ? "https://schema.org/FreeReturn" : "https://schema.org/ReturnFeesCustomerResponsibility",
+        merchantReturnLink: siteBase + "/returns",
       },
-    } : {}),
-    hasMerchantReturnPolicy: {
-      "@type": "MerchantReturnPolicy",
-      applicableCountry: "BD",
-      returnPolicyCategory: "https://schema.org/MerchantReturnFiniteReturnWindow",
-      merchantReturnDays: 7,
-      returnMethod: "https://schema.org/ReturnByMail",
-      returnFees: "https://schema.org/FreeReturn",
     },
   };
   if (p.sku) jsonLd.sku = p.sku;
@@ -163,6 +241,18 @@ export default async function PDP({ params, searchParams }: { params: { slug: st
       bestRating: "5",
       worstRating: "1",
     };
+    /* The individual reviews too: `aggregateRating` produces the stars, `review` is what Google
+       can quote as snippet text. These are exactly the reviews rendered in the section further
+       down this page — markup for a rating that isn't visible on the page is a policy violation,
+       so the array stays tied to that same approved, newest-first list. Capped at 10 only to keep
+       the payload small; `reviewCount` above still counts every approved review. */
+    jsonLd.review = p.reviews.slice(0, 10).map((r) => ({
+      "@type": "Review",
+      reviewRating: { "@type": "Rating", ratingValue: r.rating, bestRating: 5, worstRating: 1 },
+      author: { "@type": "Person", name: clean(r.name) || "Customer" },
+      datePublished: new Date(r.createdAt).toISOString().slice(0, 10),
+      reviewBody: clean(r.text).slice(0, 1000),
+    }));
   }
 
   const first = p.images?.[0]?.url;
@@ -174,10 +264,17 @@ export default async function PDP({ params, searchParams }: { params: { slug: st
         <link
           rel="preload"
           as="image"
-          href={pv(first, 1000)}
-          /* must match the gallery's srcset/sizes exactly, or the preload is wasted bandwidth */
-          imageSrcSet={[600, 1000, 1200].map((w) => `${pv(first, w)} ${w}w`).join(", ")}
-          imageSizes="(max-width: 900px) 100vw, 45vw"
+          /* These three props MUST describe the same candidate set the galleries render, or the
+             browser preloads one file and then requests another. They used to drift three ways:
+             widths [600,1000,1200] against the galleries' [400,600,800,1000], `45vw` against the
+             desktop column's calc(52vw - 120px), and a 900px breakpoint against the galleries'
+             899px — so a 390px phone at DPR 3 preloaded w1200 and then displayed w1000, and a
+             1440px desktop at DPR 1 preloaded w1000 and displayed w800. Both galleries and this
+             preload now read PDP_WIDTHS / PDP_SIZES / PDP_SRC_WIDTH from components/img-src.ts,
+             so they can only ever move together. */
+          href={pv(first, PDP_SRC_WIDTH)}
+          imageSrcSet={PDP_WIDTHS.map((w) => `${pv(first, w)} ${w}w`).join(", ")}
+          imageSizes={PDP_SIZES}
           fetchPriority="high"
         />
       )}
@@ -215,8 +312,9 @@ export default async function PDP({ params, searchParams }: { params: { slug: st
           sizeChartHtml={p.category?.sizeChart || null}
           colorFamily={colorFamily}
         />
-        {/* Reviews */}
-        <section className="reviews">
+        {/* Reviews — the first block past the fold on a PDP, and the one surface that had no
+            entrance at all. `.sdr` drives it from a CSS view() timeline (see globals.css §J). */}
+        <section className="reviews sdr">
           <div className="section-head">
             <div><div className="eyebrow">Customer feedback</div><h2>Reviews ({p.reviews.length})</h2></div>
             {avgRating > 0 && <div style={{ fontSize: 15 }}>{"★".repeat(Math.round(avgRating))}<span style={{ color: "var(--muted)" }}> {avgRating.toFixed(1)} / 5</span></div>}
@@ -261,7 +359,7 @@ export default async function PDP({ params, searchParams }: { params: { slug: st
               {Array.from({ length: Math.ceil(Math.min(related.length, 40) / 4) }, (_, pi) => (
                 <div className="rel-page" key={pi}>
                   {related.slice(pi * 4, pi * 4 + 4).map((r) => (
-                    <ProductCard key={r.id} p={{ id: r.id, title: r.title, slug: r.slug, price: r.price, comparePrice: r.comparePrice, image: r.images?.[0]?.url, stock: r.stock, badge: r.badge, isNew: r.isNew, isBestSeller: r.isBestSeller, preorder: r.preorder, sizes: sizesOf(r) }} />
+                    <ProductCard key={r.id} p={{ id: r.id, title: r.title, slug: r.slug, price: r.price, comparePrice: r.comparePrice, image: r.images?.[0]?.url, images: (r.images || []).map((i) => i.url), stock: r.stock, badge: r.badge, isNew: r.isNew, isBestSeller: r.isBestSeller, preorder: r.preorder, sizes: sizesOf(r) }} />
                   ))}
                 </div>
               ))}
@@ -278,7 +376,7 @@ export default async function PDP({ params, searchParams }: { params: { slug: st
           {/* DESKTOP: compact 4-col grid (normal product card size) */}
           <div className="grid grid-4 desktop-only">
             {related.map((r) => (
-              <ProductCard key={r.id} p={{ id: r.id, title: r.title, slug: r.slug, price: r.price, comparePrice: r.comparePrice, image: r.images?.[0]?.url, stock: r.stock, badge: r.badge, isNew: r.isNew, isBestSeller: r.isBestSeller, preorder: r.preorder, sizes: sizesOf(r) }} />
+              <ProductCard key={r.id} p={{ id: r.id, title: r.title, slug: r.slug, price: r.price, comparePrice: r.comparePrice, image: r.images?.[0]?.url, images: (r.images || []).map((i) => i.url), stock: r.stock, badge: r.badge, isNew: r.isNew, isBestSeller: r.isBestSeller, preorder: r.preorder, sizes: sizesOf(r) }} />
             ))}
           </div>
         </section>

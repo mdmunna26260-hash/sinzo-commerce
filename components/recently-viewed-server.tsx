@@ -20,7 +20,7 @@ export default function RecentlyViewedServer({ currentId }: { currentId: number 
   if (!mounted || !items.length) return null;
 
   return (
-    <section className="section" style={{ paddingTop: 10 }}>
+    <section className="section sdr" style={{ paddingTop: 10 }}>
       <div className="section-head"><div><div className="eyebrow">Your history</div><h2>Recently Viewed</h2></div></div>
       <div className="recent-strip">
         {items.map((item) => (

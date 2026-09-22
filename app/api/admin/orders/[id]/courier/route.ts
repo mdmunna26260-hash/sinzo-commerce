@@ -21,6 +21,10 @@ export async function POST(req: Request, { params }: Ctx) {
     if (order.email) {
       emailCustomerStatus(order.email, order.name, { code: order.code, total: order.total, area: order.area, courierName: "Steadfast" }, "in_review").catch(() => {});
     }
+    // consignment created = parcel left the shop → queued "shipped" WhatsApp (worker sends it)
+    if (order.status !== "ON_HOLD") {
+      await import("@/lib/wa-queue").then(({ enqueueOrderEvent }) => enqueueOrderEvent(order.id, "order_shipped")).catch(() => {});
+    }
     return NextResponse.json({ ok: true, consignment: r.data });
   }
   return NextResponse.json({ ok: false, configured: r.configured, error: r.error }, { status: r.configured ? 502 : 400 });
@@ -39,9 +43,13 @@ export async function GET(req: Request, { params }: Ctx) {
     await db.order.update({ where: { id: order.id }, data: { courierStatus: newStatus, courierTracking: JSON.stringify(r.data) } }).catch(() => {});
     if (r.data?.delivery_status === "delivered") {
       await db.order.update({ where: { id: order.id }, data: { status: "DELIVERED", paymentStatus: "PAID" } }).catch(() => {});
+      await import("@/lib/wa-queue").then(({ enqueueOrderEvent }) => enqueueOrderEvent(order.id, "order_delivered")).catch(() => {});
       // Stock: minus exactly once, here — on Steadfast "delivered".
       // Atomic claim (Order.stockDeducted) makes repeated syncs race-safe.
       await applyDeliveryStockDeduction(order.id, order.code).catch(() => {});
+      // courier-confirmed delivery is the same event as a manual one: points + review ask
+      const { onOrderDelivered } = await import("@/lib/on-delivered");
+      await onOrderDelivered(order.id).catch(() => {});
     }
     // customer email on rider pickup / in transit (only on transition, never repeats)
     if (order.email && newStatus && beforeStatus !== newStatus && ["picked_up", "in_transit"].includes(String(newStatus))) {

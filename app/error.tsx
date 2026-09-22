@@ -5,18 +5,38 @@ import { useEffect } from "react";
    Most common cause on phones: a deploy happened while the tab was open —
    the cached page references old JS chunks that no longer exist → hydration/
    navigation throws. One automatic hard reload (cache-busting _r= param)
-   recovers silently; repeated failures show the friendly retry card. */
+   recovers silently; repeated failures show the friendly retry card.
+
+   The budget is per error AND time-based: up to 3 reloads, never two inside 15s, and an attempt
+   stops counting after 10 minutes — a tab that lives through a later deploy heals again instead
+   of sitting on this card forever. (Verified live: the dev preview used to stay stuck on this card
+   after a rebuild, because the same error key had already been recorded once in the session.) */
+const KEY = "sz_err_reload";
+const MAX = 3;        // reloads per error, per tab
+const GAP = 15_000;   // never reload twice inside 15s
+const TTL = 600_000;  // an attempt older than 10 min no longer counts against the budget
+
+type Attempt = { k: string; at: number };
+
+function attempts(): Attempt[] {
+  try {
+    const raw = JSON.parse(sessionStorage.getItem(KEY) || "[]");
+    if (!Array.isArray(raw)) return [];
+    return raw
+      .map((a: unknown) => (typeof a === "string" ? { k: a, at: 0 } : (a as Attempt)))  // pre-2026-09 format
+      .filter((a) => a && typeof a.k === "string" && Date.now() - (a.at || 0) < TTL);
+  } catch { return []; }
+}
+
 export default function Error({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
   useEffect(() => {
     console.error("Client error:", error);
-    let attempts: string[] = [];
-    try { attempts = JSON.parse(sessionStorage.getItem("sz_err_reload") || "[]"); } catch {}
     const key = error?.digest || error?.message?.slice(0, 80) || "unknown";
-    if (!attempts.includes(key)) {
-      try {
-        attempts.push(key);
-        sessionStorage.setItem("sz_err_reload", JSON.stringify(attempts.slice(-3)));
-      } catch {}
+    const seen = attempts();
+    const mine = seen.filter((a) => a.k === key);
+    const last = mine.reduce((m, a) => Math.max(m, a.at || 0), 0);
+    if (mine.length < MAX && Date.now() - last > GAP) {
+      try { sessionStorage.setItem(KEY, JSON.stringify([...seen, { k: key, at: Date.now() }].slice(-12))); } catch {}
       try {
         const u = new URL(window.location.href);
         if (!u.searchParams.has("_r")) { u.searchParams.set("_r", String(Date.now())); window.location.replace(u.toString()); return; }

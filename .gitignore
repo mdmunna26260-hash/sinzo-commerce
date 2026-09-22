@@ -29,3 +29,19 @@ public/uploads/*
 .DS_Store
 *.tsbuildinfo
 backup/
+
+# database backups written by admin → Backup (never commit customer data)
+/backups
+
+# WhatsApp multi-device sessions (keys NEVER in the repo)
+.wa-auth/
+
+# sandbox-only Prisma regen copy (blocked engine download workaround)
+prisma/_sandbox.prisma
+
+# sandbox-only dev tooling (stub bridge, harnesses, DB builder) — never shipped
+scripts/_sandbox/
+
+# WhatsApp broadcast uploads (runtime, machine-local)
+public/uploads/wa/
+.next-prod

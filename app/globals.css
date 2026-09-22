@@ -11,6 +11,15 @@
   --font-head: 'Didot', 'Bodoni MT', 'Playfair Display', Georgia, serif;
   --font-body: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
   --container: 1440px;
+
+  /* One glass recipe for the frosted surfaces that sit next to each other.
+     The mobile sticky header and the dropdown it opens are adjacent (the panel is
+     `top: 100%` of the header, with rounded bottom corners) and are meant to read as ONE
+     surface — so they must not drift apart in tint, blur radius or saturation. Both now
+     read these three, which is why they can only ever move together. */
+  --glass-blur: 20px;
+  --glass-sat: 1.8;
+  --glass-bg: rgba(250, 249, 247, .66);
 }
 * { box-sizing: border-box; margin: 0; padding: 0; }
 html { scroll-behavior: smooth; }
@@ -33,10 +42,10 @@ h1, h2, h3, .serif { font-family: var(--font-head); font-weight: 500; letter-spa
   padding: 13px 28px; font-size: 12px; letter-spacing: 0.18em; text-transform: uppercase;
   border-radius: var(--radius); transition: all .18s ease; min-height: 46px;
 }
-.btn:hover { opacity: 0.86; }
+@media (hover: hover) { .btn:hover { opacity: 0.86; } }
 .btn:disabled { opacity: 0.45; cursor: not-allowed; }
 .btn-outline { background: transparent; color: var(--text); }
-.btn-outline:hover { background: var(--text); color: var(--bg); opacity: 1; }
+@media (hover: hover) { .btn-outline:hover { background: var(--text); color: var(--bg); opacity: 1; } }
 .btn-accent { background: var(--accent); border-color: var(--accent); color: #fff; }
 .btn-sm { padding: 8px 16px; min-height: 36px; font-size: 11px; }
 .link-underline { border-bottom: 1px solid var(--text); padding-bottom: 2px; font-size: 12px; letter-spacing: .14em; text-transform: uppercase; }
@@ -64,9 +73,10 @@ h1, h2, h3, .serif { font-family: var(--font-head); font-weight: 500; letter-spa
   display: none; flex-direction: column;
   position: absolute; top: 100%; left: 0; right: 0;
   padding: 6px 24px 20px;
-  background: rgba(255, 255, 255, 0.62);
-  -webkit-backdrop-filter: blur(20px) saturate(1.9);
-  backdrop-filter: blur(20px) saturate(1.9);
+  /* same recipe as the header above it — see --glass-* in :root */
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
   border-radius: 0 0 28px 28px;
   box-shadow: 0 18px 44px rgba(20, 18, 12, 0.14);
   pointer-events: none;
@@ -74,6 +84,26 @@ h1, h2, h3, .serif { font-family: var(--font-head); font-weight: 500; letter-spa
 .mobile-nav a { font-size: 13px; letter-spacing: .14em; text-transform: uppercase; padding: 12px 0; }
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
   .mobile-nav { background: #faf9f7; }
+}
+
+/* WebKit only: an ancestor with backdrop-filter disables a child's, so the header and the
+   panel it opens cannot BOTH be frosted there. Frosting one and leaving the other flat puts the
+   seam exactly where the two surfaces meet, so instead both step down to the same flat glass
+   while the menu is open — consistent, whichever pair of values the engine can render.
+   Chrome/Edge/Safari-with-the-fix keep the full identical 20px frost on both.
+   `-webkit-named-image` is a Safari-only feature test; if it ever stops matching, WebKit falls
+   back to today's behaviour and nothing else changes. */
+@supports (background: -webkit-named-image(i)) {
+  @media (max-width: 900px) {
+    .header:has(.mobile-nav.open),
+    .mobile-nav.open {
+      -webkit-backdrop-filter: none !important;
+      backdrop-filter: none !important;
+      background: rgba(250, 249, 247, .97) !important;
+    }
+    :root[data-theme="dark"] .header:has(.mobile-nav.open),
+    :root[data-theme="dark"] .mobile-nav.open { background: #131210 !important; }
+  }
 }
 
 .search-hint { padding: 12px 14px; font-size: 12px; color: var(--muted); }
@@ -98,8 +128,26 @@ h1, h2, h3, .serif { font-family: var(--font-head); font-weight: 500; letter-spa
 /* product card */
 .pcard { position: relative; }
 .pcard-img { position: relative; overflow: hidden; aspect-ratio: var(--img-ratio, 3 / 4); background: #eee9e2; border-radius: var(--radius); }
-.pcard-img img { width: 100%; height: 100%; object-fit: cover; transition: transform .6s ease; }
-.pcard:hover .pcard-img img { transform: scale(1.05); }
+.pcard-img img { width: 100%; height: 100%; object-fit: cover; transition: transform .6s ease; -webkit-user-drag: none; }
+/* Card media: the photo box plus the image pagination dots that hang UNDER the image.
+   ONE dot per photo — the current one bigger and dark, the others small and light.
+   `.pcard-info` already leaves 14px above the title, so the row is absolutely positioned inside
+   that gap: a card with several photos stays exactly as tall as its single-photo neighbours and
+   the grid never goes ragged. It cannot live inside `.pcard-img` — that box clips its content
+   (components/card-media.tsx draws the row and explains why). */
+.pcard-media { position: relative; }
+.pcard-dots {
+  position: absolute; left: 0; right: 0; bottom: -11px;
+  display: flex; align-items: center; justify-content: center; gap: 5px;
+  pointer-events: none;              /* the whole card is the link — the dots are decoration */
+}
+.pcard-dots i {
+  display: block; width: 5px; height: 5px; border-radius: 99px;
+  background: rgba(20, 20, 20, .22);
+  transition: background .18s ease, width .18s ease, height .18s ease;
+}
+.pcard-dots i.on { width: 8px; height: 8px; background: var(--text); }
+@media (hover: hover) { .pcard:hover .pcard-img img { transform: scale(1.05); } }
 .pcard-badges { position: absolute; top: 0; left: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 5px; z-index: 3; }
 /* Unified badge chip — matches reference look (small light chip, dark text, top-left, no border) */
 .badge { display: inline-block; background: #f7f5f1; color: #17150f; font-size: 10px; letter-spacing: .02em; padding: 4px 9px; border-radius: 4px; font-weight: 600; line-height: 1.2; }
@@ -116,7 +164,7 @@ h1, h2, h3, .serif { font-family: var(--font-head); font-weight: 500; letter-spa
 /* collection tile */
 .ctile { position: relative; overflow: hidden; aspect-ratio: 4/5; background: #e9e4dc; }
 .ctile img { width: 100%; height: 100%; object-fit: cover; transition: transform .7s ease; }
-.ctile:hover img { transform: scale(1.06); }
+@media (hover: hover) { .ctile:hover img { transform: scale(1.06); } }
 .ctile-label { position: absolute; inset: auto 0 0 0; padding: 60px 24px 22px; background: linear-gradient(transparent, rgba(0,0,0,.55)); color: #fff; }
 .ctile-label h3 { font-size: 24px; }
 .ctile-label span { font-size: 11px; letter-spacing: .18em; text-transform: uppercase; opacity: .85; }
@@ -233,7 +281,7 @@ h1, h2, h3, .serif { font-family: var(--font-head); font-weight: 500; letter-spa
 .pdp-main-img .pdp-img.hz { transform: scale(1.9); cursor: crosshair; transition: transform .12s ease-out; } /* arrows hidden — swipe + thumbnails + lightbox handle navigation */
 .gal-count { position: absolute; bottom: 12px; left: 12px; background: rgba(255,255,255,.92); font-size: 11px; letter-spacing: .12em; padding: 4px 12px; border-radius: 99px; z-index: 3; color: var(--text); }
 .gal-zoom { position: absolute; top: 12px; right: 12px; width: 40px; height: 40px; border-radius: 99px; background: rgba(255,255,255,.94); border: 1px solid var(--line); color: var(--text); display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 3; transition: background .2s ease, transform .2s ease; }
-.gal-zoom:hover { background: #fff; transform: scale(1.06); }
+@media (hover: hover) { .gal-zoom:hover { background: #fff; transform: scale(1.06); } }
 
 /* lightbox */
 .lightbox { position: fixed; inset: 0; background: rgba(250,249,247,.98); z-index: 120; display: flex; align-items: center; justify-content: center; animation: lbfade .2s ease; }
@@ -546,15 +594,16 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 13.5px; }
   .kpis { grid-template-columns: repeat(2, 1fr); }
 }
 @media (max-width: 900px) {
-
+  /* The menu-open behaviour used to live here as a blanket
+     `.header:has(.mobile-nav.open) { backdrop-filter: none !important }`. It fired in EVERY
+     browser, so opening the menu silently removed the header's frost while the panel below
+     kept its 20px — the seam you could see where they meet. Both surfaces now share the
+     `--glass-*` recipe, and the WebKit-only fallback sits next to `.mobile-nav` below.
+  */
   .nav { display: none; }
 
   .burger { display: inline-flex; }
   .mobile-nav.open { display: flex; pointer-events: auto; animation: mnavIn .3s cubic-bezier(.32,.72,0,1); }
-  /* Safari/WebKit: an ancestor with backdrop-filter disables a child's
-     backdrop-filter — while the menu is open, drop the header's own blur
-     so the menu's 20px frosted blur actually renders. */
-  .header:has(.mobile-nav.open) { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
 @keyframes mnavIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: none; } }
   .pdp { grid-template-columns: 1fr; gap: 30px; padding-top: 20px; }
   .pdp-gallery { position: static; }
@@ -674,23 +723,29 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 13.5px; }
 
 /* ---------- home carousel ---------- */
 .crs { position: relative; margin: 0 -24px; } /* full-bleed inside container */
-.crs-track { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; -ms-overflow-style: none; touch-action: pan-x pan-y; }
+/* `touch-action: pan-y` = the browser may keep the VERTICAL axis (a vertical drag still
+   scrolls the page normally) and the horizontal axis is ours — see components/swipe-rail.ts.
+   Leaving both axes to the browser (pan-x pan-y) plus mandatory scroll-snap is what made a
+   thumb swipe on iOS scroll the page and leave the rail put ("swipe korle change hoy na"). */
+.crs-track { display: flex; overflow-x: auto; scrollbar-width: none; -ms-overflow-style: none; overscroll-behavior-x: contain; touch-action: pan-y; }
 .crs-track::-webkit-scrollbar { display: none; }
-.crs-page { flex: 0 0 100%; min-width: 100%; scroll-snap-align: center; padding: 0 24px; box-sizing: border-box; }
+.crs-page { flex: 0 0 100%; min-width: 100%; padding: 0 24px; box-sizing: border-box; }
 .crs-page .grid { grid-template-columns: repeat(2, 1fr) !important; gap: 18px 10px; display: grid; }
 .crs-page .grid.grid-3 { grid-template-columns: repeat(2, 1fr) !important; }
 .crs-page .quote { height: 100%; }
 .crs-ui { display: flex; align-items: center; justify-content: center; gap: 14px; padding: 14px 0 0; }
 .crs-arrow { width: 34px; height: 34px; border-radius: 99px; border: 1px solid var(--line); background: #fff; color: var(--text); font-size: 18px; line-height: 0; display: flex; align-items: center; justify-content: center; cursor: pointer; padding-bottom: 3px; }
 .crs-arrow:active { background: var(--bg); }
-.crs-dots { display: flex; gap: 6px; }
-.crs-dots button { width: 6px; height: 6px; border-radius: 99px; border: none; background: #d8d2c8; padding: 0; cursor: pointer; transition: all .25s ease; }
-.crs-dots button.on { background: var(--text); width: 18px; }
+/* same dot language as the product-image dots: current one bigger + dark, the rest small + light */
+.crs-dots { display: flex; gap: 6px; align-items: center; }
+.crs-dots button { width: 6px; height: 6px; border-radius: 99px; border: none; background: rgba(20, 20, 20, .22); padding: 0; cursor: pointer;
+  transition: background .18s ease, width .18s ease, height .18s ease; }
+.crs-dots button.on { background: var(--text); width: 9px; height: 9px; }
 /* the dots are 6px — too small to hit reliably with a thumb. Grow only the hit area (no visual
    change) so pagination meets the 44px guideline, and give keyboard users a visible ring. */
-.crs-dots button, .mgal-dots button { position: relative; }
+.crs-dots button, .mgal-dots button, .gal-dots button { position: relative; }
 .crs-dots button::after, .mgal-dots button::after { content: ""; position: absolute; inset: -19px -8px; }
-.crs-dots button:focus-visible, .mgal-dots button:focus-visible { outline: 2px solid var(--accent); outline-offset: 10px; }
+.crs-dots button:focus-visible, .mgal-dots button:focus-visible, .gal-dots button:focus-visible { outline: 2px solid var(--accent); outline-offset: 10px; }
 @media (min-width: 900px) { .crs { margin: 0; } }
 
 /* ---------- filter drawer UI polish ---------- */
@@ -1048,6 +1103,17 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 13.5px; }
 }
 /* Android chrome 300ms tap highlight off — cleaner taps */
 a, button, .pcard, .chip, .cat-pill, .size-btn { -webkit-tap-highlight-color: transparent; }
+
+/* One tap = one tap.
+   iOS spends the first tap on an element that has something to show on `:hover`, and it can
+   also read two quick taps as a double-tap zoom (the viewport allows zooming, see layout.tsx).
+   Both make a product need two taps before it opens, so:
+   - every hover effect that moves or reveals something is wrapped in `@media (hover: hover)`
+     above — a touch screen keeps the plain, always-visible design (and the phone-perf win);
+   - `manipulation` keeps panning and pinch-zoom but removes double-tap-to-zoom;
+   - the images inside a link refuse the native drag that can also eat the click. */
+a, button, [role="button"], label, summary, input, select, textarea,
+.qadd, .tab-item, .chip, .cat-pill, .size-btn, .crs-arrow, .rel-arrow, .badge { touch-action: manipulation; }
 /* Bigger tap targets on touch devices */
 @media (hover: none) {
   .icon-btn { min-width: 40px; min-height: 40px; align-items: center; justify-content: center; }
@@ -1171,30 +1237,33 @@ a, button, .pcard, .chip, .cat-pill, .size-btn { -webkit-tap-highlight-color: tr
   color: var(--text);
   transition: transform .2s ease;
 }
-/* dots — minimal, SINZO palette */
+/* dots — BELOW the image (they used to float over the photo), one per image.
+   Minimal, SINZO palette: the current dot is bigger + dark, the rest stay small + light. */
 .mgal-dots {
-  position: absolute;
-  bottom: 16px;
-  left: 0; right: 0;
   display: flex;
   justify-content: center;
-  gap: 7px;
-  z-index: 3;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 0 4px;
 }
 .mgal-dots button {
-  width: 7px;
-  height: 7px;
+  width: 6px;
+  height: 6px;
   border-radius: 99px;
   border: none;
-  background: rgba(20,20,20,.25);
+  background: rgba(20,20,20,.22);
   padding: 0;
   cursor: pointer;
-  transition: all .25s cubic-bezier(.22,.61,.36,1);
+  transition: background .18s ease, width .18s ease, height .18s ease;
 }
 .mgal-dots button.on {
   background: var(--text);
-  width: 20px;
+  width: 9px;
+  height: 9px;
 }
+/* the shared rule below grows every dot's hit area by 19px — right for the rail dots, but here
+   it would reach into the photo above and the thumbnail strip below, so it is trimmed to ~32px */
+.mgal-dots button::after { inset: -13px -7px; }
 
 /* thumbnail strip under the mobile swipe gallery */
 .mgal-thumbs { display: flex; gap: 8px; overflow-x: auto; padding: 10px 16px 2px; scrollbar-width: none; -webkit-overflow-scrolling: touch; scroll-padding: 0 16px; }
@@ -1204,8 +1273,8 @@ a, button, .pcard, .chip, .cat-pill, .size-btn { -webkit-tap-highlight-color: tr
 .mgal-thumbs button img { width: 100%; height: 100%; object-fit: cover; display: block; -webkit-user-drag: none; user-select: none; }
 @media (max-width: 360px) {
   .mgal-count { bottom: 10px; left: 10px; }
-  .mgal-dots button { width: 6px; height: 6px; }
-  .mgal-dots button.on { width: 16px; }
+  .mgal-dots button { width: 5px; height: 5px; }
+  .mgal-dots button.on { width: 8px; height: 8px; }
 }
 
 /* ================================================================
@@ -1236,9 +1305,12 @@ a, button, .pcard, .chip, .cat-pill, .size-btn { -webkit-tap-highlight-color: tr
 /* ---------- 1. MOBILE STICKY HEADER ---------- */
 @media (max-width: 899px) {
   .header {
-    background: rgba(250, 249, 247, 0.68);
-    -webkit-backdrop-filter: blur(12px) saturate(1.4);
-    backdrop-filter: blur(12px) saturate(1.4);
+    /* Same glass recipe as the dropdown it opens (was blur(12px) saturate(1.4) over
+       rgba(250,249,247,.68) while the panel below ran blur(20px) saturate(1.9) over
+       rgba(255,255,255,.62) — three differences on two surfaces that touch). */
+    background: var(--glass-bg);
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
+    backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
     border-bottom: 1px solid rgba(255, 255, 255, 0.5);
     box-shadow: 0 1px 12px rgba(0, 0, 0, 0.04);
   }
@@ -1271,13 +1343,6 @@ a, button, .pcard, .chip, .cat-pill, .size-btn { -webkit-tap-highlight-color: tr
   backdrop-filter: blur(10px) saturate(1.4);
   border: 1px solid rgba(255, 255, 255, 0.5);
 }
-
-/* gallery dots subtle */
-.mgal-dots button {
-  background: rgba(20, 20, 20, 0.18);
-  backdrop-filter: none;
-}
-.mgal-dots button.on { background: var(--text); }
 
 /* ---------- 5. SIZE / COLOR SELECTOR — subtle glass on active ---------- */
 .size-btn,
@@ -1340,8 +1405,8 @@ a, button, .pcard, .chip, .cat-pill, .size-btn { -webkit-tap-highlight-color: tr
 
 /* ---------- 8. REVIEW — star pick + submit hover ---------- */
 .stars-pick span { transition: transform 180ms ease, color 180ms ease; }
-.stars-pick span:hover { transform: scale(1.15); }
-.review-form .btn:hover { transform: translateY(-1px); box-shadow: 0 4px 16px rgba(0,0,0,.10); }
+@media (hover: hover) { .stars-pick span:hover { transform: scale(1.15); } }
+@media (hover: hover) { .review-form .btn:hover { transform: translateY(-1px); box-shadow: 0 4px 16px rgba(0,0,0,.10); } }
 
 /* cart drawer glass (mobile slide-in) */
 @media (max-width: 899px) {
@@ -1376,7 +1441,10 @@ a, button, .pcard, .chip, .cat-pill, .size-btn { -webkit-tap-highlight-color: tr
 
 /* PDP main image: smooth swipe-slide (mobile touch) */
 @media (max-width: 899px) {
-  .pdp-main-img { will-change: transform; }
+  /* `will-change: transform` used to sit here. It was dead config: at <=899px
+     `.pdp-gallery-desktop` is display:none (the mobile swipe gallery replaces it), so it could
+     never promote anything. The drag surface that IS visible at this width is `.mgal-track`,
+     which keeps its own will-change. `touch-action` is already set globally. */
   .pdp-main-img img { pointer-events: none; } /* drag targets the card, not the img */
 }
 
@@ -1394,6 +1462,10 @@ html, body { overflow-x: clip; }
    FLOATING TAB BAR — light glass, icon-only, compact (Instagram style)
    ================================================================ */
 .tabbar {
+  /* Blur + saturation come from the shared --glass-* tokens so the three frosted surfaces
+     (header, the menu it opens, this bar) can never drift apart again. The TINT stays its own:
+     the bar floats over the bottom of the page and never touches another glass surface, so a
+     hard white would read as a bright disc against the cream header. */
   position: fixed;
   left: 50%;
   transform: translateX(-50%);
@@ -1410,8 +1482,8 @@ html, body { overflow-x: clip; }
   overflow: hidden;
   flex-wrap: nowrap;
   background: rgba(255, 255, 255, 0.72);
-  -webkit-backdrop-filter: blur(20px) saturate(1.8);
-  backdrop-filter: blur(20px) saturate(1.8);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
   border: 1px solid rgba(255, 255, 255, 0.50);
   box-shadow: 0 2px 20px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.04);
   /* smooth size transition on scroll direction change */
@@ -1502,8 +1574,11 @@ body:has(.admin-body) { padding-bottom: 0 !important; }
   /* product cards: slightly tighter gap, hover lift */
   .grid-4 { gap: 26px 20px; }
   .pcard { transition: transform 250ms cubic-bezier(.22,.61,.36,1); }
-  .pcard:hover { transform: translateY(-3px); }
-  .pcard:hover .pcard-img img { transform: scale(1.04); }
+  /* hover lift: pointer devices only — on a touch screen iOS spends the FIRST tap on the hover */
+  @media (hover: hover) {
+    .pcard:hover { transform: translateY(-3px); }
+    .pcard:hover .pcard-img img { transform: scale(1.04); }
+  }
 
   /* product page: info column breathing */
   .pdp { gap: 56px; }
@@ -1607,16 +1682,16 @@ input::placeholder, textarea::placeholder { color: #b0aaa1; }
 .rel-scroll {
   display: flex;
   overflow-x: auto;
-  scroll-snap-type: x mandatory;
   scrollbar-width: none;
   -ms-overflow-style: none;
+  overscroll-behavior-x: contain;
+  touch-action: pan-y;          /* horizontal is ours (swipe-rail), vertical stays native */
   -webkit-overflow-scrolling: touch;
 }
 .rel-scroll::-webkit-scrollbar { display: none; }
 .rel-page {
   flex: 0 0 100%;
   min-width: 100%;
-  scroll-snap-align: start;
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 14px 10px;
@@ -1847,7 +1922,7 @@ input::placeholder, textarea::placeholder { color: #b0aaa1; }
   justify-content: center;
 }
 .color-swatch img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.color-swatch:hover { transform: scale(1.06); }
+@media (hover: hover) { .color-swatch:hover { transform: scale(1.06); } }
 .color-swatch.active {
   border: 2px solid var(--text);
   box-shadow: 0 0 0 3px var(--bg), 0 0 0 4.5px var(--text);
@@ -1867,7 +1942,13 @@ input::placeholder, textarea::placeholder { color: #b0aaa1; }
 
 /* --- 1. Hero entrance: slow Ken Burns zoom + staggered text rise --- */
 @keyframes kenburns { from { transform: scale(1.08); } to { transform: scale(1); } }
-.hero-img { animation: kenburns 2.8s var(--ease) both; will-change: transform; }
+/* No `will-change: transform` here on purpose. kenburns runs ONCE for 2.8s and then never
+   again, but a `will-change` layer is kept for the element's whole life — on the largest
+   element on the page (full-viewport hero photo) that is real GPU memory held forever on a
+   phone. The compositor promotes the element for the duration of a transform animation on its
+   own, so the hint buys nothing here. The drag tracks (.cg-track, .mgal-track) keep theirs:
+   those transform on every interaction. */
+.hero-img { animation: kenburns 2.8s var(--ease) both; }
 @keyframes heroUp { from { opacity: 0; transform: translateY(22px); } to { opacity: 1; transform: none; } }
 .hero-content .eyebrow { animation: heroUp .7s .15s var(--ease) both; }
 .hero-content h1 { animation: heroUp .7s .3s var(--ease) both; }
@@ -1952,6 +2033,9 @@ h1, h2, h3 { text-wrap: balance; }
   --muted: #c6c0b4;
   --line: #2c2923;
   --card: #1b1917;
+  /* same one recipe for the header + the panel it opens, dark tint (was .86 on the
+     header against .72 saturate(1.6) on the panel — the same seam, in dark mode) */
+  --glass-bg: rgba(21, 20, 17, .72);
   /* --accent intentionally NOT overridden: the brand accent set in admin
      Settings → Theme & Appearance applies to BOTH themes. */
   --danger: #e2837a;
@@ -1971,10 +2055,17 @@ h1, h2, h3 { text-wrap: balance; }
   border-bottom-color: rgba(255, 255, 255, 0.07);
   box-shadow: 0 1px 12px rgba(0, 0, 0, 0.25);
 }
+/* Dark + mobile: the header must match the dropdown it opens, which uses --glass-bg.
+   Kept to <=899px so the desktop dark header keeps its more opaque .86. */
+@media (max-width: 899px) {
+  :root[data-theme="dark"] .header { background: var(--glass-bg) !important; }
+}
 :root[data-theme="dark"] .tabbar {
   background: rgba(19, 18, 16, 0.92) !important;
-  -webkit-backdrop-filter: blur(12px) saturate(1.3);
-  backdrop-filter: blur(12px) saturate(1.3);
+  /* was blur(12px) saturate(1.3) — the light tab bar ran 20px/1.8, so the same component had
+     two different frosts depending on the theme. Now both read the shared tokens. */
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
   border-color: rgba(255, 255, 255, 0.08);
   box-shadow: 0 -6px 24px rgba(0, 0, 0, 0.35);
 }
@@ -2176,10 +2267,17 @@ html.theme-transition *::after {
 :root[data-theme="dark"] .pdp-price .off { color: #b3392f; }
 :root[data-theme="dark"] .badge.sale { background: #b3392f; }
 
-/* PDP image dots sit on the LIGHT image mat — active dot was var(--text)
-   (light on light = invisible) in dark mode. */
-:root[data-theme="dark"] .mgal-dots button { background: rgba(20, 20, 20, 0.3); }
-:root[data-theme="dark"] .mgal-dots button.on { background: #141414; }
+/* Pagination dots used to sit ON the light image mat, so dark mode needed dark dots there.
+   They now sit BELOW the image, on the page background: in dark mode the *inactive* dot has
+   to flip to light (the active one already uses var(--text), which is light in dark mode). */
+:root[data-theme="dark"] .mgal-dots button,
+:root[data-theme="dark"] .pcard-dots i,
+:root[data-theme="dark"] .gal-dots button,
+:root[data-theme="dark"] .crs-dots button { background: rgba(255, 255, 255, .26); }
+:root[data-theme="dark"] .mgal-dots button.on,
+:root[data-theme="dark"] .pcard-dots i.on,
+:root[data-theme="dark"] .gal-dots button.on,
+:root[data-theme="dark"] .crs-dots button.on { background: var(--text); }
 
 /* Admin + customer login: card blends into the dark canvas — give it an
    edge so the panel reads as a card; explicit dark-theme legibility. */
@@ -2188,11 +2286,13 @@ html.theme-transition *::after {
 :root[data-theme="dark"] .login-sub { color: #c6c0b4; }
 :root[data-theme="dark"] .login-card .abtn.primary { background: #f5f2ec; color: #131210; border-color: #f5f2ec; }
 
-/* Mobile menu — dark liquid glass (mirrors the light frosted card) */
+/* Mobile menu — dark liquid glass (mirrors the light frosted card).
+   Tint + blur + saturation all come from the shared --glass-* tokens now, exactly like the
+   header directly above it. */
 :root[data-theme="dark"] .mobile-nav {
-  background: rgba(21, 20, 17, 0.72);
-  -webkit-backdrop-filter: blur(20px) saturate(1.6);
-  backdrop-filter: blur(20px) saturate(1.6);
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
   box-shadow: 0 18px 44px rgba(0, 0, 0, 0.5);
 }
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
@@ -2228,10 +2328,16 @@ html.theme-transition *::after {
 :root[data-theme="dark"] .ad-row { background: #171512; }
 
 /* ================= Live watching (social proof, PDP) ================= */
-/* desktop gallery carousel dots (over the main image, bottom center) */
-.gal-dots { position: absolute; bottom: 14px; left: 0; right: 0; display: flex; justify-content: center; gap: 7px; z-index: 6; }
-.gal-dots button { width: 8px; height: 8px; border-radius: 50%; border: 0; padding: 0; background: rgba(255,255,255,.65); box-shadow: 0 0 0 1px rgba(0,0,0,.18); cursor: pointer; transition: all .25s ease; }
-.gal-dots button.on { width: 20px; border-radius: 4px; background: var(--text); }
+/* desktop gallery carousel dots — BELOW the main image (they used to float over the photo as
+   white pills), same language as `.mgal-dots` (mobile) and `.pcard-dots` (cards): centre on the
+   page background, current dot bigger + dark, the rest small + light.
+   Placement: `.pdp-gallery-desktop` is `display: contents`, so this row is a grid item of
+   `.pdp-gallery` (72px thumbs | photo). Column 2 / row 2 puts it exactly under the photo while
+   the thumbnail rail keeps column 1 — the order the mobile gallery uses (photo → dots → thumbs). */
+.gal-dots { grid-column: 2; grid-row: 2; display: flex; justify-content: center; align-items: center; gap: 6px; padding: 2px 0 0; }
+.gal-dots button { width: 6px; height: 6px; border-radius: 99px; border: none; padding: 0; cursor: pointer; background: rgba(20, 20, 20, .22); transition: background .18s ease, width .18s ease, height .18s ease; }
+.gal-dots button.on { width: 9px; height: 9px; background: var(--text); }
+.gal-dots button::after { inset: -10px -6px; }
 
 /* pre-order (PDP badge + order line tag) */
 .pdp-preorder { display: flex; align-items: center; gap: 8px; margin: 4px 0 2px; font-size: 13px; color: var(--muted); }
@@ -2424,7 +2530,7 @@ html.theme-transition *::after {
 .pdp-actions .btn { border: 2px solid var(--text); border-radius: 999px; text-transform: none;
   letter-spacing: .01em; font-size: 17px; font-weight: 500; min-height: 60px; padding: 0 28px; width: auto; }
 .pdp-actions .pdp-add { flex: 1 1 auto; background: transparent; color: var(--text); }
-.pdp-actions .pdp-add:hover { background: var(--text); color: var(--bg); opacity: 1; }
+@media (hover: hover) { .pdp-actions .pdp-add:hover { background: var(--text); color: var(--bg); opacity: 1; } }
 .pdp-actions .pdp-buy { width: 100%; }
 /* min-height on the pill itself (not a fixed child height) so stepper and buttons land on the same box
    height — box-sizing is border-box globally, so 60px here == 60px on .btn. A fixed 58px child inside a
@@ -2516,8 +2622,8 @@ html.theme-transition *::after {
 .qadd svg { width: 19px; height: 19px; }
 /* plain rgba, not color-mix(): older Android WebViews drop the whole declaration, and a
    hover circle is decoration, not something to gate the feature on */
-.pcard-cell:hover .qadd { background: rgba(20, 20, 20, .06); }
-.qadd:hover { color: var(--text); background: rgba(20, 20, 20, .12); }
+@media (hover: hover) { .pcard-cell:hover .qadd { background: rgba(20, 20, 20, .06); } }
+@media (hover: hover) { .qadd:hover { color: var(--text); background: rgba(20, 20, 20, .12); } }
 .qadd:active { transform: scale(.9) }
 .qadd:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
 .qadd.busy { color: var(--accent); background: none; }
@@ -2666,21 +2772,469 @@ html.theme-transition *::after {
   .cg-arrow.off { pointer-events: none; }
 }
 
-/* dots — decorative (the whole card is a link, so no nested buttons) */
-.cg-dots {
-  position: absolute; left: 0; right: 0; bottom: 8px; z-index: 2;
-  display: flex; justify-content: center; gap: 4px; pointer-events: none;
-}
-.cg-dot {
-  width: 5px; height: 5px; border-radius: 99px; display: block;
-  background: rgba(255, 255, 255, .55);
-  box-shadow: 0 0 0 1px rgba(0, 0, 0, .12);
-  transition: width .25s ease, background .25s ease;
-}
-.cg-dot.on { width: 14px; background: #fff; }
+/* (the image dots are drawn by the card, under the image — see `.pcard-dots` above) */
 
-/* a wider hit area is friendly on touch; desktop keeps the subtle dots */
-@media (min-width: 900px) {
-  .cg-dot { width: 4px; height: 4px; }
-  .cg-dot.on { width: 12px; }
+/* ====================================================================
+   MODERN UI PASS — home page + global polish (2026-09-21)
+   --------------------------------------------------------------------
+   Design language er sathe consistent: cream + gold + serif, minimal luxury.
+   Sob effect shudhu transform/opacity — compositor-friendly (ANIMATIONS-REPORT
+   er niyom: width/height/top/left animate korbo na, box-shadow o na).
+
+   Scroll-driven effect gulo `animation-timeline` diye — JS scroll listener
+   chara, main thread e kono kaj nei. J document gulo support kore na
+   (Firefox default, purono Safari) tara purono behaviour e thake:
+   prottek ta `@supports` er vetore, tai kichu vangar risk nei.
+   ==================================================================== */
+
+/* ---------- A. Tokens from color-mix (theme change hole sob follow korbe) ---------- */
+:root {
+  --tint-accent: rgba(154, 123, 79, .10);
+  --tint-line: rgba(20, 20, 20, .06);
 }
+@supports (color: color-mix(in srgb, red 50%, blue)) {
+  :root {
+    --tint-accent: color-mix(in srgb, var(--accent) 10%, transparent);
+    --tint-line: color-mix(in srgb, var(--text) 6%, transparent);
+  }
+}
+
+/* ---------- B. Scroll progress bar (pure CSS scroll timeline) ---------- */
+.scroll-progress { display: none; }
+@supports (animation-timeline: scroll()) {
+  .scroll-progress {
+    display: block;
+    position: fixed; top: 0; left: 0; right: 0; height: 2px;
+    z-index: 60; pointer-events: none;
+    background: var(--accent);
+    box-shadow: 0 0 10px var(--tint-accent);
+    transform-origin: 0 50%;
+    animation: spGrow linear both;
+    animation-timeline: scroll(root block);
+  }
+  @keyframes spGrow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+}
+/* Desktop keeps it; on a phone the 2px line reads as a broken bar under the status bar/notch
+   (owner request: "remove progress bar from mobile"). 899px = the storefront's mobile split. */
+@media (max-width: 899px) { .scroll-progress { display: none !important; } }
+
+/* ---------- C. Hero: media wrapper + scroll parallax + scroll cue ---------- */
+/* The <img> itself keeps its kenburns entrance; the WRAPPER carries the scroll
+   parallax, so the two animations never fight (ek element e ek animation). */
+.hero-media {
+  position: relative;
+  height: 72vh; min-height: 440px; max-height: 700px;
+  overflow: hidden;
+}
+.hero-media .hero-img { height: 100%; min-height: 0; max-height: none; }
+@media (max-width: 900px) { .hero-media { height: 64vh; } }
+
+@supports (animation-timeline: scroll()) {
+  .hero-media {
+    animation: heroPar linear both;
+    animation-timeline: scroll(root block);
+    animation-range: 0 80vh;
+  }
+  /* scale 1.12 = translate korar jonno overflow room, nohoile niche faka dekhto */
+  @keyframes heroPar { to { transform: translate3d(0, 5%, 0) scale(1.12); } }
+}
+
+.hero-cue {
+  position: absolute; left: 48px; bottom: 32px; z-index: 2;
+  display: flex; align-items: center; gap: 12px;
+  font-size: 9.5px; letter-spacing: .24em; text-transform: uppercase; color: var(--muted);
+}
+.hero-cue i { display: block; width: 48px; height: 1px; background: var(--line); position: relative; overflow: hidden; }
+.hero-cue i::after {
+  content: ""; position: absolute; inset: 0; background: var(--accent);
+  transform: translateX(-100%);
+}
+@supports (animation-timeline: scroll()) {
+  .hero-cue i::after { animation: cueSlide 2.6s cubic-bezier(.22,.61,.36,1) infinite; }
+  @keyframes cueSlide {
+    0%   { transform: translateX(-100%); }
+    55%  { transform: translateX(100%); }
+    100% { transform: translateX(100%); }
+  }
+}
+@media (max-width: 900px) { .hero-cue { display: none; } }
+
+/* Hero type: beshi confident, editorial — desktop e content column o wide */
+@media (min-width: 901px) { .hero-content { max-width: 640px; } }
+.hero-content h1 { font-size: clamp(40px, 5.6vw, 76px); line-height: 1.02; letter-spacing: -0.022em; }
+.hero-content p { font-size: clamp(15px, 1.1vw, 17.5px); max-width: 430px; }
+
+/* ---------- D. Fluid section rhythm + editorial headings ---------- */
+/* Site-wide now: `.section` is used by the home page AND by the PDP (related + reviews
+   wrappers) and the recently-viewed strips, so the rhythm is one value everywhere instead of
+   home getting a new one and the rest keeping the old 72px. Mobile tightens to 56px (phones
+   scroll more, the same 72px reads as a gap), desktop opens to ~104px.
+   The `.section-head2` / `.sh-*` heading scale below is only ever rendered on the home page
+   (no other file has those class names), so it needs no scope of its own. */
+.section { padding: clamp(56px, 7vw, 104px) 0; }
+.section-head2 { margin-bottom: clamp(24px, 3vw, 40px); }
+.section-head2 h2 { font-size: clamp(26px, 3vw, 42px); letter-spacing: -0.022em; line-height: 1.08; }
+.sh-eyebrow { letter-spacing: .3em; }
+.sh-no { position: relative; padding-right: 2px; }
+
+/* ---------- E. Category BENTO grid (desktop) ---------- */
+/* Prothom tile 2x2 ney; baki gulo 4/5 portrait — tai row height tader thekei
+   ashe, kono fixed row height set korte hoy na (robust, content jai hok na keno). */
+@media (min-width: 1100px) {
+  .cat-grid-desktop {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-auto-rows: auto;
+    grid-auto-flow: dense;
+    gap: 20px;
+  }
+  .cat-grid-desktop > .ctile:first-child {
+    grid-column: span 2;
+    grid-row: span 2;
+    aspect-ratio: auto;
+  }
+  .cat-grid-desktop > .ctile:first-child .ctile-label { padding: 110px 30px 30px; }
+  .cat-grid-desktop > .ctile:first-child .ctile-label h3 { font-size: clamp(30px, 2.8vw, 44px); }
+  .cat-grid-desktop > .ctile:first-child .ctile-label span { font-size: 11.5px; }
+}
+@media (min-width: 1500px) {
+  .cat-grid-desktop { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+}
+
+/* ---------- F. Testimonials — seamless marquee (desktop) ---------- */
+.qmarquee {
+  overflow: hidden;
+  /* edge fade — cards hard-cut na kore melt hoy */
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 5%, #000 95%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 5%, #000 95%, transparent);
+}
+.qmarquee-track { display: flex; width: max-content; animation: qmar linear infinite; }
+.qmarquee-track > .quote2 { flex: 0 0 340px; margin-right: 28px; }
+/* quote2 base rule e !important ache (border-radius: 0, border: none) — marquee te card look.
+   Background `var(--card)`: dark theme e #1b1917, nohoile dark canvas e sada card vese jeto. */
+.qmarquee-track > .quote2 {
+  border: 1px solid var(--line) !important;
+  border-radius: var(--radius) !important;
+  background: var(--card);
+  padding: 28px 26px 24px;
+}
+@keyframes qmar { from { transform: translate3d(0, 0, 0); } to { transform: translate3d(-50%, 0, 0); } }
+.qmarquee:hover .qmarquee-track { animation-play-state: paused; }
+@media (max-width: 1099px) { .qmarquee { display: none; } }
+/* 900–1099px: marquee off, tai grid fallback ta-i dekhbe; >=1100px marquee-i jayga ney */
+@media (min-width: 1100px) { .qgrid-fallback { display: none !important; } }
+
+/* ---------- G. Mobile tab bar ---------- */
+/* Active tab er filled pill-ta-i indicator. Ei pass e ekta alada sonali line
+   (`::after` + tabIn keyframe) add kora hoyechilo, kintu pill er sathe duita
+   indicator ekshathe clutter lagchilo — tai remove kora holo. Tab bar ager moto. */
+
+/* ---------- H. Toast — real enter AND exit (declarative, no keyframes) ---------- */
+/* Element er age `animation: fadeup .25s ease` chilo — kenona ekta animation,
+   exit chilo na (toast hatath uye jeto). Ekhon transition + @starting-style,
+   ar `translate` (transform noy) karon .toast centering er jonno
+   transform: translateX(-50%) already use kore — duita compose hoy. */
+.toast {
+  animation: none;
+  opacity: 1;
+  transition: opacity .3s var(--ease), translate .3s var(--ease);
+}
+@starting-style { .toast { opacity: 0; translate: 0 16px; } }
+.toast.out { opacity: 0; translate: 0 10px; transition-duration: .32s; }
+@supports not (translate: 0 16px) {
+  /* translate property na thakle purono fade-in ta-i rakhi (graceful) */
+  .toast { animation: fadeup .25s ease; }
+  .toast.out { opacity: 0; }
+}
+
+/* ---------- I. Reduced motion: notun sob kichu off ---------- */
+@media (prefers-reduced-motion: reduce) {
+  .scroll-progress { display: none; }
+  .hero-media, .hero-cue i::after, .qmarquee-track {
+    animation: none !important;
+  }
+  .qmarquee { overflow-x: auto; }          /* scroll kore dekhbe, nijei cholbe na */
+  .toast { transition: none; }
+}
+
+/* ---------- J. Scroll-driven reveal for below-fold blocks, on EVERY storefront page ----------
+   The home page's `.reveal` system (IntersectionObserver in components/reveal.tsx) needs a class
+   on each element. These are the blocks that never had one — the PDP review list, the
+   recently-viewed strip and the footer, which every page ends with. `view()` gives them the same
+   fade-up with no JS at all: the browser drives the timeline from the element's own position in
+   the scrollport. In a browser without it they are simply visible from the start (the
+   `@supports` guard), which is also what an unloaded observer would have left them at — unlike
+   `.reveal`, which starts at opacity:0 and depends on JS to reveal it. */
+@supports (animation-timeline: view()) {
+  .sdr,
+  .footer {
+    animation: sdrIn linear both;
+    animation-timeline: view();
+    /* start as it enters, settled well before it is centred on screen — a footer that is still
+       half-faded while you are reading it is worse than no animation */
+    animation-range: entry 0% entry 50%;
+  }
+  @keyframes sdrIn { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: none; } }
+}
+
+/* ---------- J2. Touch screens: entrances fade, they never move the tap target ----------
+   A tap is delivered only if the element under the finger is where it was when the finger
+   landed. Every entrance animation here slides its block up (16px `.reveal`, 18px `.sdr`) and
+   that slide is running exactly when a shopper scrolls a new row of products into view and
+   taps the first one — WebKit then drops the click and the product needs a SECOND tap
+   ("iPhone e product e click korle page open hoy na, 2 bar korte hoy"). Pointer devices keep
+   the slide; touch devices keep the same fade, with the element nailed to its final position.
+   The @keyframes override has to sit after the @supports block above: the last matching
+   definition of a keyframe name wins. */
+@media (hover: none) {
+  .reveal { transform: none; }
+  .reveal.in { transform: none; }
+  @keyframes sdrIn { from { opacity: 0; } to { opacity: 1; } }
+}
+
+/* the progress bar is storefront-only — the admin panel has its own layout and its own scroll
+   containers (same `body:has(.admin-body)` guard the tab bar uses) */
+body:has(.admin-body) .scroll-progress { display: none !important; }
+
+@media (prefers-reduced-motion: reduce) {
+  .sdr, .footer { animation: none !important; }
+}
+
+/* ---------- K. Policy page (/returns) ----------
+   Deliberately quiet: a policy page is read, not browsed. Long measure for the prose, a sticky
+   contents rail on desktop so a customer can jump straight to "Refunds", and the numbers pulled
+   out of the paragraphs into a 4-up strip — those four values are what people actually come for. */
+.policy-head { padding: 40px 0 8px; max-width: 820px; }
+.policy-head h1 { font-size: clamp(30px, 4vw, 46px); line-height: 1.06; letter-spacing: -0.02em; margin: 10px 0 14px; }
+.policy-lead { font-size: clamp(15px, 1.15vw, 17px); color: var(--muted); max-width: 640px; }
+.policy-facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin: 26px 0 14px; }
+@media (min-width: 760px) { .policy-facts { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; } }
+.policy-fact {
+  border: 1px solid var(--line); border-radius: var(--radius); background: var(--card);
+  padding: 14px 15px; display: flex; flex-direction: column; gap: 3px;
+}
+.policy-fact b { font-family: var(--font-head); font-weight: 500; font-size: clamp(17px, 1.5vw, 21px); line-height: 1.1; }
+.policy-fact span { font-size: 11.5px; line-height: 1.4; color: var(--muted); letter-spacing: .01em; }
+.policy-stamp { font-size: 11.5px; color: var(--muted); letter-spacing: .04em; }
+
+.policy-wrap { display: block; padding-bottom: 70px; }
+@media (min-width: 1000px) {
+  .policy-wrap { display: grid; grid-template-columns: 210px minmax(0, 1fr); gap: 64px; align-items: start; }
+}
+/* Sticky rail: top offset clears the sticky header (72px) plus breathing room. */
+.policy-nav { display: none; }
+@media (min-width: 1000px) {
+  .policy-nav { display: flex; flex-direction: column; gap: 9px; position: sticky; top: 96px; }
+  .policy-nav .eyebrow { margin-bottom: 5px; }
+  .policy-nav a { font-size: 13px; color: var(--muted); padding: 2px 0; border-left: 2px solid transparent; padding-left: 11px; margin-left: -13px; transition: color .2s ease, border-color .2s ease; }
+  .policy-nav a:hover { color: var(--text); border-left-color: var(--accent); }
+}
+
+.policy { max-width: 760px; }
+.policy section { padding: 30px 0; border-top: 1px solid var(--line); }
+.policy section:first-child { border-top: 0; padding-top: 6px; }
+.policy h2 { font-size: clamp(19px, 2.1vw, 25px); letter-spacing: -0.012em; margin-bottom: 12px; }
+.policy p { color: var(--muted); margin: 0 0 13px; }
+.policy p:last-child { margin-bottom: 0; }
+.policy p b, .policy p strong { color: var(--text); font-weight: 600; }
+.policy a { color: var(--accent); text-decoration: underline; text-underline-offset: 3px; }
+
+.policy-list { list-style: none; margin: 0 0 13px; display: flex; flex-direction: column; gap: 9px; }
+.policy-list li { position: relative; padding-left: 20px; color: var(--muted); }
+.policy-list li::before { content: "—"; position: absolute; left: 0; color: var(--accent); }
+
+/* numbered steps — the counter lives in the marker so the markup stays a plain <ol> */
+.steps { list-style: none; counter-reset: st; margin: 0 0 4px; padding: 0; }
+.steps li { position: relative; padding-left: 44px; margin-bottom: 18px; }
+.steps li:last-child { margin-bottom: 0; }
+.steps li::before {
+  counter-increment: st; content: counter(st);
+  position: absolute; left: 0; top: 1px; width: 28px; height: 28px; border-radius: 50%;
+  display: grid; place-items: center; background: var(--accent); color: #fff;
+  font-size: 12.5px; font-variant-numeric: tabular-nums;
+}
+.steps b { display: block; font-weight: 600; color: var(--text); margin-bottom: 3px; }
+.steps span { color: var(--muted); }
+
+.policy-note {
+  border-left: 2px solid var(--accent); border-radius: 0 var(--radius) var(--radius) 0;
+  background: color-mix(in srgb, var(--accent) 7%, transparent);
+  padding: 13px 16px; color: var(--muted); margin: 16px 0 0;
+}
+.policy-note b { color: var(--text); }
+
+.policy-table { width: 100%; border-collapse: collapse; margin: 4px 0 16px; font-size: 14px; }
+.policy-table th, .policy-table td { text-align: left; padding: 11px 10px; border-bottom: 1px solid var(--line); }
+.policy-table th { font-size: 11px; letter-spacing: .16em; text-transform: uppercase; color: var(--muted); font-weight: 500; }
+.policy-table td { font-variant-numeric: tabular-nums; }
+.policy-table tr:last-child td { border-bottom: 0; }
+
+.policy-cta { display: flex; flex-wrap: wrap; gap: 10px; margin: 18px 0 22px; }
+.policy-meta { display: grid; grid-template-columns: auto 1fr; gap: 6px 18px; font-size: 13.5px; margin: 0; }
+.policy-meta dt { color: var(--muted); }
+.policy-meta dd { color: var(--text); }
+
+/* dark theme: the tint and the card need their own values or the strip goes flat white */
+:root[data-theme="dark"] .policy-fact { background: #191816; border-color: #2a2825; }
+:root[data-theme="dark"] .policy-note { background: color-mix(in srgb, var(--accent) 15%, transparent); }
+:root[data-theme="dark"] .steps li::before { color: #12110f; }
+
+/* ---------- L. Blog (/blog, /blog/<slug>) ----------
+   Same language as the rest of the storefront: cream, one gold accent, a serif headline and the
+   2px radius. A journal page is read, not shopped, so the type is bigger, the measure is ~72
+   characters and nothing moves while the eye is on it. Card image rules live in .blog-*-img so
+   the variant ladder in app/blog/page.tsx has a fixed box to load into (no CLS). */
+
+.blog-wrap { padding: 34px 0 84px; }
+
+.blog-head { max-width: 700px; margin-bottom: 36px; }
+.blog-head h1 { font-family: var(--font-head); font-size: clamp(30px, 4.6vw, 46px); font-weight: 400; line-height: 1.12; letter-spacing: -0.005em; margin: 12px 0 14px; }
+.blog-lede { color: var(--muted); font-size: 15.5px; line-height: 1.75; max-width: 620px; }
+
+.blog-meta { font-size: 10.5px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted); }
+
+/* the featured post — two columns of equal height, the image filling its half */
+.blog-lead { display: grid; grid-template-columns: 1.05fr 1fr; align-items: stretch; border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; margin-bottom: 8px; }
+.blog-lead-img { overflow: hidden; background: color-mix(in srgb, var(--accent) 8%, var(--bg)); }
+.blog-lead-img img { width: 100%; height: 100%; object-fit: cover; transition: transform .7s cubic-bezier(.22,.61,.36,1); }
+@media (hover: hover) { .blog-lead:hover .blog-lead-img img { transform: scale(1.03); } }
+.blog-lead-body { padding: clamp(22px, 3.2vw, 40px); display: flex; flex-direction: column; justify-content: center; gap: 10px; }
+.blog-lead-body h2 { font-family: var(--font-head); font-size: clamp(22px, 2.6vw, 31px); font-weight: 400; line-height: 1.22; }
+.blog-lead-body p { color: var(--muted); font-size: 14.5px; line-height: 1.7; }
+.blog-more { font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--accent); margin-top: 6px; }
+.blog-lead:hover .blog-more { text-decoration: underline; text-underline-offset: 4px; }
+
+.blog-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 30px 26px; margin-top: 44px; }
+.blog-card { display: flex; flex-direction: column; gap: 8px; }
+.blog-card-img { overflow: hidden; border-radius: var(--radius); aspect-ratio: 4 / 3; background: color-mix(in srgb, var(--accent) 8%, var(--bg)); margin-bottom: 4px; }
+.blog-card-img img { width: 100%; height: 100%; object-fit: cover; transition: transform .6s cubic-bezier(.22,.61,.36,1); }
+@media (hover: hover) { .blog-card:hover .blog-card-img img { transform: scale(1.04); } }
+.blog-card h3 { font-family: var(--font-head); font-size: 18.5px; font-weight: 400; line-height: 1.3; }
+.blog-card p { color: var(--muted); font-size: 13.5px; line-height: 1.65; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+
+.blog-empty { text-align: center; padding: 72px 20px; color: var(--muted); display: grid; gap: 20px; justify-items: center; }
+
+/* article */
+.blog-crumbs { font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); margin: 26px 0 26px; display: flex; gap: 8px; flex-wrap: wrap; }
+.blog-crumbs a { color: var(--accent); }
+.blog-post { max-width: 760px; margin: 0 auto; }
+.blog-post h1 { font-family: var(--font-head); font-size: clamp(28px, 4.4vw, 43px); font-weight: 400; line-height: 1.14; margin: 12px 0 14px; }
+.blog-standfirst { font-size: 16.5px; line-height: 1.7; color: var(--muted); margin-bottom: 28px; }
+.blog-hero { margin: 0 0 34px; }
+.blog-hero img { width: 100%; border-radius: var(--radius); }
+.blog-body { font-size: 16.5px; line-height: 1.85; }
+.blog-body p { margin-bottom: 22px; }
+.blog-body h2 { font-family: var(--font-head); font-size: clamp(20px, 2.4vw, 25px); font-weight: 400; line-height: 1.3; margin: 38px 0 14px; }
+.blog-draft { font-size: 12.5px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--accent); border: 1px dashed var(--accent); border-radius: var(--radius); padding: 10px 14px; margin-bottom: 22px; }
+.blog-cta { margin-top: 44px; padding: 24px; border: 1px solid var(--line); border-radius: var(--radius); background: color-mix(in srgb, var(--accent) 6%, transparent); display: flex; align-items: center; justify-content: space-between; gap: 18px; flex-wrap: wrap; }
+.blog-cta b { font-family: var(--font-head); font-size: 19px; font-weight: 400; display: block; margin-bottom: 4px; }
+.blog-cta div div { color: var(--muted); font-size: 13.5px; }
+.blog-more-sec { margin-top: 70px; border-top: 1px solid var(--line); padding-top: 36px; }
+.blog-more-sec > h2 { font-family: var(--font-head); font-size: 23px; font-weight: 400; margin-bottom: 4px; }
+
+@media (max-width: 1100px) { .blog-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 900px) {
+  .blog-lead { grid-template-columns: 1fr; }
+  .blog-lead-img { aspect-ratio: 16 / 10; }
+}
+@media (max-width: 640px) {
+  .blog-grid { grid-template-columns: 1fr; gap: 26px; margin-top: 34px; }
+  .blog-wrap { padding: 22px 0 64px; }
+  .blog-body { font-size: 16px; line-height: 1.8; }
+  .blog-cta { flex-direction: column; align-items: flex-start; }
+}
+
+/* dark theme: the tint/hero boxes need their own value or they read as white slabs */
+:root[data-theme="dark"] .blog-lead-img,
+:root[data-theme="dark"] .blog-card-img { background: #1b1917; }
+:root[data-theme="dark"] .blog-cta { background: color-mix(in srgb, var(--accent) 14%, transparent); }
+
+/* ════════════════════════════════════════════════════════════════════════════
+   § M — admin items 6–16 (payments · scan-to-pack · waitlist · WA inbox · slips)
+   Same language as the rest of the sheet: brand tokens, 2px radius, cream/gold.
+   ════════════════════════════════════════════════════════════════════════════ */
+
+/* Out-of-stock PDP: ask instead of dead-end */
+.waitlist { margin: 14px 0 4px; }
+.waitlist-cta {
+  display: inline-flex; align-items: center; gap: 9px; width: 100%;
+  padding: 13px 16px; border: 1px dashed var(--line, #e2ddd4); border-radius: 3px;
+  background: transparent; font: inherit; font-size: 13.5px; color: var(--text);
+  cursor: pointer; text-align: left; transition: border-color .2s ease, background .2s ease;
+}
+.waitlist-cta:hover { border-color: var(--accent); background: rgba(154,123,79,.05); }
+.waitlist-cta b { font-weight: 500; }
+.waitlist form { display: block; border: 1px solid var(--line, #e2ddd4); border-radius: 3px; padding: 14px; }
+.waitlist label { display: block; font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; }
+.waitlist input { width: 100%; padding: 11px 13px; border: 1px solid var(--line, #e2ddd4); border-radius: 2px; background: var(--bg); color: var(--text); font: inherit; font-size: 14px; }
+.waitlist-row { display: flex; gap: 8px; }
+.waitlist-row .btn { white-space: nowrap; }
+.waitlist-hint { font-size: 12px; color: var(--muted); margin-top: 8px; }
+.waitlist-err { font-size: 12.5px; color: var(--danger, #c0392b); margin-top: 8px; }
+.waitlist.done { padding: 13px 16px; border: 1px solid var(--ok, #2e7d5b); border-radius: 3px; font-size: 13.5px; }
+.waitlist.done b { color: var(--ok, #2e7d5b); margin-right: 6px; }
+
+/* Packing slip (admin ← slip, prints clean) */
+.slip-wrap { padding: 24px; display: flex; flex-direction: column; align-items: center; gap: 16px; }
+.slip-actions { display: flex; gap: 10px; }
+.slip { width: min(680px, 100%); background: #fff; color: #1b1b1b; border: 1px solid #e4e7ec; border-radius: 4px; padding: 26px 28px 34px; }
+.slip-head { display: flex; justify-content: space-between; align-items: flex-start; }
+.slip-brand { font-family: var(--font-head, Georgia, serif); font-size: 24px; letter-spacing: .16em; }
+.slip-sub { font-size: 11px; letter-spacing: .2em; text-transform: uppercase; color: #7a7a7a; margin-top: 2px; }
+.slip-code { font-family: ui-monospace, monospace; font-size: 20px; letter-spacing: .06em; margin: 14px 0 6px; padding-bottom: 10px; border-bottom: 2px solid #1b1b1b; }
+.slip-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; font-size: 13px; line-height: 1.6; margin: 14px 0; }
+.slip-cod { display: inline-block; margin-top: 6px; padding: 3px 8px; background: #f4f1ec; border: 1px solid #e0d9cd; font-weight: 600; }
+.slip-items { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 8px; }
+.slip-items th, .slip-items td { padding: 8px 6px; border-bottom: 1px solid #e9e9e9; text-align: left; }
+.slip-items th { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: #7a7a7a; }
+.slip-note { margin-top: 14px; font-size: 12.5px; background: #faf7f1; border: 1px solid #eee3d0; padding: 10px 12px; }
+.slip-foot { margin-top: 24px; font-size: 12px; color: #6b6b6b; display: flex; justify-content: space-between; }
+
+@media print {
+  .no-print, .admin-sidebar, .admin-top, .bottom-nav, .site-header, .announce { display: none !important; }
+  .slip-wrap { padding: 0; }
+  .slip { border: none; width: 100%; }
+  body { background: #fff; }
+}
+
+/* WhatsApp inbox (two panes, like a phone) */
+.wa-wrap { display: grid; grid-template-columns: 300px 1fr; gap: 16px; align-items: start; }
+.wa-list { overflow: hidden; }
+.wa-list-body { max-height: 560px; overflow: auto; }
+.wa-conv { display: block; width: 100%; padding: 10px 12px; border: none; border-bottom: 1px solid var(--line, #e4e7ec); background: transparent; cursor: pointer; font: inherit; color: inherit; transition: background .15s ease; }
+.wa-conv:hover { background: rgba(154,123,79,.06); }
+.wa-conv.on { background: rgba(154,123,79,.12); box-shadow: inset 2px 0 0 var(--accent); }
+.wa-conv-last { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; }
+.wa-thread { display: flex; flex-direction: column; min-height: 420px; }
+.wa-thread-body { flex: 1; padding: 14px; display: flex; flex-direction: column; gap: 8px; max-height: 460px; overflow: auto; }
+.wa-msg { max-width: 74%; padding: 9px 13px; border-radius: 12px; font-size: 13.5px; line-height: 1.5; white-space: pre-wrap; word-break: break-word; }
+.wa-msg.in { align-self: flex-start; background: rgba(0,0,0,.05); border-bottom-left-radius: 3px; }
+.wa-msg.out { align-self: flex-end; background: rgba(154,123,79,.16); border-bottom-right-radius: 3px; }
+.wa-reply { display: flex; gap: 8px; padding: 12px; border-top: 1px solid var(--line, #e4e7ec); }
+.wa-reply input { flex: 1; padding: 10px 12px; border: 1px solid #d0d5dd; border-radius: 5px; font: inherit; }
+.wa-quick { display: flex; gap: 6px; flex-wrap: wrap; padding: 0 12px 12px; }
+
+@media (max-width: 900px) {
+  .wa-wrap { grid-template-columns: 1fr; }
+  .wa-list-body { max-height: 300px; }
+}
+
+/* ── WhatsApp Phase 2: composer + message toolkit ─────────────────────────────── */
+.wa2-grid { display: grid; grid-template-columns: 1.15fr .85fr; gap: 16px; align-items: start; }
+.wa2-thumbs { display: flex; gap: 8px; flex-wrap: wrap; }
+.wa2-thumb { position: relative; width: 74px; height: 92px; border-radius: 8px; overflow: hidden; border: 1px solid var(--ad-line); background: var(--ad-card); }
+.wa2-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.wa2-thumb button { position: absolute; top: 3px; right: 3px; width: 18px; height: 18px; line-height: 16px; border-radius: 50%; border: none; background: rgba(0,0,0,.6); color: #fff; font-size: 13px; cursor: pointer; padding: 0; }
+.wa2-thumb-tag { position: absolute; left: 0; right: 0; bottom: 0; font-size: 9px; text-align: center; background: rgba(0,0,0,.55); color: #fff; letter-spacing: .02em; }
+.wa2-pick { display: grid; gap: 2px; max-height: 260px; overflow: auto; }
+.wa2-pick-row { display: flex; gap: 10px; align-items: center; padding: 7px 8px; border: none; background: transparent; border-radius: 8px; cursor: pointer; font: inherit; color: inherit; }
+.wa2-pick-row:hover { background: rgba(154,123,79,.08); }
+.wa2-pick-row img { width: 34px; height: 42px; object-fit: cover; border-radius: 4px; }
+.wa2-pick-noimg { width: 34px; height: 42px; border-radius: 4px; background: rgba(0,0,0,.06); }
+.wa2-phone { background: #ece5dd; border-radius: 12px; padding: 14px; background-image: radial-gradient(rgba(0,0,0,.05) 1px, transparent 1px); background-size: 14px 14px; }
+.wa2-bubble { background: #dcf8c6; color: #111b21; border-radius: 10px 10px 10px 3px; padding: 9px 11px 6px; font-size: 13.5px; line-height: 1.55; box-shadow: 0 1px 1px rgba(0,0,0,.13); max-width: 100%; }
+.wa2-text { white-space: pre-wrap; word-break: break-word; }
+.wa2-time { text-align: right; font-size: 10.5px; color: #667781; margin-top: 3px; }
+.wa2-bubble-imgs { display: grid; grid-template-columns: repeat(2, 1fr); gap: 3px; border-radius: 6px; overflow: hidden; margin-bottom: 7px; position: relative; }
+.wa2-bubble-imgs img { width: 100%; height: 108px; object-fit: cover; display: block; }
+.wa2-more { position: absolute; right: 6px; bottom: 6px; background: rgba(0,0,0,.6); color: #fff; font-size: 11px; padding: 2px 7px; border-radius: 10px; }
+@media (max-width: 1000px) { .wa2-grid { grid-template-columns: 1fr; } .acard[style*="sticky"] { position: static !important; } }

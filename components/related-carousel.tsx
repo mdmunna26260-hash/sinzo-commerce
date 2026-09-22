@@ -1,10 +1,13 @@
 "use client";
-import { useRef, useState, useEffect, useCallback } from "react";
+import { useRef, useState, useCallback } from "react";
 import { ProductCard } from "@/components/parts";
+import { useRailSwipe } from "@/components/swipe-rail";
 
-/* Related products: 2×2 grid per page, horizontal swipe (scroll-snap),
-   interactive dot indicators that update as you swipe.
-   Each page = 4 products (2 cols × 2 rows). Max 10 pages (40 products). */
+/* Related products: 2×2 grid per page, horizontal swipe, interactive page counter.
+   Each page = 4 products (2 cols × 2 rows). Max 10 pages (40 products).
+   The swipe comes from components/swipe-rail.ts — the horizontal axis is ours
+   (`touch-action: pan-y`), so a thumb swipe always turns the page instead of being
+   swallowed by the vertical page scroll on iOS. */
 
 type Item = {
   id: number; title: string; slug: string; price: number;
@@ -13,30 +16,35 @@ type Item = {
 };
 
 export default function RelatedCarousel({ items }: { items: Item[] }) {
-  const scrollRef = useRef<HTMLDivElement>(null);
   const [page, setPage] = useState(0);
   const totalPages = Math.ceil(items.length / 4);
+  const totalRef = useRef(totalPages);
+  totalRef.current = totalPages;
+
+  const goTo = (i: number) => {
+    const el = rail.ref.current;
+    if (!el) return;
+    el.scrollTo({ left: i * el.clientWidth, behavior: "smooth" });
+  };
+  /* every hook runs on every render (the early return below used to sit in front of
+     this one — a product page whose related list ever went empty would have thrown) */
+  const rail = useRailSwipe({ pages: () => totalRef.current, goTo });
+
+  const onScroll = useCallback(() => {
+    const el = rail.ref.current;
+    if (!el) return;
+    const idx = Math.round(el.scrollLeft / el.clientWidth);
+    setPage(Math.min(idx, totalPages - 1));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [totalPages]);
 
   const pages: Item[][] = [];
   for (let i = 0; i < items.length; i += 4) pages.push(items.slice(i, i + 4));
   if (!pages.length) return null;
 
-  const onScroll = useCallback(() => {
-    const el = scrollRef.current;
-    if (!el) return;
-    const idx = Math.round(el.scrollLeft / el.clientWidth);
-    setPage(Math.min(idx, totalPages - 1));
-  }, [totalPages]);
-
-  const goTo = (i: number) => {
-    const el = scrollRef.current;
-    if (!el) return;
-    el.scrollTo({ left: i * el.clientWidth, behavior: "smooth" });
-  };
-
   return (
     <div className="rel-carousel">
-      <div className="rel-scroll" ref={scrollRef} onScroll={onScroll}>
+      <div className="rel-scroll" ref={rail.ref} {...rail.handlers} onScroll={onScroll}>
         {pages.map((chunk, pi) => (
           <div className="rel-page" key={pi}>
             {chunk.map((r) => (

@@ -22,6 +22,7 @@ export default function CheckoutPage() {
 
   const [form, setForm] = useState({ name: "", phone: "", email: "", address: "", area: "INSIDE_DHAKA", notes: "" });
   const [coupon, setCoupon] = useState("");
+  const [referral, setReferral] = useState("");
   const [applied, setApplied] = useState<any>(null);
   const [errors, setErrors] = useState<any>({});
   const [busy, setBusy] = useState(false);
@@ -143,7 +144,7 @@ export default function CheckoutPage() {
         body: JSON.stringify({
           ...form, phone: normalizeBDPhone(form.phone), paymentMethod: payment,
       giftWrap,
-          couponCode: applied?.code || null, purchaseEventId: eventId,
+          couponCode: applied?.code || null, referralCode: referral.trim() || null, purchaseEventId: eventId,
           attribution: captureAttribution(),
           items: lines.map((l) => ({ productId: l.productId, variantId: l.variantId || null, qty: l.qty })),
         }),
@@ -280,6 +281,7 @@ export default function CheckoutPage() {
           </div>
           <div className="coupon-row">
             <input placeholder="Coupon code" value={coupon} onChange={(e) => setCoupon(e.target.value.toUpperCase())} disabled={busy} />
+            <input placeholder="Friend's referral code (optional)" value={referral} onChange={(e) => setReferral(e.target.value.toUpperCase())} disabled={busy} />
             <button className="abtn" onClick={applyCoupon} type="button" disabled={busy || cbusy} aria-busy={cbusy || undefined}>
               {cbusy && <span className="spinner" aria-hidden="true" />}{cbusy ? "Checking" : "Apply"}
             </button>

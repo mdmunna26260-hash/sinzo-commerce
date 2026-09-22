@@ -3,7 +3,7 @@ import { afetch, withToken } from "@/lib/afetch";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
-const TABS = ["Store", "Theme", "Homepage Layout", "Shipping", "Courier", "Checkout & Fraud", "Notifications", "SEO & Maintenance"];
+const TABS = ["Store", "Theme", "Homepage Layout", "Shipping", "Policies", "Courier", "Checkout & Fraud", "Notifications", "SEO & Maintenance"];
 const MAP: Record<string, string> = { Store: "store", Theme: "theme", Shipping: "shipping", Courier: "courier", "Checkout & Fraud": "__multi", "SEO & Maintenance": "__multi2" };
 
 function CourierTestBadge() {
@@ -169,6 +169,31 @@ function TestNotifBtn() {
   return (
     <span style={{ display: "inline-flex", gap: 10, alignItems: "center" }}>
       <button className="abtn" onClick={test} disabled={state.busy}>{state.busy ? "Sending…" : "Send Test"}</button>
+      {state.msg && <span style={{ fontSize: 12.5, color: state.ok ? "var(--ok)" : "var(--danger)" }}>{state.msg}</span>}
+    </span>
+  );
+}
+
+function TestSmsBtn() {
+  const [state, setState] = useState<{ busy: boolean; msg: string; ok: boolean }>({ busy: false, msg: "", ok: false });
+  const [phone, setPhone] = useState("");
+  const test = async () => {
+    const to = phone.trim() || prompt("Test SMS kothay pathabo? Number din (01XXXXXXXXX):") || "";
+    if (!to) return;
+    setState({ busy: true, msg: "Sending…", ok: false });
+    const r = await afetch("/api/admin/sms", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ phone: to, message: "Sinzo test SMS — gateway thik moto kaj korche ✓" }),
+    });
+    const j = await r.json().catch(() => ({}));
+    if (j.ok) setState({ busy: false, msg: "✓ Sent to " + j.to, ok: true });
+    else setState({ busy: false, msg: "✗ " + (j.error || "Send failed"), ok: false });
+    setTimeout(() => setState({ busy: false, msg: "", ok: false }), 9000);
+  };
+  return (
+    <span style={{ display: "inline-flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+      <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="01XXXXXXXXX (test number)" style={{ width: 190, padding: "8px 10px", border: "1px solid #d0d5dd", borderRadius: 5 }} autoCapitalize="none" inputMode="tel" />
+      <button className="abtn" onClick={test} disabled={state.busy}>{state.busy ? "Sending…" : "Send test SMS"}</button>
       {state.msg && <span style={{ fontSize: 12.5, color: state.ok ? "var(--ok)" : "var(--danger)" }}>{state.msg}</span>}
     </span>
   );
@@ -394,6 +419,42 @@ export default function SettingsClient({ groups, user, userCount, hasCourier, co
         </>
       )}
 
+      {tab === "Policies" && (
+        <div className="acard"><div className="acard-h"><h3>Returns &amp; Exchange</h3></div>
+          <div className="acard-b form-grid">
+            <div className="full" style={{ fontSize: 12.5, color: "var(--muted)" }}>
+              Ei value gulo /returns page e dekhay <b>ar</b> Google er Product markup e <code>MerchantReturnPolicy</code> hisebe jay.
+              Ek jaygay bodlale dutoi bodle jabe — page ar markup kokhono alada hobe na.
+            </div>
+            <F k="returnDays" label="Return window (days from delivery)" type="number" group="policies" />
+            <F k="damageReportHours" label="Hours to report a wrong/damaged item" type="number" group="policies" />
+            <F k="refundTime" label="Refund time (as shown to customer)" group="policies" />
+            <F k="refundMethod" label="Refund method (COD orders)" group="policies" />
+            <F k="updated" label="Last updated (shown on the page)" group="policies" />
+            <div className="af full">
+              <label>Exchange note</label>
+              <textarea rows={3} value={g.policies?.exchangeNote ?? ""} onChange={(e) => setG({ ...g, policies: { ...g.policies, exchangeNote: e.target.value } })} />
+            </div>
+            <div className="af full">
+              <label>What can&apos;t be returned (ek line e ekta)</label>
+              <textarea rows={4} value={g.policies?.nonReturnable ?? ""} onChange={(e) => setG({ ...g, policies: { ...g.policies, nonReturnable: e.target.value } })} placeholder={"Innerwear, for hygiene reasons.\nWorn or washed items."} />
+            </div>
+            <div className="af full">
+              <label>Extra note (optional — page er niche ekta section hisebe dekhay)</label>
+              <textarea rows={3} value={g.policies?.note ?? ""} onChange={(e) => setG({ ...g, policies: { ...g.policies, note: e.target.value } })} />
+            </div>
+            <div className="af full">
+              <label style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 13.5 }}>
+                <input type="checkbox" checked={g.policies?.freeReturnCourier !== false} onChange={(e) => setG({ ...g, policies: { ...g.policies, freeReturnCourier: e.target.checked } })} />
+                Return courier amra bori (free return)
+              </label>
+              <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 4 }}>Uncheck korle page e &quot;you send it back&quot; dekhabe, ar Google markup e <code>ReturnFeesCustomerResponsibility</code> jabe.</div>
+            </div>
+            <div className="full">{saveBtn("policies")}</div>
+          </div>
+        </div>
+      )}
+
       {tab === "Shipping" && (
         <>
         <div className="acard" style={{ marginBottom: 16 }}><div className="acard-h"><h3>🖨 Thermal Printer</h3></div>
@@ -545,11 +606,81 @@ export default function SettingsClient({ groups, user, userCount, hasCourier, co
             <div className="af"><label>SMTP Port</label><input type="number" value={g.notifications?.smtp?.port || ""} onChange={(e) => setG({ ...g, notifications: { ...g.notifications, smtp: { ...g.notifications?.smtp, port: e.target.value } } })} placeholder="587" /></div>
             <div className="af"><label>SMTP User</label><input value={g.notifications?.smtp?.user || ""} onChange={(e) => setG({ ...g, notifications: { ...g.notifications, smtp: { ...g.notifications?.smtp, user: e.target.value } } })} autoCapitalize="none" /></div>
             <div className="af"><label>SMTP Password / App password</label><input type="password" value={g.notifications?.smtp?.pass || ""} onChange={(e) => setG({ ...g, notifications: { ...g.notifications, smtp: { ...g.notifications?.smtp, pass: e.target.value } } })} /></div>
+            <div className="af full"><label>WhatsApp auto-reply (first message er jonno, optional)</label>
+              <input value={g.notifications?.waAutoReply || ""} onChange={(e) => setG({ ...g, notifications: { ...g.notifications, waAutoReply: e.target.value } })} placeholder="Assalamu alaikum {name}! Sinzo te message pathanor jonno dhonnobad — apnar order niye help lagle likhun." />
+              <div style={{ fontSize: 11.5, color: "var(--muted)", marginTop: 4 }}>Kono customer prothom bar WhatsApp korle ei text ta auto pathano hobe (bridge linked thakle).</div>
+            </div>
+          <div className="acard" style={{ marginTop: 16 }}>
+            <div className="acard-h"><h3>WhatsApp broadcast &amp; devices</h3><span style={{ fontSize: 12, color: "var(--muted)" }}>queue · caps · templates</span></div>
+            <div className="acard-b" style={{ fontSize: 13, color: "var(--muted)", display: "grid", gap: 8 }}>
+              <div>
+                Order-confirm, 2–3 number-er device manager, QR pairing, daily caps, quiet hours, retry + SMS fallback —
+                shob ek jaygay. Kono message web request-er vitore jay na: order hole row queue-te joma hoy,
+                <code> npm run wa:worker </code> seta pathay.
+              </div>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                <a className="abtn" href="/admin/whatsapp">Broadcast &amp; Queue</a>
+                <a className="abtn" href="/admin/whatsapp/devices">Devices</a>
+                <a className="abtn" href="/admin/whatsapp/templates">Templates</a>
+              </div>
+            </div>
+          </div>
+            <div className="af full"><label>WhatsApp bridge key (x-bridge-key)</label>
+              <input value={g.notifications?.waBridgeKey || ""} onChange={(e) => setG({ ...g, notifications: { ...g.notifications, waBridgeKey: e.target.value } })} placeholder="local-bridge" autoCapitalize="none" />
+              <div style={{ fontSize: 11.5, color: "var(--muted)", marginTop: 4 }}>Bridge chalanor somoy <code>WA_BRIDGE_KEY</code> same rakhte hobe — inbound message ei key diye verify hoy.</div>
+            </div>
             <div className="af full"><label>From address</label><input value={g.notifications?.smtp?.from || ""} onChange={(e) => setG({ ...g, notifications: { ...g.notifications, smtp: { ...g.notifications?.smtp, from: e.target.value } } })} placeholder="store@example.com" /></div>
             <div className="full" style={{ fontSize: 12, color: "var(--muted)" }}>
               Gmail hole: 2FA on kore <b>App Password</b> nin (account.google.com/apppasswords). Configure korle admin alert + customer order-confirmation email dutoi jabe.
             </div>
             <div className="full"><button className="abtn primary" onClick={() => save("notifications", g.notifications)} disabled={busy}>Save Notifications</button></div>
+          </div></div>
+
+          <div className="acard" style={{ marginTop: 16 }}><div className="acard-h"><h3>SMS Gateway (Bangladesh)</h3>
+            <span className={"risk-badge " + (g.notifications?.sms?.apiKey ? "risk-LOW" : "risk-HIGH")}>{g.notifications?.sms?.apiKey ? "CONFIGURED" : "NOT CONFIGURED"}</span>
+          </div>
+          <div className="acard-b form-grid">
+            <label className="full" style={{ display: "flex", gap: 8, fontSize: 13.5, alignItems: "center" }}>
+              <input type="checkbox" checked={g.notifications?.sms?.enabled !== false} onChange={(e) => setG({ ...g, notifications: { ...g.notifications, sms: { ...g.notifications?.sms, enabled: e.target.checked } } })} /> SMS sending enabled
+            </label>
+            <div className="af"><label>Gateway</label>
+              <select value={g.notifications?.sms?.provider || "bulksmsbd"} onChange={(e) => setG({ ...g, notifications: { ...g.notifications, sms: { ...g.notifications?.sms, provider: e.target.value } } })}>
+                <option value="bulksmsbd">BulkSMSBD (bulksmsbd.net)</option>
+                <option value="greenweb">GreenWeb (greenweb.com.bd)</option>
+                <option value="mimsms">MimSMS</option>
+                <option value="custom">Custom GET URL</option>
+              </select>
+            </div>
+            <div className="af"><label>Sender ID / Mask</label>
+              <input value={g.notifications?.sms?.senderId || ""} onChange={(e) => setG({ ...g, notifications: { ...g.notifications, sms: { ...g.notifications?.sms, senderId: e.target.value } } })} placeholder="8809612xxxx" autoCapitalize="none" />
+            </div>
+            <div className="af full"><label>API key / token</label>
+              <input value={g.notifications?.sms?.apiKey || ""} onChange={(e) => setG({ ...g, notifications: { ...g.notifications, sms: { ...g.notifications?.sms, apiKey: e.target.value } } })} placeholder="gateway dashboard theke API key" autoCapitalize="none" />
+            </div>
+            {g.notifications?.sms?.provider === "custom" && (
+              <div className="af full"><label>Custom URL (GET)</label>
+                <input value={g.notifications?.sms?.url || ""} onChange={(e) => setG({ ...g, notifications: { ...g.notifications, sms: { ...g.notifications?.sms, url: e.target.value } } })} placeholder="https://api.example.com/send?key={key}&to={to}&msg={msg}" autoCapitalize="none" />
+                <div style={{ fontSize: 11.5, color: "var(--muted)", marginTop: 4 }}>placeholders: {"{key} {sender} {to} {msg}"}</div>
+              </div>
+            )}
+            <div className="af full">
+              <label>Auto SMS on status change</label>
+              <div style={{ display: "grid", gap: 6, fontSize: 13.5, paddingTop: 4 }}>
+                {[["sms_on_confirmed", "Confirmed"], ["sms_on_packed", "Packed"], ["sms_on_shipped", "Shipped (tracking soho)"], ["sms_on_delivered", "Delivered"], ["sms_on_cancelled", "Cancelled"]].map(([k, l]) => (
+                  <label key={k} style={{ display: "flex", gap: 8 }}>
+                    <input type="checkbox" checked={g.notifications?.[k] === true} onChange={(e) => setG({ ...g, notifications: { ...g.notifications, [k]: e.target.checked } })} /> {l}
+                  </label>
+                ))}
+              </div>
+            </div>
+            <div className="full" style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+              <button className="abtn primary" onClick={() => save("notifications", g.notifications)} disabled={busy}>Save Notifications</button>
+              <TestSmsBtn />
+            </div>
+            <div className="full" style={{ fontSize: 12, color: "var(--muted)" }}>
+              BulkSMSBD: dashboard → API → <b>api_key</b>, ar Mask/Sender ID nin. GreenWeb: token nin. MimSMS: ApiKey + SenderId.
+              Auto SMS switch on korle order status change hole customer ke SMS jabe (cost per SMS — ei karone default off).
+            </div>
           </div></div>
 
           <div className="acard" style={{ marginTop: 16 }}><div className="acard-h"><h3>Google (Gmail) Login — Customers</h3>

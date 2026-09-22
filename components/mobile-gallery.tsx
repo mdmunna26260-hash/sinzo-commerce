@@ -1,6 +1,6 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { imgSrc } from "./img-src";
+import { imgSrc, imgSrcSet, PDP_WIDTHS, PDP_SIZES, PDP_SRC_WIDTH, THUMB_WIDTHS } from "./img-src";
 import { warmImage } from "./img-warm";
 
 type Img = { url: string; alt: string };
@@ -46,9 +46,12 @@ export default function MobileGallery({ images, title, active, onIndexChange }: 
     strip.scrollTo({ left: el.offsetLeft - strip.clientWidth / 2 + el.clientWidth / 2, behavior: "smooth" });
   }, [active]);
 
-  /* Only the slides the shopper can actually reach get an <img>: the browser happily fetched
-     every lazy slide of a horizontal track (5 x w800 on a phone = ~400KB of the PDP's budget).
-     A newly activated slide renders immediately, its neighbours are pre-warmed. */
+  /* Only the slides the shopper has actually reached get an <img>: a `loading="lazy"` image inside
+     a horizontal track is still fetched while its slide sits off-screen, so a 5-photo product paid
+     for several full-size files before the shopper swiped once.
+     The set starts with the first three slides and only ever GROWS — a slide that has been paid for
+     is never unmounted, so it is never re-requested. active ± 1 is what the pre-warm effect below
+     keeps warm, so the next swipe finds it already in the browser cache. */
   const [seen, setSeen] = useState<number[]>(() => [0, 1, 2].filter((i) => i < N));
   useEffect(() => {
     setSeen((s) => {
@@ -147,9 +150,11 @@ export default function MobileGallery({ images, title, active, onIndexChange }: 
             <div className="mgal-slide" key={i}>
               {!loaded[i] && <div className="sk sk-img" style={{ position: "absolute", inset: 0 }} />}
               {seen.includes(i) && <img
-                src={imgSrc(im.url, 800) || im.url}
-                srcSet={[400, 600, 800, 1000].map((w) => `${imgSrc(im.url, w)} ${w}w`).join(", ") || undefined}
-                sizes="100vw"
+                /* Same ladder + same rendered-width hint as the desktop gallery and the document
+                   preload — all three read these constants (see components/img-src.ts). */
+                src={imgSrc(im.url, PDP_SRC_WIDTH) || im.url}
+                srcSet={imgSrcSet(im.url, PDP_WIDTHS)}
+                sizes={PDP_SIZES}
                 alt={im.alt || `${title} — image ${i + 1}`}
                 draggable={false}
                 loading={i === 0 ? "eager" : "lazy"}
@@ -160,6 +165,12 @@ export default function MobileGallery({ images, title, active, onIndexChange }: 
             </div>
           ))}
         </div>
+      </div>
+
+      {/* Pagination dots — BELOW the image (owner's reference): one per photo, the current one
+          bigger and dark, the others small and light. They used to float on top of the photo;
+          a single photo renders no dots (the counter chip above covers that case). */}
+      {N > 1 && (
         <div className="mgal-dots" role="tablist" aria-label="Image pagination">
           {images.map((_, i) => (
             <button
@@ -172,7 +183,7 @@ export default function MobileGallery({ images, title, active, onIndexChange }: 
             />
           ))}
         </div>
-      </div>
+      )}
 
       {/* thumbnail strip — tap to jump, active highlighted, auto-centred */}
       {N > 1 && (
@@ -188,7 +199,7 @@ export default function MobileGallery({ images, title, active, onIndexChange }: 
             >
               <img
                 src={imgSrc(im.url, 200) || im.url}
-                srcSet={[200, 300].map((w) => `${imgSrc(im.url, w)} ${w}w`).join(", ") || undefined}
+                srcSet={imgSrcSet(im.url, THUMB_WIDTHS)}
                 sizes="56px"
                 alt=""
                 loading={Math.abs(i - active) <= 1 ? "eager" : "lazy"}

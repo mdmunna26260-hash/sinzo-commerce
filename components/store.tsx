@@ -199,5 +199,8 @@ export function toast(msg: string) {
   const t = document.createElement("div");
   t.className = "toast"; t.textContent = msg;
   document.body.appendChild(t);
+  /* `.out` class dei transition-er jonno — age animation chilo, exit chilo na,
+     tai toast hatath uye jeto (CSS e @starting-style + `.out` dekhun). */
+  setTimeout(() => t.classList.add("out"), 2150);
   setTimeout(() => t.remove(), 2600);
 }
