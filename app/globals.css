@@ -2744,9 +2744,13 @@ html.theme-transition *::after {
 .cg-track { display: flex; height: 100%; width: 100%; will-change: transform; }
 .cg-slide { position: relative; flex: 0 0 100%; width: 100%; height: 100%; background: #eee9e2; }
 .cg-img { width: 100%; height: 100%; object-fit: cover; display: block; user-select: none; -webkit-user-drag: none; }
-/* the card's hover zoom must not fight the swipe transform */
+/* the card's hover zoom must not fight the swipe transform.
+   Inside `(hover: hover)` on purpose, like every other hover effect on a card: iOS applies
+   :hover on the FIRST tap, so an unguarded rule here repaints the exact image the finger is
+   on — and WebKit then drops the synthesized click ("product e click korle 2 bar lagbe").
+   A touch screen has no hover to neutralise. */
 .cg .cg-img { transition: none; }
-.pcard:hover .pcard-img .cg-img { transform: none; }
+@media (hover: hover) { .pcard:hover .pcard-img .cg-img { transform: none; } }
 .cg .cg-img.nodrag { pointer-events: none; }
 
 /* desktop arrows — hidden until the card is hovered, like a lightbox */

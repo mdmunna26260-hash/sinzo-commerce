@@ -490,6 +490,68 @@ Verified: `tsc --noEmit` clean · production build exit 0 · smoke **59/0** (run
 self-healing stays (it is what saves a real deploy in an open tab); with the cache actually fixed it
 should stop being needed in dev.
 
+## 17 · The two-tap bug, second pass: the last hover rule, pointer capture, and a swallow that knows where the finger was (2026-09-23)
+
+§12 removed the three *classes* of cause (unguarded hover styling, double-tap zoom, entrance
+animations that move the tap target). This pass came out of re-reading `card-gallery.tsx` against
+the Pointer Events spec and the owner's acceptance list — one tap opens a product, a swipe changes
+the photo (and its dot) without opening it, a vertical drag scrolls the page. Five things were
+still wrong or fragile:
+
+1. **One unguarded hover rule survived §12.** `.pcard:hover .pcard-img .cg-img { transform: none }`
+   sat outside `@media (hover: hover)`. It exists only to cancel the desktop hover zoom on a
+   swipe gallery, but on a phone iOS applies `:hover` on the *first* tap — repainting the very
+   image under the finger, which makes WebKit drop the synthesized click. It is now inside the
+   hover guard, and the audit scans **every** `:hover` rule structurally (a rule that changes
+   transform/size/display/visibility must be inside `@media (hover: hover)`), so the next one
+   cannot slip in unnoticed.
+
+2. **Pointer capture was taken on every pointerdown.** Per the Pointer Events spec a captured
+   pointer retargets the compatibility mouse events (including `click`) to the capturing element,
+   and WebKit's implicit-capture handling is famously unreliable there (iOS 13–15.4 silently does
+   not redirect at all). `swipe-rail.ts` already carries the lesson in a comment — "capturing on
+   pointerdown would retarget the synthesized click to the rail and the card under the finger
+   would stop opening". `card-gallery.tsx` was still doing it. Capture is now taken at the axis
+   lock, i.e. only once the gesture is definitely a drag: a tap is handled exactly as if the card
+   had no gesture handlers at all, while a drag that wanders off the card is still followed.
+
+3. **The swallowed click was a blind 350ms flag.** Every deliberate tap inside that window died —
+   the other half of "product e click korle 2 bar lagbe", and the reason a swipe-then-tap (a
+   natural way to open the photo you just found) needed a second try. The plan now records where
+   the finger left the screen, and `shouldSwallow()` demands the click arrive **in time and in
+   place** (≤300ms, ≤28px). A fresh tap a thumb away is never swallowed, however soon it follows
+   a swipe. Clicks on the desktop arrows are exempt by design.
+
+4. **The tap/drag decision read the rubber-banded distance.** At the first/last photo a 30px drag
+   compresses to ~10px, i.e. inside the tap slop, so a genuine drag could stop being treated as
+   one and the browser's click could open the product. Raw finger travel (`d.raw`) now decides
+   tap vs drag; the resisted value is only ever painted.
+
+5. **The thresholds had drifted apart.** They now live once, in `components/gallery-gesture.ts`
+   (axis lock 6px, tap slop 12px, 18% travel, 0.35px/ms flick, 300ms/28px swallow), pure and
+   dependency-free, with the component owning only the DOM side effects.
+
+**Verified.** `npm run test:touch` → `touch-audit: 39/0`: the three owner rules as assertions
+against the pure module, the structural CSS scan, and wiring guards (capture at the axis lock, no
+blind flag, raw travel, dots follow the photo, QuickAdd stays a sibling of the card link).
+`scripts/_sandbox/card-tap-test.cjs` → `card-tap-test: 14/0` in a real browser: Chromium with a
+390×844 touch screen and an iPhone user-agent, driving genuine `Input.dispatchTouchEvent` gestures
+(tap, tap-with-wobble, swipe, swipe-back, mouse drag, vertical drags) against the real
+`ProductCard`/`CardMedia`/`CardGallery` and the real `globals.css`, asserting the URL, the photo
+index, the active dot and `window.scrollY`. Negative controls: each of the three fixes was
+re-broken on purpose and the audit failed (`37/2`, `37/2`, `38/1`) before the code was restored.
+`tsc --noEmit` clean · production `next build` exit 0.
+
+**What this cannot prove.** Chromium fires a compatibility click after a touch drag; iOS WebKit
+does *not*, so the blind-timer half of the report cannot be reproduced in a headless Chromium run
+— which is exactly why the decision logic is pure and the iOS sequence (drag, no click, then a
+deliberate tap elsewhere) is asserted in `touch-audit.mjs` instead. The `setPointerCapture`
+retargeting is a WebKit-specific behaviour for the same reason. The last mile stays the owner's
+thumb on the phone: one tap → PDP, swipe → photo + dot, vertical drag → page scroll.
+`npm test` (the 59-check smoke suite) needs a live database and a running server; it was **not**
+re-run here (this sandbox cannot download the Prisma engine), and nothing in this change touches
+an API route, a query or a page's data path.
+
 ## NOT changed — deliberately
 
 - **Checkout pricing**: `POST /api/checkout` already re-loads products and re-prices server-side
