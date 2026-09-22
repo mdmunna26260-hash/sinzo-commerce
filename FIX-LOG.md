@@ -433,6 +433,63 @@ scripts pass `node --check`.
 after any restart/rebuild the open tabs must reload — the dev-only watchdog does that automatically
 for the preview (that is what clears the card without anyone clicking).
 
+## 16 · Why the product page kept falling into the Oops card — the "immutable" dev chunks (2026-09-22 night)
+
+Root cause, with a one-line proof:
+
+```
+$ curl -sI http://127.0.0.1:3001/_next/static/chunks/app-pages-internals.js
+Cache-Control: public, max-age=31536000, immutable
+```
+
+That header came from **our own** rule in `next.config.mjs` (`source: "/_next/static/:path*"`), written
+on the production-only assumption in its comment — "hashed filenames". In `next dev` the filenames are
+**not** hashed (`app/page.js`, `app-pages-internals.js`, `main-app.js`, `not-found-boundary.js`,
+`redirect-boundary.js` …) and their **content changes on every recompile**. So any browser that touched
+the dev preview cached those chunks **for a year and never revalidated**:
+
+- after a rebuild (or `rm -rf .next`) the browser kept the old copies while the fresh HTML/flight
+  payload expected the new ones → webpack `options.factory` undefined → sections disappeared, then the
+  route fell into `app/error.tsx` → the Oops card;
+- only the two chunks referenced as `…?v=<build id>` were ever re-fetched (their query changed);
+  everything else came out of the year-long cache. That is why **reloads did not help — not even the
+  automatic `_r` ones added in §15** — and why it hit `/` and `/products/[slug]` in the browser but
+  never in `curl`.
+
+**Fix**
+- `next.config.mjs`: the static-asset rule is now environment-aware — `immutable, max-age=31536000`
+  **only in production** (where Next hashes the names) and `no-store, must-revalidate` in development.
+  Verified by curl: dev chunks (with and without `?v=`) answer `no-store`; prod chunks answer
+  `immutable` and every URL carries a content hash.
+- The preview now runs from a **production build**, so the poisoned URLs can never be reused. A new
+  `distDir` override (`NEXT_DIST_DIR`, default `.next` — Docker/deploys untouched) lets `npm run build`
+  write `.next-prod` **without touching the dev server's `.next`** (sharing one directory is what
+  corrupted builds in §14). Preview = `NEXT_DIST_DIR=.next-prod next start -p 3001`; the dev server
+  used for smoke runs moved to `:3002`. Because production chunk names are content-hashed
+  (`loading-9745a1ccd6968308.js`), a browser holding the old unhashed URLs simply never asks for them
+  again — no cache clearing needed on the owner's side.
+- `.gitignore`: `.next-prod`.
+
+**Test order** (owner's request) — placed through the production preview's own API with the exact
+payload the checkout page sends:
+
+```
+POST /api/checkout → 200 {"ok":true,"code":"ORD-1006","total":970,"risk":"LOW"}
+  Order      ORD-1006 · COD · subtotal 890 + delivery 80 = 970 · INSIDE_DHAKA · PENDING · customerId 6
+  OrderItem  Relaxed Heavyweight Tee (variant #34, S/White) ×1
+  Customer   "Test Customer (Arena)" 01700000099 created
+  WhatsApp   AUTO order-confirm QUEUED → 8801700000099 (no device connected in this sandbox)
+  Tracking   POST /api/track/order {code, phone} → 200 · PENDING · ৳970 · 1 item
+  Success    /order/success?code=ORD-1006 renders the confirmation + invoice link
+  Admin      login 200 · order visible in /api/admin/orders (list + detail), status PENDING
+  Stock      unchanged on purpose — this design deducts stock at DELIVERY (stockDeducted stays false)
+```
+
+Verified: `tsc --noEmit` clean · production build exit 0 · smoke **59/0** (run against the dev server)
+· preview pages 200 with hashed chunk URLs · dev + prod cache headers checked by curl. The §14/§15
+self-healing stays (it is what saves a real deploy in an open tab); with the cache actually fixed it
+should stop being needed in dev.
+
 ## NOT changed — deliberately
 
 - **Checkout pricing**: `POST /api/checkout` already re-loads products and re-prices server-side

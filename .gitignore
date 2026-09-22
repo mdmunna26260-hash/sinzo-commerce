@@ -44,3 +44,4 @@ scripts/_sandbox/
 
 # WhatsApp broadcast uploads (runtime, machine-local)
 public/uploads/wa/
+.next-prod

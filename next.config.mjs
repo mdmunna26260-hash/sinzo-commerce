@@ -36,6 +36,11 @@ const CSP = [
 const PUBLIC_HTML = "public, max-age=0, s-maxage=60, stale-while-revalidate=300, must-revalidate";
 
 const nextConfig = {
+  /* Build output directory. Defaults to `.next` (unchanged for Docker/deploys); the sandbox sets
+     NEXT_DIST_DIR=.next-prod so the production preview can be built and served WITHOUT touching
+     the dev server's `.next`. That separation matters: a prod build and a `next dev` sharing one
+     directory corrupt each other's chunk graph (FIX-LOG §14). */
+  distDir: process.env.NEXT_DIST_DIR || ".next",
   images: { unoptimized: true },
   poweredByHeader: false,
   experimental: {
@@ -83,10 +88,24 @@ const nextConfig = {
       { source: "/uploads/:path*", headers: [
         { key: "Cache-Control", value: "public, max-age=31536000, immutable" },
       ]},
-      // Next.js static assets: cache for 1 year (hashed filenames)
-      { source: "/_next/static/:path*", headers: [
-        { key: "Cache-Control", value: "public, max-age=31536000, immutable" },
-      ]},
+      /* Next.js static assets.
+         PRODUCTION: the filenames carry a content hash (`app/page-6f8a9c.js`), so a 1-year
+         immutable cache is correct and is what the CDN relies on.
+         DEVELOPMENT: the filenames are NOT hashed — `app/page.js`, `app-pages-internals.js`,
+         `main-app.js`, `not-found-boundary.js` — and their CONTENT changes on every recompile.
+         Serving those "immutable, max-age=31536000" (as this rule used to, for every environment)
+         meant a browser kept the old build's chunks for a year and never revalidated: after any
+         rebuild it ran a mix of old and new chunks, webpack could not resolve a module factory
+         ("Cannot read properties of undefined (reading 'call')"), sections disappeared and the
+         route fell into the Oops card — and NOTHING could fix it, reloads included, because the
+         bad copy was immutable. Measured 2026-09-22 on the dev preview (FIX-LOG §16). */
+      IS_PROD
+        ? { source: "/_next/static/:path*", headers: [
+            { key: "Cache-Control", value: "public, max-age=31536000, immutable" },
+          ]}
+        : { source: "/_next/static/:path*", headers: [
+            { key: "Cache-Control", value: "no-store, must-revalidate" },
+          ]},
       /* Private / mutating surfaces: never cached anywhere. */
       { source: "/((?!_next/static|api/media|uploads).*)", headers: [
         { key: "Cache-Control", value: "private, no-store, must-revalidate" },
