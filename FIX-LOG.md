@@ -490,6 +490,96 @@ Verified: `tsc --noEmit` clean · production build exit 0 · smoke **59/0** (run
 self-healing stays (it is what saves a real deploy in an open tab); with the cache actually fixed it
 should stop being needed in dev.
 
+## 17 · "You may also like" could not be swiped at all — and the tap path, second pass (2026-09-22, later)
+
+The owner's phone still showed the §12 symptoms: *"home page ba product page ba you may also like
+section theke product e click korle page open hoy na, 2 bar korte hoy"*, *"mobile e product swipe
+korle change hoy na"*. §12 fixed real causes (hover-first taps, double-tap zoom, `.reveal` moving
+the tap target, native-scroll rails) — this pass found one that nothing had touched, and it is
+reproducible in a desktop browser, no iPhone required.
+
+**a) The PDP's "you may also like" rail had no gesture handler at all.** `app/products/[slug]/page.tsx`
+rendered its own `.rel-carousel > .rel-scroll > .rel-page…` markup inline (server component, no
+hooks) while `components/related-carousel.tsx` — the component written to own that rail, with the
+swipe machine behind it — was only used by the throwaway harness. `.rel-scroll` carries
+`touch-action: pan-y`, i.e. the browser is explicitly told **not** to pan it horizontally, so with
+nothing in JS the rail could not be moved by touch at all: swipe = nothing, tap = the card opens
+(hence "product swipe korle change hoy na" in that section specifically).
+
+Evidence (Chrome DevTools protocol, `DOMDebugger.getEventListeners`, phone emulation):
+
+```
+.crs-track (home rail)  → scroll, touchstart, touchmove, touchend, touchcancel, pointerdown, dragstart
+.rel-scroll (PDP rail)  → scroll          ← React's onScroll only; no touch listeners at all
+.cg (card gallery)      → touchstart, touchmove, touchend, touchcancel, pointerdown, dragstart
+```
+
+Fix: the PDP renders `<RelatedCarousel items={…} dots />`. Same classes, same 2×2 pages, same bare
+dots; the component now also forwards `preorder`/`sizes` to the card, so the cards look identical to
+the desktop grid next to them, and it flattens the row's `images` (`{url}[]`) to URLs — passing
+strings straight through made every related card fall back to the single-photo `CardImg`, i.e. it
+lost its gallery and its dots.
+
+`.rel-dots`/`.rel-dot` had no CSS rule anywhere in the repo: the spans rendered zero-sized, so the
+rail showed no sign of having more than one page. They are styled now like the dots already used on
+the card photos (`.pcard-dots`) and the home rails (`.crs-dots`), and they follow the page as you
+swipe. `RelatedCarousel` clamps `goTo`, keeps two pages of slack off the DOM for huge categories
+(`cap`), and the arrows path stays available for callers that want the counter chrome instead.
+
+**b) One gesture machine, one place to look.** `components/use-swipe.ts` is now the only drag
+engine, shared by `card-gallery.tsx` (card photos) and `swipe-rail.ts` (home rails + the PDP rail).
+Its rules, all of them written against WebKit's touch behaviour: touch events with a **non-passive
+`touchmove`** (React attaches `touchmove` passively at the root, so `preventDefault` from a React
+handler is a no-op); the drag is taken from the browser (`preventDefault`) the moment the axis is
+decided horizontal, so nothing is left to cancel mid-gesture; vertical intent is handed straight
+back and is never prevented, so the page still scrolls naturally over a photo; no
+`setPointerCapture` anywhere (it retargets the click after a tap, and iOS 13–15.4 ignored touch
+capture entirely); a `touchcancel` (call, notification, pinch, system gesture) releases the gesture
+with the distance already travelled instead of rewinding it; and the click that follows a *drag* is
+swallowed in the capture phase, while a *tap* is never swallowed — a swipe can never open the PDP
+and a single tap always can.
+
+The CSS side of the same wound: `.pcard-badges` (the sale / TRENDING chips) sits at the top-left
+of the photo as a **sibling** of the gallery, so a thumb landing on a chip reached neither the
+gallery nor — for a rail — anything that could page it. The row is decoration on a link that already
+handles the tap, so it is `pointer-events: none` now: the gesture goes to the photo underneath it,
+and a tap still opens the product.
+
+**c) The single-photo card's touch intent no longer renders mid-tap.** `components/card-img.tsx`
+warmed the image and called `router.prefetch()` from `onTouchStart`; the prefetch is a router-state
+update, i.e. a React render between `touchstart` and the click the browser is about to synthesize —
+the same "the tree under the finger changed, so WebKit drops the tap" pattern as §12's `.reveal`
+fix. The image warm still happens immediately (network only, detached `Image()`), the prefetch is
+deferred one frame. `card-gallery.tsx` follows the same rule: `touchstart` touches nothing, the
+gallery paints from the first drag move, and neighbour photos are preloaded as detached `Image()`
+objects with the `<img>` mount pushed to the next frame.
+
+**Verified in the sandbox**
+
+```
+real-page suite   18/18   scripts/_sandbox/gesture/real.mjs  (phone emulation + CDP touch)
+  home       swipe on a photo turns the photo (rail stays, no navigation) ·
+             the tap right after that swipe opens the PDP · swipe on the info area turns the rail
+  /products  same on the grid · clean single tap opens the PDP ·
+             vertical drag scrolls the page and leaves the photo alone
+  PDP        related rail: photo swipe, rail paging (dots follow 0 → 1), single tap opens the PDP
+  desktop    arrow click turns the photo (no navigation) · plain click opens the PDP ·
+             mouse drag turns the photo (no navigation) · arrows stay inside
+             `@media (hover: hover) and (pointer: fine)`
+pure decision tests  22/22  scripts/_sandbox/gesture/pure-test.mjs  (railTarget 13 · galleryTarget 9)
+tsc --noEmit       14 errors, all pre-existing Prisma-stand-in typing in unrelated admin/API files
+                   (HEAD measured 16 on the same stand-in — this change adds none)
+npm test           47/0 against the offline Prisma stand-in (the coupon / COD order / tracking
+                   checks need rows to exist; a normal checkout runs them on the real sqlite DB)
+```
+
+The temporary `/touch-test` harness page used for the earlier probes is deleted; every check above
+now runs against the real pages. Two sandbox-only helpers live in `scripts/_sandbox/` (git-ignored,
+never shipped): `prisma-stub/install.sh` restores the offline Prisma stand-in that `npm ci` cannot
+generate here, and `gesture/` holds the suites. What no sandbox can prove is the iPhone itself —
+which is exactly why the fix for the reported symptom is a handler that was simply missing, and why
+the machine keeps away from every WebKit-specific trick §12 listed.
+
 ## NOT changed — deliberately
 
 - **Checkout pricing**: `POST /api/checkout` already re-loads products and re-prices server-side
