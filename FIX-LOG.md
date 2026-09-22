@@ -378,6 +378,61 @@ served CSS carries the new `.gal-dots` rules, the old absolute/white-pill rule a
 override are gone · all 5 inline scripts pass `node --check` · dev DB back to baseline (ORD-1001
 only, WaMessage 0).
 
+## 15 · The preview's "Oops" card, for real — self-healing that repeats (2026-09-22 late)
+
+The owner's screenshot showed the storefront's Oops card while every server check returned 200
+(`curl` on all routes, and the whole smoke suite). The crash reporter had the answer again:
+
+```
+16:21:02  stale bundle: … (reading 'call') @ webpack.js?v=1790094056174     ← the §14 monitor
+16:21:02  section featured / bestsellers: … (reading 'call')
+16:21:06  after the automatic _r reload   section featured / bestsellers: …   url "/?_r=…"
+16:26:12  clean .next, fresh load         section featured / bestsellers: …
+```
+
+The stack is the tell — it is **not** a failed request:
+
+```
+mountLazyComponent → readChunk → initializeModuleChunk → requireModule → __webpack_require__ → options.factory (undefined)
+```
+
+The Flight payload asks for a module whose chunk the client runtime *already believes* is installed.
+`next dev` reassigns which module lives in which chunk on every recompilation (each newly compiled
+route, each edited file), so a tab that loaded a page before a recompile asks for a chunk it will
+never re-fetch and the module is simply not in it any more. Measured with a probe: chunk **files**
+stay byte-identical across compiles (`app-pages-internals.js` md5 unchanged after compiling four more
+routes) and only the build id moves — so it is the client's in-memory chunk → module map that goes
+stale. That is why no amount of curl/SSR checking can see it, and why only a reload fixes it. The two
+sections that fail are the ones whose client components are lazily mounted (`Carousel` + the cards
+inside it); the same code path is what a deploy produces in a phone's tab (see `app/error.tsx`).
+
+**Why the card stayed on screen**: both recovery paths were one-shot *per tab*.
+- the layout's chunk-error script started with `if (sessionStorage.getItem("sz_chunk_err")) return;`
+  — it had already healed the tab once at 16:21:02, so every later failure was ignored;
+- `app/error.tsx` started with `if (!attempts.includes(key))` — the key was already recorded, so the
+  boundary rendered the card and never retried.
+
+**Fix — same idea in both places, a time-based budget instead of a session-wide flag:**
+- `app/layout.tsx` recovery script: one reload per minute, at most five per tab, and every occurrence
+  is still reported to `/api/client-error` (that report is how this was diagnosed). It now matches the
+  webpack signature (`Cannot read properties of undefined (reading 'call')`) and not just failed chunk
+  requests / import rejections, and it exposes `window.__szHeal` for other components.
+- `app/error.tsx`: up to 3 reloads per error, never two inside 15 s, and an attempt stops counting
+  after 10 minutes — a tab that lives through a later deploy heals again instead of sitting on the card.
+- `components/safe-section.tsx`: when a *section* dies from the same bundle error, it asks the root
+  script to heal, so a half-empty page recovers by itself instead of staying half-empty.
+
+**Executable verification** (runs the real string out of `app/layout.tsx`):
+`node scripts/_sandbox/heal-test.mjs` → **8/8** — heals a stale bundle, keeps the `_r` cache-buster,
+refuses a second reload inside a minute, reloads again after one, caps at 5 per tab, and still reports
+every failure. Plus `tsc --noEmit` clean · production build exit 0 · smoke 59/0 · the served bundles
+carry the new logic (`app/error.js` → budget + TTL, `app/page.js` → the heal hookup), and all inline
+scripts pass `node --check`.
+
+**Ops notes** (both now recorded): never run `next build` while a dev server owns that `.next`; and
+after any restart/rebuild the open tabs must reload — the dev-only watchdog does that automatically
+for the preview (that is what clears the card without anyone clicking).
+
 ## NOT changed — deliberately
 
 - **Checkout pricing**: `POST /api/checkout` already re-loads products and re-prices server-side
