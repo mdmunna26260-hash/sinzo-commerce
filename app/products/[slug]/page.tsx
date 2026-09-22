@@ -88,7 +88,9 @@ export default async function PDP({ params, searchParams }: { params: { slug: st
   const cfg = publicSettings(s);
   const pol = readPolicy(s);
   const cats = await getCategories();
-  const relSelect = { id: true, title: true, slug: true, price: true, comparePrice: true, stock: true, badge: true, isNew: true, isBestSeller: true, categoryId: true, preorder: true, images: { select: { url: true, alt: true }, take: 1 }, variants: { select: { size: true, stock: true } } } as const;
+  /* `images` is capped at 6 (same as the /products grid): the card draws its own photo dots and
+     drag gallery, so the rail needs the whole photo list, not just the cover. */
+  const relSelect = { id: true, title: true, slug: true, price: true, comparePrice: true, stock: true, badge: true, isNew: true, isBestSeller: true, categoryId: true, preorder: true, images: { select: { url: true, alt: true }, orderBy: { position: "asc" }, take: 6 }, variants: { select: { size: true, stock: true } } } as const;
   const sizesOf = (r: typeof related[number]) => Array.from(new Set((r.variants || []).filter((v) => (r.preorder ? !!v.size : v.stock > 0 && v.size)).map((v) => v.size!))).sort((a, b) => {
     const na = Number(a), nb = Number(b);
     if (!Number.isNaN(na) && !Number.isNaN(nb)) return na - nb;
@@ -357,7 +359,7 @@ export default async function PDP({ params, searchParams }: { params: { slug: st
               {Array.from({ length: Math.ceil(Math.min(related.length, 40) / 4) }, (_, pi) => (
                 <div className="rel-page" key={pi}>
                   {related.slice(pi * 4, pi * 4 + 4).map((r) => (
-                    <ProductCard key={r.id} p={{ id: r.id, title: r.title, slug: r.slug, price: r.price, comparePrice: r.comparePrice, image: r.images?.[0]?.url, stock: r.stock, badge: r.badge, isNew: r.isNew, isBestSeller: r.isBestSeller, preorder: r.preorder, sizes: sizesOf(r) }} />
+                    <ProductCard key={r.id} p={{ id: r.id, title: r.title, slug: r.slug, price: r.price, comparePrice: r.comparePrice, image: r.images?.[0]?.url, images: (r.images || []).map((i) => i.url), stock: r.stock, badge: r.badge, isNew: r.isNew, isBestSeller: r.isBestSeller, preorder: r.preorder, sizes: sizesOf(r) }} />
                   ))}
                 </div>
               ))}
@@ -374,7 +376,7 @@ export default async function PDP({ params, searchParams }: { params: { slug: st
           {/* DESKTOP: compact 4-col grid (normal product card size) */}
           <div className="grid grid-4 desktop-only">
             {related.map((r) => (
-              <ProductCard key={r.id} p={{ id: r.id, title: r.title, slug: r.slug, price: r.price, comparePrice: r.comparePrice, image: r.images?.[0]?.url, stock: r.stock, badge: r.badge, isNew: r.isNew, isBestSeller: r.isBestSeller, preorder: r.preorder, sizes: sizesOf(r) }} />
+              <ProductCard key={r.id} p={{ id: r.id, title: r.title, slug: r.slug, price: r.price, comparePrice: r.comparePrice, image: r.images?.[0]?.url, images: (r.images || []).map((i) => i.url), stock: r.stock, badge: r.badge, isNew: r.isNew, isBestSeller: r.isBestSeller, preorder: r.preorder, sizes: sizesOf(r) }} />
             ))}
           </div>
         </section>

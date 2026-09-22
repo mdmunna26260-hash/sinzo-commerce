@@ -292,6 +292,39 @@ every gated hover rule, the `pan-y` rails and the touch reveal override
 carousel and 18 product cards rendering. What a sandbox cannot prove is the iPhone itself: the
 gesture/hover heuristics above only exist in WebKit on a touch screen.
 
+## 13 · Photo pagination dots under the image (home · products · PDP) + progress bar off on mobile (2026-09-22)
+
+Owner's reference (a PacSun-style card): one dot per product **photo**, placed **under** the image,
+the current one bigger and dark, the rest small and light, updating as you swipe. Minimal, no
+animation beyond a short colour/size transition.
+
+- **Cards (home rails, `/products` grid, "you may also like")** — the dots used to be painted on
+  top of the photo (5px white / 14px white pill, `.cg-dots`). `.pcard-img` clips its content
+  (`overflow: hidden` — the sliding track needs it), so the row cannot live inside the gallery
+  either: new `components/card-media.tsx` owns the media block, `CardGallery` reports its index up
+  (`onIndexChange`) and the wrapper draws `.pcard-dots`. The row is absolutely positioned inside the
+  14px `.pcard-info` already leaves above the title, so a card with several photos is exactly as
+  tall as its single-photo neighbours and grid rows never go ragged.
+- **PDP (mobile)** — `.mgal-dots` also floated over the photo (7px / 20px dark pill). It is now a
+  normal row between the image and the thumbnail strip with the same sizes as the card dots
+  (6px / 9px), and its hit area is trimmed from ±19px to ±13px so it can overlap neither the photo
+  above nor the thumbnails below. One photo renders no dots (the counter chip covers that case).
+- **Related rail** now receives the product's whole photo list (6-photo cap, same as the grid)
+  instead of only the cover, so its cards can carry dots and the drag gallery too.
+- **Rail dots** (`.crs-dots`) keep their job but adopt the same language — the active page is a
+  bigger dark dot instead of an 18px pill, the inactive ones are lighter.
+- **Dark theme** — the dots now sit on the page background, so the old "dark dots for the light
+  image mat" override is inverted: inactive dots flip to `rgba(255,255,255,.26)`, the active one
+  stays `var(--text)` (light in dark mode).
+- **Progress bar** — `.scroll-progress` is hidden below 900px (the storefront's mobile split) on
+  request: on a phone the 2px line only read as a broken bar under the status bar. Desktop keeps it.
+
+Verified: `tsc --noEmit` clean · production `next build` exit 0 · smoke 59/0 · served HTML and CSS
+re-checked against a dev product carrying three photos (home: 4 dot rows + 4 drag galleries,
+`/products`: 1 + 1, PDP: dots in flow under the image and before the thumb strip). Those two extra
+photos live in `public/uploads/demo/` and exist only in this dev DB — `public/uploads/*` is
+git-ignored, so nothing about them ships.
+
 ## NOT changed — deliberately
 
 - **Checkout pricing**: `POST /api/checkout` already re-loads products and re-prices server-side

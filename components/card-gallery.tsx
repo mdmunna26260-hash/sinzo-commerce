@@ -27,12 +27,15 @@ type Props = {
   alt: string;
   /* classes for the outer wrapper (fills .pcard-img) */
   className?: string;
+  /* Reports the visible photo upwards — the dots are drawn by the card (components/card-media.tsx),
+     because this component lives inside `.pcard-img`, which clips anything below the image. */
+  onIndexChange?: (i: number) => void;
 };
 
 const THRESHOLD = 0.18;   // 18% of the card width decides the slide
 const VELOCITY = 0.35;    // px/ms — a quick flick counts even if short
 
-export default function CardGallery({ images, alt, className = "" }: Props) {
+export default function CardGallery({ images, alt, className = "", onIndexChange }: Props) {
   const N = images.length;
   const wrapRef = useRef<HTMLDivElement>(null);
   const trackRef = useRef<HTMLDivElement>(null);
@@ -42,6 +45,8 @@ export default function CardGallery({ images, alt, className = "" }: Props) {
   const [idx, setIdx] = useState(0);
   const idxRef = useRef(0);                // latest slide, readable from callbacks
   idxRef.current = idx;
+  const onIdx = useRef(onIndexChange);
+  onIdx.current = onIndexChange;
   const [dragging, setDragging] = useState(false);
   const [seen, setSeen] = useState<number[]>([0]);
 
@@ -102,6 +107,7 @@ export default function CardGallery({ images, alt, className = "" }: Props) {
     if (t === idx) return;
     paint(t, 0, true);            // slide it, don't jump
     setIdx(t);
+    onIdx.current?.(t);
     remember([t - 1, t, t + 1]);
   };
 
@@ -157,7 +163,10 @@ export default function CardGallery({ images, alt, className = "" }: Props) {
     setDragging(false);
     paint(next, 0, true);
     setIdx(next);
-    if (next !== idx) remember([next - 1, next, next + 1]);   // the customer is actively browsing photos
+    if (next !== idx) {
+      onIdx.current?.(next);
+      remember([next - 1, next, next + 1]);                   // the customer is actively browsing photos
+    }
   };
 
   /* the click that follows a drag must not open the product page */
@@ -285,13 +294,6 @@ export default function CardGallery({ images, alt, className = "" }: Props) {
                  strokeLinecap="round" strokeLinejoin="round" aria-hidden>
               <path d="m9 6 6 6-6 6" />
             </svg>
-          </span>
-
-          {/* dots only — no counter chip */}
-          <span className="cg-dots" aria-hidden>
-            {images.map((_, i) => (
-              <i key={i} className={"cg-dot" + (i === idx ? " on" : "")} />
-            ))}
           </span>
         </>
       )}

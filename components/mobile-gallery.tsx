@@ -165,6 +165,12 @@ export default function MobileGallery({ images, title, active, onIndexChange }: 
             </div>
           ))}
         </div>
+      </div>
+
+      {/* Pagination dots — BELOW the image (owner's reference): one per photo, the current one
+          bigger and dark, the others small and light. They used to float on top of the photo;
+          a single photo renders no dots (the counter chip above covers that case). */}
+      {N > 1 && (
         <div className="mgal-dots" role="tablist" aria-label="Image pagination">
           {images.map((_, i) => (
             <button
@@ -177,7 +183,7 @@ export default function MobileGallery({ images, title, active, onIndexChange }: 
             />
           ))}
         </div>
-      </div>
+      )}
 
       {/* thumbnail strip — tap to jump, active highlighted, auto-centred */}
       {N > 1 && (

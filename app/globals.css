@@ -129,6 +129,24 @@ h1, h2, h3, .serif { font-family: var(--font-head); font-weight: 500; letter-spa
 .pcard { position: relative; }
 .pcard-img { position: relative; overflow: hidden; aspect-ratio: var(--img-ratio, 3 / 4); background: #eee9e2; border-radius: var(--radius); }
 .pcard-img img { width: 100%; height: 100%; object-fit: cover; transition: transform .6s ease; -webkit-user-drag: none; }
+/* Card media: the photo box plus the image pagination dots that hang UNDER the image.
+   ONE dot per photo — the current one bigger and dark, the others small and light.
+   `.pcard-info` already leaves 14px above the title, so the row is absolutely positioned inside
+   that gap: a card with several photos stays exactly as tall as its single-photo neighbours and
+   the grid never goes ragged. It cannot live inside `.pcard-img` — that box clips its content
+   (components/card-media.tsx draws the row and explains why). */
+.pcard-media { position: relative; }
+.pcard-dots {
+  position: absolute; left: 0; right: 0; bottom: -11px;
+  display: flex; align-items: center; justify-content: center; gap: 5px;
+  pointer-events: none;              /* the whole card is the link — the dots are decoration */
+}
+.pcard-dots i {
+  display: block; width: 5px; height: 5px; border-radius: 99px;
+  background: rgba(20, 20, 20, .22);
+  transition: background .18s ease, width .18s ease, height .18s ease;
+}
+.pcard-dots i.on { width: 8px; height: 8px; background: var(--text); }
 @media (hover: hover) { .pcard:hover .pcard-img img { transform: scale(1.05); } }
 .pcard-badges { position: absolute; top: 0; left: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 5px; z-index: 3; }
 /* Unified badge chip — matches reference look (small light chip, dark text, top-left, no border) */
@@ -718,9 +736,11 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 13.5px; }
 .crs-ui { display: flex; align-items: center; justify-content: center; gap: 14px; padding: 14px 0 0; }
 .crs-arrow { width: 34px; height: 34px; border-radius: 99px; border: 1px solid var(--line); background: #fff; color: var(--text); font-size: 18px; line-height: 0; display: flex; align-items: center; justify-content: center; cursor: pointer; padding-bottom: 3px; }
 .crs-arrow:active { background: var(--bg); }
-.crs-dots { display: flex; gap: 6px; }
-.crs-dots button { width: 6px; height: 6px; border-radius: 99px; border: none; background: #d8d2c8; padding: 0; cursor: pointer; transition: all .25s ease; }
-.crs-dots button.on { background: var(--text); width: 18px; }
+/* same dot language as the product-image dots: current one bigger + dark, the rest small + light */
+.crs-dots { display: flex; gap: 6px; align-items: center; }
+.crs-dots button { width: 6px; height: 6px; border-radius: 99px; border: none; background: rgba(20, 20, 20, .22); padding: 0; cursor: pointer;
+  transition: background .18s ease, width .18s ease, height .18s ease; }
+.crs-dots button.on { background: var(--text); width: 9px; height: 9px; }
 /* the dots are 6px — too small to hit reliably with a thumb. Grow only the hit area (no visual
    change) so pagination meets the 44px guideline, and give keyboard users a visible ring. */
 .crs-dots button, .mgal-dots button { position: relative; }
@@ -1217,30 +1237,33 @@ a, button, [role="button"], label, summary, input, select, textarea,
   color: var(--text);
   transition: transform .2s ease;
 }
-/* dots — minimal, SINZO palette */
+/* dots — BELOW the image (they used to float over the photo), one per image.
+   Minimal, SINZO palette: the current dot is bigger + dark, the rest stay small + light. */
 .mgal-dots {
-  position: absolute;
-  bottom: 16px;
-  left: 0; right: 0;
   display: flex;
   justify-content: center;
-  gap: 7px;
-  z-index: 3;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 0 4px;
 }
 .mgal-dots button {
-  width: 7px;
-  height: 7px;
+  width: 6px;
+  height: 6px;
   border-radius: 99px;
   border: none;
-  background: rgba(20,20,20,.25);
+  background: rgba(20,20,20,.22);
   padding: 0;
   cursor: pointer;
-  transition: all .25s cubic-bezier(.22,.61,.36,1);
+  transition: background .18s ease, width .18s ease, height .18s ease;
 }
 .mgal-dots button.on {
   background: var(--text);
-  width: 20px;
+  width: 9px;
+  height: 9px;
 }
+/* the shared rule below grows every dot's hit area by 19px — right for the rail dots, but here
+   it would reach into the photo above and the thumbnail strip below, so it is trimmed to ~32px */
+.mgal-dots button::after { inset: -13px -7px; }
 
 /* thumbnail strip under the mobile swipe gallery */
 .mgal-thumbs { display: flex; gap: 8px; overflow-x: auto; padding: 10px 16px 2px; scrollbar-width: none; -webkit-overflow-scrolling: touch; scroll-padding: 0 16px; }
@@ -1250,8 +1273,8 @@ a, button, [role="button"], label, summary, input, select, textarea,
 .mgal-thumbs button img { width: 100%; height: 100%; object-fit: cover; display: block; -webkit-user-drag: none; user-select: none; }
 @media (max-width: 360px) {
   .mgal-count { bottom: 10px; left: 10px; }
-  .mgal-dots button { width: 6px; height: 6px; }
-  .mgal-dots button.on { width: 16px; }
+  .mgal-dots button { width: 5px; height: 5px; }
+  .mgal-dots button.on { width: 8px; height: 8px; }
 }
 
 /* ================================================================
@@ -2251,10 +2274,15 @@ html.theme-transition *::after {
 :root[data-theme="dark"] .pdp-price .off { color: #b3392f; }
 :root[data-theme="dark"] .badge.sale { background: #b3392f; }
 
-/* PDP image dots sit on the LIGHT image mat — active dot was var(--text)
-   (light on light = invisible) in dark mode. */
-:root[data-theme="dark"] .mgal-dots button { background: rgba(20, 20, 20, 0.3); }
-:root[data-theme="dark"] .mgal-dots button.on { background: #141414; }
+/* Pagination dots used to sit ON the light image mat, so dark mode needed dark dots there.
+   They now sit BELOW the image, on the page background: in dark mode the *inactive* dot has
+   to flip to light (the active one already uses var(--text), which is light in dark mode). */
+:root[data-theme="dark"] .mgal-dots button,
+:root[data-theme="dark"] .pcard-dots i,
+:root[data-theme="dark"] .crs-dots button { background: rgba(255, 255, 255, .26); }
+:root[data-theme="dark"] .mgal-dots button.on,
+:root[data-theme="dark"] .pcard-dots i.on,
+:root[data-theme="dark"] .crs-dots button.on { background: var(--text); }
 
 /* Admin + customer login: card blends into the dark canvas — give it an
    edge so the panel reads as a card; explicit dark-theme legibility. */
@@ -2743,24 +2771,7 @@ html.theme-transition *::after {
   .cg-arrow.off { pointer-events: none; }
 }
 
-/* dots — decorative (the whole card is a link, so no nested buttons) */
-.cg-dots {
-  position: absolute; left: 0; right: 0; bottom: 8px; z-index: 2;
-  display: flex; justify-content: center; gap: 4px; pointer-events: none;
-}
-.cg-dot {
-  width: 5px; height: 5px; border-radius: 99px; display: block;
-  background: rgba(255, 255, 255, .55);
-  box-shadow: 0 0 0 1px rgba(0, 0, 0, .12);
-  transition: width .25s ease, background .25s ease;
-}
-.cg-dot.on { width: 14px; background: #fff; }
-
-/* a wider hit area is friendly on touch; desktop keeps the subtle dots */
-@media (min-width: 900px) {
-  .cg-dot { width: 4px; height: 4px; }
-  .cg-dot.on { width: 12px; }
-}
+/* (the image dots are drawn by the card, under the image — see `.pcard-dots` above) */
 
 /* ====================================================================
    MODERN UI PASS — home page + global polish (2026-09-21)
@@ -2802,6 +2813,9 @@ html.theme-transition *::after {
   }
   @keyframes spGrow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
 }
+/* Desktop keeps it; on a phone the 2px line reads as a broken bar under the status bar/notch
+   (owner request: "remove progress bar from mobile"). 899px = the storefront's mobile split. */
+@media (max-width: 899px) { .scroll-progress { display: none !important; } }
 
 /* ---------- C. Hero: media wrapper + scroll parallax + scroll cue ---------- */
 /* The <img> itself keeps its kenburns entrance; the WRAPPER carries the scroll
