@@ -1,6 +1,11 @@
 "use client";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import type { PointerEvent as ReactPointerEvent, TouchEvent as ReactTouchEvent } from "react";
 import { imgSrc, imgSrcSet, CARD_WIDTHS, CARD_SIZES } from "./img-src";
+import {
+  isDrag, lockAxis, resist, shouldSwallow, slideAfter, swallowPlan,
+  type Axis, type SwallowPlan,
+} from "./gallery-gesture";
 
 /* Drag-to-swipe image carousel INSIDE a product card.
    Goal: let a customer see every product photo without opening the product page.
@@ -10,10 +15,30 @@ import { imgSrc, imgSrcSet, CARD_WIDTHS, CARD_SIZES } from "./img-src";
    - Release: momentum decides next/previous, a short drag springs back
    - touch-action: pan-y → vertical page scroll stays natural while we own the horizontal axis
    - Click suppression: a drag must NEVER navigate to the product page. We swallow the click
-     that follows a drag (capture phase on the wrapper), so tapping still opens the product.
+     that follows a drag, so tapping still opens the product.
    - Lazy: only the images the customer has actually reached get a src (index ± 1 preloaded).
    - Dots show position; they are decorative (not buttons) because the whole card is a link
      and interactive elements may not be nested inside an <a>.
+
+   All the gesture decisions live in components/gallery-gesture.ts (pure, unit-testable);
+   this file owns only the DOM side effects. Three rules, from the owner's phone tests:
+     1. ONE tap opens the product — nothing may eat it
+     2. a swipe changes the photo (and its dot) and never opens the product
+     3. a vertical drag scrolls the page, exactly like it would anywhere else
+
+   Two fixes from the device reports are worth naming here:
+
+   a) POINTER CAPTURE IS TAKEN ONLY ONCE A DRAG IS REAL (2026-09-22). It used to be taken on
+      every pointerdown. Per the Pointer Events spec a captured pointer retargets the
+      synthesized click to the capturing element, and WebKit's implicit-capture handling makes
+      that worse: a tap on the card image could lose its click entirely — "product e click
+      korle 2 bar lagbe". Capturing only after the axis lock keeps the tap path byte-for-byte
+      identical to a page with no handler at all, while a drag that wanders off the card is
+      still tracked. components/swipe-rail.ts was fixed the same way for the same reason.
+
+   b) THE SWALLOWED CLICK MUST BE THE DRAG'S OWN (2026-09-22). It used to be a 350ms flag, so
+      a deliberate tap right after a swipe died too ("2 bar lagbe"). The plan now records where
+      the finger left the screen and the click has to come back within a finger-width of it.
 
    IMPORTANT (bug fix 2026-09-20): the track offset is written in PIXELS, never as
    `translate3d(calc(-100% + 0px))`. Percentage + calc() inside a transform function is
@@ -32,16 +57,15 @@ type Props = {
   onIndexChange?: (i: number) => void;
 };
 
-const THRESHOLD = 0.18;   // 18% of the card width decides the slide
-const VELOCITY = 0.35;    // px/ms — a quick flick counts even if short
-
 export default function CardGallery({ images, alt, className = "", onIndexChange }: Props) {
   const N = images.length;
   const wrapRef = useRef<HTMLDivElement>(null);
   const trackRef = useRef<HTMLDivElement>(null);
-  const drag = useRef({ x: 0, y: 0, dx: 0, t: 0, active: false, axis: "" as "" | "x" | "y", id: -1 });
-  const swallowed = useRef(false);        // set for a moment after a drag → kill the click
-  const painted = useRef({ i: -1, offset: 0 });   // what the track already shows
+  /* x/y = where the gesture started, dx = what is painted, raw = what the finger actually moved,
+     t = when it started (velocity), active/id = the pointer we are following */
+  const drag = useRef({ x: 0, y: 0, dx: 0, raw: 0, t: 0, active: false, axis: "" as Axis, id: -1, captured: false });
+  const swallow = useRef<SwallowPlan | null>(null);   // the one click that belongs to a drag
+  const painted = useRef({ i: -1, offset: 0 });       // what the track already shows
   const [idx, setIdx] = useState(0);
   const idxRef = useRef(0);                // latest slide, readable from callbacks
   idxRef.current = idx;
@@ -111,13 +135,18 @@ export default function CardGallery({ images, alt, className = "", onIndexChange
     remember([t - 1, t, t + 1]);
   };
 
-  const onDown = (e: React.PointerEvent) => {
+  const onDown = (e: ReactPointerEvent) => {
     if (N < 2) return;
+    /* a second finger is a pinch, not a swipe; a right/middle click must not start a drag */
+    if (!e.isPrimary || (e.pointerType === "mouse" && e.button !== 0)) return;
     const d = drag.current;
-    d.active = true; d.axis = ""; d.dx = 0; d.x = e.clientX; d.y = e.clientY; d.t = performance.now(); d.id = e.pointerId;
+    d.active = true; d.axis = ""; d.dx = 0; d.raw = 0;
+    d.x = e.clientX; d.y = e.clientY; d.t = performance.now();
+    d.id = e.pointerId; d.captured = false;
     setDragging(true);
     paint(idx, 0, false);
-    (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
+    /* NO setPointerCapture here on purpose — see (a) in the header. It is taken at the axis
+       lock, i.e. the moment this gesture turns out to be a drag. */
   };
 
   /* shared by the pointer path and the touch fallback */
@@ -128,38 +157,42 @@ export default function CardGallery({ images, alt, className = "", onIndexChange
     const my = clientY - d.y;
     /* axis lock: the first meaningful movement decides who owns this gesture */
     if (!d.axis) {
-      if (Math.abs(mx) < 6 && Math.abs(my) < 6) return;
-      d.axis = Math.abs(mx) > Math.abs(my) ? "x" : "y";
-      if (d.axis === "y") { d.active = false; setDragging(false); return; }   // let the page scroll
+      const a = lockAxis(mx, my);
+      if (!a) return;
+      d.axis = a;
+      if (a === "y") { d.active = false; setDragging(false); return; }   // let the page scroll
+      /* definitely a drag now: follow the pointer even when it leaves the card */
+      try { (wrapRef.current as HTMLElement | null)?.setPointerCapture(d.id); d.captured = true; } catch { /* not supported */ }
     }
     if (d.axis !== "x") return;
-    /* rubber-band at both ends so the card feels physical, not broken */
-    let m = mx;
-    if ((idx === 0 && m > 0) || (idx === N - 1 && m < 0)) m *= 0.35;
-    d.dx = m;
-    paint(idx, m, false);
+    d.raw = mx;                                   // honest travel, used to decide tap vs drag
+    d.dx = resist(mx, idx, N);                    // what is painted (rubber-banded at the ends)
+    paint(idx, d.dx, false);
   };
 
-  const onMove = (e: React.PointerEvent) => move(e.clientX, e.clientY);
+  const onMove = (e: ReactPointerEvent) => {
+    if (e.pointerId !== drag.current.id) return;
+    move(e.clientX, e.clientY);
+  };
 
-  const end = () => {
+  /* x/y = where the pointer was released; left out when the browser took the gesture away
+     (pointercancel), because that gesture has no click to swallow. */
+  const end = (x?: number, y?: number) => {
     const d = drag.current;
-    if (!d.active) { setDragging(false); return; }
-    const w = stepPx() || 300;
-    const dt = Math.max(1, performance.now() - d.t);
-    const v = d.dx / dt;
-    const far = Math.abs(d.dx) > w * THRESHOLD;
-    const flick = Math.abs(v) > VELOCITY;
-    let next = idx;
-    if (far || flick) next = Math.max(0, Math.min(N - 1, idx + (d.dx < 0 ? 1 : -1)));
-    /* Only a real horizontal drag may kill the click that follows it. `d.dx` is written by the
-       axis-locked move handler, and the 12px floor keeps the small wobble every tap has on a
-       phone from swallowing the tap itself (iPhone report: "product e click korle 2 bar lagbe"). */
-    if (d.axis === "x" && Math.abs(d.dx) > 12) {
-      swallowed.current = true;
-      window.setTimeout(() => { swallowed.current = false; }, 350);
+    if (!d.active) { d.axis = ""; setDragging(false); return; }
+    if (d.captured) {
+      try { wrapRef.current?.releasePointerCapture(d.id); } catch { /* already gone */ }
+      d.captured = false;
     }
-    d.active = false; d.dx = 0;
+    const width = stepPx() || 300;                // measure immediately before the release
+    const next = slideAfter({ dx: d.dx, ms: performance.now() - d.t, width, index: idx, count: N });
+    /* Only a real horizontal drag may kill the click that follows it — and only its own.
+       `d.raw` is the finger's actual travel, so a drag that was compressed by the rubber band
+       at the first/last photo still counts as a drag. See (b) in the header. */
+    if (x != null && y != null) {
+      swallow.current = swallowPlan({ axis: d.axis, rawDx: d.raw, x, y, now: performance.now() });
+    }
+    d.active = false; d.dx = 0; d.raw = 0; d.axis = ""; d.id = -1;
     setDragging(false);
     paint(next, 0, true);
     setIdx(next);
@@ -171,10 +204,17 @@ export default function CardGallery({ images, alt, className = "", onIndexChange
 
   /* the click that follows a drag must not open the product page */
   const onClickCapture = (e: React.MouseEvent) => {
-    if (!swallowed.current) return;
+    const plan = swallow.current;
+    if (!plan) return;
     /* ...but a click on an arrow is a deliberate press on that arrow, never the tail of a drag
        (a gesture starting on an arrow can't become a drag — its pointerdown is stopped) */
-    if ((e.target as HTMLElement)?.closest?.(".cg-arrow")) return;
+    if ((e.target as HTMLElement)?.closest?.(".cg-arrow")) { swallow.current = null; return; }
+    if (!shouldSwallow(plan, { x: e.clientX, y: e.clientY, now: performance.now() })) {
+      /* too late or too far away: this is a fresh tap, and a fresh tap always wins */
+      if (performance.now() > plan.until) swallow.current = null;
+      return;
+    }
+    swallow.current = null;
     e.preventDefault();
     e.stopPropagation();
   };
@@ -185,7 +225,7 @@ export default function CardGallery({ images, alt, className = "", onIndexChange
   const stop = (e: React.SyntheticEvent) => {
     /* a press on an arrow is a fresh, deliberate interaction: a drag that ended a moment
        ago must not swallow this click (a gesture starting here can never be a drag) */
-    swallowed.current = false;
+    swallow.current = null;
     e.stopPropagation();
   };
   const arrowClick = (e: React.MouseEvent, delta: number) => {
@@ -200,23 +240,29 @@ export default function CardGallery({ images, alt, className = "", onIndexChange
      Some in-app webviews (older iOS/Android) ship no PointerEvent. There we drive the exact same state
      machine from touch events instead — never both, otherwise one gesture would be handled twice. */
   const hasPointer = useRef(typeof window !== "undefined" && "PointerEvent" in window);
-  const coord = (e: React.TouchEvent) => {
+  const coord = (e: ReactTouchEvent) => {
     const t = e.touches[0] || e.changedTouches[0];
     return { clientX: t?.clientX ?? 0, clientY: t?.clientY ?? 0 };
   };
-  const touchStart = (e: React.TouchEvent) => {
+  const touchStart = (e: ReactTouchEvent) => {
     warm();
     if (N < 2 || e.touches.length > 1) return;
     const { clientX, clientY } = coord(e);
     const d = drag.current;
-    d.active = true; d.axis = ""; d.dx = 0; d.x = clientX; d.y = clientY; d.t = performance.now();
+    d.active = true; d.axis = ""; d.dx = 0; d.raw = 0;
+    d.x = clientX; d.y = clientY; d.t = performance.now();
+    d.id = -1; d.captured = false;
     setDragging(true);
     paint(idx, 0, false);
   };
-  const touchMove = (e: React.TouchEvent) => {
+  const touchMove = (e: ReactTouchEvent) => {
     if (!drag.current.active) return;
     const { clientX, clientY } = coord(e);
     move(clientX, clientY);
+  };
+  const touchEnd = (e: ReactTouchEvent) => {
+    const { clientX, clientY } = coord(e);
+    end(clientX, clientY);
   };
 
   if (!N) return null;
@@ -227,14 +273,14 @@ export default function CardGallery({ images, alt, className = "", onIndexChange
       className={"cg " + className + (N > 1 ? " cg-swipeable" : "")}
       onPointerDown={onDown}
       onPointerMove={onMove}
-      onPointerUp={end}
-      onPointerCancel={end}
+      onPointerUp={(e) => end(e.clientX, e.clientY)}
+      onPointerCancel={() => end()}
       onPointerLeave={() => { if (drag.current.active) end(); }}
       onMouseEnter={warm}
       onTouchStart={hasPointer.current ? warm : touchStart}
       onTouchMove={hasPointer.current ? undefined : touchMove}
-      onTouchEnd={hasPointer.current ? undefined : end}
-      onTouchCancel={hasPointer.current ? undefined : end}
+      onTouchEnd={hasPointer.current ? undefined : touchEnd}
+      onTouchCancel={hasPointer.current ? undefined : () => end()}
       onClickCapture={onClickCapture}
       onDragStart={(e) => e.preventDefault()}
       aria-label={N > 1 ? `${alt} — ${N} photos, swipe to see more` : alt}
