@@ -743,9 +743,9 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 13.5px; }
 .crs-dots button.on { background: var(--text); width: 9px; height: 9px; }
 /* the dots are 6px — too small to hit reliably with a thumb. Grow only the hit area (no visual
    change) so pagination meets the 44px guideline, and give keyboard users a visible ring. */
-.crs-dots button, .mgal-dots button { position: relative; }
+.crs-dots button, .mgal-dots button, .gal-dots button { position: relative; }
 .crs-dots button::after, .mgal-dots button::after { content: ""; position: absolute; inset: -19px -8px; }
-.crs-dots button:focus-visible, .mgal-dots button:focus-visible { outline: 2px solid var(--accent); outline-offset: 10px; }
+.crs-dots button:focus-visible, .mgal-dots button:focus-visible, .gal-dots button:focus-visible { outline: 2px solid var(--accent); outline-offset: 10px; }
 @media (min-width: 900px) { .crs { margin: 0; } }
 
 /* ---------- filter drawer UI polish ---------- */
@@ -1343,13 +1343,6 @@ a, button, [role="button"], label, summary, input, select, textarea,
   backdrop-filter: blur(10px) saturate(1.4);
   border: 1px solid rgba(255, 255, 255, 0.5);
 }
-
-/* gallery dots subtle */
-.mgal-dots button {
-  background: rgba(20, 20, 20, 0.18);
-  backdrop-filter: none;
-}
-.mgal-dots button.on { background: var(--text); }
 
 /* ---------- 5. SIZE / COLOR SELECTOR — subtle glass on active ---------- */
 .size-btn,
@@ -2279,9 +2272,11 @@ html.theme-transition *::after {
    to flip to light (the active one already uses var(--text), which is light in dark mode). */
 :root[data-theme="dark"] .mgal-dots button,
 :root[data-theme="dark"] .pcard-dots i,
+:root[data-theme="dark"] .gal-dots button,
 :root[data-theme="dark"] .crs-dots button { background: rgba(255, 255, 255, .26); }
 :root[data-theme="dark"] .mgal-dots button.on,
 :root[data-theme="dark"] .pcard-dots i.on,
+:root[data-theme="dark"] .gal-dots button.on,
 :root[data-theme="dark"] .crs-dots button.on { background: var(--text); }
 
 /* Admin + customer login: card blends into the dark canvas — give it an
@@ -2333,10 +2328,16 @@ html.theme-transition *::after {
 :root[data-theme="dark"] .ad-row { background: #171512; }
 
 /* ================= Live watching (social proof, PDP) ================= */
-/* desktop gallery carousel dots (over the main image, bottom center) */
-.gal-dots { position: absolute; bottom: 14px; left: 0; right: 0; display: flex; justify-content: center; gap: 7px; z-index: 6; }
-.gal-dots button { width: 8px; height: 8px; border-radius: 50%; border: 0; padding: 0; background: rgba(255,255,255,.65); box-shadow: 0 0 0 1px rgba(0,0,0,.18); cursor: pointer; transition: all .25s ease; }
-.gal-dots button.on { width: 20px; border-radius: 4px; background: var(--text); }
+/* desktop gallery carousel dots — BELOW the main image (they used to float over the photo as
+   white pills), same language as `.mgal-dots` (mobile) and `.pcard-dots` (cards): centre on the
+   page background, current dot bigger + dark, the rest small + light.
+   Placement: `.pdp-gallery-desktop` is `display: contents`, so this row is a grid item of
+   `.pdp-gallery` (72px thumbs | photo). Column 2 / row 2 puts it exactly under the photo while
+   the thumbnail rail keeps column 1 — the order the mobile gallery uses (photo → dots → thumbs). */
+.gal-dots { grid-column: 2; grid-row: 2; display: flex; justify-content: center; align-items: center; gap: 6px; padding: 2px 0 0; }
+.gal-dots button { width: 6px; height: 6px; border-radius: 99px; border: none; padding: 0; cursor: pointer; background: rgba(20, 20, 20, .22); transition: background .18s ease, width .18s ease, height .18s ease; }
+.gal-dots button.on { width: 9px; height: 9px; background: var(--text); }
+.gal-dots button::after { inset: -10px -6px; }
 
 /* pre-order (PDP badge + order line tag) */
 .pdp-preorder { display: flex; align-items: center; gap: 8px; margin: 4px 0 2px; font-size: 13px; color: var(--muted); }

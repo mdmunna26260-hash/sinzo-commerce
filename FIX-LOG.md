@@ -325,6 +325,59 @@ re-checked against a dev product carrying three photos (home: 4 dot rows + 4 dra
 photos live in `public/uploads/demo/` and exist only in this dev DB — `public/uploads/*` is
 git-ignored, so nothing about them ships.
 
+## 14 · PDP desktop dots below the image — and the "Hydration failed" scare (2026-09-22)
+
+**a) The dev-preview error was a stale build, not the dots.** The owner saw *"Hydration failed
+because the initial UI does not match what was rendered on the server"* (1 of 2 errors) plus the
+storefront's Oops card. The crash reporter (every `app/error.tsx` / `components/safe-section.tsx`
+failure POSTs to `/api/client-error` → `AppLog` + `TrackingEvent`, i.e. Admin → Logs / Tracking)
+had two rows at 16:07:58:
+
+```
+section featured:    Cannot read properties of undefined (reading 'call')
+section bestsellers: Cannot read properties of undefined (reading 'call')
+  at options.factory (…/_next/static/chunks/webpack.js:715)
+```
+
+That is the webpack runtime failing to find a module factory — the chunk *loaded* fine, the module
+id inside it no longer exists. It matches the dev-server log for the same window, where a
+production `next build` had just run over the `.next` of the **live** dev server (500s from
+`webpack-runtime.js`). A prod build overwrites the dev server's webpack runtime, so the open tab
+receives an HTML/JS pair that cannot hydrate → overlay error + root error boundary + the two
+section fallbacks (the sections legitimately disappear because `SafeSection` caught it). After
+`rm -rf .next` + restart the same browser went on to load `/`, `/products`, a PDP and `/cart` with
+zero further reports — no dot markup was involved.
+
+- **Hardening**: the layout's recovery script only watched for *failed* chunk requests; this
+  failure is a request that succeeds and then throws. It now also matches the webpack signature
+  above, reports it (with the bundle filename) to Admin → Logs, and reloads once with the
+  cache-busting `_r` — same one-per-session guard, so a reload loop is impossible.
+- **Ops note**: never run `next build` while a dev server owns that `.next`. Stop the dev server
+  first, then wipe `.next` before starting it again (second time this has hit; the first was the
+  same-day `MODULE_NOT_FOUND './8948.js'`).
+
+**b) Desktop PDP dots now sit under the image too** (owner: *"PDP-র ডেস্কটপেও ছবির নিচে একই ডট"*).
+They used to be white pills floating over the bottom of the photo (8px, active 20px wide with a
+4px radius). They are now the same row as everywhere else — one 6px light dot per photo, the
+current one 9px and `var(--text)`, only a `.18s` colour/size transition.
+
+- `.pdp-gallery-desktop` is `display: contents`, so the row is a grid item of `.pdp-gallery`
+  (`72px` thumbs | photo): `grid-column: 2; grid-row: 2` puts it exactly under the photo while the
+  thumbnail rail keeps column 1 — the same reading order as mobile (photo → dots → thumbs).
+- Desktop means a pointer, so these stay real `role="tab"` buttons (click to jump, Tab + Enter
+  works, visible focus ring); on the cards the dots stay decorative because the whole card is one
+  `<a>`. `::after { inset: -10px -6px }` grows the 6px hit area without touching the photo above or
+  the thumbnails below.
+- Dark theme picks the desktop dots up with the others (inactive `rgba(255,255,255,.26)`).
+- Deleted a leftover liquid-glass override (`rgba(20,20,20,.18)` + `backdrop-filter:none`) that was
+  written for the over-the-photo dots and silently fought `.mgal-dots`' own alpha.
+
+Verified: `tsc --noEmit` clean · production `next build` exit 0 · smoke 59/0 · served HTML on the
+3-photo dev product reads `mobile gallery → main image → gal-dots (3 buttons, 1 active) → thumbs` ·
+served CSS carries the new `.gal-dots` rules, the old absolute/white-pill rule and the stale
+override are gone · all 5 inline scripts pass `node --check` · dev DB back to baseline (ORD-1001
+only, WaMessage 0).
+
 ## NOT changed — deliberately
 
 - **Checkout pricing**: `POST /api/checkout` already re-loads products and re-prices server-side

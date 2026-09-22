@@ -157,7 +157,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       </head>
       <body>
         <script dangerouslySetInnerHTML={{ __html: `(function(){try{var k="sz_chunk_err";if(sessionStorage.getItem(k))return;var r=function(m){try{sessionStorage.setItem(k,"1");fetch("/api/client-error",{method:"POST",headers:{"Content-Type":"application/json"},keepalive:true,body:JSON.stringify({message:m,url:location.pathname+location.search})}).catch(function(){});}catch(e){}setTimeout(function(){try{var u=new URL(location.href);if(!u.searchParams.has("_r")){u.searchParams.set("_r",String(Date.now()));location.replace(u.toString());return;}}catch(e){}location.reload();},50);};
-window.addEventListener("error",function(e){var s=e&&e.target&&e.target.src||"";if(s&&s.indexOf("/_next/")>-1)r("chunk load fail: "+s.split("/").pop());},true);
+window.addEventListener("error",function(e){var s=e&&e.target&&e.target.src||"";if(s&&s.indexOf("/_next/")>-1){r("chunk load fail: "+s.split("/").pop());return;}var m=String(e&&e.message||"");if(m.indexOf("reading 'call'")>-1)r("stale bundle: "+m.slice(0,120)+" @ "+String(e&&e.filename||"").split("/").pop());},true);
 window.addEventListener("unhandledrejection",function(e){var m=String(e&&e.reason&&e.reason.message||e&&e.reason||"");if(m.indexOf("dynamically imported module")>-1||m.indexOf("Loading chunk")>-1||m.indexOf("ChunkLoadError")>-1)r("chunk reject: "+m.slice(0,200));});}catch(e){}})();` }} />
         <CartProvider>
         {/* Reading-progress bar for the whole storefront. `animation-timeline: scroll(root)` in

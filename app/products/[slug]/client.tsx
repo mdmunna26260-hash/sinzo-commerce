@@ -334,16 +334,21 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
               onClick={() => { setLbIdx(img); setLbZoom(false); setLightbox(true); }}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3M11 8v6M8 11h6"/></svg>
             </button>
-            {/* carousel dots — desktop */}
-            {N > 1 && (
-              <div className="gal-dots" role="tablist" aria-label="Image pagination">
-                {product.images.map((_, i) => (
-                  <button key={i} role="tab" aria-selected={i === img} aria-label={"Image " + (i + 1)} className={i === img ? "on" : ""} onClick={() => goTo(i)} />
-                ))}
-              </div>
-            )}
             {avail <= 0 && !preorder && <div className="soldout-overlay"><span>Sold Out</span></div>}
           </div>
+
+          {/* Pagination dots — BELOW the image, the same language as the mobile gallery and the product
+              cards: one dot per photo, the current one bigger + dark, the rest small + light. They used
+              to float over the bottom of the photo as white pills; now they sit on the page background
+              like the owner's reference. Desktop = pointer, so these stay real buttons (click to jump,
+              Tab + Enter works) — the card grids keep them decorative. */}
+          {N > 1 && (
+            <div className="gal-dots" role="tablist" aria-label="Image pagination">
+              {product.images.map((_, i) => (
+                <button key={i} role="tab" aria-selected={i === img} aria-label={"Image " + (i + 1)} className={i === img ? "on" : ""} onClick={() => goTo(i)} />
+              ))}
+            </div>
+          )}
 
           {N > 1 && (
             <div className="thumbs">
