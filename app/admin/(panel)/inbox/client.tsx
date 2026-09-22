@@ -41,7 +41,7 @@ export default function InboxClient({ initialConversations, status, autoReply, q
   const [uploading, setUploading] = useState(false);
   const [ctx, setCtx] = useState<Ctx | null>(null);
   const [tplKey, setTplKey] = useState("");
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useState("");
   const [msg, setMsg] = useState<{ text: string; ok: boolean } | null>(null);
   const [filter, setFilter] = useState("");
   const [live, setLive] = useState(true);
@@ -104,10 +104,26 @@ export default function InboxClient({ initialConversations, status, autoReply, q
     setMsg({ ok: true, text: `Template "${key}" preview bosano holo — pathate "Send" chapun.` });
   };
 
+  /* Phase 3: take this number off the marketing list (order updates keep going) — the same list a
+     customer lands on by writing STOP. */
+  const optOut = async () => {
+    if (!active) return;
+    if (!confirm(`${local(active)} ke marketing list theke bad korben? Order update peye jabe, kintu offer/campaign jabe na.`)) return;
+    setBusy("optout");
+    const r = await afetch("/api/admin/whatsapp/optouts", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ wa: active, reason: "manual — inbox theke", source: "MANUAL" }),
+    });
+    const j = await r.json().catch(() => ({}));
+    setBusy("");
+    setMsg(r.ok && j.ok ? { ok: true, text: "Opt-out kora hoyeche — ei number e ar marketing jabe na" } : { ok: false, text: j.error || "Hoy ni" });
+  };
+
   const send = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!active || (!text.trim() && !images.length)) return;
-    setBusy(true); setMsg(null);
+    setBusy("send"); setMsg(null);
     let r: Response;
     if (tplKey && ctx) {
       r = await afetch("/api/admin/whatsapp/send", {
@@ -121,7 +137,7 @@ export default function InboxClient({ initialConversations, status, autoReply, q
       });
     }
     const j = await r.json().catch(() => ({}));
-    setBusy(false);
+    setBusy("");
     if (!r.ok || j.ok === false) { setMsg({ ok: false, text: j.error || "Send failed" }); return; }
     setText(""); setImages([]); setProduct(null); setTplKey("");
     setMsg({ ok: true, text: j.sent === false ? "Queue te gelo — worker pathabe ✓" : "Sent ✓" });
@@ -186,6 +202,9 @@ export default function InboxClient({ initialConversations, status, autoReply, q
                   {cur?.order ? <a href={`/admin/orders/${cur.order.id}`}>{cur.order.code} · {cur.order.status}</a> : <button className="abtn sm" onClick={link}>Link order</button>}
                   <a className="abtn sm" href={`/admin/whatsapp/compose?to=${active}`}>Full composer</a>
                   <a className="abtn sm" href={`https://wa.me/${active}`} target="_blank" rel="noreferrer">Open in WhatsApp</a>
+                  <button className="abtn sm" disabled={busy === "optout"} title="Marketing bondho korun (order update jabe)" onClick={optOut}>
+                    {busy === "optout" ? "…" : "Opt-out korun"}
+                  </button>
                 </span>
               </div>
 
@@ -219,7 +238,7 @@ export default function InboxClient({ initialConversations, status, autoReply, q
 
               <form className="wa-reply" onSubmit={send}>
                 <input value={text} onChange={(e) => setText(e.target.value)} placeholder={status.connected ? "Reply likhun…" : "Bridge off — reply pathate parbena"} />
-                <button className="abtn primary" type="submit" disabled={busy || (!text.trim() && !images.length)}>{busy ? "…" : "Send"}</button>
+                <button className="abtn primary" type="submit" disabled={!!busy || (!text.trim() && !images.length)}>{busy ? "…" : "Send"}</button>
               </form>
 
               {/* attachments */}

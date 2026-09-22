@@ -387,3 +387,52 @@ Phase 1-এর উপরে এবার **owner-এর হাতের toolkit*
 **চালু করার ধাপ (Phase 2-এর জন্য নতুন কিছু লাগে না):** আগের §14-এর bridge + worker চালু থাকলেই হবে — Media/Bridge-এ নতুন permission/env নেই।
 
 **সীমা (এখনো open):** broadcast/Audience builder, schedule, report, link click tracking, STOP auto-opt-out, CSV import — এগুলো **Phase 3** (ততদিন STOP লাইন message-এ থাকবে, কিন্তু STOP এলে নিজে থেকে list থেকে বাদ যাবে না — Admin → Customers-এ হাতে দেখে বাদ দিতে হবে)।
+
+---
+
+## ১৬) Phase 3 — Broadcast campaigns, audience, STOP (এই round-এ করা)
+
+Phase 1-এর অটোমেশন আর Phase 2-এর toolkit-এর উপরে এবার **পুরো broadcast system**:
+
+```
+Campaign বানাও → audience resolve (live count: কতজনের কাছে যাবে, কতজন বাদ) → schedule/start →
+প্রতি recipient-এ একটা WaMessage{BROADCAST} → worker device-গুলোতে pace করে পাঠায় →
+delivery/read receipt → report (koto gelo, koto fail, কে ক্লিক করল, কত order এলো)
+```
+
+**নতুন কোড:**
+
+| File | কাজ |
+|---|---|
+| `lib/wa-audience.ts` | Audience builder — ১০টা rule: `all_customers`, `recent_buyers` (N দিন), `product_buyers`, `collection_buyers`, `high_spenders` (Σ৳N), `area` (ঢাকার ভিতরে/বাইরে), `waitlist`, `opted_in`, `cancelled_only`, `csv` (paste/upload)। Auto: duplicate বাদ, invalid number বাদ, **STOP করা সবাই বাদ**, opt-in ছাড়া কেউ না (toggle), চাইলে "শেষ X দিনে যারা message পেয়েছে" তারাও বাদ। একই function-ই live count আর আসল send — তাই স্ক্রিনে যা দেখা যায়, ঠিক তাই যায় |
+| `lib/wa-broadcast.ts` | Campaign lifecycle: DRAFT → SCHEDULED → RUNNING → PAUSED/DONE/FAILED; প্রতি tick-এ ২৫ জন queue-তে; body builder (`{name}` `{link}` `{coupon}` `{store}` `{date}` + product card + coupon + STOP লাইন); short link তৈরি; **auto-pause** (≥১০ fail এবং অর্ধেকের বেশি fail হলে থেমে যায় + log); report (counts, failed list, clicks, attributed orders, remaining); CSV export; KPI list |
+| `app/api/admin/whatsapp/broadcasts` | create / start / pause / resume / schedule / duplicate / delete / retryFailed (শুধু failed গুলো) / tick। `GET` = list + KPI, `GET /[id]` = report |
+| `app/api/admin/whatsapp/broadcasts/[id]` | report + `?format=csv` (report CSV) |
+| `app/api/admin/whatsapp/audience` | live count + sample (কে কে যাবে) — একই rule engine; `format:"csv"` দিলে list export |
+| `app/api/admin/whatsapp/optouts` | opt-out list দেখা / হাতে যোগ / reverse (customer শুধরে চাইলে) |
+| `app/l/[slug]/route.ts` | short link `sinzo…/l/xxxx` → 302 আসল page-এ, **প্রতিটা ক্লিক গোনে** (report-এর click number এখান থেকে) |
+| `app/api/wa/inbound/route.ts` | **STOP pipeline** — customer `STOP / UNSUBSCRIBE / BLOCK / OFF` লিখলে: `WaOptOut` row + consent বন্ধ + একটা ভদ্র confirmation ("Thik ache… order-er update age-er moto পাবেন, abar offer চাইলে SHURU likhun")। অন্য যেকোনো message = consent (opt-in) |
+| `app/admin/(panel)/whatsapp/{client,new,[id]}` | Hub-এ campaigns card + KPI; **New campaign** composer (audience panel + live "kotojon jabe", variable chips, ≤10 ছবি, product picker, coupon, device choice, schedule, CSV paste, test-mode warning); **report** স্ক্রিন (progress bar, status counters, failed list + *Retry failed only*, click কার্ড, attributed orders, CSV download, pause/resume) |
+| `prisma/schema*.prisma` + `lib/db-ensure.ts` | নতুন টেবিল `WaBroadcast`, `WaLink`, `WaOptOut`; `Customer.waOptIn/waOptInAt`; দুই DB (SQLite/PG) দুই জায়গায় |
+| `lib/wa-worker.ts`, `lib/wa-queue.ts` | worker এখন প্রতি tick-এ campaign-ও এগিয়ে নেয় (`advanceBroadcasts`), quiet hours শুধু **marketing** আটকায়, retry/backoff/cap campaign-এর message-এর উপরেও খাটে, `enqueue`-এ campaign id + STOP guard |
+
+**Acceptance (plan §11) — সব পাস:**
+
+* **৫০ জনের segment campaign** → ৫০/৫০ sent, report-এ ৫০, `DONE`, ক্লিক ও attributed-order দুটোই report-এ ✓
+* **STOP reply** → `WaOptOut` + consent বন্ধ + confirmation message + এরপর যেই campaign হোক তাতে number বাদ ✓ (তবু order update যাবে — transactional)
+* **pause / resume / auto-pause** — pause করলে queue-তে নতুন message যায় না, resume-এ আবার চলে; ১০+ fail & >৫০% fail হলে নিজে থেকেই থেমে যায় ✓
+* **Logs** — campaign start/finish/auto-pause, প্রতি message send/skip/fail সব লগে ✓
+* CSV import (composer-এ paste/upload) আর CSV export (report + audience) ✓
+
+**Verification (এই round):** নতুন harness `scripts/_sandbox/verify-wa3.js` — **৭৩ passed / 0 failed** (Phase 1 + Phase 2 regression-ও এর ভিতরে), একটার পর একটা দুবার চালিয়ে stable, `tsc` clean, production build সব route সহ exit 0, আর harness নিজের সব fixture নিজে মুছে dev DB-কে আগের অবস্থায় ফিরিয়ে দেয় (orders 1 · wa 0 · campaigns 0 · links 0 · optouts 0 · devices 0)।
+
+**Harness-এ ধরা পড়া ৪টি আসল বাগ (fixed):**
+
+1. **Quiet hours পুরো queue আটকে দিত** — campagne-এর হাজারো held row candidate window খেয়ে ফেলত, ফলে রাতের বেলা customer-এর reply বা order update আর পাঠানো যেত না। এখন quiet hours-এ শুধু marketing-এর row বাদ দিয়ে বাকিগুলো আগে আনা হয় (held row আর window খায় না)।
+2. **`tick` action-এ campaign id চাইত** (`id dorkar`) — campaign ছাড়া worker "এখনই চালাও" করা যেত না। এখন id ছাড়াও চলে।
+3. **প্রথমবার message করা customer consent হিসেবে গুনত না** — শুধু আগে message করা থাকলে opt-in হতো। এখন যে-কেউ আমাদের message করলে opt-in।
+4. **Product attach করার পরেও short link homepage-এ যেত** — এখন প্রথম product-এর page-এ যায় (ছবি/product card-এর সাথে link মেলে)।
+
+**চালু করতে যা লাগে:** আগের §14-এর মতোই bridge + tick চালু থাকলেই হবে (§14-এর cron/PM2)। Schedule করা campaign পরের tick-এ নিজে start হয়; BROADCAST-ও একই queue-তে যায় তাই device cap, warm-up, retry, quiet hours সব এর উপরেও কাজ করে।
+
+**সীমা (Phase 4-এ যাবে):** Meta Cloud API option, automation flow builder, A/B test, click-to-order attribution (এখন attributed = campaign শুরুর পরে recipient-দের করা order), Excel/xlsx import (CSV-তে header চেনে আর যে column-এ ১০+ digit number সেটাই phone ধরে — নামের column থাকলেও সমস্যা নেই)।

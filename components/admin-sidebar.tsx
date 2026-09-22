@@ -32,6 +32,7 @@ const NAV: { group: string; items: { href: string; label: string; icon: string; 
   ]},
   { group: "WhatsApp", items: [
     { href: "/admin/whatsapp/compose", label: "New message", icon: "M12 5v14M5 12h14" },
+    { href: "/admin/whatsapp/new", label: "New campaign", icon: "M22 2L11 13M22 2l-7 20-4-9-9-4z" },
     { href: "/admin/whatsapp", label: "Broadcast & Queue", icon: "M3 11l18-7-7 18-2.5-7.5zM14 14l4-4" },
     { href: "/admin/whatsapp/devices", label: "Devices", icon: "M7 2h10a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2zM11 18h2" },
     { href: "/admin/whatsapp/templates", label: "Templates", icon: "M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M9 13h6M9 17h4" },

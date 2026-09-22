@@ -278,4 +278,104 @@ async function run(): Promise<void> {
   await db.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "WaMessage_status_nextAttemptAt_idx" ON "WaMessage"("status","nextAttemptAt")`).catch(() => {});
   await db.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "WaMessage_toWaId_idx" ON "WaMessage"("toWaId")`).catch(() => {});
   await db.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "WaMessage_orderId_idx" ON "WaMessage"("orderId")`).catch(() => {});
+
+  /* ── WhatsApp broadcast (Phase 3): campaigns, short links, opt-outs ── */
+  await db.$executeRawUnsafe(isPg
+    ? `ALTER TABLE "Customer" ADD COLUMN IF NOT EXISTS "waOptIn" BOOLEAN NOT NULL DEFAULT false`
+    : `ALTER TABLE "Customer" ADD COLUMN "waOptIn" BOOLEAN NOT NULL DEFAULT 0`).catch(() => {});
+  await db.$executeRawUnsafe(isPg
+    ? `ALTER TABLE "Customer" ADD COLUMN IF NOT EXISTS "waOptInAt" TIMESTAMP(3)`
+    : `ALTER TABLE "Customer" ADD COLUMN "waOptInAt" DATETIME`).catch(() => {});
+  await db.$executeRawUnsafe(isPg
+    ? `CREATE TABLE IF NOT EXISTS "WaBroadcast" (
+        "id" SERIAL PRIMARY KEY,
+        "name" TEXT NOT NULL,
+        "body" TEXT NOT NULL,
+        "templateKey" TEXT,
+        "images" TEXT,
+        "productIds" TEXT,
+        "couponCode" TEXT,
+        "linkTarget" TEXT,
+        "linkSlug" TEXT,
+        "audienceRule" TEXT NOT NULL DEFAULT '{}',
+        "deviceIds" TEXT,
+        "status" TEXT NOT NULL DEFAULT 'DRAFT',
+        "scheduledAt" TIMESTAMP(3),
+        "recipients" TEXT,
+        "total" INTEGER NOT NULL DEFAULT 0,
+        "sent" INTEGER NOT NULL DEFAULT 0,
+        "failed" INTEGER NOT NULL DEFAULT 0,
+        "skipped" INTEGER NOT NULL DEFAULT 0,
+        "enqueued" INTEGER NOT NULL DEFAULT 0,
+        "createdBy" TEXT,
+        "lastError" TEXT,
+        "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "startedAt" TIMESTAMP(3),
+        "finishedAt" TIMESTAMP(3)
+      )`
+    : `CREATE TABLE IF NOT EXISTS "WaBroadcast" (
+        "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+        "name" TEXT NOT NULL,
+        "body" TEXT NOT NULL,
+        "templateKey" TEXT,
+        "images" TEXT,
+        "productIds" TEXT,
+        "couponCode" TEXT,
+        "linkTarget" TEXT,
+        "linkSlug" TEXT,
+        "audienceRule" TEXT NOT NULL DEFAULT '{}',
+        "deviceIds" TEXT,
+        "status" TEXT NOT NULL DEFAULT 'DRAFT',
+        "scheduledAt" DATETIME,
+        "recipients" TEXT,
+        "total" INTEGER NOT NULL DEFAULT 0,
+        "sent" INTEGER NOT NULL DEFAULT 0,
+        "failed" INTEGER NOT NULL DEFAULT 0,
+        "skipped" INTEGER NOT NULL DEFAULT 0,
+        "enqueued" INTEGER NOT NULL DEFAULT 0,
+        "createdBy" TEXT,
+        "lastError" TEXT,
+        "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "startedAt" DATETIME,
+        "finishedAt" DATETIME
+      )`).catch(() => {});
+  await db.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "WaBroadcast_status_scheduledAt_idx" ON "WaBroadcast"("status","scheduledAt")`).catch(() => {});
+  await db.$executeRawUnsafe(isPg
+    ? `CREATE TABLE IF NOT EXISTS "WaLink" (
+        "id" SERIAL PRIMARY KEY,
+        "slug" TEXT NOT NULL,
+        "target" TEXT NOT NULL,
+        "label" TEXT,
+        "broadcastId" INTEGER,
+        "clicks" INTEGER NOT NULL DEFAULT 0,
+        "lastClickAt" TIMESTAMP(3),
+        "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )`
+    : `CREATE TABLE IF NOT EXISTS "WaLink" (
+        "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+        "slug" TEXT NOT NULL,
+        "target" TEXT NOT NULL,
+        "label" TEXT,
+        "broadcastId" INTEGER,
+        "clicks" INTEGER NOT NULL DEFAULT 0,
+        "lastClickAt" DATETIME,
+        "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )`).catch(() => {});
+  await db.$executeRawUnsafe(`CREATE UNIQUE INDEX IF NOT EXISTS "WaLink_slug_key" ON "WaLink"("slug")`).catch(() => {});
+  await db.$executeRawUnsafe(isPg
+    ? `CREATE TABLE IF NOT EXISTS "WaOptOut" (
+        "id" SERIAL PRIMARY KEY,
+        "waId" TEXT NOT NULL,
+        "reason" TEXT,
+        "source" TEXT,
+        "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )`
+    : `CREATE TABLE IF NOT EXISTS "WaOptOut" (
+        "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+        "waId" TEXT NOT NULL,
+        "reason" TEXT,
+        "source" TEXT,
+        "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )`).catch(() => {});
+  await db.$executeRawUnsafe(`CREATE UNIQUE INDEX IF NOT EXISTS "WaOptOut_waId_key" ON "WaOptOut"("waId")`).catch(() => {});
 }

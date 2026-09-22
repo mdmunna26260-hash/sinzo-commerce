@@ -177,6 +177,9 @@ model Customer {
   referralCode        String?  @unique
   referredBy          Int?
   referralRewardedAt  DateTime?
+  // WhatsApp marketing consent (transactional order updates do not need it)
+  waOptIn             Boolean   @default(false)
+  waOptInAt           DateTime?
   orders    Order[]
   createdAt DateTime @default(now())
 }
@@ -492,4 +495,53 @@ model WaMessage {
   @@index([status, nextAttemptAt])
   @@index([dedupeKey])
   @@index([toWaId])
+}
+
+// ── WhatsApp broadcast (Phase 3): campaigns, short links, opt-outs ──
+
+model WaBroadcast {
+  id           Int       @id @default(autoincrement())
+  name         String
+  body         String
+  templateKey  String?
+  images       String? // JSON: image URLs
+  productIds   String? // JSON: product ids — their cards are appended to the body
+  couponCode   String?
+  linkTarget   String? // URL the short link points at (empty = current store URL)
+  linkSlug     String? // WaLink slug created for this campaign (click tracking)
+  audienceRule String    @default("{}") // JSON: WaAudienceRule
+  deviceIds    String? // JSON: [deviceId]; empty = least-loaded device
+  status       String    @default("DRAFT") // DRAFT | SCHEDULED | RUNNING | PAUSED | DONE | FAILED
+  scheduledAt  DateTime?
+  recipients   String? // JSON: [{to,name}] frozen when the campaign starts
+  total        Int       @default(0)
+  sent         Int       @default(0)
+  failed       Int       @default(0)
+  skipped      Int       @default(0)
+  enqueued     Int       @default(0)
+  createdBy    String?
+  lastError    String?
+  createdAt    DateTime  @default(now())
+  startedAt    DateTime?
+  finishedAt   DateTime?
+  @@index([status, scheduledAt])
+}
+
+model WaLink {
+  id          Int       @id @default(autoincrement())
+  slug        String    @unique
+  target      String
+  label       String?
+  broadcastId Int?
+  clicks      Int       @default(0)
+  lastClickAt DateTime?
+  createdAt   DateTime  @default(now())
+}
+
+model WaOptOut {
+  id        Int      @id @default(autoincrement())
+  waId      String   @unique // 8801XXXXXXXXX
+  reason    String?
+  source    String? // INBOUND | MANUAL | CSV
+  createdAt DateTime @default(now())
 }

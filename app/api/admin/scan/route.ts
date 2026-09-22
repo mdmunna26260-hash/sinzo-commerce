@@ -15,7 +15,8 @@ async function resolveOrder(raw: string) {
   const v = String(raw || "").trim();
   if (!v) return null;
   const upper = v.toUpperCase();
-  const digits = (v.match(/\d{2,}/g) || []).sort((a, b) => b.length - a.length)[0] || "";
+  const matches: string[] = v.match(/\d{2,}/g) || [];
+  const digits = matches.sort((a, b) => b.length - a.length)[0] || "";
   const or: any[] = [{ code: v }, { code: upper }, { courierConsignmentId: v }, { courierConsignmentId: upper }];
   if (/^\d+$/.test(v)) or.push({ id: Number(v) });
   if (digits && digits !== v) or.push({ id: Number(digits) });

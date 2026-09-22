@@ -51,6 +51,44 @@ export async function POST(req: Request) {
   notifyAdmin("inbox", `💬 WhatsApp: ${order?.name || b.name || local}`,
     body.slice(0, 160) + (order ? ` · ${order.code}` : " · kono order nai"), order?.code || local).catch(() => {});
 
+  /* ── STOP / opt-out pipeline (Phase 3, plan §9C) ──────────────────────────────────────────
+     A customer writing STOP is taken out of marketing for good and gets one polite confirmation.
+     Order updates still reach them afterwards — those are their own order's information, not an
+     offer. Writing anything else counts as consent to be messaged (they started the conversation). */
+  let optedOut = false;
+  let optedIn = false;
+  const stopWord = /^(stop|unsubscribe|unsub|block|off|band|bandho|bondho)\b/i.test(body.trim()) ||
+    /\b(stop|unsubscribe|band koro|bondho koro)\b/i.test(body.trim());
+  try {
+    if (stopWord) {
+      await db.waOptOut.upsert({
+        where: { waId },
+        update: { reason: body.slice(0, 200), source: "INBOUND" },
+        create: { waId, reason: body.slice(0, 200), source: "INBOUND" },
+      });
+      if (order || local) {
+        await db.customer.updateMany({ where: { phone: local }, data: { waOptIn: false, waOptInAt: null } }).catch(() => {});
+      }
+      optedOut = true;
+      await logApp("WARN", "WHATSAPP", `${local} wrote STOP — marketing off (order updates still go)`, { waId });
+      // confirmation goes through the same outbox so it is logged and visible in the inbox
+      const { enqueue } = await import("@/lib/wa-queue");
+      const confirm = "Thik ache, apnake offer list theke bad diyechi ✅\nOrder-er update (confirm/ship/deliver) amra age-er moto pathabo. Abar offer pete chaile SHURU likhun.";
+      await enqueue({ to: waId, body: confirm, kind: "REPLY", meta: { stopConfirm: true } });
+      await db.inboxMessage.create({ data: { waId, name: null, direction: "OUT", body: confirm, orderId: order?.id ?? null, status: "ok" } }).catch(() => {});
+    } else {
+      // a customer writing to us (first time or not) is consent to keep talking to them
+      const cust = await db.customer.findUnique({ where: { phone: local } }).catch(() => null);
+      if (cust && !cust.waOptIn) {
+        const stop = await db.waOptOut.findUnique({ where: { waId } }).catch(() => null);
+        if (!stop) {
+          await db.customer.update({ where: { id: cust.id }, data: { waOptIn: true, waOptInAt: new Date() } }).catch(() => {});
+          optedIn = true;
+        }
+      }
+    }
+  } catch { /* the inbox must never fail because the opt-out bookkeeping had a bad day */ }
+
   /* Optional greeting: only the very first message from a number, and only if the owner wrote
      one in Settings. Sending it is best-effort — an unlinked bridge must not 500 the webhook. */
   let autoReplied = false;
@@ -67,5 +105,5 @@ export async function POST(req: Request) {
     }
   } catch {}
 
-  return NextResponse.json({ ok: true, id: row.id, linkedOrder: order?.code || null, autoReplied });
+  return NextResponse.json({ ok: true, id: row.id, linkedOrder: order?.code || null, autoReplied, optedOut });
 }

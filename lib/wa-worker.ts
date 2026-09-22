@@ -29,6 +29,7 @@ export type WaTickReport = {
   retried: number;
   smsFallback: number;
   skipped: number;
+  broadcasts?: { started: number; enqueued: number; done: number; paused: number };
   notes: string[];
   nextInSec: number;
 };
@@ -158,12 +159,27 @@ export async function runWaTick(opts: { limit?: number; force?: boolean; bypass?
       data: { nextAttemptAt: new Date(0) },
     }).catch(() => { });
 
+    /* Campaigns: promote due schedules and drop the next batch of recipients into this same
+       queue. Sending stays here in the worker, so caps/quiet hours/retries cover campaigns too. */
+    const { advanceBroadcasts } = await import("./wa-broadcast");
+    report.broadcasts = await advanceBroadcasts(notes);
+
     const now = new Date();
+    // During quiet hours only campaign (marketing) messages wait. Held rows must NOT eat the
+    // candidate window — otherwise a 2000-person campaign could keep a customer's reply or order
+    // update out of sight until morning. So ask for sendable rows first, and only mention the
+    // held ones when there is room to spare.
+    const holdMarketing = report.quietHours && !opts.bypass;
+    const baseWhere = { status: "QUEUED" as const, queuedAt: { lte: now } };
     const candidates = await db.waMessage.findMany({
-      where: { status: "QUEUED", queuedAt: { lte: now } },
+      where: holdMarketing ? { ...baseWhere, NOT: { kind: "BROADCAST" } } : baseWhere,
       orderBy: { id: "asc" },
       take: limit * 4,
     });
+    if (holdMarketing && candidates.length < limit) {
+      const held = await db.waMessage.count({ where: { ...baseWhere, kind: "BROADCAST" } }).catch(() => 0);
+      if (held) notes.push(`${held} campaign message(s) held for quiet hours`);
+    }
     if (!candidates.length) { notes.push("queue empty"); report.nextInSec = 45; return report; }
 
     const used = new Map<number, number>();
@@ -173,8 +189,12 @@ export async function runWaTick(opts: { limit?: number; force?: boolean; bypass?
     for (const m of candidates) {
       if (sentThisTick >= limit) break;
       if (m.nextAttemptAt && m.nextAttemptAt.getTime() > Date.now()) continue;
-      // quiet hours hold everything except the customer's own order updates
-      if (report.quietHours && m.kind !== "AUTO" && !opts.bypass) { notes.push(`#${m.id} held for quiet hours (${m.kind})`); continue; }
+      // quiet hours only hold marketing (broadcasts). Order updates, replies to a customer and the
+      // owner pressing send are all things somebody asked for — they go now.
+      if (report.quietHours && m.kind === "BROADCAST" && !opts.bypass) {
+        notes.push(`#${m.id} campaign message held for quiet hours`);
+        continue;
+      }
 
       const ageHours = (Date.now() - new Date(m.queuedAt).getTime()) / 3_600_000;
 
@@ -266,6 +286,17 @@ export async function runWaTick(opts: { limit?: number; force?: boolean; bypass?
         const { notifyAdmin } = await import("./notify");
         notifyAdmin("inbox", `🛑 WhatsApp device paused: ${device.name}`, `Kono message jacche na (${fresh.consecutiveFailures} failures). Last error: ${err}`, device.name).catch(() => {});
       }
+    }
+
+    // a campaign's counters/state may change as soon as its messages went out
+    if (sentThisTick > 0) {
+      const tick2 = await advanceBroadcasts(notes);
+      report.broadcasts = {
+        started: (report.broadcasts?.started || 0) + tick2.started,
+        enqueued: report.broadcasts?.enqueued || 0, // enqueuing already happened above
+        done: (report.broadcasts?.done || 0) + tick2.done,
+        paused: (report.broadcasts?.paused || 0) + tick2.paused,
+      };
     }
 
     report.nextInSec = sentThisTick > 0 ? 6 + Math.floor(Math.random() * 7) : (report.devices.some((d) => d.status === "CONNECTED") ? 15 : 45);

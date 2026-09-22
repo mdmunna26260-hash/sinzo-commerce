@@ -14,6 +14,12 @@ type Rules = {
   enabled: boolean; quietFrom: string; quietTo: string; dailyCapDefault: number; smsFallback: boolean;
   fallbackHours: number; testMode: boolean; testNumber: string; couponCode: string; stopLine: boolean; workerKey: string;
 };
+type Campaign = {
+  id: number; name: string; status: string; total: number; sent: number; failed: number; skipped: number; enqueued: number;
+  scheduledAt: string | null; startedAt: string | null; finishedAt: string | null; lastError: string | null;
+  couponCode: string | null; linkSlug: string | null; audienceRule: string; createdAt: string;
+};
+type CampaignKpi = { active: number; optOuts: number; sent: number; failed: number; skipped: number; people: number };
 type Data = {
   bridgeRunning: boolean; connected: boolean; me: string | null; qrPending: boolean;
   health?: { running: boolean; uptimeSec?: number; sessions?: number; connected?: number };
@@ -38,13 +44,24 @@ export default function WaHub() {
   const [testKey, setTestKey] = useState("order_placed");
   const [workerKeyInput, setWorkerKeyInput] = useState("");
   const [quickText, setQuickText] = useState<string | null>(null);
+  const [camps, setCamps] = useState<Campaign[]>([]);
+  const [campKpi, setCampKpi] = useState<CampaignKpi | null>(null);
 
   const load = async () => {
     const r = await afetch("/api/admin/whatsapp");
     const j = await r.json().catch(() => ({}));
     if (r.ok) { setD(j); setRules((prev) => prev ?? j.rules); setQuickText((prev) => prev ?? (j.quickReplies || []).join("\n")); }
   };
-  useEffect(() => { load(); const t = setInterval(load, 15000); return () => clearInterval(t); }, []);
+  const loadCamps = async () => {
+    const r = await afetch("/api/admin/whatsapp/broadcasts");
+    const j = await r.json().catch(() => ({}));
+    if (r.ok) { setCamps(j.broadcasts || []); setCampKpi(j.kpi || null); }
+  };
+  useEffect(() => {
+    load(); loadCamps();
+    const t = setInterval(() => { load(); loadCamps(); }, 15000);
+    return () => clearInterval(t);
+  }, []);
 
   const act = async (body: any, label: string) => {
     setBusy(label); setMsg(null);
@@ -65,6 +82,22 @@ export default function WaHub() {
     if (body.action === "rules" && j.rules) setRules(j.rules);
     if (body.action === "rules" && Array.isArray(body.value?.quickReplies)) load();
     load();
+  };
+
+  const campAct = async (body: any, label: string) => {
+    setBusy(label); setMsg(null);
+    const r = await afetch("/api/admin/whatsapp/broadcasts", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    const j = await r.json().catch(() => ({}));
+    setBusy(""); loadCamps(); load();
+    if (!r.ok || j.error) { setMsg({ ok: false, text: j.error || "Failed" }); return; }
+    const t = j.tick;
+    const extra = t ? ` · tick: sent ${t.sent}${t.failed ? `, failed ${t.failed}` : ""}${t.notes?.length ? " · " + t.notes.slice(0, 2).join("; ") : ""}` : "";
+    const labels: Record<string, string> = {
+      start: "Campaign shuru hoyeche", pause: "Campaign thamiye deya hoyeche", resume: "Campaign abar shuru",
+      duplicate: "Copy toiri hoyeche (Draft)", delete: "Campaign delete hoyeche",
+      retryFailed: `Failed gulo abar queue-te (${j.requeued || 0})`,
+    };
+    setMsg({ ok: true, text: (labels[body.action] || "Done") + extra + " ✓" });
   };
 
   const saveRules = async () => {
@@ -106,6 +139,71 @@ export default function WaHub() {
       </div>
 
       {msg && <div className={"noti " + (msg.ok ? "ok" : "err")} style={{ marginBottom: 14 }}>{msg.text}</div>}
+
+      <div className="acard" style={{ marginBottom: 16 }}>
+        <div className="acard-h">
+          <h3>Campaigns (broadcast)</h3>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+            {campKpi && (
+              <span style={{ fontSize: 11.5, color: "var(--muted)" }}>
+                {campKpi.active} active · {campKpi.people} jon target · {campKpi.sent} sent · {campKpi.failed} failed · <b>{campKpi.optOuts}</b> opted out (STOP)
+              </span>
+            )}
+            <a className="abtn sm primary" href="/admin/whatsapp/new">New campaign</a>
+            <button className="abtn sm" onClick={loadCamps}>Refresh</button>
+          </div>
+        </div>
+        <div className="acard-b" style={{ maxHeight: 380, overflow: "auto" }}>
+          {camps.length === 0 ? (
+            <div style={{ color: "var(--muted)" }}>
+              Ekhono kono campaign nai. <a href="/admin/whatsapp/new">Audience beche ekta campaign banan</a> — count dekhie তারপর start korben.
+            </div>
+          ) : (
+            <table className="tbl" style={{ fontSize: 12.5 }}>
+              <thead><tr><th>Campaign</th><th>Status</th><th>Progress</th><th>Result</th><th>News</th><th></th></tr></thead>
+              <tbody>
+                {camps.map((c) => {
+                  const done = c.sent + c.failed + c.skipped;
+                  const pct = c.total ? Math.min(100, Math.round((done / c.total) * 100)) : 0;
+                  const pill = c.status === "DONE" ? "DELIVERED" : c.status === "RUNNING" ? "PROCESSING" : c.status === "PAUSED" || c.status === "SCHEDULED" ? "ON_HOLD" : c.status === "FAILED" ? "FAILED" : "PENDING";
+                  return (
+                    <tr key={c.id}>
+                      <td>
+                        <a href={`/admin/whatsapp/${c.id}`} style={{ fontWeight: 600 }}>{c.name}</a>
+                        <div style={{ color: "var(--muted)", fontSize: 11 }}>
+                          #{c.id} · {c.scheduledAt && c.status === "SCHEDULED" ? `schedule ${when(c.scheduledAt)}` : `shuru ${when(c.startedAt || c.createdAt)}`}
+                          {c.couponCode ? ` · ${c.couponCode}` : ""}
+                        </div>
+                      </td>
+                      <td><span className={"pill " + pill}>{c.status}</span></td>
+                      <td style={{ minWidth: 130 }}>
+                        <div style={{ height: 6, background: "#eceff3", borderRadius: 4, overflow: "hidden" }}>
+                          <div style={{ height: "100%", width: `${pct}%`, background: c.failed ? "#c0392b" : "#1f7a44" }} />
+                        </div>
+                        <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 3 }}>{done}/{c.total} ({pct}%) · queued {c.total - c.enqueued}</div>
+                      </td>
+                      <td style={{ fontSize: 11.5 }}>
+                        {c.sent} sent {c.failed ? <span style={{ color: "var(--danger)" }}>· {c.failed} failed</span> : null}
+                        {c.skipped ? ` · ${c.skipped} skipped` : ""}
+                      </td>
+                      <td style={{ fontSize: 11, color: "var(--muted)", maxWidth: 170 }}>{c.lastError ? c.lastError.slice(0, 70) : "—"}</td>
+                      <td style={{ whiteSpace: "nowrap" }}>
+                        <a className="abtn sm" href={`/admin/whatsapp/${c.id}`}>Report</a>
+                        {["DRAFT", "SCHEDULED"].includes(c.status) && <button className="abtn sm primary" disabled={busy === "c" + c.id} onClick={() => campAct({ action: "start", id: c.id }, "c" + c.id)}>Start</button>}
+                        {c.status === "RUNNING" && <button className="abtn sm" disabled={busy === "c" + c.id} onClick={() => campAct({ action: "pause", id: c.id }, "c" + c.id)}>Pause</button>}
+                        {c.status === "PAUSED" && <button className="abtn sm primary" disabled={busy === "c" + c.id} onClick={() => campAct({ action: "resume", id: c.id }, "c" + c.id)}>Resume</button>}
+                        {c.failed > 0 && <button className="abtn sm" disabled={busy === "c" + c.id} onClick={() => campAct({ action: "retryFailed", id: c.id }, "c" + c.id)}>Retry failed</button>}
+                        <button className="abtn sm" disabled={busy === "c" + c.id} onClick={() => campAct({ action: "duplicate", id: c.id }, "c" + c.id)}>Copy</button>
+                        {c.status !== "RUNNING" && <button className="abtn sm" disabled={busy === "c" + c.id} onClick={() => { if (confirm(`"${c.name}" delete korben?`)) campAct({ action: "delete", id: c.id }, "c" + c.id); }}>Delete</button>}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "1.35fr 1fr", gap: 16, alignItems: "start" }}>
         <div className="acard">

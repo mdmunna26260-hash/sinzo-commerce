@@ -48,6 +48,8 @@ export type WaRules = {
   workerKey: string;
   /** canned replies the inbox shows above the composer (editable, no deploy needed) */
   quickReplies: string[];
+  /** campaign safety: how many recipients one campaign may have (0 = the built-in ceiling) */
+  broadcastMax?: number;
 };
 
 /** What may ride along with a message: nothing, the first product photo, or up to 3 item photos. */
@@ -319,6 +321,7 @@ export type EnqueueInput = {
   kind?: "AUTO" | "BROADCAST" | "REPLY" | "MANUAL";
   templateKey?: string | null;
   orderId?: number | null;
+  broadcastId?: number | null; // set for marketing campaigns so the report can find the rows
   media?: string[];           // absolute image URLs
   couponCode?: string | null;
   dedupeKey?: string | null;
@@ -345,6 +348,13 @@ export async function enqueue(input: EnqueueInput): Promise<{ ok: boolean; id?: 
     to = test;
   }
 
+  // anyone who wrote STOP is out of marketing for good (transactional order updates still go —
+  // they are information the customer asked for by ordering)
+  if (input.kind === "BROADCAST") {
+    const stop = await db.waOptOut.findUnique({ where: { waId: to } }).catch(() => null);
+    if (stop) return { ok: false, reason: `STOP kore diyechhe (${waPretty(to)}) — marketing bondho` };
+  }
+
   if (input.dedupeKey) {
     const dup = await db.waMessage.findUnique({ where: { dedupeKey: input.dedupeKey } }).catch(() => null);
     if (dup) return { ok: false, id: dup.id, reason: "already queued" };
@@ -362,6 +372,7 @@ export async function enqueue(input: EnqueueInput): Promise<{ ok: boolean; id?: 
           : null,
         couponCode: input.couponCode || null,
         orderId: input.orderId ?? null,
+        broadcastId: input.broadcastId ?? null,
         dedupeKey: input.dedupeKey || null,
         meta: input.meta ? JSON.stringify(input.meta).slice(0, 2000) : null,
         status: "QUEUED",
