@@ -148,7 +148,10 @@ h1, h2, h3, .serif { font-family: var(--font-head); font-weight: 500; letter-spa
 }
 .pcard-dots i.on { width: 8px; height: 8px; background: var(--text); }
 @media (hover: hover) { .pcard:hover .pcard-img img { transform: scale(1.05); } }
-.pcard-badges { position: absolute; top: 0; left: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 5px; z-index: 3; }
+/* Badges are decoration on top of the photo — they must not punch a dead hole in the swipe
+   surface (a gesture that started on a badge reached neither the photo gallery nor the rail).
+   Taps fall through to the card's <a> exactly as before, so nothing loses its click. */
+.pcard-badges { position: absolute; top: 0; left: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 5px; z-index: 3; pointer-events: none; }
 /* Unified badge chip — matches reference look (small light chip, dark text, top-left, no border) */
 .badge { display: inline-block; background: #f7f5f1; color: #17150f; font-size: 10px; letter-spacing: .02em; padding: 4px 9px; border-radius: 4px; font-weight: 600; line-height: 1.2; }
 .badge.sale { background: var(--danger); color: #fff; }
@@ -1796,6 +1799,25 @@ input::placeholder, textarea::placeholder { color: #b0aaa1; }
 }
 .mini-del span { color: var(--danger); }
 
+/* Page dots under the "you may also like" rail (PDP). The markup was always there, but no rule
+   had ever been written for it: the spans rendered zero-sized, so the rail gave no sign that it
+   had more than one page. Same dot language as .pcard-dots (card photos) and .crs-dots (home). */
+.rel-dots {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 0 2px;
+}
+.rel-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 99px;
+  background: rgba(20, 20, 20, .22);
+  transition: width .18s ease, height .18s ease, background .18s ease;
+}
+.rel-dot.on { width: 8px; height: 8px; background: var(--text); }
+
 /* ---------- Recently Viewed strip ---------- */
 .recent-strip {
   display: flex;
@@ -2750,8 +2772,16 @@ html.theme-transition *::after {
    on — and WebKit then drops the synthesized click ("product e click korle 2 bar lagbe").
    A touch screen has no hover to neutralise. */
 .cg .cg-img { transition: none; }
+/* hover-guarded on purpose: an UNGUARDED :hover rule here makes iOS spend the first tap on the
+   hover state and drop the click that follows — the "2 tap" report on a phone. On a touch screen
+   there is no zoom to cancel anyway (that rule lives in @media (hover: hover) too). */
 @media (hover: hover) { .pcard:hover .pcard-img .cg-img { transform: none; } }
-.cg .cg-img.nodrag { pointer-events: none; }
+/* (the old `.nodrag` rule that killed pointer-events on the photo is gone: touching the
+    photo must never change the element under the finger — WebKit drops the tap when it
+    does. Nothing needs it now that the gesture machine is in components/use-swipe.ts.) */
+/* (`.cg .cg-img.nodrag { pointer-events: none }` came back with the merge but has no consumer
+    any more: this branch's gallery never sets that class, and neither the desktop arrows nor the
+    mouse drag need pointer-events off the photo. Kept out so the CSS cannot hide a dead rule.) */
 
 /* desktop arrows — hidden until the card is hovered, like a lightbox */
 .cg-arrow {

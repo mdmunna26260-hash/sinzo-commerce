@@ -490,7 +490,102 @@ Verified: `tsc --noEmit` clean · production build exit 0 · smoke **59/0** (run
 self-healing stays (it is what saves a real deploy in an open tab); with the cache actually fixed it
 should stop being needed in dev.
 
-## 17 · The two-tap bug, second pass: the last hover rule, pointer capture, and a swallow that knows where the finger was (2026-09-23)
+## 17 · "You may also like" could not be swiped at all — and the tap path, second pass (2026-09-22, later)
+
+The owner's phone still showed the §12 symptoms: *"home page ba product page ba you may also like
+section theke product e click korle page open hoy na, 2 bar korte hoy"*, *"mobile e product swipe
+korle change hoy na"*. §12 fixed real causes (hover-first taps, double-tap zoom, `.reveal` moving
+the tap target, native-scroll rails) — this pass found one that nothing had touched, and it is
+reproducible in a desktop browser, no iPhone required.
+
+**a) The PDP's "you may also like" rail had no gesture handler at all.** `app/products/[slug]/page.tsx`
+rendered its own `.rel-carousel > .rel-scroll > .rel-page…` markup inline (server component, no
+hooks) while `components/related-carousel.tsx` — the component written to own that rail, with the
+swipe machine behind it — was only used by the throwaway harness. `.rel-scroll` carries
+`touch-action: pan-y`, i.e. the browser is explicitly told **not** to pan it horizontally, so with
+nothing in JS the rail could not be moved by touch at all: swipe = nothing, tap = the card opens
+(hence "product swipe korle change hoy na" in that section specifically).
+
+Evidence (Chrome DevTools protocol, `DOMDebugger.getEventListeners`, phone emulation):
+
+```
+.crs-track (home rail)  → scroll, touchstart, touchmove, touchend, touchcancel, pointerdown, dragstart
+.rel-scroll (PDP rail)  → scroll          ← React's onScroll only; no touch listeners at all
+.cg (card gallery)      → touchstart, touchmove, touchend, touchcancel, pointerdown, dragstart
+```
+
+Fix: the PDP renders `<RelatedCarousel items={…} dots />`. Same classes, same 2×2 pages, same bare
+dots; the component now also forwards `preorder`/`sizes` to the card, so the cards look identical to
+the desktop grid next to them, and it flattens the row's `images` (`{url}[]`) to URLs — passing
+strings straight through made every related card fall back to the single-photo `CardImg`, i.e. it
+lost its gallery and its dots.
+
+`.rel-dots`/`.rel-dot` had no CSS rule anywhere in the repo: the spans rendered zero-sized, so the
+rail showed no sign of having more than one page. They are styled now like the dots already used on
+the card photos (`.pcard-dots`) and the home rails (`.crs-dots`), and they follow the page as you
+swipe. `RelatedCarousel` clamps `goTo`, keeps two pages of slack off the DOM for huge categories
+(`cap`), and the arrows path stays available for callers that want the counter chrome instead.
+
+**b) One gesture machine, one place to look.** `components/use-swipe.ts` is now the only drag
+engine, shared by `card-gallery.tsx` (card photos) and `swipe-rail.ts` (home rails + the PDP rail).
+Its rules, all of them written against WebKit's touch behaviour: touch events with a **non-passive
+`touchmove`** (React attaches `touchmove` passively at the root, so `preventDefault` from a React
+handler is a no-op); the drag is taken from the browser (`preventDefault`) the moment the axis is
+decided horizontal, so nothing is left to cancel mid-gesture; vertical intent is handed straight
+back and is never prevented, so the page still scrolls naturally over a photo; no
+`setPointerCapture` anywhere (it retargets the click after a tap, and iOS 13–15.4 ignored touch
+capture entirely); a `touchcancel` (call, notification, pinch, system gesture) releases the gesture
+with the distance already travelled instead of rewinding it; and the click that follows a *drag* is
+swallowed in the capture phase, while a *tap* is never swallowed — a swipe can never open the PDP
+and a single tap always can.
+
+The CSS side of the same wound: `.pcard-badges` (the sale / TRENDING chips) sits at the top-left
+of the photo as a **sibling** of the gallery, so a thumb landing on a chip reached neither the
+gallery nor — for a rail — anything that could page it. The row is decoration on a link that already
+handles the tap, so it is `pointer-events: none` now: the gesture goes to the photo underneath it,
+and a tap still opens the product.
+
+**c) The single-photo card's touch intent no longer renders mid-tap.** `components/card-img.tsx`
+warmed the image and called `router.prefetch()` from `onTouchStart`; the prefetch is a router-state
+update, i.e. a React render between `touchstart` and the click the browser is about to synthesize —
+the same "the tree under the finger changed, so WebKit drops the tap" pattern as §12's `.reveal`
+fix. The image warm still happens immediately (network only, detached `Image()`), the prefetch is
+deferred one frame. `card-gallery.tsx` follows the same rule: `touchstart` touches nothing, the
+gallery paints from the first drag move, and neighbour photos are preloaded as detached `Image()`
+objects with the `<img>` mount pushed to the next frame.
+
+**Verified in the sandbox**
+
+```
+real-page suite   18/18   scripts/_sandbox/gesture/real.mjs  (phone emulation + CDP touch)
+  home       swipe on a photo turns the photo (rail stays, no navigation) ·
+             the tap right after that swipe opens the PDP · swipe on the info area turns the rail
+  /products  same on the grid · clean single tap opens the PDP ·
+             vertical drag scrolls the page and leaves the photo alone
+  PDP        related rail: photo swipe, rail paging (dots follow 0 → 1), single tap opens the PDP
+  desktop    arrow click turns the photo (no navigation) · plain click opens the PDP ·
+             mouse drag turns the photo (no navigation) · arrows stay inside
+             `@media (hover: hover) and (pointer: fine)`
+pure decision tests  22/22  scripts/_sandbox/gesture/pure-test.mjs  (railTarget 13 · galleryTarget 9)
+tsc --noEmit       14 errors, all pre-existing Prisma-stand-in typing in unrelated admin/API files
+                   (HEAD measured 16 on the same stand-in — this change adds none)
+npm test           47/0 against the offline Prisma stand-in (the coupon / COD order / tracking
+                   checks need rows to exist; a normal checkout runs them on the real sqlite DB)
+```
+
+The temporary `/touch-test` harness page used for the earlier probes is deleted; every check above
+now runs against the real pages. Two sandbox-only helpers live in `scripts/_sandbox/` (git-ignored,
+never shipped): `prisma-stub/install.sh` restores the offline Prisma stand-in that `npm ci` cannot
+generate here, and `gesture/` holds the suites. What no sandbox can prove is the iPhone itself —
+which is exactly why the fix for the reported symptom is a handler that was simply missing, and why
+the machine keeps away from every WebKit-specific trick §12 listed.
+
+
+## 17b · The same second pass, from the other branch (PR #3 → `main`, 2026-09-23)
+
+*Merged in from `origin/main` for the record — the parallel pass landed there while this branch was
+being tested. Its five findings are the same five, arrived at independently; see the merge note at
+the end for which parts of it the code uses today.*
 
 §12 removed the three *classes* of cause (unguarded hover styling, double-tap zoom, entrance
 animations that move the tap target). This pass came out of re-reading `card-gallery.tsx` against
@@ -552,6 +647,113 @@ thumb on the phone: one tap → PDP, swipe → photo + dot, vertical drag → pa
 re-run here (this sandbox cannot download the Prisma engine), and nothing in this change touches
 an API route, a query or a page's data path.
 
+**Merge note (2026-09-23, the merge into `main`).** Both passes agreed on the important things — the
+hover guard (1), the place-and-time swallow (3), raw travel deciding tap vs drag (4), one pure module
+for the thresholds (5) — and the merge keeps those. Where they differ, the implementation that stayed
+is this branch's: `components/gesture-math.ts` + a DOM-only `components/use-swipe.ts` shared with the
+rails (§18), driven by **touch events with a non-passive `touchmove`** instead of pointer capture, so
+(i) the home rails and the PDP "you may also like" rail move on a phone at all, which was the first
+half of the owner's report, and (ii) a `pointercancel` can no longer eat a swipe. Pointer capture was
+not "moved to the axis lock" here — it is gone from every surface, because the axis lock already
+takes the gesture from the browser. `components/gallery-gesture.ts` was removed with the merge (its
+only importer was the pointer-event gallery) and `.cg .cg-img.nodrag` with it, as dead CSS.
+Everything in the section below that describes those two is history, not the code in `main` today.
+
+Three checks from the other branch's audit were worth adopting (this branch already had its own
+structural `:hover` scan): the "entrance animations on a touch screen never MOVE the card" rule, the
+whole-pixel track paint, and "the dots follow the photo". Its `gallery-gesture.ts` and
+`.cg .cg-img.nodrag` are gone; nothing else referenced either.
+
+**Verified on the merged tree** (same sandbox, same suites):
+
+```
+npm run test:touch   52/0   (47 before the merge + the four checks adopted from the other branch)
+real.mjs             21/0   home · /products · PDP related · desktop
+taptight.mjs          6/0   swipe→tap 60 ms, swipe→tap no gap, swipe alone, rail swipe→tap,
+                            two drags, stolen gesture
+npm test             47/0   the repo's own smoke suite
+tsc --noEmit         14 errors, all pre-existing Prisma-stand-in typing; measured 15 on
+                            origin/main with the same stand-in → adds none
+```
+
+## 18 · The gesture maths, out in the open — and one hover rule that was still stealing the first tap (2026-09-23)
+
+§17 got the behaviour right. This pass made it *provable*, and the proof immediately found one more
+real cause of "open korte 2 bar tap korte hoy".
+
+**a) The audit found an unguarded `:hover` rule sitting on the photo.**
+
+```
+.pcard:hover .pcard-img .cg-img { transform: none; }      ← 402cc14, not inside any @media
+```
+
+On a touch screen the browser applies `:hover` to whatever the first tap lands on. When that
+"hover" state changes the element the finger is on, iOS spends the first tap applying it and the
+click that should have opened the product never happens — which is precisely the reported symptom,
+on the product cards, in all three areas. It is wrapped in `@media (hover: hover)` now (the same
+guard every other hover rule in `globals.css` already had, and the same thing the parallel `main`
+branch's second pass did to this very line). Nothing changes visually: on a touch screen the zoom it
+cancels lives inside a `@media (hover: hover)` block too, so there was never a transform to reset.
+
+The check that caught it is now part of the test suite: *no unguarded `:hover` rule may change the
+geometry of the thing under the finger* (`scripts/touch-audit.mjs`).
+
+**b) The gesture maths moved into `components/gesture-math.ts` — pure, dependency-free.**
+
+`lockAxis` · `isDrag` · `resist` · `slideAfter` · `railTarget` · `swallowPlan` · `shouldSwallow`,
+with the thresholds (`AXIS_LOCK_PX 6`, `TAP_SLOP_PX 12`, `MOVE_RATIO 0.18`, `FLICK_VELOCITY 0.35`,
+`RESIST 0.35`, `SWALLOW_MS 300`, `SWALLOW_RADIUS_PX 28`). The card gallery and the rails both import
+from it (`galleryTarget` / `railTarget` stay exported as aliases), so the two surfaces can no longer
+drift apart, and every rule can be asserted in node without a browser, an install or a database:
+`components/use-swipe.ts` is left with the DOM half only.
+
+**c) The acceptance test is committed, and runs with zero new dependencies.**
+
+`npm run test:touch` → `scripts/touch-audit.mjs`: the three rules the owner tests by thumb, the
+release/cancel maths, the CSS contract (touch-action, the hover guards, the tap-eating badge row) and
+the wiring a pure function cannot see (no `setPointerCapture` anywhere, a real non-passive
+`touchmove`, the swallow checked by **place and time** instead of a timer, no `useState` in the drag
+machine, the rail skipping `.cg-swipeable`, the arrow press never starting a drag). It compiles the
+maths with the repo's own TypeScript and runs it in a bare `vm` context, so an accidental import
+into that file fails the audit instead of shipping.
+
+**d) The browser half grew teeth.** The suites now install an event recorder inside the page
+(`helpers.mjs` → `watch`), so an assertion is not just "the photo changed": a drag must receive **no
+`pointercancel`**, and the tap that follows it must produce a click that is **not** swallowed. New
+cases: pinch-zoom (started on a card) changes nothing and leaves the page scale at 1; a
+`touchcancel` half-way through a drag settles on the photo the thumb was heading for; two drags back
+to back advance two photos; a swipe followed by a tap **60 ms later** — and one with no gap at all —
+still opens the product in a single tap.
+
+One thing worth writing down for the next person: a tap that lands on the *edge* of a card while a
+rail is still settling can have its click retargeted to the nearest common ancestor by the browser.
+That is correct engine behaviour (the element under the finger changed between `touchstart` and
+`touchend`), not a lost tap, and it is why the suites aim at the middle of a card, and why
+`pull`/`pullInside` refuse to drag a finger off the screen.
+
+**Verified (same sandbox, offline Prisma stand-in with a 12-product demo catalogue)**
+
+```
+npm run test:touch   47/0    scripts/touch-audit.mjs
+real.mjs             21/0    home (photo + rail, tap-after-swipe) · /products (photo, clean tap,
+                             tap-after-swipe, vertical scroll, pinch) · PDP related (photo, tap,
+                             rail paging + live dots) · desktop (arrow, plain click, mouse drag,
+                             hover/fine-pointer gate)
+taptight.mjs          6/0    the back-to-back sequences above
+npm test             47/0    the repo's own smoke suite (coupon, COD checkout, tracking, SEO, CSP…)
+tsc --noEmit         14 errors, all pre-existing Prisma-stand-in typing in unrelated admin/API
+                             files; measured 15 on the same stand-in at `origin/main` → adds none
+```
+
+`scripts/_sandbox/` (git-ignored, never shipped) now has `setup.sh` to rebuild the whole offline
+environment — `npm ci --ignore-scripts`, the Prisma stand-in, puppeteer + the sandbox Chromium — and
+`gesture/README.md` with the run recipes. The pure audit is the part that lives in the repo, so the
+three rules stay guarded on every checkout.
+
+Note for the merge: `origin/main` carries a *different* second pass at these same symptoms
+(PR #3, `components/gallery-gesture.ts` + pointer events). This branch's engine is independent of it
+and is the one the sandbox above exercises end to end; the only line both passes agreed on is the
+hover guard in (a).
 ## NOT changed — deliberately
 
 - **Checkout pricing**: `POST /api/checkout` already re-loads products and re-prices server-side

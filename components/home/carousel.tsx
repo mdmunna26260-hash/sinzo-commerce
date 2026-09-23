@@ -17,14 +17,14 @@ export default function Carousel({ children, className = "" }: { children: React
   pagesRef.current = pages;
 
   const goTo = (i: number) => {
-    const el = rail.ref.current;
+    const el = rail.node.current;
     if (!el) return;
     el.scrollTo({ left: i * el.clientWidth, behavior: "smooth" });
   };
   const rail = useRailSwipe({ pages: () => pagesRef.current, goTo });
 
   const measure = () => {
-    const el = rail.ref.current;
+    const el = rail.node.current;
     if (!el) return;
     setPages(Math.max(1, Math.ceil(el.scrollWidth / el.clientWidth)));
     setIdx(Math.round(el.scrollLeft / el.clientWidth));
@@ -37,7 +37,7 @@ export default function Carousel({ children, className = "" }: { children: React
   }, [children]);
 
   const nudge = (dir: number) => {
-    const el = rail.ref.current;
+    const el = rail.node.current;
     if (!el) return;
     const max = Math.max(0, pages - 1);
     let cur = Math.round(el.scrollLeft / el.clientWidth);
@@ -50,9 +50,9 @@ export default function Carousel({ children, className = "" }: { children: React
       <div
         className="crs-track"
         ref={rail.ref}
-        {...rail.handlers}
+        onClickCapture={rail.capture.onClickCapture}
         onScroll={() => {
-          const el = rail.ref.current; if (!el) return;
+          const el = rail.node.current; if (!el) return;
           setIdx(Math.round(el.scrollLeft / el.clientWidth));
         }}
       >

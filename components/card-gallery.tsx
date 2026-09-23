@@ -1,44 +1,42 @@
 "use client";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import type { PointerEvent as ReactPointerEvent, TouchEvent as ReactTouchEvent } from "react";
+import { useSwipe } from "./use-swipe";
+import { resist, slideAfter } from "./gesture-math";
+import { warmImage } from "./img-warm";
 import { imgSrc, imgSrcSet, CARD_WIDTHS, CARD_SIZES } from "./img-src";
-import {
-  isDrag, lockAxis, resist, shouldSwallow, slideAfter, swallowPlan,
-  type Axis, type SwallowPlan,
-} from "./gallery-gesture";
 
 /* Drag-to-swipe image carousel INSIDE a product card.
    Goal: let a customer see every product photo without opening the product page.
 
-   Design decisions (kept deliberately small + library-free, same style as mobile-gallery.tsx):
+   Design decisions (kept deliberately small + library-free; the gesture machine is
+   components/use-swipe.ts, the same one the home rails and the "you may also like"
+   rail use):
    - Track follows the finger/mouse 1:1 (translate3d, GPU composited)
    - Release: momentum decides next/previous, a short drag springs back
-   - touch-action: pan-y → vertical page scroll stays natural while we own the horizontal axis
-   - Click suppression: a drag must NEVER navigate to the product page. We swallow the click
-     that follows a drag, so tapping still opens the product.
-   - Lazy: only the images the customer has actually reached get a src (index ± 1 preloaded).
-   - Dots show position; they are decorative (not buttons) because the whole card is a link
-     and interactive elements may not be nested inside an <a>.
+   - `touch-action: pan-y` → vertical page scroll stays natural while the horizontal
+     axis is driven here
+   - Click suppression: a DRAG must never navigate to the product page, a TAP always
+     must. `use-swipe.ts` swallows the click only after a real drag.
+   - Lazy: only the images the customer has actually reached get a src (index ± 1).
 
-   All the gesture decisions live in components/gallery-gesture.ts (pure, unit-testable);
-   this file owns only the DOM side effects. Three rules, from the owner's phone tests:
-     1. ONE tap opens the product — nothing may eat it
-     2. a swipe changes the photo (and its dot) and never opens the product
-     3. a vertical drag scrolls the page, exactly like it would anywhere else
+   Fixed in the 2026-09-22 second pass (owner's iPhone, same two symptoms):
 
-   Two fixes from the device reports are worth naming here:
-
-   a) POINTER CAPTURE IS TAKEN ONLY ONCE A DRAG IS REAL (2026-09-22). It used to be taken on
-      every pointerdown. Per the Pointer Events spec a captured pointer retargets the
-      synthesized click to the capturing element, and WebKit's implicit-capture handling makes
-      that worse: a tap on the card image could lose its click entirely — "product e click
-      korle 2 bar lagbe". Capturing only after the axis lock keeps the tap path byte-for-byte
-      identical to a page with no handler at all, while a drag that wanders off the card is
-      still tracked. components/swipe-rail.ts was fixed the same way for the same reason.
-
-   b) THE SWALLOWED CLICK MUST BE THE DRAG'S OWN (2026-09-22). It used to be a 350ms flag, so
-      a deliberate tap right after a swipe died too ("2 bar lagbe"). The plan now records where
-      the finger left the screen and the click has to come back within a finger-width of it.
+   1. `setPointerCapture()` used to run in `pointerdown`. WebKit retargets the click of
+      the tap that follows to the capture element, and iOS 13–15.4 ignored touch capture
+      altogether — both are ways to lose a single tap ("2 bar tap korte hoy"). The
+      machine now captures nothing at all.
+   2. Nothing renders while the finger is on the card. The `dragging` state that used to
+      be set in `pointerdown` (it added `pointer-events: none` to the photo under the
+      finger) plus the neighbour `<img>` mounting both changed the element under the tap
+      mid-gesture, and WebKit drops the click when that happens. No state write on start
+      any more, and neighbours are mounted on the next frame once the drag is already
+      locked to the horizontal axis (a locked drag swallows its click anyway, so nothing
+      can be lost).
+   3. A cancelled gesture (`touchcancel`, system gesture) now settles on the photo the
+      customer dragged towards instead of snapping back — iOS cancels horizontal drags
+      far more eagerly than Chrome does.
+   4. The release decision is a pure function (`slideAfter` in components/gesture-math.ts),
+      asserted by `npm run test:touch` without a browser.
 
    IMPORTANT (bug fix 2026-09-20): the track offset is written in PIXELS, never as
    `translate3d(calc(-100% + 0px))`. Percentage + calc() inside a transform function is
@@ -57,22 +55,22 @@ type Props = {
   onIndexChange?: (i: number) => void;
 };
 
+/* The thresholds and the release maths live in components/gesture-math.ts (pure, shared with the
+   rails, asserted by `npm run test:touch`). */
+export { slideAfter as galleryTarget } from "./gesture-math";
+
 export default function CardGallery({ images, alt, className = "", onIndexChange }: Props) {
   const N = images.length;
-  const wrapRef = useRef<HTMLDivElement>(null);
+  const wrapRef = useRef<HTMLDivElement | null>(null);
   const trackRef = useRef<HTMLDivElement>(null);
-  /* x/y = where the gesture started, dx = what is painted, raw = what the finger actually moved,
-     t = when it started (velocity), active/id = the pointer we are following */
-  const drag = useRef({ x: 0, y: 0, dx: 0, raw: 0, t: 0, active: false, axis: "" as Axis, id: -1, captured: false });
-  const swallow = useRef<SwallowPlan | null>(null);   // the one click that belongs to a drag
-  const painted = useRef({ i: -1, offset: 0 });       // what the track already shows
+  const painted = useRef({ i: -1, offset: 0 });   // what the track already shows
   const [idx, setIdx] = useState(0);
   const idxRef = useRef(0);                // latest slide, readable from callbacks
   idxRef.current = idx;
   const onIdx = useRef(onIndexChange);
   onIdx.current = onIndexChange;
-  const [dragging, setDragging] = useState(false);
   const [seen, setSeen] = useState<number[]>([0]);
+  const warmed = useRef(false);            // neighbours already asked for
 
   /* one slide === one wrapper width (pixels) */
   const stepPx = useCallback(() => wrapRef.current?.clientWidth || 0, []);
@@ -87,6 +85,15 @@ export default function CardGallery({ images, alt, className = "", onIndexChange
     painted.current = { i, offset };
   }, [stepPx]);
 
+  /* which slides are allowed to have a src. Grows as the customer gets closer to them. */
+  const remember = useCallback((idxs: number[]) => {
+    setSeen((s) => {
+      const want = idxs.filter((i) => i >= 0 && i < N);
+      const missing = want.filter((i) => !s.includes(i));
+      return missing.length ? [...s, ...missing].sort((a, b) => a - b) : s;
+    });
+  }, [N]);
+
   /* First paint + realignment (mount, resize, rotation). Skipped when the track already shows the
      requested position — otherwise this would re-paint with transition:none and kill the settle
      animation right after a release or an arrow click. */
@@ -95,6 +102,7 @@ export default function CardGallery({ images, alt, className = "", onIndexChange
     if (p.i === idx && p.offset === 0) return;
     paint(idx, 0, false);
   }, [idx, paint]);
+
   useEffect(() => {
     const el = wrapRef.current;
     if (!el || typeof ResizeObserver === "undefined") return;
@@ -110,22 +118,34 @@ export default function CardGallery({ images, alt, className = "", onIndexChange
     return () => ro.disconnect();
   }, [paint]);
 
-  /* which slides are allowed to have a src. Grows as the customer gets closer to them. */
-  const remember = (idxs: number[]) =>
-    setSeen((s) => {
-      const want = idxs.filter((i) => i >= 0 && i < N);
-      const missing = want.filter((i) => !s.includes(i));
-      return missing.length ? [...s, ...missing].sort((a, b) => a - b) : s;
-    });
-
-  useEffect(() => { remember([idx]); }, [idx]);  // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { remember([idx]); }, [idx, remember]);
 
   /* Intent pre-load. A card nobody touches downloads ONE image, exactly like before —
-     neighbours are fetched only once the customer hovers (desktop) or touches (mobile),
-     which is the moment a swipe becomes likely. Keeps mobile data usage honest. */
-  const warm = () => remember([idx - 1, idx, idx + 1]);
+     neighbours are fetched only once the customer hovers (desktop) or actually starts
+     swiping (mobile), which is the moment a swipe becomes a fact. Keeps mobile data honest.
 
-  /* ------------------------------------------------ pointer ---------------------------------------------- */
+     Two steps on purpose since the touch fix: `warmNet` only creates detached `Image()`
+     objects (zero DOM), the `<img>` mounting happens on the next frame and only after the
+     drag is locked to the horizontal axis. Mounting synchronously at touchstart moved the
+     DOM out from under the finger, and WebKit answered by dropping the tap. */
+  const warmNet = useCallback(() => {
+    const i = idxRef.current;
+    for (const k of [i - 1, i, i + 1]) if (k >= 0 && k < N) warmImage(images[k]);
+  }, [N, images]);
+
+  const mountNeighbours = useCallback(() => {
+    const i = idxRef.current;
+    remember([i - 1, i, i + 1]);
+  }, [remember]);
+
+  /* desktop hover: mounting here is safe (no touch cascade to disturb) and keeps the
+     old "hover then drag/arrow" feel */
+  const warmOnHover = useCallback(() => {
+    warmNet();
+    mountNeighbours();
+  }, [warmNet, mountNeighbours]);
+
+  /* ------------------------------------------------ gesture --------------------------------------------- */
   const go = (n: number) => {
     const t = Math.max(0, Math.min(N - 1, n));
     if (t === idx) return;
@@ -135,99 +155,41 @@ export default function CardGallery({ images, alt, className = "", onIndexChange
     remember([t - 1, t, t + 1]);
   };
 
-  const onDown = (e: ReactPointerEvent) => {
-    if (N < 2) return;
-    /* a second finger is a pinch, not a swipe; a right/middle click must not start a drag */
-    if (!e.isPrimary || (e.pointerType === "mouse" && e.button !== 0)) return;
-    const d = drag.current;
-    d.active = true; d.axis = ""; d.dx = 0; d.raw = 0;
-    d.x = e.clientX; d.y = e.clientY; d.t = performance.now();
-    d.id = e.pointerId; d.captured = false;
-    setDragging(true);
-    paint(idx, 0, false);
-    /* NO setPointerCapture here on purpose — see (a) in the header. It is taken at the axis
-       lock, i.e. the moment this gesture turns out to be a drag. */
-  };
-
-  /* shared by the pointer path and the touch fallback */
-  const move = (clientX: number, clientY: number) => {
-    const d = drag.current;
-    if (!d.active) return;
-    const mx = clientX - d.x;
-    const my = clientY - d.y;
-    /* axis lock: the first meaningful movement decides who owns this gesture */
-    if (!d.axis) {
-      const a = lockAxis(mx, my);
-      if (!a) return;
-      d.axis = a;
-      if (a === "y") { d.active = false; setDragging(false); return; }   // let the page scroll
-      /* definitely a drag now: follow the pointer even when it leaves the card */
-      try { (wrapRef.current as HTMLElement | null)?.setPointerCapture(d.id); d.captured = true; } catch { /* not supported */ }
-    }
-    if (d.axis !== "x") return;
-    d.raw = mx;                                   // honest travel, used to decide tap vs drag
-    d.dx = resist(mx, idx, N);                    // what is painted (rubber-banded at the ends)
-    paint(idx, d.dx, false);
-  };
-
-  const onMove = (e: ReactPointerEvent) => {
-    if (e.pointerId !== drag.current.id) return;
-    move(e.clientX, e.clientY);
-  };
-
-  /* x/y = where the pointer was released; left out when the browser took the gesture away
-     (pointercancel), because that gesture has no click to swallow. */
-  const end = (x?: number, y?: number) => {
-    const d = drag.current;
-    if (!d.active) { d.axis = ""; setDragging(false); return; }
-    if (d.captured) {
-      try { wrapRef.current?.releasePointerCapture(d.id); } catch { /* already gone */ }
-      d.captured = false;
-    }
-    const width = stepPx() || 300;                // measure immediately before the release
-    const next = slideAfter({ dx: d.dx, ms: performance.now() - d.t, width, index: idx, count: N });
-    /* Only a real horizontal drag may kill the click that follows it — and only its own.
-       `d.raw` is the finger's actual travel, so a drag that was compressed by the rubber band
-       at the first/last photo still counts as a drag. See (b) in the header. */
-    if (x != null && y != null) {
-      swallow.current = swallowPlan({ axis: d.axis, rawDx: d.raw, x, y, now: performance.now() });
-    }
-    d.active = false; d.dx = 0; d.raw = 0; d.axis = ""; d.id = -1;
-    setDragging(false);
-    paint(next, 0, true);
-    setIdx(next);
-    if (next !== idx) {
-      onIdx.current?.(next);
-      remember([next - 1, next, next + 1]);                   // the customer is actively browsing photos
-    }
-  };
-
-  /* the click that follows a drag must not open the product page */
-  const onClickCapture = (e: React.MouseEvent) => {
-    const plan = swallow.current;
-    if (!plan) return;
-    /* ...but a click on an arrow is a deliberate press on that arrow, never the tail of a drag
-       (a gesture starting on an arrow can't become a drag — its pointerdown is stopped) */
-    if ((e.target as HTMLElement)?.closest?.(".cg-arrow")) { swallow.current = null; return; }
-    if (!shouldSwallow(plan, { x: e.clientX, y: e.clientY, now: performance.now() })) {
-      /* too late or too far away: this is a fresh tap, and a fresh tap always wins */
-      if (performance.now() > plan.until) swallow.current = null;
-      return;
-    }
-    swallow.current = null;
-    e.preventDefault();
-    e.stopPropagation();
-  };
+  const swipe = useSwipe({
+    enabled: () => N > 1,
+    /* a press on an arrow belongs to that arrow, never to a drag */
+    skip: (target) => !!target?.closest?.(".cg-arrow"),
+    onDrag: (dx) => {
+      const i = idxRef.current;
+      if (!warmed.current) {
+        warmed.current = true;
+        warmNet();                                          // network only — no DOM in the touch task
+        requestAnimationFrame(mountNeighbours);             // the incoming photo is there next frame
+      }
+      /* rubber-band at both ends so the card feels physical, not broken */
+      paint(i, resist(dx, i, N), false);
+    },
+    onEnd: (r) => {
+      const i = idxRef.current;
+      if (r.axis !== "x") {
+        /* a tap, or a vertical drag the page took over: the track must sit still */
+        if (r.axis === "y") paint(i, 0, false);
+        return;
+      }
+      const next = slideAfter({ dx: r.dx, ms: r.ms, width: stepPx(), index: i, count: N });
+      paint(next, 0, true);
+      if (next !== i) {
+        setIdx(next);
+        onIdx.current?.(next);
+        remember([next - 1, next, next + 1]);   // the customer is actively browsing photos
+      }
+    },
+  }, wrapRef);
 
   /* ------------------------------------------------- desktop arrows -------------------------------------
-     They sit inside the card's <a>, so a press must not start a drag and the click must not follow
-     the link (preventDefault kills the navigation, stopPropagation keeps our own handlers out). */
-  const stop = (e: React.SyntheticEvent) => {
-    /* a press on an arrow is a fresh, deliberate interaction: a drag that ended a moment
-       ago must not swallow this click (a gesture starting here can never be a drag) */
-    swallow.current = null;
-    e.stopPropagation();
-  };
+     They sit inside the card's <a>, so a press must not start a drag (the `skip` above) and
+     the click must not follow the link (preventDefault kills the navigation, stopPropagation
+     keeps our own handlers out). */
   const arrowClick = (e: React.MouseEvent, delta: number) => {
     e.preventDefault();
     e.stopPropagation();
@@ -236,53 +198,14 @@ export default function CardGallery({ images, alt, className = "", onIndexChange
   const prev = (e: React.MouseEvent) => arrowClick(e, -1);
   const next = (e: React.MouseEvent) => arrowClick(e, 1);
 
-  /* ------------------------------------------------ touch fallback ---------------------------------------
-     Some in-app webviews (older iOS/Android) ship no PointerEvent. There we drive the exact same state
-     machine from touch events instead — never both, otherwise one gesture would be handled twice. */
-  const hasPointer = useRef(typeof window !== "undefined" && "PointerEvent" in window);
-  const coord = (e: ReactTouchEvent) => {
-    const t = e.touches[0] || e.changedTouches[0];
-    return { clientX: t?.clientX ?? 0, clientY: t?.clientY ?? 0 };
-  };
-  const touchStart = (e: ReactTouchEvent) => {
-    warm();
-    if (N < 2 || e.touches.length > 1) return;
-    const { clientX, clientY } = coord(e);
-    const d = drag.current;
-    d.active = true; d.axis = ""; d.dx = 0; d.raw = 0;
-    d.x = clientX; d.y = clientY; d.t = performance.now();
-    d.id = -1; d.captured = false;
-    setDragging(true);
-    paint(idx, 0, false);
-  };
-  const touchMove = (e: ReactTouchEvent) => {
-    if (!drag.current.active) return;
-    const { clientX, clientY } = coord(e);
-    move(clientX, clientY);
-  };
-  const touchEnd = (e: ReactTouchEvent) => {
-    const { clientX, clientY } = coord(e);
-    end(clientX, clientY);
-  };
-
   if (!N) return null;
 
   return (
     <div
-      ref={wrapRef}
+      ref={swipe.ref}
       className={"cg " + className + (N > 1 ? " cg-swipeable" : "")}
-      onPointerDown={onDown}
-      onPointerMove={onMove}
-      onPointerUp={(e) => end(e.clientX, e.clientY)}
-      onPointerCancel={() => end()}
-      onPointerLeave={() => { if (drag.current.active) end(); }}
-      onMouseEnter={warm}
-      onTouchStart={hasPointer.current ? warm : touchStart}
-      onTouchMove={hasPointer.current ? undefined : touchMove}
-      onTouchEnd={hasPointer.current ? undefined : touchEnd}
-      onTouchCancel={hasPointer.current ? undefined : () => end()}
-      onClickCapture={onClickCapture}
-      onDragStart={(e) => e.preventDefault()}
+      onMouseEnter={warmOnHover}
+      onClickCapture={swipe.capture.onClickCapture}
       aria-label={N > 1 ? `${alt} — ${N} photos, swipe to see more` : alt}
     >
       {/* no inline transform here on purpose: paint() owns it in pixels */}
@@ -302,7 +225,7 @@ export default function CardGallery({ images, alt, className = "", onIndexChange
                 loading={i === 0 ? "eager" : "lazy"}
                 decoding="async"
                 draggable={false}
-                className={"cg-img" + (dragging ? " nodrag" : "")}
+                className="cg-img"
               />
             )}
           </div>
@@ -318,8 +241,6 @@ export default function CardGallery({ images, alt, className = "", onIndexChange
             role="button"
             aria-label="Previous photo"
             tabIndex={-1}
-            onPointerDown={stop}
-            onTouchStart={stop}
             onClick={prev}
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"
@@ -332,8 +253,6 @@ export default function CardGallery({ images, alt, className = "", onIndexChange
             role="button"
             aria-label="Next photo"
             tabIndex={-1}
-            onPointerDown={stop}
-            onTouchStart={stop}
             onClick={next}
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"

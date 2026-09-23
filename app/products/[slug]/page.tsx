@@ -9,6 +9,7 @@ import { Header, Footer, Announcement } from "@/components/chrome";
 import { ProductCard } from "@/components/parts";
 
 import { imgSrc, PDP_WIDTHS, PDP_SIZES, PDP_SRC_WIDTH } from "@/components/img-src";
+import RelatedCarousel from "@/components/related-carousel";
 import ProductPageClient from "./client";
 import ProductPageReviewForm from "./review-form";
 import RecentlyViewedServer from "@/components/recently-viewed-server";
@@ -353,25 +354,20 @@ export default async function PDP({ params, searchParams }: { params: { slug: st
         {/* Related */}
         <section className="section" style={{ paddingTop: 20 }}>
           <div className="section-head"><div><div className="eyebrow">Keep browsing</div><h2>You may also like</h2></div></div>
-          {/* MOBILE: 2×2 swipeable carousel */}
-          <div className="rel-carousel mobile-only">
-            <div className="rel-scroll">
-              {Array.from({ length: Math.ceil(Math.min(related.length, 40) / 4) }, (_, pi) => (
-                <div className="rel-page" key={pi}>
-                  {related.slice(pi * 4, pi * 4 + 4).map((r) => (
-                    <ProductCard key={r.id} p={{ id: r.id, title: r.title, slug: r.slug, price: r.price, comparePrice: r.comparePrice, image: r.images?.[0]?.url, images: (r.images || []).map((i) => i.url), stock: r.stock, badge: r.badge, isNew: r.isNew, isBestSeller: r.isBestSeller, preorder: r.preorder, sizes: sizesOf(r) }} />
-                  ))}
-                </div>
-              ))}
-            </div>
-            {Math.ceil(Math.min(related.length, 40) / 4) > 1 && (
-              <div className="rel-dots">
-                {Array.from({ length: Math.ceil(Math.min(related.length, 40) / 4) }, (_, pi) => (
-                  <span key={pi} className={"rel-dot" + (pi === 0 ? " on" : "")} />
-                ))}
-              </div>
-            )}
-          </div>
+          {/* MOBILE: 2×2 swipeable carousel. This markup used to be rendered inline — with
+              `touch-action: pan-y` on `.rel-scroll` (which tells the browser NOT to pan it
+              horizontally) and no gesture handler behind it, so a thumb swipe on a phone moved
+              nothing at all. It is the shared rail now: same classes, same 2×2 pages, same bare
+              dots, but `components/related-carousel.tsx` drives `scrollLeft` with the swipe
+              machine and keeps the dots in sync with the page. */}
+          <RelatedCarousel
+            items={related.slice(0, 40).map((r) => ({
+              id: r.id, title: r.title, slug: r.slug, price: r.price, comparePrice: r.comparePrice,
+              image: r.images?.[0]?.url, images: r.images, stock: r.stock,
+              badge: r.badge, isNew: r.isNew, isBestSeller: r.isBestSeller, preorder: r.preorder, sizes: sizesOf(r),
+            }))}
+            dots
+          />
 
           {/* DESKTOP: compact 4-col grid (normal product card size) */}
           <div className="grid grid-4 desktop-only">

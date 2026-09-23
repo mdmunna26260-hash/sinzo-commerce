@@ -31,7 +31,14 @@ export default function CardImg({ url, alt, slug }: { url: string; alt: string; 
     warmImage(url);
     if (slug && !routed.current) {
       routed.current = true;
-      router.prefetch("/products/" + slug);
+      /* The route prefetch is a router-state update, i.e. a render of the app tree. On a phone
+         this runs in the middle of the tap (touchstart → touchend, and the click the browser is
+         about to synthesize for the product link). WebKit drops that click when the tree under
+         the finger re-renders, which is the "single tap er bodole 2 bar tap" report — so the
+         prefetch is deferred out of the touch task; the image warming above still happens now. */
+      const go = () => router.prefetch("/products/" + slug);
+      if (typeof requestAnimationFrame === "function") requestAnimationFrame(go);
+      else setTimeout(go, 0);
     }
   };
 
