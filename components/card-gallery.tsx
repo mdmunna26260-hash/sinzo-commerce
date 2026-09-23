@@ -1,6 +1,7 @@
 "use client";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useSwipe } from "./use-swipe";
+import { resist, slideAfter } from "./gesture-math";
 import { warmImage } from "./img-warm";
 import { imgSrc, imgSrcSet, CARD_WIDTHS, CARD_SIZES } from "./img-src";
 
@@ -34,7 +35,8 @@ import { imgSrc, imgSrcSet, CARD_WIDTHS, CARD_SIZES } from "./img-src";
    3. A cancelled gesture (`touchcancel`, system gesture) now settles on the photo the
       customer dragged towards instead of snapping back — iOS cancels horizontal drags
       far more eagerly than Chrome does.
-   4. The release decision is a pure function (`galleryTarget`), testable in node.
+   4. The release decision is a pure function (`slideAfter` in components/gesture-math.ts),
+      asserted by `npm run test:touch` without a browser.
 
    IMPORTANT (bug fix 2026-09-20): the track offset is written in PIXELS, never as
    `translate3d(calc(-100% + 0px))`. Percentage + calc() inside a transform function is
@@ -53,16 +55,9 @@ type Props = {
   onIndexChange?: (i: number) => void;
 };
 
-const THRESHOLD = 0.18;   // 18% of the card width decides the slide
-const VELOCITY = 0.35;    // px/ms — a quick flick counts even if short
-
-/** Which slide should a released gallery settle on? Pure → testable without a browser. */
-export function galleryTarget(g: { dx: number; ms: number; width: number; index: number; count: number }) {
-  const far = Math.abs(g.dx) > g.width * THRESHOLD;
-  const flick = g.ms > 0 && Math.abs(g.dx / g.ms) > VELOCITY;
-  const next = far || flick ? g.index + (g.dx < 0 ? 1 : -1) : g.index;
-  return Math.max(0, Math.min(g.count - 1, next));
-}
+/* The thresholds and the release maths live in components/gesture-math.ts (pure, shared with the
+   rails, asserted by `npm run test:touch`). */
+export { slideAfter as galleryTarget } from "./gesture-math";
 
 export default function CardGallery({ images, alt, className = "", onIndexChange }: Props) {
   const N = images.length;
@@ -172,8 +167,7 @@ export default function CardGallery({ images, alt, className = "", onIndexChange
         requestAnimationFrame(mountNeighbours);             // the incoming photo is there next frame
       }
       /* rubber-band at both ends so the card feels physical, not broken */
-      const m = (i === 0 && dx > 0) || (i === N - 1 && dx < 0) ? dx * 0.35 : dx;
-      paint(i, m, false);
+      paint(i, resist(dx, i, N), false);
     },
     onEnd: (r) => {
       const i = idxRef.current;
@@ -182,7 +176,7 @@ export default function CardGallery({ images, alt, className = "", onIndexChange
         if (r.axis === "y") paint(i, 0, false);
         return;
       }
-      const next = galleryTarget({ dx: r.dx, ms: r.ms, width: stepPx(), index: i, count: N });
+      const next = slideAfter({ dx: r.dx, ms: r.ms, width: stepPx(), index: i, count: N });
       paint(next, 0, true);
       if (next !== i) {
         setIdx(next);

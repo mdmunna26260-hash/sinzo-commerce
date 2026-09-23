@@ -1,6 +1,7 @@
 "use client";
 import { useRef } from "react";
 import { useSwipe } from "./use-swipe";
+import { railTarget, resist } from "./gesture-math";
 
 /* ---------------------------------------------------------------------------
    Drag-to-swipe for the PAGED carousels (home rails + the "related products"
@@ -33,16 +34,10 @@ import { useSwipe } from "./use-swipe";
      maths in the callers stay exactly as they were: this only drives `scrollLeft`.
    --------------------------------------------------------------------------- */
 
-const MOVE_RATIO = 0.18;   // 18% of a page decides the turn
-const FLICK = 0.35;        // px/ms — a quick flick counts even if short
-
-/** Where should a released rail settle? Pure so it can be tested without a browser. */
-export function railTarget(g: { dx: number; width: number; ms: number; page: number; pages: number }) {
-  const far = Math.abs(g.dx) > Math.max(24, g.width * MOVE_RATIO);
-  const flick = g.ms > 0 && Math.abs(g.dx / g.ms) > FLICK;
-  const next = far || flick ? g.page + (g.dx < 0 ? 1 : -1) : g.page;
-  return Math.max(0, Math.min(Math.max(0, g.pages - 1), next));
-}
+/* The turn maths is pure and shared with the card galleries: components/gesture-math.ts
+   (18% of a page or a 0.35 px/ms flick, never a nudge under 24px), asserted by
+   `npm run test:touch` without a browser. */
+export { railTarget } from "./gesture-math";
 
 export function useRailSwipe(opts: {
   pages: () => number;
@@ -75,7 +70,7 @@ export function useRailSwipe(opts: {
       if (!el) return;
       const last = Math.max(0, latest.current.pages() - 1);
       /* resistance past either end so the rail feels physical, not broken */
-      const pull = (page.current === 0 && dx > 0) || (page.current === last && dx < 0) ? dx * 0.35 : dx;
+      const pull = resist(dx, page.current, last + 1);
       el.scrollLeft = base.current - pull;
     },
     onEnd: (r) => {
