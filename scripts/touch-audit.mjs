@@ -179,6 +179,9 @@ check("the card link keeps taps instant (touch-action: manipulation)",
   rules.some((r) => r.selector.split(",").map((s) => s.trim()).includes("a") && /touch-action:\s*manipulation/.test(r.body)));
 check("the dots row exists, and only the current one is marked",
   /\.pcard-dots\s*\{/.test(css) && /\.pcard-dots i\.on\s*\{/.test(css));
+check("entrance animations on a touch screen never MOVE the card (fade only)",
+  rules.some((r) => /\.reveal/.test(r.selector) && /transform:\s*none/.test(r.body) &&
+    r.media.some((m) => /hover:\s*none/.test(m))));
 check("the badges never eat a tap", /\.pcard-badges\s*\{[^}]*pointer-events:\s*none/.test(css));
 
 /* A hover rule that changes the geometry (transform/size/display) of the element under the
@@ -239,6 +242,15 @@ check("the gallery takes its thresholds from the shared module (no drift back to
   /from "\.\/gesture-math"/.test(gallery) && !/THRESHOLD\s*=|VELOCITY\s*=/.test(gallery) && !/0\.18|0\.35|350/.test(gallery));
 check("the card's incoming photo is mounted on the next frame, never inside the touch task",
   /requestAnimationFrame\(mountNeighbours\)/.test(gallery));
+check("the track is moved in whole pixels (percentage calc() is dropped by some WebKit builds)",
+  /translate3d\(\$\{Math\.round\(x\)\}px/.test(gallery));
+check("a release re-measures the card before it settles (rotation cannot desync the track)",
+  /width:\s*stepPx\(\)/.test(gallery) && /stepPx\(\) \?\? 0|stepPx\b/.test(gallery));
+check("...and an unmeasured card still swipes (the fallback lives in the pure module)",
+  G.FALLBACK_WIDTH === 300 && G.slideAfter({ dx: -80, ms: 60, width: 0, index: 0, count: 3 }) === 1);
+check("the dots follow the photo (the index is reported up to the card)",
+  /onIndexChange=\{setI\}/.test(stripComments(read("components/card-media.tsx"))) &&
+  /onIdx\.current\?\.\(next\)/.test(gallery));
 check("the quick-add button is a SIBLING of the card link (a nested button eats the tap)",
   /<\/Link>\s*\n\s*<QuickAdd/.test(parts));
 check("an arrow press never starts a drag", /closest\?\.\("\.cg-arrow"\)/.test(gallery));
