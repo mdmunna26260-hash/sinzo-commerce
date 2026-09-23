@@ -2768,7 +2768,10 @@ html.theme-transition *::after {
 .cg-img { width: 100%; height: 100%; object-fit: cover; display: block; user-select: none; -webkit-user-drag: none; }
 /* the card's hover zoom must not fight the swipe transform */
 .cg .cg-img { transition: none; }
-.pcard:hover .pcard-img .cg-img { transform: none; }
+/* hover-guarded on purpose: an UNGUARDED :hover rule here makes iOS spend the first tap on the
+   hover state and drop the click that follows — the "2 tap" report on a phone. On a touch screen
+   there is no zoom to cancel anyway (that rule lives in @media (hover: hover) too). */
+@media (hover: hover) { .pcard:hover .pcard-img .cg-img { transform: none; } }
 /* (the old `.nodrag` rule that killed pointer-events on the photo is gone: touching the
     photo must never change the element under the finger — WebKit drops the tap when it
     does. Nothing needs it now that the gesture machine is in components/use-swipe.ts.) */

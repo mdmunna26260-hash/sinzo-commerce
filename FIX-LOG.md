@@ -580,6 +580,85 @@ generate here, and `gesture/` holds the suites. What no sandbox can prove is the
 which is exactly why the fix for the reported symptom is a handler that was simply missing, and why
 the machine keeps away from every WebKit-specific trick §12 listed.
 
+## 18 · The gesture maths, out in the open — and one hover rule that was still stealing the first tap (2026-09-23)
+
+§17 got the behaviour right. This pass made it *provable*, and the proof immediately found one more
+real cause of "open korte 2 bar tap korte hoy".
+
+**a) The audit found an unguarded `:hover` rule sitting on the photo.**
+
+```
+.pcard:hover .pcard-img .cg-img { transform: none; }      ← 402cc14, not inside any @media
+```
+
+On a touch screen the browser applies `:hover` to whatever the first tap lands on. When that
+"hover" state changes the element the finger is on, iOS spends the first tap applying it and the
+click that should have opened the product never happens — which is precisely the reported symptom,
+on the product cards, in all three areas. It is wrapped in `@media (hover: hover)` now (the same
+guard every other hover rule in `globals.css` already had, and the same thing the parallel `main`
+branch's second pass did to this very line). Nothing changes visually: on a touch screen the zoom it
+cancels lives inside a `@media (hover: hover)` block too, so there was never a transform to reset.
+
+The check that caught it is now part of the test suite: *no unguarded `:hover` rule may change the
+geometry of the thing under the finger* (`scripts/touch-audit.mjs`).
+
+**b) The gesture maths moved into `components/gesture-math.ts` — pure, dependency-free.**
+
+`lockAxis` · `isDrag` · `resist` · `slideAfter` · `railTarget` · `swallowPlan` · `shouldSwallow`,
+with the thresholds (`AXIS_LOCK_PX 6`, `TAP_SLOP_PX 12`, `MOVE_RATIO 0.18`, `FLICK_VELOCITY 0.35`,
+`RESIST 0.35`, `SWALLOW_MS 300`, `SWALLOW_RADIUS_PX 28`). The card gallery and the rails both import
+from it (`galleryTarget` / `railTarget` stay exported as aliases), so the two surfaces can no longer
+drift apart, and every rule can be asserted in node without a browser, an install or a database:
+`components/use-swipe.ts` is left with the DOM half only.
+
+**c) The acceptance test is committed, and runs with zero new dependencies.**
+
+`npm run test:touch` → `scripts/touch-audit.mjs`: the three rules the owner tests by thumb, the
+release/cancel maths, the CSS contract (touch-action, the hover guards, the tap-eating badge row) and
+the wiring a pure function cannot see (no `setPointerCapture` anywhere, a real non-passive
+`touchmove`, the swallow checked by **place and time** instead of a timer, no `useState` in the drag
+machine, the rail skipping `.cg-swipeable`, the arrow press never starting a drag). It compiles the
+maths with the repo's own TypeScript and runs it in a bare `vm` context, so an accidental import
+into that file fails the audit instead of shipping.
+
+**d) The browser half grew teeth.** The suites now install an event recorder inside the page
+(`helpers.mjs` → `watch`), so an assertion is not just "the photo changed": a drag must receive **no
+`pointercancel`**, and the tap that follows it must produce a click that is **not** swallowed. New
+cases: pinch-zoom (started on a card) changes nothing and leaves the page scale at 1; a
+`touchcancel` half-way through a drag settles on the photo the thumb was heading for; two drags back
+to back advance two photos; a swipe followed by a tap **60 ms later** — and one with no gap at all —
+still opens the product in a single tap.
+
+One thing worth writing down for the next person: a tap that lands on the *edge* of a card while a
+rail is still settling can have its click retargeted to the nearest common ancestor by the browser.
+That is correct engine behaviour (the element under the finger changed between `touchstart` and
+`touchend`), not a lost tap, and it is why the suites aim at the middle of a card, and why
+`pull`/`pullInside` refuse to drag a finger off the screen.
+
+**Verified (same sandbox, offline Prisma stand-in with a 12-product demo catalogue)**
+
+```
+npm run test:touch   47/0    scripts/touch-audit.mjs
+real.mjs             21/0    home (photo + rail, tap-after-swipe) · /products (photo, clean tap,
+                             tap-after-swipe, vertical scroll, pinch) · PDP related (photo, tap,
+                             rail paging + live dots) · desktop (arrow, plain click, mouse drag,
+                             hover/fine-pointer gate)
+taptight.mjs          6/0    the back-to-back sequences above
+npm test             47/0    the repo's own smoke suite (coupon, COD checkout, tracking, SEO, CSP…)
+tsc --noEmit         14 errors, all pre-existing Prisma-stand-in typing in unrelated admin/API
+                             files; measured 15 on the same stand-in at `origin/main` → adds none
+```
+
+`scripts/_sandbox/` (git-ignored, never shipped) now has `setup.sh` to rebuild the whole offline
+environment — `npm ci --ignore-scripts`, the Prisma stand-in, puppeteer + the sandbox Chromium — and
+`gesture/README.md` with the run recipes. The pure audit is the part that lives in the repo, so the
+three rules stay guarded on every checkout.
+
+Note for the merge: `origin/main` carries a *different* second pass at these same symptoms
+(PR #3, `components/gallery-gesture.ts` + pointer events). This branch's engine is independent of it
+and is the one the sandbox above exercises end to end; the only line both passes agreed on is the
+hover guard in (a).
+
 ## NOT changed — deliberately
 
 - **Checkout pricing**: `POST /api/checkout` already re-loads products and re-prices server-side
