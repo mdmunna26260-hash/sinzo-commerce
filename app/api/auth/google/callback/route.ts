@@ -4,12 +4,28 @@ import { getSettings, envFallback } from "@/lib/settings";
 import { createCustomerToken, customerCookie } from "@/lib/customer-auth";
 export const dynamic = "force-dynamic";
 
+/* The public origin of the storefront.
+   Behind Traefik the request's own Host is the container bind address (0.0.0.0:3000), and Google
+   rejects that as a redirect URI ("doesn't comply with Google's OAuth 2.0 policy / invalid_request").
+   Order of preference: configured site URL → forwarded host → Host header → the known domain. */
+function publicBase(req: Request): string {
+  const configured = (process.env.NEXT_PUBLIC_SITE_URL || "").trim();
+  if (configured) return configured.replace(/\/+$/, "");
+  const h = req.headers;
+  const proto = (h.get("x-forwarded-proto") || "https").split(",")[0].trim();
+  const host = (h.get("x-forwarded-host") || h.get("host") || "").split(",")[0].trim();
+  if (host && !/^(0\.0\.0\.0|127\.0\.0\.1|localhost)(:\d+)?$/i.test(host)) return `${proto}://${host}`;
+  return "https://sinzooffcial.com";
+}
+
+
 /* Step 2 of Google (Gmail) login: exchange the code, read the profile,
    find-or-create the customer by email, then set the session cookie.
    New Google accounts get a temporary internal phone id — they can set their
    real mobile number from the Account page (used for order lookup). */
 export async function GET(req: Request) {
   const url = new URL(req.url);
+  const origin = publicBase(req);
   const code = url.searchParams.get("code");
   const state = url.searchParams.get("state");
   const stateCookie = (() => {
@@ -18,7 +34,7 @@ export async function GET(req: Request) {
     return m ? decodeURIComponent(m[1]) : "";
   })();
 
-  const fail = (reason: string) => NextResponse.redirect(new URL("/login?err=" + encodeURIComponent(reason), url.origin));
+  const fail = (reason: string) => NextResponse.redirect(new URL("/login?err=" + encodeURIComponent(reason), origin));
 
   try {
     const s = envFallback(await getSettings());
@@ -35,7 +51,7 @@ export async function GET(req: Request) {
         code,
         client_id: clientId,
         client_secret: clientSecret,
-        redirect_uri: url.origin + "/api/auth/google/callback",
+        redirect_uri: origin + "/api/auth/google/callback",
         grant_type: "authorization_code",
       }),
     });
@@ -63,7 +79,7 @@ export async function GET(req: Request) {
     }
 
     const tokenJwt = createCustomerToken({ id: customer.id, phone: customer.phone, name: customer.name || customer.email || "Customer" });
-    const res = NextResponse.redirect(new URL("/account?welcome=google", url.origin));
+    const res = NextResponse.redirect(new URL("/account?welcome=google", origin));
     res.cookies.set(customerCookie(tokenJwt) as any);
     res.cookies.set("sz_g_state", "", { path: "/", maxAge: 0 });
     return res;
