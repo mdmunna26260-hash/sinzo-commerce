@@ -6,20 +6,12 @@ import { afetch, copyText } from "@/lib/afetch";
 const money = (n: number) => "৳" + Math.round(n).toLocaleString("en-IN");
 const STATUS_PILL: Record<string, string> = { OPEN: "PENDING", RECOVERED: "SHIPPED", CONVERTED: "DELIVERED" };
 
-export default function MarketingClient({ abandoned, subscribers, sources, push, recCouponInit, recSettings }: any) {
+export default function MarketingClient({ abandoned, sources, recCouponInit, recSettings }: any) {
   const router = useRouter();
   const [items, setItems] = useState(abandoned);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
   const [expanded, setExpanded] = useState<number | null>(null);
-
-  // ---- push broadcast state ----
-  const [pushTitle, setPushTitle] = useState("");
-  const [pushBody, setPushBody] = useState("");
-  const [pushUrl, setPushUrl] = useState("/");
-  const [pushTestPhone, setPushTestPhone] = useState("");
-  const [pushBusy, setPushBusy] = useState(false);
-  const [pushMsg, setPushMsg] = useState("");
 
   // ---- abandoned recovery ----
   const [recCoupon, setRecCoupon] = useState(recCouponInit || "");
@@ -104,24 +96,6 @@ export default function MarketingClient({ abandoned, subscribers, sources, push,
     setBusy(false);
   };
 
-  const sendPush = async (action: "broadcast" | "test") => {
-    if (pushBusy) return;
-    if (action === "broadcast" && !pushTitle.trim()) { setPushMsg("Title din"); return; }
-    if (action === "test" && !pushTestPhone.trim()) { setPushMsg("Test number din"); return; }
-    setPushBusy(true); setPushMsg("");
-    const r = await afetch("/api/admin/push", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({
-      action, title: pushTitle.trim(), body: pushBody.trim(), url: pushUrl.trim() || "/",
-      phone: pushTestPhone.trim(),
-    }) });
-    const j = await r.json().catch(() => ({}));
-    setPushBusy(false);
-    if (r.ok) {
-      setPushMsg("✓ " + (j.detail || "Sent"));
-      if (action === "broadcast") { setPushTitle(""); setPushBody(""); }
-    } else setPushMsg(j.error || "Failed");
-    setTimeout(() => setPushMsg(""), 6000);
-  };
-
   /* BD numbers stored as 01XXXXXXXXX — wa.me needs full international format 8801XXXXXXXXX */
   const waLink = (phone?: string | null) => {
     if (!phone) return null;
@@ -133,13 +107,20 @@ export default function MarketingClient({ abandoned, subscribers, sources, push,
 
   return (
     <>
-      <div className="admin-top"><h1>Marketing &amp; Recovery</h1></div>
+      <div className="admin-top">
+        <div>
+          <h1>Marketing &amp; Recovery</h1>
+          <div className="who">Abandoned carts, order sources and recovery passes</div>
+        </div>
+        <div style={{ display: "flex", gap: 8 }}>
+          <a className="abtn" href="/admin/campaigns">Newsletter &amp; Push →</a>
+        </div>
+      </div>
       {msg && <div className="noti ok">{msg}</div>}
-      <div className="kpis" style={{ gridTemplateColumns: "repeat(4,1fr)" }}>
+      <div className="kpis" style={{ gridTemplateColumns: "repeat(3,1fr)" }}>
         <div className="kpi"><div className="k-label">Abandoned Checkouts</div><div className="k-val">{open.length}</div><div className="k-sub">not recovered</div></div>
         <div className="kpi"><div className="k-label">Recovered</div><div className="k-val">{items.filter((a: any) => a.status === "RECOVERED").length}</div></div>
         <div className="kpi"><div className="k-label">Recovery Rate</div><div className="k-val">{rate}%</div></div>
-        <div className="kpi"><div className="k-label">Newsletter Subscribers</div><div className="k-val">{subscribers.length}</div></div>
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr", gap: 16, alignItems: "start" }}>
         <div className="acard">
@@ -240,13 +221,6 @@ export default function MarketingClient({ abandoned, subscribers, sources, push,
               </tbody>
             </table>
           </div>
-          <div className="acard">
-            <div className="acard-h"><h3>Subscribers</h3><a className="abtn sm" href="/api/admin/export?type=subscribers">⭳ CSV</a></div>
-            <div className="acard-b" style={{ maxHeight: 300, overflow: "auto", fontSize: 13 }}>
-              {subscribers.length === 0 && <span style={{ color: "var(--muted)" }}>No subscribers yet.</span>}
-              {subscribers.map((s: any) => <div key={s.id} style={{ padding: "5px 0", borderBottom: "1px solid #f0f2f5" }}>{s.email}</div>)}
-            </div>
-          </div>
         </div>
       </div>
 
@@ -278,44 +252,6 @@ export default function MarketingClient({ abandoned, subscribers, sources, push,
         </div>
       </div>
 
-      {/* ---- Web Push broadcast ---- */}
-      <div className="acard" style={{ marginTop: 16 }}>
-        <div className="acard-h">
-          <h3>Push Notifications</h3>
-          <span style={{ fontSize: 12, color: "var(--muted)" }}>{push?.total || 0} device(s) · {push?.withPhone || 0} linked to phone</span>
-        </div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 18, alignItems: "start" }}>
-          <div>
-            <div className="field" style={{ marginBottom: 10 }}>
-              <label>Title</label>
-              <input value={pushTitle} onChange={(e) => setPushTitle(e.target.value)} placeholder="e.g. New Arrival — Winter Collection" maxLength={80} />
-            </div>
-            <div className="field" style={{ marginBottom: 10 }}>
-              <label>Message</label>
-              <textarea value={pushBody} onChange={(e) => setPushBody(e.target.value)} placeholder="Short message (optional)" rows={2} style={{ minHeight: 0, resize: "vertical" }} maxLength={200} />
-            </div>
-            <div className="field" style={{ marginBottom: 10 }}>
-              <label>Open URL (optional)</label>
-              <input value={pushUrl} onChange={(e) => setPushUrl(e.target.value)} placeholder="/products" />
-            </div>
-            <button className="abtn primary" onClick={() => sendPush("broadcast")} disabled={pushBusy} aria-busy={pushBusy || undefined}>
-              {pushBusy && <span className="spinner" aria-hidden="true" />}Send to ALL devices
-            </button>
-          </div>
-          <div style={{ borderLeft: "1px solid #eee", paddingLeft: 18 }}>
-            <div style={{ fontSize: 12, color: "var(--muted)", marginBottom: 10 }}>
-              Kivabe kaj kore: customer order success page theke "Enable" tap korle tar device push subscribe hoy (phone number sathe linked).
-              Order status change (CONFIRMED / SHIPPED / DELIVERED / CANCELLED) korle auto push jay. Niche test kore dekhen.
-            </div>
-            <div className="field" style={{ marginBottom: 10 }}>
-              <label>Test — customer phone</label>
-              <input value={pushTestPhone} onChange={(e) => setPushTestPhone(e.target.value)} placeholder="01XXXXXXXXX" inputMode="numeric" />
-            </div>
-            <button className="abtn" onClick={() => sendPush("test")} disabled={pushBusy} aria-busy={pushBusy || undefined}>Send test</button>
-            {pushMsg && <div style={{ marginTop: 10, fontSize: 13, color: pushMsg.startsWith("✓") ? "var(--ok)" : "var(--danger)" }}>{pushMsg}</div>}
-          </div>
-        </div>
-      </div>
       <div style={{ height: 40 }} />
     </>
   );

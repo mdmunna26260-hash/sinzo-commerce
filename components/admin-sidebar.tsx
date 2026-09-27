@@ -6,12 +6,12 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { afetch, withToken } from "@/lib/afetch";
 import { ThemeIconToggle, ThemeSwitchRow } from "./theme-toggle";
 
-const NAV: { group: string; items: { href: string; label: string; icon: string; badge?: string }[] }[] = [
-  { group: "Overview", items: [
+const NAV: { group: string; gicon: string; items: { href: string; label: string; icon: string; badge?: string }[] }[] = [
+  { group: "Overview", gicon: "M3 13h8V3H3v10zm10 8h8V11h-8v10zM3 21h8v-6H3v6zM13 9h8V3h-8v6z", items: [
     { href: "/admin/dashboard", label: "Dashboard", icon: "M3 13h8V3H3v10zm10 8h8V11h-8v10zM3 21h8v-6H3v6zM13 9h8V3h-8v6z" },
     { href: "/admin/profit", label: "Profit & Margin", icon: "M23 6l-9.5 9.5-5-5L1 18M17 6h6v6M3 22h18" },
   ]},
-  { group: "Commerce", items: [
+  { group: "Commerce", gicon: "M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4zM3 6h18M16 10a4 4 0 0 1-8 0", items: [
     { href: "/admin/orders", label: "Orders", icon: "M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4zM3 6h18M16 10a4 4 0 0 1-8 0", badge: "pending" },
     { href: "/admin/scan", label: "Scan to pack", icon: "M3 5h4l2 12h10l2-8H7M9 21a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zm9 0a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zM3 5v2M5 8H3" },
     { href: "/admin/payments", label: "Payments", icon: "M2 7h20v10H2zM2 11h20M6 15h3" },
@@ -22,15 +22,15 @@ const NAV: { group: string; items: { href: string; label: string; icon: string; 
     { href: "/admin/customers", label: "Customers", icon: "M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zm14 10v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" },
     { href: "/admin/coupons", label: "Coupons", icon: "M20 12v6a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v2m-5 0 2 2-2 2h-4" },
   ]},
-  { group: "Engagement", items: [
+  { group: "Engagement", gicon: "M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01z", items: [
     { href: "/admin/reviews", label: "Reviews", icon: "M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01z" },
     { href: "/admin/sms", label: "SMS", icon: "M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2zM8 9h8M8 13h5" },
     { href: "/admin/loyalty", label: "Loyalty & Referral", icon: "M12 2l2.9 6 6.1.9-4.5 4.3 1.1 6.3L12 16.6 6.4 19.5l1.1-6.3L3 8.9 9.1 8z" },
     { href: "/admin/marketing", label: "Marketing", icon: "M3 11l18-7-7 18-2.5-7.5z" },
-    { href: "/admin/campaigns", label: "Newsletter", icon: "M4 4h16v16H4zM4 7l8 6 8-6" },
+    { href: "/admin/campaigns", label: "Newsletter & Push", icon: "M4 4h16v16H4zM4 7l8 6 8-6" },
     { href: "/admin/blog", label: "Blog", icon: "M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M16 13H8M16 17H8M11 9H8" },
   ]},
-  { group: "WhatsApp", items: [
+  { group: "WhatsApp", gicon: "M21 12a8 8 0 0 1-8 8H7l-4 3 1.2-4.2A8 8 0 1 1 21 12zM8.5 11h.01M12 11h.01M15.5 11h.01", items: [
     { href: "/admin/whatsapp/compose", label: "New message", icon: "M12 5v14M5 12h14" },
     { href: "/admin/whatsapp/new", label: "New campaign", icon: "M22 2L11 13M22 2l-7 20-4-9-9-4z" },
     { href: "/admin/whatsapp", label: "Broadcast & Queue", icon: "M3 11l18-7-7 18-2.5-7.5zM14 14l4-4" },
@@ -38,7 +38,7 @@ const NAV: { group: string; items: { href: string; label: string; icon: string; 
     { href: "/admin/whatsapp/templates", label: "Templates", icon: "M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M9 13h6M9 17h4" },
     { href: "/admin/inbox", label: "Inbox", icon: "M21 12a8 8 0 0 1-8 8H7l-4 3 1.2-4.2A8 8 0 1 1 21 12zM8.5 11h.01M12 11h.01M15.5 11h.01" },
   ]},
-  { group: "Growth tools", items: [
+  { group: "Growth tools", gicon: "M23 6l-9.5 9.5-5-5L1 18M17 6h6v6", items: [
     { href: "/admin/analytics", label: "Advanced Analytics", icon: "M23 6l-9.5 9.5-5-5L1 18M17 6h6v6" },
     { href: "/admin/couriers", label: "Couriers & RTO", icon: "M1 3h15v13H1zM16 8h4l3 3v5h-7M5.5 20a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5zm13 0a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z" },
     { href: "/admin/tracking", label: "Tracking & Pixels", icon: "M22 12h-4l-3 9L9 3l-3 9H2" },
@@ -138,6 +138,70 @@ export default function Sidebar({ pending, lowStock }: { pending: number; lowSto
   const link = (href: string) => (t ? href + "?t=" + encodeURIComponent(t) : href);
   const user = decodeToken(t);
   const [menuOpen, setMenuOpen] = useState(false);
+  /* Desktop sidebar collapse — persisted in localStorage. Collapsed mode shows
+     only icons (~68px wide), expanded shows full labels (248px). On small screens
+     we force-expanded because the mobile drawer pattern takes over. */
+  const [collapsed, setCollapsed] = useState(false);
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("sz_side_collapsed");
+      if (saved === "1") setCollapsed(true);
+    } catch {}
+  }, []);
+  useEffect(() => {
+    try { localStorage.setItem("sz_side_collapsed", collapsed ? "1" : "0"); } catch {}
+    // signal body class so grid template columns can adjust without SSR reflow
+    document.body.classList.toggle("ad-side-collapsed", collapsed);
+    document.documentElement.classList.toggle("ad-side-collapsed", collapsed);
+  }, [collapsed]);
+  // Keyboard shortcut: Ctrl/Cmd+B toggles sidebar collapse (desktop only — mobile uses drawer)
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && (e.key === "b" || e.key === "B") && !e.altKey && !(e.target as HTMLElement)?.closest?.("input,textarea,[contenteditable]")) {
+        e.preventDefault();
+        setCollapsed(c => !c);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+  /* Single-accordion mode: only ONE nav section is open at a time.
+     - First load: open the section containing the current page (otherwise the
+       active link is hidden), Account closed.
+     - Clicking a section header: close all other nav sections, toggle this one.
+       Account section toggles independently (it's below the divider and never
+       steals focus from the working section).
+     - When navigating: auto-open the new active page's section, close previous. */
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() => {
+    const init: Record<string, boolean> = { __account: false };
+    NAV.forEach(g => { init[g.group] = g.items.some(it => typeof window !== "undefined" && window.location.pathname.startsWith(it.href)); });
+    // Fallback: if nothing matched, open Overview
+    if (!Object.values(init).some(Boolean)) init["Overview"] = true;
+    return init;
+  });
+  useEffect(() => {
+    setOpenGroups(prev => {
+      const next: Record<string, boolean> = { __account: prev.__account };
+      let any = false;
+      NAV.forEach(g => {
+        const isActive = g.items.some(it => path.startsWith(it.href));
+        next[g.group] = isActive;
+        if (isActive) any = true;
+      });
+      if (!any) next["Overview"] = true;
+      return next;
+    });
+  }, [path]);
+  const toggleGroup = (g: string) => setOpenGroups(prev => {
+    const isOpen = prev[g];
+    const next: Record<string, boolean> = { ...prev, __account: prev.__account };
+    NAV.forEach(x => { next[x.group] = false; });
+    next[g] = !isOpen;
+    // Keep the active page's section visible so the highlighted link isn't hidden.
+    const activeGroup = NAV.find(x => x.items.some(it => path.startsWith(it.href)));
+    if (activeGroup && activeGroup.group !== g && !isOpen) next[activeGroup.group] = true;
+    return next;
+  });
   const logout = async () => {
     try { await afetch("/api/admin/logout", { method: "POST" }); } catch {}
     try { localStorage.removeItem("sz_admin_token"); } catch {}
@@ -175,17 +239,27 @@ export default function Sidebar({ pending, lowStock }: { pending: number; lowSto
         <ThemeIconToggle />
       </div>
       {menuOpen && <div className="admin-scrim" onClick={() => setMenuOpen(false)} />}
-    <aside className={"admin-side" + (menuOpen ? " open" : "")}>
-      <Link href={link("/admin/dashboard")} className="logo" onClick={() => setMenuOpen(false)}>
-        SINZO<span style={{ fontSize: 9.5, display: "block", color: "var(--ad-mute)", letterSpacing: ".24em", fontWeight: 500, marginTop: 3 }}>COMMERCE PANEL</span>
-      </Link>
+    <aside className={"admin-side" + (menuOpen ? " open" : "") + (collapsed ? " collapsed" : "")}>
+      <div className="side-head">
+        <Link href={link("/admin/dashboard")} className="logo" onClick={() => setMenuOpen(false)} title="Dashboard">
+          <span className="logo-full">SINZO<span style={{ fontSize: 9.5, display: "block", color: "var(--ad-mute)", letterSpacing: ".24em", fontWeight: 500, marginTop: 3 }}>COMMERCE PANEL</span></span>
+          <span className="logo-mini">S</span>
+        </Link>
+        <button className="collapse-btn" onClick={() => setCollapsed(c => !c)} aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"} title={collapsed ? "Expand sidebar" : "Collapse sidebar"}>
+          {collapsed ? (
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="m9 18 6-6-6-6" /></svg>
+          ) : (
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="m15 18-6-6 6-6" /></svg>
+          )}
+        </button>
+      </div>
 
       <GlobalSearch token={t} link={link} />
 
       <div className="bell-wrap">
-        <button className="bell-btn" onClick={() => { setNotifOpen(!notifOpen); loadNotifs(); }}>
+        <button className="bell-btn" onClick={() => { setNotifOpen(!notifOpen); loadNotifs(); }} title="Notifications">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 0 1-3.4 0" /></svg>
-          Notifications
+          <span className="bell-label">Notifications</span>
           {unread > 0 && <span className="bell-count">{unread > 99 ? "99+" : unread}</span>}
         </button>
       </div>
@@ -210,39 +284,83 @@ export default function Sidebar({ pending, lowStock }: { pending: number; lowSto
         </div>
       )}
 
-      {NAV.map((g) => (
-        <div key={g.group}>
-          <div className="grp">{g.group}</div>
-          {g.items.map((it) => {
-            const badge = it.badge === "pending" ? pending : it.badge === "stock" ? lowStock : 0;
-            return (
-              <Link key={it.href} href={link(it.href)} onClick={() => setMenuOpen(false)} className={path.startsWith(it.href) ? "active" : ""}>
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path d={it.icon} /></svg>
-                <span style={{ flex: 1 }}>{it.label}</span>
-                {badge > 0 && <span className={"nav-badge" + (it.badge === "stock" ? " warn" : "")}>{badge > 99 ? "99+" : badge}</span>}
-              </Link>
-            );
-          })}
+      <nav className="side-nav" role="navigation" aria-label="Admin main menu">
+      {NAV.map((g) => {
+        const isOpen = openGroups[g.group] === true;
+        const hasActive = g.items.some(it => path.startsWith(it.href));
+        const itemCount = g.items.length;
+        return (
+        <div key={g.group} className={"nav-group" + (isOpen ? " open" : "") + (hasActive ? " has-active" : "")}>
+          <button className="grp" onClick={() => toggleGroup(g.group)} aria-expanded={isOpen} aria-controls={"nav-grp-" + g.group.replace(/\s+/g, "-")} title={g.group} aria-label={g.group + (isOpen ? " (expanded)" : " (collapsed)")}>
+            <span className="grp-ic" aria-hidden="true">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d={g.gicon} /></svg>
+            </span>
+            <span className="grp-label">{g.group}</span>
+            <span className="grp-count" aria-hidden="true">{itemCount}</span>
+            <svg className="grp-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
+          </button>
+          <div className={"grp-items" + (isOpen ? " is-open" : "")} id={"nav-grp-" + g.group.replace(/\s+/g, "-")} aria-hidden={!isOpen}>
+            <div className="grp-items-inner">
+              {g.items.map((it) => {
+                const badge = it.badge === "pending" ? pending : it.badge === "stock" ? lowStock : 0;
+                const isActive = path.startsWith(it.href);
+                return (
+                  <Link key={it.href} href={link(it.href)} onClick={() => setMenuOpen(false)} className={isActive ? "active" : ""} title={collapsed ? it.label : undefined} data-tip={it.label}>
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true"><path d={it.icon} /></svg>
+                    <span className="nav-label" style={{ flex: 1 }}>{it.label}</span>
+                    {badge > 0 && <span className={"nav-badge" + (it.badge === "stock" ? " warn" : "")}>{badge > 99 ? "99+" : badge}</span>}
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+          {/* Collapsed: a single icon tile per group (shows group glyph, click expands that group OR reveals flyout) */}
+          {collapsed && (
+            <button className={"grp-mini" + (hasActive ? " has-active" : "")} onClick={() => { if (collapsed) setCollapsed(false); setOpenGroups(prev => { const n:Record<string,boolean>={}; NAV.forEach(x=>{n[x.group]=false}); n[g.group]=true; return n; }); }} title={g.group + " (" + itemCount + ")"} aria-label={g.group}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d={g.gicon} /></svg>
+              {hasActive && <span className="grp-mini-dot" />}
+            </button>
+          )}
         </div>
-      ))}
+        );
+      })}
+      </nav>
 
-      <div className="grp">Account</div>
-      <div className="side-user">
-        <div className="av">{initial}</div>
-        <div style={{ minWidth: 0 }}>
-          <div className="nm">{user?.name || "Admin"}</div>
-          <div className="em">{user?.email || "…"}</div>
+      <div className={"nav-group acc-nav" + (openGroups["__account"] ? " open" : "")} style={{ marginTop: "auto" }}>
+        <button className="grp" onClick={() => setOpenGroups(prev => ({ ...prev, __account: !prev.__account }))} aria-expanded={!!openGroups["__account"]} aria-controls="nav-grp-Account" title="Account" aria-label={"Account" + (openGroups["__account"] ? " (expanded)" : " (collapsed)")}>
+          <span className="grp-ic" aria-hidden="true">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z" /></svg>
+          </span>
+          <span className="grp-label">Account</span>
+          <span className="grp-count" aria-hidden="true">3</span>
+          <svg className="grp-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
+        </button>
+        <div className={"grp-items" + (openGroups["__account"] ? " is-open" : "")} id="nav-grp-Account" aria-hidden={!openGroups["__account"]}>
+          <div className="grp-items-inner">
+            <div className="side-user" title={user?.name || "Admin"}>
+              <div className="av">{initial}</div>
+              <div className="side-user-meta" style={{ minWidth: 0 }}>
+                <div className="nm">{user?.name || "Admin"}</div>
+                <div className="em">{user?.email || "…"}</div>
+              </div>
+            </div>
+            <div className="side-theme"><ThemeSwitchRow /></div>
+            <Link href="/" target="_blank" title="View storefront" className={collapsed ? "" : ""}>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14 21 3" /></svg>
+              <span className="nav-label">View Storefront</span>
+            </Link>
+            <a href="#" onClick={(e) => { e.preventDefault(); logout(); }} className="signout" style={{ color: "var(--ad-red)" }} title="Sign out">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" /></svg>
+              <span className="nav-label">Sign out</span>
+            </a>
+          </div>
         </div>
+        {collapsed && (
+          <button className="grp-mini" onClick={() => { setCollapsed(false); setOpenGroups(prev => ({ ...prev, __account: true })); }} title="Account (3)" aria-label="Account">
+            <div className="av" style={{ width: 28, height: 28, fontSize: 12 }}>{initial}</div>
+          </button>
+        )}
       </div>
-      <div style={{ padding: "0 10px" }}><ThemeSwitchRow /></div>
-      <Link href="/" target="_blank" style={{ marginTop: 4 }}>
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14 21 3" /></svg>
-        View Storefront
-      </Link>
-      <a href="#" onClick={(e) => { e.preventDefault(); logout(); }} className="signout" style={{ color: "var(--ad-red)" }}>
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" /></svg>
-        Sign out
-      </a>
     </aside>
     </>
   );

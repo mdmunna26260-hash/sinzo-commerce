@@ -60,14 +60,6 @@ export default function AccountClient({ customer, orders, token, rewards }: { cu
       {rewards?.enabled && (
         <div className="stat-strip" style={{ maxWidth: 720, marginTop: 22 }}>
           <div className="kpi"><div className="k-label">Reward points</div><div className="k-val">{rewards.points}</div><div className="k-sub">≈ ৳{rewards.value} off ({rewards.redeemPoints} pts = ৳100)</div></div>
-          <div className="kpi">
-            <div className="k-label">Your referral code</div>
-            <div className="k-val" style={{ fontFamily: "ui-monospace, monospace", fontSize: 18 }}>{rewards.code || "—"}</div>
-            <div className="k-sub">
-              <button className="chip" style={{ cursor: "pointer" }} onClick={() => navigator.clipboard?.writeText(`${rewards.siteUrl}/?ref=${rewards.code}`)}>Copy invite link</button>
-              {" "}Friend order korle duijoner jonno points
-            </div>
-          </div>
         </div>
       )}
 

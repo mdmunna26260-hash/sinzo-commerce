@@ -3,6 +3,7 @@
 
 generator client {
   provider        = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
   binaryTargets   = ["native", "debian-openssl-3.0.x", "linux-musl-openssl-3.0.x"]
 }
 
@@ -25,6 +26,9 @@ model User {
   // bumping this invalidates every token issued before it — "log out everywhere"
   sessionVersion   Int      @default(0)
   recoveryCodes    String?  // one-time 2FA recovery codes, sha256-hashed, newline separated
+  // Password reset token (single-use, short-lived, hashed)
+  resetToken       String?  // sha256-hex of the token sent via email
+  resetTokenExpires DateTime?
   createdAt DateTime @default(now())
 }
 

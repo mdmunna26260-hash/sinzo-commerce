@@ -8,6 +8,7 @@ import { rateLimit } from "@/lib/auth";
 import { orderCode } from "@/lib/slug";
 import { normalizeBDPhone, isValidBDPhone } from "@/lib/phone";
 import { notifyAdmin, emailCustomerOrder } from "@/lib/notify";
+import { subscribeImplicit } from "@/lib/newsletter";
 
 export const dynamic = "force-dynamic";
 
@@ -127,20 +128,6 @@ export async function POST(req: Request) {
           create: { phone: cleanPhone, name: String(name).trim(), address: String(address).trim(), area, email: email || null },
         });
 
-        /* Referral: the code a friend shared. Attribution happens ONCE, on the customer's first
-           order — the bonus itself only pays out when this order is delivered (lib/loyalty.ts),
-           so a cancelled or returned parcel earns nobody anything. */
-        let referralCode: string | null = null;
-        if (body.referralCode) {
-          const clean = String(body.referralCode).trim().toUpperCase().slice(0, 24);
-          const referrer = await tx.customer.findFirst({ where: { referralCode: clean } });
-          if (referrer && referrer.id !== customer.id && !customer.referredBy) {
-            await tx.customer.update({ where: { id: customer.id }, data: { referredBy: referrer.id } });
-            referralCode = clean;
-          }
-        }
-        if (referralCode) body.attribution = { ...(attribution || {}), referral: referralCode };
-
         // create order
         const order = await tx.order.create({
           data: {
@@ -198,6 +185,10 @@ export async function POST(req: Request) {
     // customer order-confirmation email (if email given + SMTP configured)
     if (email) {
       emailCustomerOrder(String(email), String(name).trim(), { code, total, area, items: orderItems.map((i) => ({ title: i.title + (i.preorder ? " [Pre-order]" : ""), qty: i.qty, price: i.price })) }).catch(() => {});
+      /* Customer gave us a real email on checkout → silently add to newsletter
+         list (only if never subscribed and never unsubscribed). Never overrides
+         an existing unsubscribe, so it stays safe. */
+      subscribeImplicit(String(email)).catch(() => {});
     }
 
     // admin notification (in-app + Telegram + email if configured)
