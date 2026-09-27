@@ -1,4 +1,7 @@
+# SINZO Commerce — VPS production stack (Dokploy-compatible, 2GB RAM tuned)
+# Dokploy will manage this via its own Traefik; ports binding kept simple.
 version: "3.8"
+
 services:
   db:
     image: postgres:16-alpine
@@ -8,21 +11,45 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set in .env}
       POSTGRES_DB: sinzo
     volumes: [pgdata:/var/lib/postgresql/data]
-  redis:
-    image: redis:7-alpine
-    restart: unless-stopped
+    # keep Postgres memory sane on a small VPS
+    command: >
+      postgres -c shared_buffers=128MB -c effective_cache_size=384MB
+               -c maintenance_work_mem=32MB -c work_mem=4MB -c max_connections=60
+    deploy:
+      resources:
+        limits: { memory: 512M }
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sinzo -d sinzo"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   app:
     build: .
     restart: unless-stopped
-    depends_on: [db, redis]
+    depends_on:
+      db:
+        condition: service_healthy
     environment:
       DATABASE_URL: postgresql://sinzo:${POSTGRES_PASSWORD}@db:5432/sinzo
       SESSION_SECRET: ${SESSION_SECRET:?set in .env}
-      NEXT_PUBLIC_SITE_URL: ${SITE_URL:-http://localhost:3000}
-      REDIS_URL: redis://redis:6379
+      NEXT_PUBLIC_SITE_URL: ${SITE_URL:-https://sinzooffcial.com}
+      NODE_ENV: production
+      # order isolation: this deployment only shows/manages its own orders
       DEPLOY_CHANNEL: vps
-    ports: ["3000:3000"]
+      # Next.js memory cap inside the container (leave headroom for spikes + swap)
+      NODE_OPTIONS: --max-old-space-size=768
     volumes: [uploads:/app/public/uploads]
+    deploy:
+      resources:
+        limits: { memory: 896M }
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/api/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
 volumes:
   pgdata:
   uploads:
