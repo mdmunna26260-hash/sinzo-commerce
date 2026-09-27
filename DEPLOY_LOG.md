@@ -73,3 +73,19 @@
 
 ## 2f713a6 SECURITY FIXES (2026-09-13 audit): invoice PII gate (phone required) · checkout accepts +880 phone format · WhatsApp BD JID fix (88016...) · order+stock+coupon in DB transaction (no oversell) · rate limits on public APIs · HSTS header · Product JSON-LD (SEO) · category slug update support · no hardcoded admin passwords in seed/smoke
 
+---
+
+## VPS deploy — how it works now (2026-09-27)
+
+* **Source of truth:** this repo, branch `main`.
+* **Dokploy app:** `sinzo-store` on the VPS (`162.4.112.68`), panel at `http://162.4.112.68:3000`.
+  It clones `mdmunna26260-hash/sinzo-commerce@main` through the **GitHub App** (no token in the URL),
+  because OAuth/PAT git endpoints answer 404 for this account from the server side.
+* **Auto-deploy is ON** (`triggerType: push`), so a normal `git push` to `main` builds and goes live
+  by itself — a build takes ~70-90 s (Dockerfile -> npm ci -> prisma generate -> next build).
+* **Database:** service `sinzo-db` (postgres:18) inside Dokploy; `DATABASE_URL` lives in the app env.
+  The prod Prisma client is generated from `prisma/schema.prod.prisma` via `npm run schema:sync` —
+  run it after editing `prisma/schema.prisma`, or the image can be missing new columns.
+* **Deploying changes that are not pushed yet:** from the ops workspace, `dok/deploy.py` commits the
+  changed files straight to `main` (GraphQL) and triggers the deploy, then polls the build log.
+* **Backups:** Dokploy -> `sinzo-db` -> Backups (schedule not configured yet).
