@@ -117,7 +117,9 @@ export default function BottomNav() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  if (pathname.startsWith("/admin")) return null;
+  /* /checkout hides the floating bar on purpose: it is a focus page, and the pill sat
+     right on top of the Place Order button and the free-delivery bar on phones. */
+  if (pathname.startsWith("/admin") || pathname.startsWith("/checkout")) return null;
 
   return (
     <nav className={"tabbar" + (compact ? " compact" : "") + (visible ? "" : " hidden")} aria-label="Main navigation">

@@ -2463,6 +2463,14 @@ html.theme-transition *::after {
 }
 
 /* Checkout summary mobile spacing — natural flow (no sticky bottom) */
+/* Checkout form guards — a grid/flex child keeps `min-width: auto`, i.e. it refuses to
+   shrink below its min-content width, and an <input> has an intrinsic ~170px minimum
+   (default size=20). On a 342px phone column that pushed the layout to ~594px and
+   `overflow-x: clip` then hid the right half of Mobile Number / Email / Delivery Zone
+   with no way to scroll to it. min-width:0 lets the columns actually shrink. */
+.checkout-layout > *, .field-row > *, .field { min-width: 0; }
+.checkout-page .field input, .checkout-page .field select, .checkout-page .field textarea { min-width: 0; }
+
 @media (max-width: 640px) {
   .checkout-page { padding: 20px 16px 60px; }
   .checkout-h1 { margin: 4px 0 14px; font-size: 26px; }
@@ -2473,6 +2481,8 @@ html.theme-transition *::after {
   .summary .sum-row { font-size: 14px; padding: 6px 0; }
   .summary .total { font-size: 16px !important; }
   .field-row { grid-template-columns: 1fr; gap: 0; }
+  /* 16px keeps iOS Safari from zooming the page when a field gets focus */
+  .checkout-page .field input, .checkout-page .field select, .checkout-page .field textarea { font-size: 16px; }
   .coupon-row { flex-direction: row; gap: 8px; }
   .coupon-row input { flex: 1; min-width: 0; }
   .coupon-row .abtn { min-width: 72px; }
