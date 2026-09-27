@@ -22,7 +22,6 @@ export default function CheckoutPage() {
 
   const [form, setForm] = useState({ name: "", phone: "", email: "", address: "", area: "INSIDE_DHAKA", notes: "" });
   const [coupon, setCoupon] = useState("");
-  const [referral, setReferral] = useState("");
   const [applied, setApplied] = useState<any>(null);
   const [errors, setErrors] = useState<any>({});
   const [busy, setBusy] = useState(false);
@@ -144,7 +143,7 @@ export default function CheckoutPage() {
         body: JSON.stringify({
           ...form, phone: normalizeBDPhone(form.phone), paymentMethod: payment,
       giftWrap,
-          couponCode: applied?.code || null, referralCode: referral.trim() || null, purchaseEventId: eventId,
+          couponCode: applied?.code || null, purchaseEventId: eventId,
           attribution: captureAttribution(),
           items: lines.map((l) => ({ productId: l.productId, variantId: l.variantId || null, qty: l.qty })),
         }),
@@ -167,8 +166,8 @@ export default function CheckoutPage() {
   };
 
   return (
-    <div className="container" style={{ padding: "38px 24px 100px" }}>
-      <h1 style={{ fontSize: "clamp(28px,3.4vw,40px)", marginBottom: 30 }}>Checkout</h1>
+    <div className="container checkout-page">
+      <h1 className="checkout-h1">Checkout</h1>
       <div className="checkout-layout">
         <div>
           <div className="acard" style={{ padding: 26, marginBottom: 20 }}>
@@ -280,12 +279,17 @@ export default function CheckoutPage() {
             <div className="sum-row total"><span>Total</span><span>৳{total.toLocaleString("en-IN")}</span></div>
           </div>
           <div className="coupon-row">
-            <input placeholder="Coupon code" value={coupon} onChange={(e) => setCoupon(e.target.value.toUpperCase())} disabled={busy} />
-            <input placeholder="Friend's referral code (optional)" value={referral} onChange={(e) => setReferral(e.target.value.toUpperCase())} disabled={busy} />
-            <button className="abtn" onClick={applyCoupon} type="button" disabled={busy || cbusy} aria-busy={cbusy || undefined}>
+            <input placeholder="Coupon code" value={coupon} onChange={(e) => setCoupon(e.target.value.toUpperCase())} disabled={busy} aria-label="Coupon code" />
+            <button className="abtn" onClick={applyCoupon} type="button" disabled={busy || cbusy || !coupon.trim()} aria-busy={cbusy || undefined}>
               {cbusy && <span className="spinner" aria-hidden="true" />}{cbusy ? "Checking" : "Apply"}
             </button>
           </div>
+          {applied && (
+            <div className="coupon-applied">
+              <span className="promo-badge ok">🎟️ Coupon <b>{applied.code}</b> applied{applied.discount > 0 && <> · −৳{applied.discount.toLocaleString("en-IN")}</>}</span>
+              <button type="button" className="promo-remove" onClick={() => { setApplied(null); setCoupon(""); }} aria-label="Remove coupon">✕</button>
+            </div>
+          )}
           <button className="btn btn-accent" style={{ width: "100%" }} onClick={placeOrder} disabled={busy} aria-busy={busy || undefined}>
             {busy && <span className="spinner" aria-hidden="true" />}
             <span style={busy ? { marginLeft: 8 } : undefined}>

@@ -6,7 +6,7 @@ import { Header, Footer, Announcement } from "@/components/chrome";
 import { redirect } from "next/navigation";
 import AccountClient from "./client";
 import { getSettings as _getSettings } from "@/lib/settings";
-import { loyaltyCfg, pointsValue, ensureReferralCode } from "@/lib/loyalty";
+import { loyaltyCfg, pointsValue } from "@/lib/loyalty";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "My Account" };
@@ -20,14 +20,11 @@ export default async function AccountPage({ searchParams }: { searchParams: { ct
   const s = await getSettings();
   const cfg = publicSettings(s);
   const cats = await getCategories();
-  /* Rewards strip: points are only motivating if the customer can see the balance and their own
-     invite code without asking support. */
+  /* Rewards strip: points balance only. Referral invite codes removed from customer view. */
   const lcfg = loyaltyCfg(s as any);
-  const myCode = lcfg.enabled ? await ensureReferralCode(customer.id, customer.name).catch(() => "") : "";
   const rewards = {
     enabled: lcfg.enabled, points: customer.points, value: pointsValue(customer.points, lcfg),
-    code: myCode, minRedeem: lcfg.minRedeem, redeemPoints: lcfg.redeemPoints,
-    siteUrl: process.env.NEXT_PUBLIC_SITE_URL || "https://sinzooffcial.com",
+    minRedeem: lcfg.minRedeem, redeemPoints: lcfg.redeemPoints,
   };
 
   return (

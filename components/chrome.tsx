@@ -193,8 +193,10 @@ export function Header({ storeName, categories }: { storeName: string; categorie
             <button className="icon-btn" aria-label="Search" onClick={() => { setSearchOpen(true); setSugg(null); }}>
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
             </button>
-            {/* cart: desktop only — mobile has the floating tab bar */}
-            <Link prefetch href="/cart" className="icon-btn desktop-only" aria-label="Cart">
+            <Link prefetch href="/account" className="icon-btn" aria-label="Account" title="My Account">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            </Link>
+            <Link prefetch href="/cart" className="icon-btn" aria-label="Cart">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
               {count > 0 && <span className={"cart-badge" + (pop ? " pop" : "")}>{count > 99 ? "99+" : count}</span>}
             </Link>
@@ -203,6 +205,10 @@ export function Header({ storeName, categories }: { storeName: string; categorie
         <nav ref={menuRef} className={"mobile-nav" + (open ? " open" : "")}>
           <Link href="/products" onClick={() => setOpen(false)}>Shop All</Link>
           {categories.slice(0, 6).map((c) => <Link prefetch key={c.slug} href={"/products?category=" + c.slug} onClick={() => setOpen(false)}>{c.name}</Link>)}
+          <div className="mobile-nav-divider" />
+          <Link href="/track" onClick={() => setOpen(false)}>Track Order</Link>
+          <Link href="/account" onClick={() => setOpen(false)}>My Account</Link>
+          <Link href="/cart" onClick={() => setOpen(false)}>Cart{count > 0 ? ` (${count})` : ""}</Link>
         </nav>
       </header>
 

@@ -7,12 +7,9 @@ export default async function MarketingPage({ searchParams }: { searchParams: an
   await (await import("@/lib/auth")).requireAdmin(searchParams);
   const { ensureExtraTables } = await import("@/lib/db-ensure");
   await ensureExtraTables().catch(() => {});
-  const [abandoned, subscribers, sources, pushTotal, pushWithPhone] = await Promise.all([
+  const [abandoned, sources] = await Promise.all([
     db.abandonedCheckout.findMany({ orderBy: { updatedAt: "desc" }, take: 50 }),
-    db.subscriber.findMany({ orderBy: { id: "desc" }, take: 200 }),
     db.order.groupBy({ by: ["source"], _count: { _all: true }, _sum: { total: true } }),
-    db.pushSubscription.count().catch(() => 0),
-    db.pushSubscription.count({ where: { phone: { not: null } } }).catch(() => 0),
   ]);
   const sFull = envFallback(await getSettings(true));
   const marketingCfg = sFull.marketing || {};
@@ -26,8 +23,6 @@ export default async function MarketingPage({ searchParams }: { searchParams: an
       recoveryEmailedAt: a.recoveryEmailedAt ? a.recoveryEmailedAt.toISOString() : null,
       updatedAt: a.updatedAt.toISOString(),
     }))}
-    subscribers={subscribers.map((s) => ({ id: s.id, email: s.email }))}
     sources={sources.map((s) => ({ source: s.source, orders: s._count._all, revenue: s._sum.total || 0 }))}
-    push={{ total: pushTotal, withPhone: pushWithPhone }}
   />;
 }

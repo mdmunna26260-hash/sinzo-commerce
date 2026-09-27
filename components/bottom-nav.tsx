@@ -80,9 +80,11 @@ export default function BottomNav() {
     }
     prevCount.current = count;
   }, [count, ready]);
-  /* shrink on scroll down, expand on scroll up */
+  /* shrink on scroll down; auto-hide far down; show again on any upward tick */
+  const [visible, setVisible] = useState(true);
   const [compact, setCompact] = useState(false);
   const lastY = useRef(0);
+  const lastDelta = useRef(0);
 
   useEffect(() => {
     lastY.current = window.scrollY;
@@ -92,10 +94,22 @@ export default function BottomNav() {
       ticking = true;
       requestAnimationFrame(() => {
         const y = window.scrollY;
-        if (Math.abs(y - lastY.current) < 12) { ticking = false; return; }
-        if (y > lastY.current && y > 100) setCompact(true);
-        else if (y < lastY.current) setCompact(false);
+        const dy = y - lastY.current;
+        if (Math.abs(dy) < 6) { ticking = false; return; }
+        if (y < 80) {
+          // at the very top — fully expanded and visible
+          setVisible(true); setCompact(false);
+        } else if (dy > 0) {
+          // scrolling down: hide (compact icons, then slide out)
+          setCompact(true);
+          if (y > 160) setVisible(false);
+        } else {
+          // scrolling up: bring it back compact first, expand when decelerating near top
+          setVisible(true);
+          setCompact(y > 120);
+        }
         lastY.current = y;
+        lastDelta.current = dy;
         ticking = false;
       });
     };
@@ -106,7 +120,7 @@ export default function BottomNav() {
   if (pathname.startsWith("/admin")) return null;
 
   return (
-    <nav className={"tabbar" + (compact ? " compact" : "")} aria-label="Main navigation">
+    <nav className={"tabbar" + (compact ? " compact" : "") + (visible ? "" : " hidden")} aria-label="Main navigation">
       {ITEMS.map((item) => {
         const active = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
         return (

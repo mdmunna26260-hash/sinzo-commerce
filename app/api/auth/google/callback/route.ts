@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getSettings, envFallback } from "@/lib/settings";
 import { createCustomerToken, customerCookie } from "@/lib/customer-auth";
+import { subscribeImplicit } from "@/lib/newsletter";
 export const dynamic = "force-dynamic";
 
 /* The public origin of the storefront.
@@ -77,6 +78,10 @@ export async function GET(req: Request) {
         },
       });
     }
+
+    /* Google sign-in = verified email we can reach. Implicitly add to
+       newsletter list unless they've previously unsubscribed (safe default). */
+    subscribeImplicit(email).catch(() => {});
 
     const tokenJwt = createCustomerToken({ id: customer.id, phone: customer.phone, name: customer.name || customer.email || "Customer" });
     const res = NextResponse.redirect(new URL("/account?welcome=google", origin));

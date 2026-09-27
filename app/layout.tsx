@@ -4,7 +4,6 @@ import RevealInit from "@/components/reveal";
 import PageViewTracker from "@/components/pageview";
 import PageTransition from "@/components/page-transition";
 import { CartProvider } from "@/components/store";
-import BottomNav from "@/components/bottom-nav";
 import PushRegister from "@/components/push-register";
 import PushNudge from "@/components/push-nudge";
 import { getSettings, publicSettings } from "@/lib/settings";
@@ -201,7 +200,6 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             is excluded by `body:has(.admin-body)`. */}
         <div className="scroll-progress" aria-hidden />
         {children}
-        <BottomNav />
         </CartProvider>
         <PushRegister />
         <PushNudge />
