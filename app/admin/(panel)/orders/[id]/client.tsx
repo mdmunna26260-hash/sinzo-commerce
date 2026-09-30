@@ -137,6 +137,7 @@ function FraudCheck({ orderId, phone }: { orderId: number; phone: string }) {
                   {res.provider.summary?.total ?? 0} deliveries · {res.provider.summary?.success ?? 0} success · {res.provider.summary?.cancel ?? 0} cancel ({res.provider.provider})
                 </span>
               </div>
+              <div className="tbl-scroll">
               <table className="tbl">
                 <thead><tr><th>Courier</th><th>Total</th><th>Success</th><th>Cancel</th><th>Success %</th><th>Risk</th></tr></thead>
                 <tbody>
@@ -152,6 +153,7 @@ function FraudCheck({ orderId, phone }: { orderId: number; phone: string }) {
                   ))}
                 </tbody>
               </table>
+              </div>
             </>
           ) : (
             <div className="noti err" style={{ marginTop: 6 }}>
@@ -348,7 +350,7 @@ export default function OrderDetailClient({ initial }: { initial: Order }) {
       )}
       <FraudCheck orderId={o.id} phone={o.phone} />
 
-      <div style={{ display: "grid", gridTemplateColumns: "1.6fr 1fr", gap: 16, alignItems: "start" }}>
+      <div className="adm-cols" style={{ display: "grid", gridTemplateColumns: "1.6fr 1fr", gap: 16, alignItems: "start"  }}>
         <div>
           <div className="acard" style={{ marginBottom: 16 }}>
             <div className="acard-h">
@@ -363,6 +365,7 @@ export default function OrderDetailClient({ initial }: { initial: Order }) {
 
             {!itemsEd ? (
               <>
+                <div className="tbl-scroll">
                 <table className="tbl">
                   <thead><tr><th>Product</th><th>Variant</th><th>Price</th><th>Qty</th><th>Total</th></tr></thead>
                   <tbody>
@@ -375,6 +378,7 @@ export default function OrderDetailClient({ initial }: { initial: Order }) {
                     ))}
                   </tbody>
                 </table>
+                </div>
                 <div className="acard-b" style={{ borderTop: "1px solid #e4e7ec" }}>
                   <div className="sum-row"><span>Subtotal</span><span>{money(o.subtotal)}</span></div>
                   {o.discount > 0 && <div className="sum-row"><span>Discount {o.couponCode ? `(${o.couponCode})` : ""}</span><span>−{money(o.discount)}</span></div>}
@@ -387,6 +391,7 @@ export default function OrderDetailClient({ initial }: { initial: Order }) {
                 <div style={{ fontSize: 12, color: "var(--muted)", marginBottom: 10 }}>
                   Item add / remove / qty-price change korun. Product change korle ager product er stock ferot hobe, notun product er stock kata hobe. Save items na chaple kichu save hobe na.
                 </div>
+                <div className="tbl-scroll">
                 <table className="tbl">
                   <thead><tr><th>Product</th><th>Variant</th><th>Price</th><th>Qty</th><th>Total</th><th></th></tr></thead>
                   <tbody>
@@ -408,6 +413,7 @@ export default function OrderDetailClient({ initial }: { initial: Order }) {
                     ))}
                   </tbody>
                 </table>
+                </div>
                 <div style={{ marginTop: 10 }}>
                   <button className="abtn" onClick={() => openPicker(null)}>+ Add product</button>
                 </div>
@@ -641,6 +647,7 @@ function PaymentsCard({ orderId, total }: { orderId: number; total: number }) {
         {rows === null ? <div style={{ color: "var(--muted)" }}>Loading…</div> : rows.length === 0 ? (
           <div style={{ color: "var(--muted)" }}>Nothing paid yet — the full {money(total)} is due at delivery.</div>
         ) : (
+          <div className="tbl-scroll">
           <table className="tbl" style={{ marginBottom: 12 }}>
             <thead><tr><th>When</th><th>Kind</th><th>Method</th><th>Amount</th><th></th></tr></thead>
             <tbody>
@@ -655,6 +662,7 @@ function PaymentsCard({ orderId, total }: { orderId: number; total: number }) {
               ))}
             </tbody>
           </table>
+          </div>
         )}
 
         <form onSubmit={add} style={{ display: "grid", gap: 8, borderTop: "1px solid var(--line)", paddingTop: 12 }}>

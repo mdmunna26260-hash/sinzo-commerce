@@ -23,6 +23,7 @@ export default function ReviewsClient({ initial }: { initial: any[] }) {
       </div>
       {msg && <div className="noti ok">{msg}</div>}
       <div className="acard">
+        <div className="tbl-scroll">
         <table className="tbl">
           <thead><tr><th>Product</th><th>Customer</th><th>Rating</th><th>Review</th><th>Status</th><th></th></tr></thead>
           <tbody>
@@ -55,6 +56,7 @@ export default function ReviewsClient({ initial }: { initial: any[] }) {
             ))}
           </tbody>
         </table>
+        </div>
       </div>
     </>
   );

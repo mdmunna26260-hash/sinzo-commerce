@@ -129,7 +129,7 @@ export default function WaHub() {
         </div>
       )}
 
-      <div className="kpis" style={{ gridTemplateColumns: "repeat(6, 1fr)", marginBottom: 16 }}>
+      <div className="kpis kpis-6" style={{ gridTemplateColumns: "repeat(6, 1fr)", marginBottom: 16 }}>
         <div className="kpi"><div className="k-label">Queue</div><div className="k-val">{s.queued}</div><div className="k-sub">{s.sending ? `${s.sending} sending` : "waiting"}</div></div>
         <div className="kpi"><div className="k-label">Sent (24h)</div><div className="k-val">{s.last24h}</div><div className="k-sub">{s.sent + s.delivered + s.read} total ever</div></div>
         <div className="kpi"><div className="k-label">Delivered</div><div className="k-val">{s.delivered + s.read}</div><div className="k-sub">{s.read} read</div></div>
@@ -159,6 +159,7 @@ export default function WaHub() {
               Ekhono kono campaign nai. <a href="/admin/whatsapp/new">Audience beche ekta campaign banan</a> — count dekhie তারপর start korben.
             </div>
           ) : (
+            <div className="tbl-scroll">
             <table className="tbl" style={{ fontSize: 12.5 }}>
               <thead><tr><th>Campaign</th><th>Status</th><th>Progress</th><th>Result</th><th>News</th><th></th></tr></thead>
               <tbody>
@@ -201,11 +202,12 @@ export default function WaHub() {
                 })}
               </tbody>
             </table>
+            </div>
           )}
         </div>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1.35fr 1fr", gap: 16, alignItems: "start" }}>
+      <div className="adm-cols" style={{ display: "grid", gridTemplateColumns: "1.35fr 1fr", gap: 16, alignItems: "start"  }}>
         <div className="acard">
           <div className="acard-h">
             <h3>Message queue</h3>
@@ -219,6 +221,7 @@ export default function WaHub() {
             {d.recent.length === 0 ? (
               <div style={{ color: "var(--muted)" }}>Queue khali. Order ele ekta row ekhane asbe (order-confirm auto).</div>
             ) : (
+              <div className="tbl-scroll">
               <table className="tbl" style={{ fontSize: 12.5 }}>
                 <thead><tr><th>To</th><th>Message</th><th>Status</th><th>Try</th><th>Time</th><th></th></tr></thead>
                 <tbody>
@@ -245,6 +248,7 @@ export default function WaHub() {
                   })}
                 </tbody>
               </table>
+              </div>
             )}
           </div>
         </div>

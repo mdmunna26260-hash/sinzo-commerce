@@ -9,7 +9,7 @@ export default async function AuditPage({ searchParams }: { searchParams: any })
     <>
       <div className="admin-top"><h1>Audit Log</h1><span className="who">Sensitive admin actions are recorded automatically.</span></div>
       <div className="acard">
-        <div style={{ overflowX: "auto" }}>
+        <div className="tbl-scroll">
           <table className="tbl">
             <thead><tr><th>Time</th><th>User</th><th>Action</th><th>Detail</th></tr></thead>
             <tbody>

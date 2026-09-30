@@ -21,9 +21,10 @@ export default function CouponsClient({ initial }: { initial: any[] }) {
     <>
       <div className="admin-top"><h1>Coupons &amp; Discounts</h1></div>
       {msg && <div className="noti ok">{msg}</div>}
-      <div style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr", gap: 16, alignItems: "start" }}>
+      <div className="adm-cols" style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr", gap: 16, alignItems: "start"  }}>
         <div className="acard">
           <div className="acard-h"><h3>All Coupons ({initial.length})</h3></div>
+          <div className="tbl-scroll">
           <table className="tbl">
             <thead><tr><th>Code</th><th>Type</th><th>Value</th><th>Used</th><th>Active</th><th></th></tr></thead>
             <tbody>
@@ -40,6 +41,7 @@ export default function CouponsClient({ initial }: { initial: any[] }) {
               {initial.length === 0 && <tr><td colSpan={6} style={{ color: "var(--muted)", padding: 30 }}>No coupons yet.</td></tr>}
             </tbody>
           </table>
+          </div>
         </div>
         <div className="acard">
           <div className="acard-h"><h3>New Coupon</h3></div>

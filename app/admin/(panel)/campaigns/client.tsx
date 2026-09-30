@@ -161,6 +161,7 @@ export default function CampaignClient({ campaigns, audience, unsubscribed, myEm
         </div>
         <div className="acard-b" style={{ overflowX: "auto" }}>
           {campaigns.length === 0 ? <div style={{ color: "var(--muted)" }}>Nothing sent yet.</div> : (
+            <div className="tbl-scroll">
             <table className="tbl">
               <thead><tr><th>Subject</th><th>Status</th><th>Delivered</th><th>Failed</th><th>Date</th><th></th></tr></thead>
               <tbody>
@@ -186,6 +187,7 @@ export default function CampaignClient({ campaigns, audience, unsubscribed, myEm
                 ))}
               </tbody>
             </table>
+            </div>
           )}
         </div>
       </div>

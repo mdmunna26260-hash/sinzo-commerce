@@ -70,7 +70,7 @@ export default function LinksClient({ siteUrl, products, posts }: { siteUrl: str
 
   return (
     <>
-      <div style={{ display: "grid", gridTemplateColumns: "1.1fr 1fr", gap: 16, alignItems: "start", marginBottom: 16 }}>
+      <div className="adm-cols" style={{ display: "grid", gridTemplateColumns: "1.1fr 1fr", gap: 16, alignItems: "start", marginBottom: 16  }}>
         <div className="acard">
           <div className="acard-h"><h3>Build a link</h3><span style={{ fontSize: 12, color: "var(--muted)" }}>tags lowercase + hyphen hoy</span></div>
           <div className="acard-b">

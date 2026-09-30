@@ -222,6 +222,7 @@ function HomepageLayoutTab({ groups, save, busy, collections = [] }: any) {
         <button className="abtn primary" onClick={() => save("homeSections", secs)} disabled={busy}>Save Layout</button>
       </div>
       <div style={{ padding: 14, fontSize: 12.5, color: "var(--muted)" }}>⠿ drag kore section reorder korun — homepage thik ei order-e dekhabe. Checkbox off = section hide.</div>
+      <div className="tbl-scroll">
       <table className="tbl">
         <tbody>
           {secs.map((s, i) => (
@@ -248,6 +249,7 @@ function HomepageLayoutTab({ groups, save, busy, collections = [] }: any) {
           ))}
         </tbody>
       </table>
+      </div>
     </div>
   );
 }

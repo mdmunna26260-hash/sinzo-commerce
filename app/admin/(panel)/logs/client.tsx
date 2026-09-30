@@ -29,6 +29,7 @@ export default function LogsClient({ rows }: { rows: Row[] }) {
 
   return (
     <>
+      <div className="tbl-scroll">
       <table className="tbl">
         <thead><tr><th>When</th><th>Level</th><th>Kind</th><th>Message</th><th></th></tr></thead>
         <tbody>
@@ -51,6 +52,7 @@ export default function LogsClient({ rows }: { rows: Row[] }) {
           ))}
         </tbody>
       </table>
+      </div>
 
       <div style={{ display: "flex", gap: 8, marginTop: 14, flexWrap: "wrap", alignItems: "center" }}>
         <button className="abtn" disabled={!!busy} onClick={() => clear("old", 30)}>{busy === "old" ? "…" : "Clear older than 30 days"}</button>

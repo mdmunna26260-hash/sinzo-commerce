@@ -81,11 +81,11 @@ export default async function StockPage({ searchParams }: { searchParams: SP }) 
         </form>
       </div>
 
-      <div className="kpis" style={{ gridTemplateColumns: "repeat(6, 1fr)" }}>
+      <div className="kpis kpis-6" style={{ gridTemplateColumns: "repeat(6, 1fr)" }}>
         {kpis.map((k) => <div className="kpi" key={k.label}><div className="k-label">{k.label}</div><div className="k-val">{k.val}</div>{k.sub && <div className="k-sub">{k.sub}</div>}</div>)}
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, alignItems: "start", marginBottom: 16 }}>
+      <div className="adm-cols" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, alignItems: "start", marginBottom: 16  }}>
         <div className="acard">
           <div className="acard-h"><h3>Restock</h3><span style={{ fontSize: 12, color: "var(--muted)" }}>{out.length + low.length} products need attention</span></div>
           <div className="acard-b">
@@ -133,6 +133,7 @@ export default async function StockPage({ searchParams }: { searchParams: SP }) 
         </div>
         <div className="acard-b" style={{ overflowX: "auto" }}>
           {movements.length === 0 ? <div style={{ color: "var(--muted)" }}>No movements for this filter yet.</div> : (
+            <div className="tbl-scroll">
             <table className="tbl">
               <thead><tr><th>When</th><th>Product</th><th>Change</th><th>Why</th><th>Reference</th></tr></thead>
               <tbody>
@@ -147,6 +148,7 @@ export default async function StockPage({ searchParams }: { searchParams: SP }) 
                 ))}
               </tbody>
             </table>
+            </div>
           )}
         </div>
       </div>

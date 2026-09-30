@@ -62,6 +62,7 @@ export default function ReviewRequests({ queue, autoRequest, asked, pending }: {
               <button className="abtn primary" disabled={!!busy} onClick={() => sendBatch(5)}>{busy === "batch" ? "…" : "Ask next 5"}</button>
               <button className="abtn" disabled={!!busy} onClick={() => sendBatch(15)}>Ask next 15</button>
             </div>
+            <div className="tbl-scroll">
             <table className="tbl">
               <thead><tr><th>Order</th><th>Customer</th><th>Delivered</th><th></th></tr></thead>
               <tbody>
@@ -75,6 +76,7 @@ export default function ReviewRequests({ queue, autoRequest, asked, pending }: {
                 ))}
               </tbody>
             </table>
+            </div>
           </>
         )}
       </div>

@@ -63,7 +63,7 @@ export default async function LogsPage({ searchParams }: { searchParams: SP }) {
         </div>
       </div>
 
-      <div className="kpis" style={{ gridTemplateColumns: "repeat(5, 1fr)" }}>
+      <div className="kpis kpis-5" style={{ gridTemplateColumns: "repeat(5, 1fr)" }}>
         <div className="kpi"><div className="k-label">Errors (24h)</div><div className="k-val" style={{ color: errors24 ? "var(--ad-red, #b42318)" : undefined }}>{errors24}</div><div className="k-sub">{errors24 ? "dekhun niche" : "kichu bhenge nei"}</div></div>
         <div className="kpi"><div className="k-label">All errors</div><div className="k-val">{levels.ERROR || 0}</div><div className="k-sub">WARN {levels.WARN || 0}</div></div>
         <div className="kpi"><div className="k-label">SMS / WhatsApp</div><div className="k-val">{kinds.SMS || 0} / {kinds.WHATSAPP || 0}</div><div className="k-sub">gateway activity</div></div>

@@ -49,7 +49,7 @@ export default async function CampaignsPage({ searchParams }: { searchParams: SP
         </div>
       </div>
 
-      <div className="kpis" style={{ gridTemplateColumns: "repeat(4, 1fr)", marginBottom: 16 }}>
+      <div className="kpis kpis-4" style={{ gridTemplateColumns: "repeat(4, 1fr)", marginBottom: 16 }}>
         <div className="kpi"><div className="k-label">Email — Reachable</div><div className="k-val">{audience.toLocaleString("en-IN")}</div><div className="k-sub">will receive a campaign</div></div>
         <div className="kpi"><div className="k-label">Email — Unsubscribed</div><div className="k-val">{Math.max(0, all - audience).toLocaleString("en-IN")}</div><div className="k-sub">never mailed again</div></div>
         <div className="kpi"><div className="k-label">Push devices</div><div className="k-val">{pushTotal}</div><div className="k-sub">{pushWithPhone} linked to a phone</div></div>

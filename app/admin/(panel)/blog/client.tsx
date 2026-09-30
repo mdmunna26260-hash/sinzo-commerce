@@ -131,6 +131,7 @@ export default function BlogEditor({ posts }: { posts: Post[] }) {
           {posts.length === 0 ? (
             <div style={{ color: "var(--muted)" }}>No posts yet. Write one — a buying guide or a size/how-to piece brings search traffic that a product page can&apos;t.</div>
           ) : (
+            <div className="tbl-scroll">
             <table className="tbl">
               <thead><tr><th>Title</th><th>Status</th><th>Updated</th><th></th></tr></thead>
               <tbody>
@@ -154,6 +155,7 @@ export default function BlogEditor({ posts }: { posts: Post[] }) {
                 ))}
               </tbody>
             </table>
+            </div>
           )}
         </div>
       </div>

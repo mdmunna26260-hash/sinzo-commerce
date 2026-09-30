@@ -117,18 +117,18 @@ export default function MarketingClient({ abandoned, sources, recCouponInit, rec
         </div>
       </div>
       {msg && <div className="noti ok">{msg}</div>}
-      <div className="kpis" style={{ gridTemplateColumns: "repeat(3,1fr)" }}>
+      <div className="kpis kpis-3" style={{ gridTemplateColumns: "repeat(3, 1fr)" }}>
         <div className="kpi"><div className="k-label">Abandoned Checkouts</div><div className="k-val">{open.length}</div><div className="k-sub">not recovered</div></div>
         <div className="kpi"><div className="k-label">Recovered</div><div className="k-val">{items.filter((a: any) => a.status === "RECOVERED").length}</div></div>
         <div className="kpi"><div className="k-label">Recovery Rate</div><div className="k-val">{rate}%</div></div>
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr", gap: 16, alignItems: "start" }}>
+      <div className="adm-cols" style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr", gap: 16, alignItems: "start"  }}>
         <div className="acard">
           <div className="acard-h">
             <h3>Abandoned Checkouts (latest 50)</h3>
             <button className="abtn sm danger" onClick={deleteOld2wk} disabled={busy}>🗑 Delete 2wk+ old</button>
           </div>
-          <div style={{ overflowX: "auto" }}>
+          <div className="tbl-scroll">
             <table className="tbl">
               <thead><tr><th>Date</th><th>Items</th><th>Value</th><th>Status</th><th>Actions</th></tr></thead>
               <tbody>
@@ -160,7 +160,7 @@ export default function MarketingClient({ abandoned, sources, recCouponInit, rec
                   {expanded === a.id && (
                     <tr key={a.id + "-detail"}>
                       <td colSpan={5} className="ad-row" style={{ padding: 16 }}>
-                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 18 }}>
+                        <div className="adm-grid-2" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 18  }}>
                           <div>
                             <div style={{ fontSize: 10.5, letterSpacing: ".16em", textTransform: "uppercase", color: "var(--muted)", marginBottom: 8 }}>🛒 Cart Items</div>
                             {a.cart.map((i: any, k: number) => (
@@ -211,6 +211,7 @@ export default function MarketingClient({ abandoned, sources, recCouponInit, rec
         <div>
           <div className="acard" style={{ marginBottom: 16 }}>
             <div className="acard-h"><h3>Order Sources</h3></div>
+            <div className="tbl-scroll">
             <table className="tbl">
               <thead><tr><th>Source</th><th>Orders</th><th>Revenue</th></tr></thead>
               <tbody>
@@ -220,6 +221,7 @@ export default function MarketingClient({ abandoned, sources, recCouponInit, rec
                 {sources.length === 0 && <tr><td colSpan={3} style={{ color: "var(--muted)", padding: 20 }}>No orders yet.</td></tr>}
               </tbody>
             </table>
+            </div>
           </div>
         </div>
       </div>
@@ -230,7 +232,7 @@ export default function MarketingClient({ abandoned, sources, recCouponInit, rec
           <h3>Abandoned Cart Recovery (Email)</h3>
           <span style={{ fontSize: 12, color: "var(--muted)" }}>45min+ purano · OPEN · email thakle 1ta recovery email</span>
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 18, alignItems: "start" }}>
+        <div className="adm-grid-2" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 18, alignItems: "start"  }}>
           <div>
             <div className="field" style={{ marginBottom: 10 }}>
               <label>Recovery coupon code (optional — email e dekhabe, checkout e apply hobe)</label>

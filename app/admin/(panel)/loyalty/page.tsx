@@ -38,7 +38,7 @@ export default async function LoyaltyPage({ searchParams }: { searchParams: { t?
         <a className="abtn" href="/api/admin/export?type=loyalty">CSV</a>
       </div>
 
-      <div className="kpis" style={{ gridTemplateColumns: "repeat(5, 1fr)" }}>
+      <div className="kpis kpis-5" style={{ gridTemplateColumns: "repeat(5, 1fr)" }}>
         <div className="kpi"><div className="k-label">Points outstanding</div><div className="k-val">{totals._sum.points || 0}</div><div className="k-sub">≈ ৳{pointsValue(totals._sum.points || 0, cfg)} of future discount</div></div>
         <div className="kpi"><div className="k-label">Members with points</div><div className="k-val">{top.length}</div><div className="k-sub">{codes} referral codes issued</div></div>
         <div className="kpi"><div className="k-label">Referrals</div><div className="k-val">{referrals.length}</div><div className="k-sub">{rewarded} rewarded · {referrals.length - rewarded} pending delivery</div></div>

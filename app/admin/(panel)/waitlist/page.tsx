@@ -48,14 +48,14 @@ export default async function WaitlistPage({ searchParams }: { searchParams: { t
         </div>
       </div>
 
-      <div className="kpis" style={{ gridTemplateColumns: "repeat(4, 1fr)" }}>
+      <div className="kpis kpis-4" style={{ gridTemplateColumns: "repeat(4, 1fr)" }}>
         <div className="kpi"><div className="k-label">Waiting now</div><div className="k-val">{stats.pending}</div><div className="k-sub">notified hoy ni</div></div>
         <div className="kpi"><div className="k-label">Products affected</div><div className="k-val">{stats.products}</div><div className="k-sub">restock priority</div></div>
         <div className="kpi"><div className="k-label">Total signups</div><div className="k-val">{stats.total}</div><div className="k-sub">all time</div></div>
         <div className="kpi"><div className="k-label">WhatsApp bridge</div><div className="k-val">{wa.connected ? "Connected" : wa.running ? "Not linked" : "Off"}</div><div className="k-sub">{wa.connected ? "auto notify cholbe" : "SMS/email fallback"}</div></div>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr", gap: 16, alignItems: "start" }}>
+      <div className="adm-cols" style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr", gap: 16, alignItems: "start"  }}>
         <div className="acard">
           <div className="acard-h">
             <h3>{productId ? "Entries for one product" : "All entries"}</h3>

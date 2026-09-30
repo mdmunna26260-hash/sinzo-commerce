@@ -80,11 +80,11 @@ export default async function PaymentsPage({ searchParams }: { searchParams: SP 
         </form>
       </div>
 
-      <div className="kpis" style={{ gridTemplateColumns: "repeat(6, 1fr)" }}>
+      <div className="kpis kpis-6" style={{ gridTemplateColumns: "repeat(6, 1fr)" }}>
         {kpis.map((k) => <div className="kpi" key={k.label}><div className="k-label">{k.label}</div><div className="k-val">{k.val}</div>{k.sub && <div className="k-sub">{k.sub}</div>}</div>)}
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1.35fr", gap: 16, alignItems: "start", marginBottom: 16 }}>
+      <div className="adm-cols" style={{ display: "grid", gridTemplateColumns: "1fr 1.35fr", gap: 16, alignItems: "start", marginBottom: 16  }}>
         <div className="acard">
           <div className="acard-h"><h3>Record a payment</h3><span style={{ fontSize: 12, color: "var(--muted)" }}>order code diye</span></div>
           <div className="acard-b"><QuickPayment /></div>
@@ -94,6 +94,7 @@ export default async function PaymentsPage({ searchParams }: { searchParams: SP 
           <div className="acard-h"><h3>Biggest balances still to collect</h3><span style={{ fontSize: 12, color: "var(--muted)" }}>top {Math.min(10, withDue.length)}</span></div>
           <div className="acard-b" style={{ overflowX: "auto" }}>
             {withDue.length === 0 ? <div style={{ color: "var(--muted)" }}>Every open order is fully paid.</div> : (
+              <div className="tbl-scroll">
               <table className="tbl">
                 <thead><tr><th>Order</th><th>Customer</th><th>Total</th><th>Advance</th><th>To collect</th></tr></thead>
                 <tbody>
@@ -108,6 +109,7 @@ export default async function PaymentsPage({ searchParams }: { searchParams: SP 
                   ))}
                 </tbody>
               </table>
+              </div>
             )}
           </div>
         </div>
@@ -122,6 +124,7 @@ export default async function PaymentsPage({ searchParams }: { searchParams: SP 
         </div>
         <div className="acard-b" style={{ overflowX: "auto" }}>
           {rows.length === 0 ? <div style={{ color: "var(--muted)" }}>No payments recorded in this range yet. Open an order to add an advance, or use the quick form above.</div> : (
+            <div className="tbl-scroll">
             <table className="tbl">
               <thead><tr><th>When</th><th>Order</th><th>Customer</th><th>Kind</th><th>Method</th><th>Amount</th><th>By</th><th>Note</th></tr></thead>
               <tbody>
@@ -142,6 +145,7 @@ export default async function PaymentsPage({ searchParams }: { searchParams: SP 
                 })}
               </tbody>
             </table>
+            </div>
           )}
         </div>
       </div>

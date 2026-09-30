@@ -3512,3 +3512,30 @@ body:has(.admin-body) .scroll-progress { display: none !important; }
   .settings-nav .chip, .settings-nav a { flex: 0 0 auto; scroll-snap-align: start; }
   .settings-nav .chip:last-child { margin-right: 24px; }
 }
+
+/* ---- every other admin page (§ N, part 2) -------------------------------------------------
+   Pages keep their inline desktop grid; these classes only take over below the breakpoints.
+     .adm-cols    page-level card splits (order detail, coupons, catalog, couriers …)
+     .adm-grid-2  two-column form grids inside a card
+     .kpis-N      KPI rows with an inline repeat(N) column count                           */
+.adm-cols > *, .adm-grid-2 > * { min-width: 0; }
+.kpis[class*="kpis-"] > .kpi { min-width: 0; }
+.kpis[class*="kpis-"] .k-val { overflow-wrap: anywhere; }
+@media (max-width: 1320px) { .kpis.kpis-5, .kpis.kpis-6 { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; } }
+@media (max-width: 1100px) {
+  .adm-cols { grid-template-columns: minmax(0, 1fr) !important; }
+  .kpis.kpis-4 { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+}
+@media (max-width: 640px) {
+  .adm-grid-2 { grid-template-columns: minmax(0, 1fr) !important; }
+  .kpis.kpis-3, .kpis.kpis-4, .kpis.kpis-5, .kpis.kpis-6 { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+  /* odd KPI count on a 2-up grid: the last card takes the full row instead of leaving a hole */
+  .kpis > .kpi:last-child:nth-child(odd) { grid-column: 1 / -1; }
+}
+/* the old "#7" phone rule painted column 1 #fff (for a sticky column that "#8" later
+   un-sticks) — header cell came out white on grey, and white in dark mode */
+@media (max-width: 640px) {
+  .admin-body .tbl th:first-child { background: var(--ad-line-soft); }
+  .admin-body .tbl td:first-child { background: transparent; }
+  .admin-body .tbl tr:hover td:first-child { background: var(--ad-bg); }
+}

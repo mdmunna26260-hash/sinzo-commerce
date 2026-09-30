@@ -90,7 +90,7 @@ export default function WaTemplates() {
         </div>
       )}
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1.25fr", gap: 16, alignItems: "start" }}>
+      <div className="adm-cols" style={{ display: "grid", gridTemplateColumns: "1fr 1.25fr", gap: 16, alignItems: "start"  }}>
         <div className="acard">
           <div className="acard-h"><h3>Events</h3><span style={{ fontSize: 12, color: "var(--muted)" }}>{d.events.filter((e) => e.enabled).length} of {d.events.length} on</span></div>
           <div className="acard-b" style={{ display: "grid", gap: 8 }}>

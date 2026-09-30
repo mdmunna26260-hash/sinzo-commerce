@@ -62,7 +62,7 @@ export default function LoyaltyClient({ cfg, top, referrals, backfill }: { cfg: 
 
   return (
     <>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1.6fr", gap: 16, alignItems: "start", marginBottom: 16 }}>
+      <div className="adm-cols" style={{ display: "grid", gridTemplateColumns: "1fr 1.6fr", gap: 16, alignItems: "start", marginBottom: 16  }}>
         <div className="acard">
           <div className="acard-h"><h3>Programme settings</h3><span className={"risk-badge " + (form.enabled ? "risk-LOW" : "risk-HIGH")}>{form.enabled ? "ON" : "OFF"}</span></div>
           <div className="acard-b">
@@ -96,6 +96,7 @@ export default function LoyaltyClient({ cfg, top, referrals, backfill }: { cfg: 
           <div className="acard-h"><h3>Top members</h3><span style={{ fontSize: 12, color: "var(--muted)" }}>points balance</span></div>
           <div className="acard-b" style={{ overflowX: "auto" }}>
             {top.length === 0 ? <div style={{ color: "var(--muted)" }}>Kono customer e ekhono points nei — ekta order delivered hole points joma hobe.</div> : (
+              <div className="tbl-scroll">
               <table className="tbl">
                 <thead><tr><th>Customer</th><th>Points</th><th>≈ Value</th><th>Referral code</th><th></th></tr></thead>
                 <tbody>
@@ -113,6 +114,7 @@ export default function LoyaltyClient({ cfg, top, referrals, backfill }: { cfg: 
                   ))}
                 </tbody>
               </table>
+              </div>
             )}
 
             {adjust && (
@@ -134,6 +136,7 @@ export default function LoyaltyClient({ cfg, top, referrals, backfill }: { cfg: 
         <div className="acard-h"><h3>Referrals</h3><span style={{ fontSize: 12, color: "var(--muted)" }}>who invited whom</span></div>
         <div className="acard-b" style={{ overflowX: "auto" }}>
           {referrals.length === 0 ? <div style={{ color: "var(--muted)" }}>Ekhono keu referral code use kore order kore ni. Checkout-e “Friend&rsquo;s referral code” box ta ache.</div> : (
+            <div className="tbl-scroll">
             <table className="tbl">
               <thead><tr><th>Friend (new customer)</th><th>Invited by</th><th>Bonus</th><th>When</th></tr></thead>
               <tbody>
@@ -147,6 +150,7 @@ export default function LoyaltyClient({ cfg, top, referrals, backfill }: { cfg: 
                 ))}
               </tbody>
             </table>
+            </div>
           )}
         </div>
       </div>

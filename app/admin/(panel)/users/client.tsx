@@ -22,9 +22,10 @@ export default function UsersClient({ initial, meId, meRole, perms }: any) {
     <>
       <div className="admin-top"><h1>Team &amp; Roles</h1></div>
       {msg && <div className="noti ok">{msg}</div>}
-      <div style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr", gap: 16, alignItems: "start" }}>
+      <div className="adm-cols" style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr", gap: 16, alignItems: "start"  }}>
         <div className="acard">
           <div className="acard-h"><h3>Users ({initial.length})</h3></div>
+          <div className="tbl-scroll">
           <table className="tbl">
             <thead><tr><th>User</th><th>Role</th><th>Status</th><th>Permissions</th><th></th></tr></thead>
             <tbody>
@@ -62,6 +63,7 @@ export default function UsersClient({ initial, meId, meRole, perms }: any) {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
         <div className="acard">
           <div className="acard-h"><h3>Add Team Member</h3>{!canManage && <span className="pill DRAFT">SUPER_ADMIN only</span>}</div>

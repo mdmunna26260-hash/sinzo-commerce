@@ -12,7 +12,10 @@ const crypto = require("crypto");
 const bcryptHash = "$2a$10$XBKXF/c5MWpv8KBxMfmv3.lJPRxaFPxp0J1HMRzQ.pR1y81owcany"; // demo
 
 const uid = (() => { let n = 1; return () => n++; })();
-const iso = (d) => new Date(d).toISOString();
+// Real Prisma returns DateTime columns as JS Date objects — pages call
+// `.toISOString()` on them and range filters compare them with `gte`/`lt` Dates.
+// Returning ISO strings here crashed /admin/orders and silently broke date filters.
+const iso = (d) => new Date(d);
 const now = new Date();
 
 function matchWhere(r, w) {
@@ -162,6 +165,7 @@ const tmt = {
   reviews: { t: () => data.review, fk: "productId" },
   orderItems: { t: () => data.orderItem, fk: "orderId" },
   items: { t: () => data.orderItem, fk: "orderId" },
+  orders: { t: () => data.order, fk: "customerId" },
   payments: { t: () => data.payment, fk: "orderId" },
   movements: { t: () => data.inventoryMovement, fk: "productId" },
   collectionProduct: { t: () => data.collectionProduct, fk: "productId" },
@@ -206,15 +210,32 @@ function rr(r, k, v) {
     return rs;
   }
 }
+// `include/select: { _count: { select: { products: true } } }` → { _count: { products: n } }
+function countRel(r, k) {
+  if (k === "products") {
+    if (data.category.includes(r)) return data.product.filter(p => p.categoryId === r.id).length;
+    return data.collectionProduct.filter(cp => cp.collectionId === r.id).length;
+  }
+  const rel = tmt[k];
+  return rel ? rel.t().filter(x => x[rel.fk] === r.id).length : 0;
+}
+function cnt(r, v) {
+  const keys = v && typeof v === "object" && v.select ? Object.keys(v.select).filter(k => v.select[k]) : [];
+  const o = {};
+  for (const k of keys) o[k] = countRel(r, k);
+  return o;
+}
 function sx(r, inc, sel) {
   const b = sel ? ps(r, sel) : Object.assign({}, r);
+  if (inc && inc._count) b._count = cnt(r, inc._count);
+  if (sel && sel._count) b._count = cnt(r, sel._count);
   if (inc) for (const k of Object.keys(inc)) {
-    if (!inc[k]) continue;
+    if (!inc[k] || k === "_count") continue;
     const v = rr(r, k, inc[k]);
     if (v !== void 0) b[k] = v;
   }
   if (sel) for (const k of Object.keys(sel)) {
-    if (sel[k] && typeof sel[k] === "object") {
+    if (k !== "_count" && sel[k] && typeof sel[k] === "object") {
       const v = rr(r, k, sel[k]);
       if (v !== void 0) b[k] = v;
     }
@@ -246,9 +267,11 @@ function mkDel(m) {
     if (model === "subscriber") return { unsubscribed: false, unsubscribedAt: null, createdAt: iso(now) };
     if (model === "customer") return { createdAt: iso(now), points: 0 };
     if (model === "campaign") return { total: 0, sent: 0, failed: 0, status: "DRAFT", createdAt: iso(now) };
-    if (model === "order") return { createdAt: iso(now), updatedAt: iso(now) };
+    if (model === "order") return { createdAt: new Date(), updatedAt: new Date() };
     if (model === "product") return { createdAt: iso(now), updatedAt: iso(now) };
-    return {};
+    // every other model: mirror Prisma's `createdAt @default(now())` / `@updatedAt`
+    // (audit log, tracking events, system logs … crashed on `.createdAt.toISOString()`)
+    return { createdAt: new Date(), updatedAt: new Date() };
   };
   const a = {
     findMany(q = {}) {
@@ -273,6 +296,16 @@ function mkDel(m) {
       if (!r.id) {
         if (m === "media") r.id = "c" + crypto.randomBytes(8).toString("hex").slice(0, 14);
         else r.id = (t.reduce((x, y) => Math.max(x, y.id || 0), 0) || 0) + 1;
+      }
+      // nested writes: `items: { create: [...] }` → rows in the child table
+      for (const k of Object.keys(r)) {
+        const v = r[k], rel = tmt[k];
+        if (rel && v && typeof v === "object" && !Array.isArray(v) && "create" in v) {
+          const kids = Array.isArray(v.create) ? v.create : [v.create];
+          const tbl = rel.t();
+          for (const kid of kids) tbl.push({ id: (tbl.reduce((x, y) => Math.max(x, y.id || 0), 0) || 0) + 1, ...kid, [rel.fk]: r.id });
+          delete r[k];
+        }
       }
       t.push(r);
       return Promise.resolve(sx(r, q.include, q.select));

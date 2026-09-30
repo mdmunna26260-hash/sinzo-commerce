@@ -78,10 +78,11 @@ export default function CatalogClient({ categories, collections, products }: any
     <>
       <div className="admin-top"><h1>Categories &amp; Collections</h1></div>
       {msg && <div className="noti ok">{msg}</div>}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, alignItems: "start" }}>
+      <div className="adm-cols" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, alignItems: "start"  }}>
         {/* CATEGORIES */}
         <div className="acard">
           <div className="acard-h"><h3>Categories ({categories.length})</h3></div>
+          <div className="tbl-scroll">
           <table className="tbl">
             <thead><tr><th>Name</th><th>Slug</th><th>Products</th><th></th></tr></thead>
             <tbody>
@@ -105,6 +106,7 @@ export default function CatalogClient({ categories, collections, products }: any
               ))}
             </tbody>
           </table>
+          </div>
           <div className="acard-b" style={{ borderTop: "1px solid #e4e7ec" }}>
             {editCatId && (
               <div style={{ marginBottom: 12, padding: 12, borderRadius: 8, background: "#f8f9fa", border: "1px solid #e0e0e0" }}>
@@ -134,6 +136,7 @@ export default function CatalogClient({ categories, collections, products }: any
         {/* COLLECTIONS */}
         <div className="acard">
           <div className="acard-h"><h3>Collections ({collections.length})</h3></div>
+          <div className="tbl-scroll">
           <table className="tbl">
             <thead><tr><th>Collection</th><th>Slug</th><th>Products</th><th></th></tr></thead>
             <tbody>
@@ -150,6 +153,7 @@ export default function CatalogClient({ categories, collections, products }: any
               ))}
             </tbody>
           </table>
+          </div>
           <div className="acard-b" style={{ borderTop: "1px solid #e4e7ec" }}>
             <div style={{ display: "grid", gap: 8 }}>
               <div style={{ display: "flex", gap: 8 }}>

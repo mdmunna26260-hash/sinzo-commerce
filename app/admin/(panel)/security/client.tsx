@@ -74,7 +74,7 @@ export default function SecurityClient({ initial, logins }: { initial: { enabled
 
   return (
     <>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, alignItems: "start" }}>
+      <div className="adm-cols" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, alignItems: "start"  }}>
         <div className="acard">
           <div className="acard-h">
             <h3>Two-factor authentication</h3>
