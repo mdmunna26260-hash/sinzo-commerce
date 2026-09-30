@@ -71,7 +71,7 @@ export default async function HomePage() {
     return await HomeContent();
   } catch (e: any) {
     console.error("HomePage render error:", e?.message);
-    return <div className="container" style={{ padding: "80px 24px", textAlign: "center" }}><h1>SINZO</h1><p style={{ color: "var(--muted)" }}>Page load korte halka somossa hocche — refresh korun.</p></div>;
+    return <div className="container" style={{ padding: "80px 24px", textAlign: "center" }}><h1 className="brand-wm">SINZO</h1><p style={{ color: "var(--muted)" }}>Page load korte halka somossa hocche — refresh korun.</p></div>;
   }
 }
 

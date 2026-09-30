@@ -1,3 +1,7 @@
+/* Brand wordmark font — Charm (SIL OFL 1.1, self-hosted from @fontsource/charm 5.3.0,
+   Latin subset; licence in public/fonts/Charm-OFL.txt). Used ONLY for the "SINZO" logo text. */
+@font-face { font-family: 'Charm'; font-style: normal; font-weight: 400; font-display: swap; src: url('/fonts/charm-400.woff2') format('woff2'); }
+@font-face { font-family: 'Charm'; font-style: normal; font-weight: 700; font-display: swap; src: url('/fonts/charm-700.woff2') format('woff2'); }
 :root {
   --bg: #faf9f7;
   --text: #111111;
@@ -11,6 +15,7 @@
   --radius: 2px;
   --font-head: 'Didot', 'Bodoni MT', 'Playfair Display', Georgia, serif;
   --font-body: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+  --font-logo: 'Charm', 'Brush Script MT', cursive;
   --container: 1440px;
 
   /* One glass recipe for the frosted surfaces that sit next to each other.
@@ -62,7 +67,7 @@ h1, h2, h3, .serif { font-family: var(--font-head); font-weight: 500; letter-spa
 /* ---------- Header ---------- */
 .header { position: sticky; top: 0; z-index: 50; background: rgba(250,249,247,.92); backdrop-filter: blur(10px); border-bottom: 1px solid var(--line); }
 .header-inner { display: flex; align-items: center; justify-content: space-between; height: 66px; gap: 20px; }
-.logo { font-family: var(--font-head); font-size: 26px; letter-spacing: .28em; text-transform: uppercase; }
+.logo { font-family: var(--font-logo); font-size: 26px; letter-spacing: .28em; text-transform: uppercase; }
 .nav { display: flex; gap: 28px; }
 .nav a { font-size: 12px; letter-spacing: .16em; text-transform: uppercase; padding: 6px 0; border-bottom: 1.5px solid transparent; color: var(--text); font-weight: 550; transition: border-color .2s ease, color .2s ease; opacity: .82; }
 .nav a:hover { opacity: 1; border-color: var(--accent); }
@@ -3262,7 +3267,7 @@ body:has(.admin-body) .scroll-progress { display: none !important; }
 .slip-actions { display: flex; gap: 10px; }
 .slip { width: min(680px, 100%); background: #fff; color: #1b1b1b; border: 1px solid #e4e7ec; border-radius: 4px; padding: 26px 28px 34px; }
 .slip-head { display: flex; justify-content: space-between; align-items: flex-start; }
-.slip-brand { font-family: var(--font-head, Georgia, serif); font-size: 24px; letter-spacing: .16em; }
+.slip-brand { font-family: var(--font-logo, Georgia, serif); font-size: 24px; letter-spacing: .16em; }
 .slip-sub { font-size: 11px; letter-spacing: .2em; text-transform: uppercase; color: #7a7a7a; margin-top: 2px; }
 .slip-code { font-family: ui-monospace, monospace; font-size: 20px; letter-spacing: .06em; margin: 14px 0 6px; padding-bottom: 10px; border-bottom: 2px solid #1b1b1b; }
 .slip-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; font-size: 13px; line-height: 1.6; margin: 14px 0; }
@@ -3546,3 +3551,8 @@ body:has(.admin-body) .scroll-progress { display: none !important; }
   .admin-body .stat-strip:has(> .kpi) > .kpi { min-width: 0; }
   .admin-body .stat-strip:has(> .kpi) > .kpi:last-child:nth-child(odd) { grid-column: 1 / -1; }
 }
+
+/* ── Brand wordmark: only the word "SINZO" uses Charm; sub-labels inside the logo
+      (e.g. "COMMERCE PANEL") keep the normal UI font. ─────────────────────────── */
+.brand-wm { font-family: var(--font-logo) !important; }
+.logo small, .logo .logo-full > span { font-family: var(--font-body); }

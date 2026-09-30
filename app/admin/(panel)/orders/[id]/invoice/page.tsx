@@ -16,7 +16,7 @@ export default async function Invoice({ params, searchParams }: { params: { id: 
     <div style={{ maxWidth: 720, margin: "0 auto", padding: "40px 24px", fontFamily: "Arial, sans-serif", color: "#111" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", borderBottom: "2px solid #111", paddingBottom: 18 }}>
         <div>
-          <div style={{ fontSize: 26, letterSpacing: "0.25em", fontWeight: 700 }}>{store.name}</div>
+          <div className="brand-wm" style={{ fontSize: 26, letterSpacing: "0.25em", fontWeight: 700 }}>{store.name}</div>
           <div style={{ fontSize: 12, color: "#555", marginTop: 6 }}>{store.address}</div>
           <div style={{ fontSize: 12, color: "#555" }}>{store.phone} · {store.email}</div>
         </div>

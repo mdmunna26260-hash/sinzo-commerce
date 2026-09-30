@@ -46,7 +46,7 @@ export default async function CustomerInvoice({ params, searchParams }: { params
 
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", borderBottom: "2px solid #111", paddingBottom: 18, flexWrap: "wrap", gap: 12 }}>
         <div>
-          <div style={{ fontSize: 26, letterSpacing: "0.25em", fontWeight: 700 }}>{store.name || "SINZO"}</div>
+          <div className="brand-wm" style={{ fontSize: 26, letterSpacing: "0.25em", fontWeight: 700 }}>{store.name || "SINZO"}</div>
           <div style={{ fontSize: 12, color: "#555", marginTop: 6 }}>{store.address}</div>
           <div style={{ fontSize: 12, color: "#555" }}>{store.phone} · {store.email}</div>
         </div>
