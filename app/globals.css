@@ -3539,3 +3539,10 @@ body:has(.admin-body) .scroll-progress { display: none !important; }
   .admin-body .tbl td:first-child { background: transparent; }
   .admin-body .tbl tr:hover td:first-child { background: var(--ad-bg); }
 }
+/* KPI strips (customer history modal …): the old ≤768 rule stacks .stat-strip into one tall
+   column — on a phone two-up reads far better. Filter strips (.admin-filters) are separate. */
+@media (max-width: 768px) {
+  .admin-body .stat-strip:has(> .kpi) { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .admin-body .stat-strip:has(> .kpi) > .kpi { min-width: 0; }
+  .admin-body .stat-strip:has(> .kpi) > .kpi:last-child:nth-child(odd) { grid-column: 1 / -1; }
+}

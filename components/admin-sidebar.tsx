@@ -195,7 +195,7 @@ export default function Sidebar({ pending, lowStock }: { pending: number; lowSto
      - When navigating: auto-open the new active page's section, close previous. */
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() => {
     const init: Record<string, boolean> = { __account: false };
-    NAV.forEach(g => { init[g.group] = g.items.some(it => typeof window !== "undefined" && window.location.pathname.startsWith(it.href)); });
+    NAV.forEach(g => { init[g.group] = g.items.some(it => path.startsWith(it.href)); });
     // Fallback: if nothing matched, open Overview
     if (!Object.values(init).some(Boolean)) init["Overview"] = true;
     return init;

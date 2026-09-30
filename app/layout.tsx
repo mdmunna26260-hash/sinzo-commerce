@@ -99,7 +99,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   if (cfg?.maintenance?.enabled && !adminBypass) {
     const store = cfg.store || {};
     return (
-      <html lang="en">
+      <html lang="en" suppressHydrationWarning>
         <head>
           <script dangerouslySetInnerHTML={{ __html: `(function(){try{var m=localStorage.getItem("sz_theme")||"system";var d=m==="dark"||(m==="system"&&matchMedia("(prefers-color-scheme: dark)").matches);document.documentElement.setAttribute("data-theme",d?"dark":"light");}catch(e){document.documentElement.setAttribute("data-theme","light");}})();` }} />
           <style dangerouslySetInnerHTML={{ __html: `:root{--bg:${theme.bg || "#faf9f7"};--text:${theme.text || "#141414"};}` }} />
@@ -128,7 +128,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     }`;
   const gtmId = cfg?.integrations?.gtmId || "";
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: `(function(){try{var m=localStorage.getItem("sz_theme")||"system";var d=m==="dark"||(m==="system"&&matchMedia("(prefers-color-scheme: dark)").matches);document.documentElement.setAttribute("data-theme",d?"dark":"light");}catch(e){document.documentElement.setAttribute("data-theme","light");}})();` }} />
         <style dangerouslySetInnerHTML={{ __html: cssVars }} />

@@ -57,7 +57,7 @@ function AreaChart({ days }: { days: { label: string; total: number }[] }) {
         <path d={line} fill="none" stroke="var(--ad-accent)" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
         {days.map((d, i) => (
           <circle key={i} cx={x(i)} cy={y(d.total)} r="3" fill="var(--ad-card)" stroke="var(--ad-accent)" strokeWidth="2" vectorEffect="non-scaling-stroke">
-            <title>{d.label}: {money(d.total)}</title>
+            <title>{`${d.label}: ${money(d.total)}`}</title>
           </circle>
         ))}
       </svg>
