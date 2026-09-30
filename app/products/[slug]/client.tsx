@@ -1,6 +1,6 @@
 "use client";
 import PdpWaitlist from "@/components/pdp-waitlist";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCart, trackEvent, toast } from "@/components/store";
@@ -8,6 +8,7 @@ import { imgSrc, imgSrcSet, PDP_WIDTHS, PDP_SIZES, PDP_SRC_WIDTH, THUMB_WIDTHS }
 import { warmImage, warmWhenIdle } from "@/components/img-warm";
 import { trackRecentlyViewed } from "@/components/recently-viewed";
 import MobileGallery from "@/components/mobile-gallery";
+import { notifyHeroMounted } from "@/components/view-transition";
 // LiveWatching import removed — live views OFF per user request
 import SoldCount from "@/components/sold-count";
 import SizeRecommendation from "@/components/size-rec";
@@ -60,6 +61,10 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
   const { add } = useCart();
   const router = useRouter();
   const N = product.images.length;
+
+  // card → product morph: tell the pending view transition the hero is on screen
+  // (components/view-transition.ts). Layout effect = before the browser's next frame.
+  useLayoutEffect(() => { notifyHeroMounted(); }, []);
 
   // ---------- gallery state ----------
   const [img, setImg] = useState(0);
@@ -303,6 +308,7 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
           <div
             ref={mainRef}
             className={"pdp-main-img" + (N <= 1 ? " single" : "")}
+            data-vt-hero
             onTouchStart={onMainTouchStart}
             onTouchMove={onMainTouchMove}
             onTouchEnd={onMainTouchEnd}

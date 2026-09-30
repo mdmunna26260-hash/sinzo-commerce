@@ -3,6 +3,7 @@ import "./globals.css";
 import RevealInit from "@/components/reveal";
 import PageViewTracker from "@/components/pageview";
 import PageTransition from "@/components/page-transition";
+import ViewTransitionRoot from "@/components/view-transition-root";
 import { CartProvider } from "@/components/store";
 import PushRegister from "@/components/push-register";
 import PushNudge from "@/components/push-nudge";
@@ -207,6 +208,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <RevealInit />
         <PageViewTracker />
         <PageTransition />
+        <ViewTransitionRoot />
         {process.env.NODE_ENV === "development" && (
           /* Dev-preview self-heal. This sandbox restarts and takes the dev server with it, and a
              tab that is merely sitting there never hits the chunk-error reload above — it just keeps

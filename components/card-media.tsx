@@ -24,7 +24,7 @@ export default function CardMedia({ images, image, alt, slug, children }: {
   return (
     <div className="pcard-media">
       {/* `children` = the badges, which must stay inside the clipped image box */}
-      <div className="pcard-img">
+      <div className="pcard-img" data-vt-slug={slug || undefined}>
         {pics.length > 1
           ? <CardGallery images={pics} alt={alt} onIndexChange={setI} />
           : image ? <CardImg url={image} alt={alt} slug={slug} /> : null}

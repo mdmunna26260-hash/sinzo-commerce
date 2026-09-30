@@ -62,10 +62,6 @@ export default function CardImg({ url, alt, slug }: { url: string; alt: string; 
   return (
     <img
       ref={ref}
-      onClick={() => {
-        // shared element morph: clicked card image morphs into PDP hero
-        try { ref.current?.style.setProperty("view-transition-name", "product-hero"); } catch {}
-      }}
       src={err ? FALLBACK : imgSrc(url, 400)}
       srcSet={err ? undefined : imgSrcSet(url, CARD_WIDTHS)}
       sizes={CARD_SIZES}

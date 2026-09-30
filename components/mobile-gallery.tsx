@@ -128,7 +128,7 @@ export default function MobileGallery({ images, title, active, onIndexChange }: 
       <div className="mgal" aria-label={`${title} — no photo yet`}>
         {/* .mgal-viewport is the element that carries the 3:4 box + background, so reusing it keeps the
             placeholder exactly the size of a real slide (and it stays right when a photo is added). */}
-        <div className="mgal-viewport noimg">
+        <div className="mgal-viewport noimg" data-vt-hero>
           <span className="noimg-in"><span className="noimg-mark" aria-hidden>S</span><span>No photo yet</span></span>
         </div>
       </div>
@@ -140,6 +140,7 @@ export default function MobileGallery({ images, title, active, onIndexChange }: 
     <div className="mgal" aria-roledescription="carousel" aria-label={`${title} images`}>
       <div
         className="mgal-viewport"
+        data-vt-hero
         onTouchStart={onTouchStart}
         onTouchMove={onTouchMove}
         onTouchEnd={onTouchEnd}

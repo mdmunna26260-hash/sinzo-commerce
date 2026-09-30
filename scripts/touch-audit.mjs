@@ -252,7 +252,7 @@ check("the dots follow the photo (the index is reported up to the card)",
   /onIndexChange=\{setI\}/.test(stripComments(read("components/card-media.tsx"))) &&
   /onIdx\.current\?\.\(next\)/.test(gallery));
 check("the quick-add button is a SIBLING of the card link (a nested button eats the tap)",
-  /<\/Link>\s*\n\s*<QuickAdd/.test(parts));
+  /<\/(?:Card)?Link>\s*\n\s*<QuickAdd/.test(parts)); // CardLink = the card <Link> + view-transition morph
 check("an arrow press never starts a drag", /closest\?\.\("\.cg-arrow"\)/.test(gallery));
 
 /* ------------------------------------------------------------------ summary */

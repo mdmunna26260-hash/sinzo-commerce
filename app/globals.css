@@ -1108,42 +1108,38 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 13.5px; }
 /* NOTE: .pcard-info intentionally NOT animated here — cards already use the
    .reveal IntersectionObserver animation; a second animation = double fade + wasted paint on mobile */
 
-/* View Transition API — PDP main image gets a unique name so it can morph.
-   NOTE: cards must NOT have a view-transition-name — duplicate names on a page
-   make the browser skip the whole transition (all transitions would break). */
-.pdp-main-img {
-  view-transition-name: product-hero;
-}
+/* View Transition API — shared-element morph: product card photo ⇄ product page hero.
+   The name `product-hero` is NOT set here: components/view-transition.ts puts it on exactly one
+   element per page for the length of one transition (tapped card photo / visible PDP hero).
+   A permanent name on the PDP hero broke every transition started from a card on the same page
+   (two elements with one name → the browser skips the transition).
 
-/* During transition, product image morphs smoothly */
-@keyframes vtOut {
-  to { opacity: 0; }
-}
-@keyframes vtIn {
-  from { opacity: 0; transform: translateY(6px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-/* Old page fades out quickly, new page content fades up */
-::view-transition-old(root) {
-  animation: vtOut 150ms ease-out both;
-}
+   Page behind the morph: the browser's own cross-fade (both layers blend with plus-lighter, so
+   anything identical on both pages — header, tab bar — stays perfectly still). The previous
+   staggered fade-out/fade-in dipped the header's opacity mid-way. */
+::view-transition-old(root),
 ::view-transition-new(root) {
-  animation: vtIn 200ms ease-out 80ms both;
+  animation-duration: 260ms;
+  animation-timing-function: ease;
 }
 
-/* product-hero: image itself doesn't animate (group handles the morph) */
+/* The photo box flies from the card's rect to the hero's rect; the two snapshots cross-fade
+   inside it and are cropped to the box (card and hero can have different aspect ratios). */
+::view-transition-group(product-hero) {
+  animation-duration: 420ms;
+  animation-timing-function: cubic-bezier(0.32, 0.72, 0, 1);
+}
 ::view-transition-old(product-hero),
 ::view-transition-new(product-hero) {
-  animation: none;
-  mix-blend-mode: normal;
   height: 100%;
-  overflow: clip;
   object-fit: cover;
+  overflow: clip;
+  animation-duration: 420ms;
 }
-::view-transition-group(product-hero) {
-  animation-duration: 300ms;
-  animation-timing-function: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) { animation: none !important; }
 }
 
 /* Ensure no layout shift during transitions */
