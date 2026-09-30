@@ -846,8 +846,8 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 13.5px; }
 .crs-page .grid.grid-3 { grid-template-columns: repeat(2, 1fr) !important; }
 .crs-page .quote { height: 100%; }
 .crs-ui { display: flex; align-items: center; justify-content: center; gap: 14px; padding: 14px 0 0; }
-.crs-arrow { width: 34px; height: 34px; border-radius: 99px; border: 1px solid var(--line); background: #fff; color: var(--text); font-size: 18px; line-height: 0; display: flex; align-items: center; justify-content: center; cursor: pointer; padding-bottom: 3px; }
-.crs-arrow:active { background: var(--bg); }
+.crs-arrow { width: 34px; height: 34px; border-radius: 99px; border: 1px solid var(--line); background: transparent; color: var(--text); font-size: 18px; line-height: 0; display: flex; align-items: center; justify-content: center; cursor: pointer; padding-bottom: 3px; }
+.crs-arrow:active { background: rgba(20, 20, 20, .06); }
 /* same dot language as the product-image dots: current one bigger + dark, the rest small + light */
 .crs-dots { display: flex; gap: 6px; align-items: center; }
 .crs-dots button { width: 6px; height: 6px; border-radius: 99px; border: none; background: rgba(20, 20, 20, .22); padding: 0; cursor: pointer;
@@ -2133,7 +2133,8 @@ h1, h2, h3 { text-wrap: balance; }
 :root[data-theme="dark"] .cart-size-select { background: #171512; }
 :root[data-theme="dark"] .cat-pill:not(.active) { background: #1b1917; }
 :root[data-theme="dark"] .promo-split { background: #1b1917; }
-:root[data-theme="dark"] .crs-arrow { background: #1b1917; }
+:root[data-theme="dark"] .crs-arrow { background: transparent; }
+:root[data-theme="dark"] .crs-arrow:active { background: rgba(255, 255, 255, .08); }
 :root[data-theme="dark"] .lb-top button { background: #221f1b; }
 :root[data-theme="dark"] .lb-nav { background: rgba(30, 27, 23, 0.88); }
 :root[data-theme="dark"] .lb-nav:hover { background: #2a2622; }
