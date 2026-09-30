@@ -251,7 +251,7 @@ export default function ProductsClient({ initial, categories }: { initial: P[]; 
     <>
       <div className="admin-top">
         <h1>Products <span style={{ fontSize: 14, color: "var(--muted)" }}>({initial.length})</span></h1>
-        <div style={{ display: "flex", gap: 8 }}>
+        <div className="admin-actions">
           <button className="abtn" onClick={exportCsv}>⭳ Export CSV</button>
           <button className="abtn primary" onClick={openNew}>+ Add Product</button>
         </div>
@@ -261,7 +261,7 @@ export default function ProductsClient({ initial, categories }: { initial: P[]; 
 
       <div style={{ fontSize: 12.5, color: "var(--muted)", margin: "0 0 10px" }}>⠿ handle dhore drag korun — order change hole automatic save hoy ar homepage/listing-e sei order dekhabe</div>
       <div className="acard">
-        <div style={{ overflowX: "auto" }}>
+        <div className="tbl-scroll">
           <table className="tbl">
             <thead><tr><th style={{ width: 60 }}>⠿ Order</th><th></th><th>Product</th><th>SKU</th><th>Price</th><th>Stock</th><th>Variants</th><th>Status</th><th>Views</th><th></th></tr></thead>
             <tbody>
@@ -398,24 +398,24 @@ export default function ProductsClient({ initial, categories }: { initial: P[]; 
               <div style={{ fontSize: 12, color: "var(--muted)", width: "100%" }}>Ek sathe multiple image select kora jay (Ctrl/Cmd+click) · first image = main product image · ←/→ diye order bodlao</div>
             </div>
 
-            <div style={{ margin: "18px 0 6px", fontWeight: 600, fontSize: 13.5, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div className="var-head">
               <span>Variants (size / color / stock)</span>
-              <span style={{ display: "flex", gap: 6 }}>
+              <span className="var-head-btns">
                 <button className="abtn sm" type="button" title="S M L XL XXL auto-generate" onClick={() => genVariants("alpha")}>Auto S–XXL</button>
                 <button className="abtn sm" type="button" title="28–40 numeric sizes auto-generate" onClick={() => genVariants("numeric")}>Auto 28–40</button>
                 <button className="abtn sm" type="button" onClick={() => setEdit({ ...edit, variants: [...(edit.variants || []), { size: "", color: "", sku: "", price: "", stock: "0" }] })}>+ Add</button>
               </span>
             </div>
             {(edit.variants || []).map((v: any, i: number) => (
-              <div key={i} style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1.3fr .8fr .8fr auto auto", gap: 8, marginBottom: 8, alignItems: "center" }}>
-                <input placeholder="Size" value={v.size} onChange={(e) => { const vs = [...edit.variants]; vs[i] = { ...v, size: e.target.value }; setEdit({ ...edit, variants: vs }); }} />
-                <input placeholder="Color" value={v.color} onChange={(e) => { const vs = [...edit.variants]; vs[i] = { ...v, color: e.target.value }; setEdit({ ...edit, variants: vs }); }} />
-                <input placeholder="SKU" value={v.sku} onChange={(e) => { const vs = [...edit.variants]; vs[i] = { ...v, sku: e.target.value }; setEdit({ ...edit, variants: vs }); }} />
-                <input placeholder="Price" type="number" value={v.price} onChange={(e) => { const vs = [...edit.variants]; vs[i] = { ...v, price: e.target.value }; setEdit({ ...edit, variants: vs }); }} />
-                <input placeholder="Stock" type="number" value={v.stock} onChange={(e) => { const vs = [...edit.variants]; vs[i] = { ...v, stock: e.target.value }; setEdit({ ...edit, variants: vs }); }} />
+              <div key={i} className="var-row">
+                <input placeholder="Size" aria-label={"Variant " + (i + 1) + " size"} value={v.size} onChange={(e) => { const vs = [...edit.variants]; vs[i] = { ...v, size: e.target.value }; setEdit({ ...edit, variants: vs }); }} />
+                <input placeholder="Color" aria-label={"Variant " + (i + 1) + " color"} value={v.color} onChange={(e) => { const vs = [...edit.variants]; vs[i] = { ...v, color: e.target.value }; setEdit({ ...edit, variants: vs }); }} />
+                <input placeholder="SKU" aria-label={"Variant " + (i + 1) + " SKU"} value={v.sku} onChange={(e) => { const vs = [...edit.variants]; vs[i] = { ...v, sku: e.target.value }; setEdit({ ...edit, variants: vs }); }} />
+                <input placeholder="Price" aria-label={"Variant " + (i + 1) + " price"} type="number" inputMode="decimal" value={v.price} onChange={(e) => { const vs = [...edit.variants]; vs[i] = { ...v, price: e.target.value }; setEdit({ ...edit, variants: vs }); }} />
+                <input placeholder="Stock" aria-label={"Variant " + (i + 1) + " stock"} type="number" inputMode="numeric" value={v.stock} onChange={(e) => { const vs = [...edit.variants]; vs[i] = { ...v, stock: e.target.value }; setEdit({ ...edit, variants: vs }); }} />
                 {/* linked color image: oi color select korle PDP gallery ei image dekhabe */}
                 <VariantImgCell v={v} i={i} setEdit={setEdit} />
-                <button className="abtn sm danger" type="button" onClick={() => setEdit({ ...edit, variants: edit.variants.filter((_: any, x: number) => x !== i) })}>✕</button>
+                <button className="abtn sm danger var-del" type="button" aria-label={"Remove variant " + (i + 1)} onClick={() => setEdit({ ...edit, variants: edit.variants.filter((_: any, x: number) => x !== i) })}>✕</button>
               </div>
             ))}
 

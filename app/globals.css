@@ -3322,3 +3322,193 @@ body:has(.admin-body) .scroll-progress { display: none !important; }
 .wa2-bubble-imgs img { width: 100%; height: 108px; object-fit: cover; display: block; }
 .wa2-more { position: absolute; right: 6px; bottom: 6px; background: rgba(0,0,0,.6); color: #fff; font-size: 11px; padding: 2px 7px; border-radius: 10px; }
 @media (max-width: 1000px) { .wa2-grid { grid-template-columns: 1fr; } .acard[style*="sticky"] { position: static !important; } }
+
+/* ════════════════════════════════════════════════════════════════════════════
+   § N — ADMIN MOBILE RESPONSIVE (per page)
+   Sits last on purpose: several older blocks (#7, #8, "Responsive admin tables",
+   "Account page form on mobile") fight each other for the same selectors. The
+   hooks below are class-based (.admin-actions, .adm-split, .tbl-scroll …) so each
+   page opts in explicitly instead of relying on inline grid styles that CSS
+   can't override.
+     ≤900px  sidebar → off-canvas drawer (topbar ☰ + scrim)
+     ≤640px  phone density
+   ════════════════════════════════════════════════════════════════════════════ */
+
+/* ---- shared: header action buttons wrap instead of overflowing ---- */
+.admin-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+
+/* ---- shared: two-card splits (dashboard chart / analytics rows) ---- */
+.adm-split { display: grid; gap: 16px; align-items: start; margin-bottom: 16px; }
+.adm-split > * { min-width: 0; }            /* let tables/charts shrink instead of blowing the grid out */
+.adm-split > .acard { margin-bottom: 0; }
+.adm-split-dash, .adm-split-wide { grid-template-columns: 1.5fr 1fr; }
+.adm-split-even { grid-template-columns: 1fr 1fr; }
+.adm-split-narrow { grid-template-columns: 1fr 1.4fr; }
+.adm-split-dash { margin-bottom: 0; }
+
+/* ---- shared: horizontally scrollable tables ---- */
+.tbl-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain; max-width: 100%; }
+.tbl-scroll > .tbl { display: table !important; overflow: visible !important; width: 100%; }
+/* sticky leading column(s): stays put while the rest of the row scrolls under it */
+.tbl-sticky .tbl th:first-child, .tbl-sticky .tbl td:first-child {
+  position: sticky !important; left: 0; z-index: 2; background: var(--ad-card) !important;
+}
+.tbl-sticky .tbl th:first-child { background: var(--ad-line-soft) !important; z-index: 3; }
+.tbl-sticky .tbl tr:hover td:first-child { background: var(--ad-bg) !important; }
+/* orders: checkbox column + order code column both stick */
+.tbl-sticky-2 .tbl th:first-child, .tbl-sticky-2 .tbl td:first-child {
+  box-sizing: border-box; width: 40px; min-width: 40px; max-width: 40px; padding-left: 12px !important; padding-right: 0 !important;
+}
+.tbl-sticky-2 .tbl th:nth-child(2), .tbl-sticky-2 .tbl td:nth-child(2) {
+  position: sticky !important; left: 40px; z-index: 2; background: var(--ad-card) !important; white-space: nowrap;
+}
+.tbl-sticky-2 .tbl th:nth-child(2) { background: var(--ad-line-soft) !important; z-index: 3; }
+.tbl-sticky-2 .tbl tr:hover td:nth-child(2) { background: var(--ad-bg) !important; }
+/* the "edge" shadow on the last sticky column so it reads as floating over the scroll */
+.tbl-sticky:not(.tbl-sticky-2) .tbl th:first-child, .tbl-sticky:not(.tbl-sticky-2) .tbl td:first-child,
+.tbl-sticky-2 .tbl th:nth-child(2), .tbl-sticky-2 .tbl td:nth-child(2) {
+  box-shadow: inset -1px 0 0 var(--ad-line), 6px 0 8px -6px rgba(16,24,40,.18);
+}
+/* the ≤640 "#8" block turns every .acard table into a block scroller and un-sticks
+   column 1 — tables inside .tbl-scroll already scroll via their wrapper */
+@media (max-width: 640px) {
+  .acard .tbl-scroll > .tbl { display: table !important; }
+  .acard .tbl-scroll > .tbl td, .acard .tbl-scroll > .tbl th { white-space: nowrap; }
+  .acard .tbl-scroll > .tbl td:has(> div + div) { white-space: normal; }
+  .tbl-sticky .tbl td:first-child, .tbl-sticky .tbl th:first-child { position: sticky !important; }
+}
+
+/* ---- settings tabs: active state (was only styled for <a>) ---- */
+.admin-body .settings-nav .chip { white-space: nowrap; font-size: 13px; font-weight: 550; letter-spacing: 0; color: var(--ad-sub); background: var(--ad-card); border-color: var(--ad-line); }
+.admin-body .settings-nav .chip:hover { border-color: var(--ad-mute); color: var(--ad-text); }
+.admin-body .settings-nav .chip.active { background: var(--ad-accent-soft); color: var(--ad-accent); border-color: var(--ad-accent-line); font-weight: 650; }
+
+/* ---- form fields: checkboxes/radios inside .af must not inherit the full-width text-input box ---- */
+.af input[type="checkbox"], .af input[type="radio"] { width: auto; min-width: 16px; height: 16px; padding: 0; flex: none; margin-top: 2px; box-shadow: none; }
+
+/* ---- product modal: variant rows ---- */
+.var-head { margin: 18px 0 8px; font-weight: 600; font-size: 13.5px; display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+.var-head-btns { display: flex; gap: 6px; flex-wrap: wrap; }
+.var-row { display: grid; grid-template-columns: 1fr 1fr 1.3fr .8fr .8fr auto auto; gap: 8px; margin-bottom: 8px; align-items: center; }
+.var-row > * { min-width: 0; }
+.var-row input { width: 100%; min-width: 0; box-sizing: border-box; border: 1px solid #d0d5dd; border-radius: 8px; padding: 8px 10px; background: var(--ad-card, #fff); color: var(--ad-text, inherit); font-size: 13.5px; }
+.var-row input:focus { outline: none; border-color: var(--ad-accent); box-shadow: 0 0 0 3px rgba(79,70,229,.10); }
+
+/* ---- whatsapp compose: preview sticks beside the form on desktop only ---- */
+.wa2-preview { position: static; }
+@media (min-width: 1001px) { .wa2-preview { position: sticky; top: 12px; } }
+
+/* ---- analytics: 6 KPIs — never squeeze six into a narrow row ---- */
+.kpis.kpis-6 { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+.kpis.kpis-6 .kpi { min-width: 0; }
+.kpis.kpis-6 .k-val { overflow-wrap: anywhere; }
+@media (max-width: 1320px) { .kpis.kpis-6 { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; } }
+@media (max-width: 640px)  { .kpis.kpis-6 { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; } }
+
+/* ---- splits go single-column once the sidebar + two cards no longer fit ---- */
+@media (max-width: 1100px) {
+  .adm-split-wide, .adm-split-even, .adm-split-narrow { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 900px) {
+  .adm-split-dash { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* ════ drawer (≤900px) ════ */
+.admin-side .drawer-close { display: none; }
+.admin-scrim { display: none; }
+.admin-topbar .logo small { display: none; }
+@media (max-width: 900px) {
+  .admin-topbar { padding: 10px 12px; gap: 10px; padding-top: max(10px, env(safe-area-inset-top)); }
+  .admin-topbar .logo {
+    flex: 1; min-width: 0; display: flex; align-items: baseline; gap: 8px; white-space: nowrap; overflow: hidden;
+    font-size: 16px; font-weight: 700; letter-spacing: .2em; color: var(--ad-text); text-decoration: none;
+  }
+  .admin-topbar .logo small { display: inline; font-size: 9.5px; font-weight: 500; letter-spacing: .22em; color: var(--ad-mute); overflow: hidden; text-overflow: ellipsis; }
+  .admin-topbar button { flex: none; }
+
+  /* hidden drawer: no shadow bleeding onto the page, not tabbable */
+  .admin-side {
+    box-shadow: none; visibility: hidden; height: 100dvh; max-height: 100dvh;
+    width: min(84vw, 300px); padding-bottom: max(12px, env(safe-area-inset-bottom));
+    transition: transform .28s cubic-bezier(.32,.72,0,1), visibility 0s linear .28s, box-shadow .28s ease;
+  }
+  .admin-side.open {
+    visibility: visible; box-shadow: 20px 0 60px rgba(0,0,0,.28);
+    transition: transform .28s cubic-bezier(.32,.72,0,1), visibility 0s, box-shadow .28s ease;
+  }
+  .admin-side .collapse-btn { display: none !important; }
+  .admin-side .drawer-close {
+    display: flex; align-items: center; justify-content: center; flex: none;
+    width: 36px; height: 36px; border-radius: 9px; border: 1px solid var(--ad-line);
+    background: var(--ad-card); color: var(--ad-sub); cursor: pointer;
+  }
+  .admin-side .drawer-close:hover { color: var(--ad-text); background: var(--ad-line-soft); }
+  .admin-side a { padding: 11px 10px; }            /* thumb-sized rows in the drawer */
+
+  .admin-scrim {
+    display: block; position: fixed; inset: 0; z-index: 89; background: rgba(15,17,21,.45);
+    opacity: 0; pointer-events: none; transition: opacity .28s ease;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .admin-scrim.open { opacity: 1; pointer-events: auto; }
+  html.ad-drawer-open, html.ad-drawer-open body { overflow: hidden; overscroll-behavior: none; }
+
+  /* ---- dashboard: 5 operational counters 2-up (last one spans when odd) ---- */
+  .stat-strip.dash-strip { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; flex-direction: initial; }
+  .stat-strip.dash-strip .kpi { min-width: 0; }
+  .stat-strip.dash-strip .kpi:last-child:nth-child(odd) { grid-column: 1 / -1; }
+
+  /* ---- orders: search full width, filters wrap underneath ---- */
+  .stat-strip.admin-filters { display: flex; flex-direction: row; flex-wrap: wrap; gap: 8px; }
+  .stat-strip.admin-filters .asearch { flex: 1 1 100%; width: 100%; min-width: 0; min-height: 44px; }
+  .stat-strip.admin-filters select { flex: 1 1 140px; min-width: 0; justify-content: flex-start; text-align: left; padding-left: 12px; padding-right: 8px; }
+}
+
+/* ════ phones (≤640px) ════ */
+@media (max-width: 640px) {
+  /* "Account page form on mobile" pads every .acard — admin cards already pad
+     their own header/body, so that doubled every card's inset */
+  .admin-body .acard:has(> .acard-h), .admin-body .acard:has(> .acard-b),
+  .admin-body .acard:has(> .tbl-scroll), .admin-body .acard:has(> table) { padding: 0 !important; }
+
+  .admin-top { gap: 10px; margin-bottom: 14px; }
+  .admin-top > .admin-actions, .admin-top > form { width: 100%; }
+  .admin-actions > .abtn, .admin-actions > select { flex: 1 1 auto; }
+  .admin-actions > select { min-width: 0; max-width: 100%; }
+
+  /* dashboard KPI cards: keep the 2-up grid readable */
+  .kpis { gap: 10px; }
+  .kpi .k-label { font-size: 12px; }
+  .kpi .k-ic { width: 28px; height: 28px; border-radius: 8px; }
+  .kpi .k-ic svg { width: 14px; height: 14px; }
+  .kpi .k-val { font-size: 18px; overflow-wrap: anywhere; }
+  .kpi .k-sub, .kpi .k-delta { font-size: 11.5px; }
+
+  /* charts: full width, a touch shorter */
+  .achart { height: 150px; }
+
+  /* product modal: variant rows 2-up
+       Size | Color
+       SKU  | Price
+       Stock| [img] ✕                     */
+  .var-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px;
+    padding: 10px; border: 1px solid var(--ad-line, #e4e7ec); border-radius: 10px; background: var(--ad-line-soft, #f7f7f8); margin-bottom: 10px;
+  }
+  .var-row input { font-size: 16px !important; min-height: 42px; }
+  /* image cell + delete share the last cell (explicit placement; Stock auto-flows into col 1) */
+  .var-row > div { grid-column: 2; grid-row: 3; justify-self: start; }
+  .var-row > .var-del { grid-column: 2; grid-row: 3; justify-self: end; min-width: 44px; }
+  .var-row > div .abtn { min-width: 44px; }
+
+  /* settings: tabs are one swipeable row */
+  .settings-nav {
+    flex-wrap: nowrap !important; overflow-x: auto; overscroll-behavior-x: contain;
+    scroll-snap-type: x proximity; scrollbar-width: none; padding: 2px 0 8px; margin-bottom: 14px;
+    -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 28px), transparent);
+            mask-image: linear-gradient(90deg, #000 calc(100% - 28px), transparent);
+  }
+  .settings-nav::-webkit-scrollbar { display: none; }
+  .settings-nav .chip, .settings-nav a { flex: 0 0 auto; scroll-snap-align: start; }
+  .settings-nav .chip:last-child { margin-right: 24px; }
+}

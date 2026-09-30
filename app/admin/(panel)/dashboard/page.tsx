@@ -142,7 +142,7 @@ export default async function Dashboard({ searchParams }: { searchParams: any })
     <>
       <div className="admin-top">
         <div><h1>Dashboard</h1><div className="who">Welcome back, {user.name} · {new Date().toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" })}</div></div>
-        <div style={{ display: "flex", gap: 8 }}>
+        <div className="admin-actions">
           <Link className="abtn" href="/" target="_blank">View Website</Link>
           <Link className="abtn" href={tk("/admin/products")}>+ Add Product</Link>
           <Link className="abtn primary" href={tk("/admin/orders")}>View Orders</Link>
@@ -179,7 +179,7 @@ export default async function Dashboard({ searchParams }: { searchParams: any })
       </div>
 
       {/* KPI row 2 — operational counts */}
-      <div className="stat-strip">
+      <div className="stat-strip dash-strip">
         <div className="kpi"><div className="k-top"><div className="k-label">Pending Orders</div><div className="k-ic amber">{IC.clock}</div></div><div className="k-val">{pendingCount}</div><div className="k-sub">needs confirmation</div></div>
         <div className="kpi"><div className="k-top"><div className="k-label">Delivered</div><div className="k-ic green">{IC.check}</div></div><div className="k-val">{deliveredCount}</div><div className="k-sub">completed</div></div>
         <div className="kpi"><div className="k-top"><div className="k-label">Cancelled / Returned</div><div className="k-ic red">{IC.x}</div></div><div className="k-val">{cancelledCount}</div><div className="k-sub">all-time</div></div>
@@ -187,7 +187,7 @@ export default async function Dashboard({ searchParams }: { searchParams: any })
         <div className="kpi"><div className="k-top"><div className="k-label">Low Stock</div><div className="k-ic amber">{IC.box}</div></div><div className="k-val">{lowStock.length}</div><div className="k-sub">{lowStock.length ? "needs restock" : "all good"}</div></div>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr", gap: 16, alignItems: "start" }}>
+      <div className="adm-split adm-split-dash">
         <div className="acard">
           <div className="acard-h">
             <h3>Sales — last 14 days</h3>
@@ -199,7 +199,7 @@ export default async function Dashboard({ searchParams }: { searchParams: any })
         </div>
         <div className="acard">
           <div className="acard-h"><h3>Top Products</h3></div>
-          <div className="acard-b" style={{ padding: 0 }}>
+          <div className="acard-b tbl-scroll" style={{ padding: 0 }}>
             <table className="tbl">
               <thead><tr><th>Product</th><th style={{ textAlign: "right" }}>Units</th></tr></thead>
               <tbody>
@@ -223,7 +223,7 @@ export default async function Dashboard({ searchParams }: { searchParams: any })
 
       <div className="acard" style={{ marginTop: 16 }}>
         <div className="acard-h"><h3>Recent Orders</h3><Link className="abtn sm" href={tk("/admin/orders")}>All orders</Link></div>
-        <div style={{ overflowX: "auto" }}>
+        <div className="tbl-scroll tbl-sticky">
           <table className="tbl">
             <thead><tr><th>Order</th><th>Customer</th><th>Items</th><th>Total</th><th>Status</th><th>Risk</th><th></th></tr></thead>
             <tbody>

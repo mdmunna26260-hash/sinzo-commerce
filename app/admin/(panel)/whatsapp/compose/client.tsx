@@ -313,7 +313,7 @@ export default function ComposeClient({ quick, rules, initialTo, orderCode, waCo
         </div>
 
         {/* ── right: what the customer actually reads ────────────────────────── */}
-        <div className="acard" style={{ position: "sticky", top: 12 }}>
+        <div className="acard wa2-preview">
           <div className="acard-h"><h3>Preview</h3><span style={{ fontSize: 12, color: "var(--muted)" }}>{ctx ? "server-rendered" : "live"}</span></div>
           <div className="acard-b">
             <div className="wa2-phone">

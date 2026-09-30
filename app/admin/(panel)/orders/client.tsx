@@ -74,7 +74,7 @@ export default function OrdersClient({ initial }: { initial: O[] }) {
     <>
       <div className="admin-top">
         <h1>Orders <span style={{ fontSize: 14, color: "var(--muted)" }}>({list.length})</span></h1>
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        <div className="admin-actions">
           <button className="abtn" onClick={exportCsv}>⭳ Export CSV</button>
           {sel.size > 0 && <>
             <select className="abtn" defaultValue="" onChange={(e) => e.target.value && bulk("status", e.target.value)}>
@@ -128,7 +128,7 @@ export default function OrdersClient({ initial }: { initial: O[] }) {
           </>}
         </div>
       </div>
-      <div className="stat-strip">
+      <div className="stat-strip admin-filters">
         <input className="asearch" placeholder="Search code / phone / name / consignment…" value={q} onChange={(e) => setQ(e.target.value)} />
         <select className="abtn" value={status} onChange={(e) => setStatus(e.target.value)}>
           <option value="">All statuses</option>{STATUSES.map((s) => <option key={s}>{s}</option>)}
@@ -146,7 +146,7 @@ export default function OrdersClient({ initial }: { initial: O[] }) {
         </select>
       </div>
       <div className="acard">
-        <div style={{ overflowX: "auto" }}>
+        <div className="tbl-scroll tbl-sticky tbl-sticky-2">
           <table className="tbl">
             <thead>
               <tr>
