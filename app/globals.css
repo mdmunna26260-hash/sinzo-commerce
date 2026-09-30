@@ -1421,8 +1421,7 @@ a, button, [role="button"], label, summary, input, select, textarea,
        rgba(250,249,247,.68) while the panel below ran blur(20px) saturate(1.9) over
        rgba(255,255,255,.62) — three differences on two surfaces that touch). */
     background: var(--glass-bg);
-    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
-    backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
+    /* the frost itself lives on .header::before (block below) — see note there */
     border-bottom: 1px solid rgba(255, 255, 255, 0.5);
     box-shadow: 0 1px 12px rgba(0, 0, 0, 0.04);
   }
@@ -1433,6 +1432,23 @@ a, button, [role="button"], label, summary, input, select, textarea,
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
   @media (max-width: 899px) {
     .header { background: rgba(250, 249, 247, 0.97); -webkit-backdrop-filter: none; backdrop-filter: none; }
+  }
+}
+
+/* Header frost on a ::before layer, NOT on .header itself (<=900px, where the ☰ menu exists).
+   An element with backdrop-filter becomes a "backdrop root": any descendant's backdrop-filter
+   can then only see what's inside that ancestor. .mobile-nav lives inside .header but hangs
+   below it (top:100%), so with the frost on .header the menu's 20px blur had nothing to blur —
+   the page showed through almost sharp, only the tint was working. Moving the header's blur to a
+   pseudo-element behind its content keeps the header looking identical while letting the menu
+   panel blur the real page. The header's own background tint is untouched (theme overrides
+   keep working); blurring over a flat tint looks the same as tint-over-blur. */
+@media (max-width: 900px) {
+  .header { -webkit-backdrop-filter: none; backdrop-filter: none; }
+  .header::before {
+    content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none;
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
+    backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
   }
 }
 
