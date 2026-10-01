@@ -5,11 +5,12 @@ import { logAudit } from "@/lib/auth";
 import { slugify } from "@/lib/slug";
 
 export const dynamic = "force-dynamic";
-type Ctx = { params: { id: string } };
+type Ctx = { params: Promise<{ id: string }> };
 
 /* Blog post edit / publish / delete. The list + create endpoint lives in ../route.ts; these are
    the two operations a writer needs after the first save: fix a typo, and take it live. */
-export async function GET(req: Request, { params }: Ctx) {
+export async function GET(req: Request, props: Ctx) {
+  const params = await props.params;
   const g = await requirePerm("marketing", req);
   if ("res" in g) return g.res;
   const post = await db.blogPost.findUnique({ where: { id: Number(params.id) } });
@@ -17,7 +18,8 @@ export async function GET(req: Request, { params }: Ctx) {
   return NextResponse.json({ post });
 }
 
-export async function PUT(req: Request, { params }: Ctx) {
+export async function PUT(req: Request, props: Ctx) {
+  const params = await props.params;
   const g = await requirePerm("marketing", req);
   if ("res" in g) return g.res;
   try {
@@ -53,7 +55,8 @@ export async function PUT(req: Request, { params }: Ctx) {
   }
 }
 
-export async function DELETE(req: Request, { params }: Ctx) {
+export async function DELETE(req: Request, props: Ctx) {
+  const params = await props.params;
   const g = await requirePerm("marketing", req);
   if ("res" in g) return g.res;
   const id = Number(params.id);

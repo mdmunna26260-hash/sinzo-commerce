@@ -4,7 +4,7 @@ import { db } from "@/lib/db";
 import { requirePerm } from "@/lib/admin-guard";
 import { logAudit } from "@/lib/auth";
 export const dynamic = "force-dynamic";
-type Ctx = { params: { id: string } };
+type Ctx = { params: Promise<{ id: string }> };
 
 /* SECURITY (server-side RBAC):
    1. Only SUPER_ADMIN (role re-read from DB, token not trusted) may update
@@ -28,7 +28,8 @@ async function countOtherActiveSuperAdmins(excludeId: number): Promise<number> {
   return db.user.count({ where: { role: "SUPER_ADMIN", active: true, id: { not: excludeId } } });
 }
 
-export async function PUT(req: Request, { params }: Ctx) {
+export async function PUT(req: Request, props: Ctx) {
+  const params = await props.params;
   const g = await requireSuperAdmin(req);
   if ("res" in g) return g.res;
   const id = Number(params.id);
@@ -38,10 +39,10 @@ export async function PUT(req: Request, { params }: Ctx) {
   const b = await req.json();
   const data: any = {};
 
-  // SELF-MODIFICATION GUARD: you can never change your own role/status, and
+  // SELF-MODIFICATION GUARD: you can never change your own role/status/password, and
   // never delete/degrade the account you are logged in with via this API.
-  if (id === g.user.id && (b.role !== undefined || b.active !== undefined)) {
-    return NextResponse.json({ error: "You cannot change your own role or status." }, { status: 403 });
+  if (id === g.user.id && (b.role !== undefined || b.active !== undefined || b.password !== undefined)) {
+    return NextResponse.json({ error: "You cannot change your own role, status or password through team management." }, { status: 403 });
   }
 
   if (b.role !== undefined) {
@@ -75,12 +76,15 @@ export async function PUT(req: Request, { params }: Ctx) {
   }
 
   if (Object.keys(data).length === 0) return NextResponse.json({ ok: true });
+  // Changing credentials or privileges revokes previously issued sessions.
+  if (data.password || data.role !== undefined || data.active !== undefined) data.sessionVersion = { increment: 1 };
   await db.user.update({ where: { id }, data });
   await logAudit(g.user.email, "USER_UPDATED", `user #${id} (${target.email}) → ${JSON.stringify({ role: data.role, active: data.active, password: !!data.password })}`);
   return NextResponse.json({ ok: true });
 }
 
-export async function DELETE(req: Request, { params }: Ctx) {
+export async function DELETE(req: Request, props: Ctx) {
+  const params = await props.params;
   const g = await requireSuperAdmin(req);
   if ("res" in g) return g.res;
   const id = Number(params.id);

@@ -19,8 +19,9 @@ type SP = { preset?: string; from?: string; to?: string; t?: string; sort?: stri
        isn't set, the page says "not set" instead of pretending delivery was free.
    Cancelled and returned orders are excluded from revenue (a returned parcel is not a sale) and
    reported separately, with the loss itself on Couriers & RTO. */
-export default async function ProfitPage({ searchParams }: { searchParams: SP }) {
-  const user = await requireAdmin(searchParams);
+export default async function ProfitPage(props: { searchParams: Promise<SP> }) {
+  const searchParams = await props.searchParams;
+  const user = await requireAdmin(searchParams, "orders");
   const t = searchParams.t || "";
   const tk = (p: string) => (t ? p + (p.includes("?") ? "&" : "?") + "t=" + encodeURIComponent(t) : p);
   const { start, end, label, preset } = resolveRange(searchParams);

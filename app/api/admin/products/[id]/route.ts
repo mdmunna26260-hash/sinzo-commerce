@@ -13,14 +13,16 @@ async function syncCollection(productId: number, slug: string, want: boolean) {
 import { slugify } from "@/lib/slug";
 
 export const dynamic = "force-dynamic";
-type Ctx = { params: { id: string } };
-export async function GET(req: Request, { params }: Ctx) {
+type Ctx = { params: Promise<{ id: string }> };
+export async function GET(req: Request, props: Ctx) {
+  const params = await props.params;
   const g = await requirePerm("products", req);
   if ("res" in g) return g.res;
   const p = await db.product.findUnique({ where: { id: Number(params.id) }, include: { images: true, variants: true } });
   return NextResponse.json({ product: p });
 }
-export async function PUT(req: Request, { params }: Ctx) {
+export async function PUT(req: Request, props: Ctx) {
+  const params = await props.params;
   // make sure newer columns (Product.soldCount etc.) exist before writing
   const { ensureExtraTables } = await import("@/lib/db-ensure");
   await ensureExtraTables().catch(() => {});
@@ -87,7 +89,8 @@ export async function PUT(req: Request, { params }: Ctx) {
     return NextResponse.json({ ok: true });
   } catch (e: any) { return NextResponse.json({ error: e?.message || "Server error" }, { status: 500 }); }
 }
-export async function DELETE(req: Request, { params }: Ctx) {
+export async function DELETE(req: Request, props: Ctx) {
+  const params = await props.params;
   const g = await requirePerm("products", req);
   if ("res" in g) return g.res;
   const id = Number(params.id);

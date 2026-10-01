@@ -12,8 +12,9 @@ export const metadata = { title: "WhatsApp Inbox" };
    The bridge (npm run wa) forwards every customer message here: it lands in the panel, links to
    the customer's order when the number matches, and can be answered from the same thread. No
    third-party inbox, no per-message fee — the shop's own number, on the shop's own screen. */
-export default async function InboxPage({ searchParams }: { searchParams: { t?: string } }) {
-  const user = await requireAdmin(searchParams);
+export default async function InboxPage(props: { searchParams: Promise<{ t?: string }> }) {
+  const searchParams = await props.searchParams;
+  const user = await requireAdmin(searchParams, "orders");
   const { ensureExtraTables } = await import("@/lib/db-ensure");
   await ensureExtraTables().catch(() => {});
   const recent = await db.inboxMessage.findMany({ orderBy: { id: "desc" }, take: 500 });

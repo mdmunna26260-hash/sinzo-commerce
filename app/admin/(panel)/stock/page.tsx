@@ -19,8 +19,9 @@ const REASON_LABEL: Record<string, string> = {
   MANUAL: "Manual change", ADJUST: "Stock take", CANCEL: "Order cancelled", RETURN: "Returned",
 };
 
-export default async function StockPage({ searchParams }: { searchParams: SP }) {
-  const user = await requireAdmin(searchParams);
+export default async function StockPage(props: { searchParams: Promise<SP> }) {
+  const searchParams = await props.searchParams;
+  const user = await requireAdmin(searchParams, "products");
   const t = searchParams.t || "";
   const tk = (p: string) => (t ? p + (p.includes("?") ? "&" : "?") + "t=" + encodeURIComponent(t) : p);
   const { start, end, label, preset } = resolveRange(searchParams);

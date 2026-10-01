@@ -9,7 +9,8 @@ export const dynamic = "force-dynamic";
    GET ?format=csv → the same numbers as a CSV download (recipient rows included).
    GET (default)   → progress, per-status counts, delivery/read %, failures, link clicks,
                      attributed orders and the frozen audience. */
-export async function GET(req: Request, { params }: { params: { id: string } }) {
+export async function GET(req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const g = await requirePerm("settings", req);
   if ("res" in g) return g.res;
   const id = Number(params.id);

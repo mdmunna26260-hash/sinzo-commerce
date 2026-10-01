@@ -11,11 +11,12 @@ import { blocks, readingMinutes, dateLabel } from "@/lib/blog";
 
 export const dynamic = "force-dynamic";
 
-type Props = { params: { slug: string } };
+type Props = { params: Promise<{ slug: string }> };
 
 const siteBase = () => (process.env.NEXT_PUBLIC_SITE_URL || "https://sinzooffcial.com").replace(/\/$/, "");
 
-export async function generateMetadata({ params }: Props): Promise<Metadata> {
+export async function generateMetadata(props: Props): Promise<Metadata> {
+  const params = await props.params;
   const p = await db.blogPost.findUnique({ where: { slug: params.slug } });
   if (!p) return { title: "Story not found" };
   /* A draft's title/excerpt must not leak into <title> or a share preview for anyone but the
@@ -44,7 +45,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   };
 }
 
-export default async function BlogPostPage({ params, searchParams }: Props & { searchParams: { preview?: string } }) {
+export default async function BlogPostPage(props: Props) {
+  const params = await props.params;
   const s = await getSettings();
   const cfg = publicSettings(s);
   const store: any = cfg.store || {};
@@ -87,7 +89,7 @@ export default async function BlogPostPage({ params, searchParams }: Props & { s
   return (
     <>
       <Header storeName={store.name || "Store"} categories={cats.map((c) => ({ name: c.name, slug: c.slug }))} />
-      {articleLd && <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(articleLd) }} />}
+      {articleLd && <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(articleLd).replace(/</g, "\\u003c") }} />}
       <main className="container blog-wrap">
         <nav className="blog-crumbs">
           <Link href="/blog">Journal</Link> <span aria-hidden>·</span> <span>{p.title}</span>

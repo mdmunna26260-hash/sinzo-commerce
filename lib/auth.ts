@@ -1,30 +1,10 @@
 import crypto from "crypto";
 import { db } from "./db";
 
-/* Session signing secret.
-   A hard-coded fallback in a public repo is a token-forgery kit: anyone who can read
-   the source could mint a SUPER_ADMIN JWT. So: in production the secret MUST come from
-   the environment — if it's missing we fail closed with a per-process random secret
-   (existing sessions die, nobody can forge). In dev a stable default is kept for DX. */
+import { ALLOW_URL_TOKEN, SESSION_SECRET, encodeSessionPayload, decodeSessionPayload, cookieToken } from "./session-token";
+
 const IS_PROD = process.env.NODE_ENV === "production";
-const DEV_FALLBACK = "dev-secret-change-me";
-function resolveSecret(): string {
-  const fromEnv = process.env.SESSION_SECRET || "";
-  if (fromEnv && fromEnv !== DEV_FALLBACK) return fromEnv;
-  if (!IS_PROD) return DEV_FALLBACK;
-  const rnd = require("crypto").randomBytes(32).toString("hex");
-  console.error(
-    "[auth] FATAL: SESSION_SECRET is not set in production. A random per-boot secret is in use, " +
-    "so every restart logs everyone out. Set SESSION_SECRET in Dokploy → Environment."
-  );
-  return rnd;
-}
-const SECRET = resolveSecret();
-/* Accepting a session token from ?t= puts it in browser history + nginx access logs +
-   Referer headers. Keep that path for local/embedded previews only. */
-const ALLOW_URL_TOKEN = process.env.AUTH_URL_TOKEN
-  ? process.env.AUTH_URL_TOKEN === "1"
-  : !IS_PROD;
+
 export type SessionUser = { id: number; email: string; name: string; role: string; exp: number; sv?: number };
 
 export const ROLE_PERMS: Record<string, string[]> = {
@@ -41,45 +21,37 @@ export function can(user: SessionUser | null, perm: string): boolean {
   return perms.includes("*") || perms.includes(perm);
 }
 
-function sign(payloadB64: string): string {
-  return crypto.createHmac("sha256", SECRET).update(payloadB64).digest("base64url");
-}
 export function createToken(u: Omit<SessionUser, "exp">): string {
-  const body: SessionUser = { ...u, exp: Date.now() + 1000 * 60 * 60 * 24 * 7 };
-  const payloadB64 = Buffer.from(JSON.stringify(body)).toString("base64url");
-  return payloadB64 + "." + sign(payloadB64);
+  return encodeSessionPayload({ ...u, kind: "admin", exp: Date.now() + 1000 * 60 * 60 * 24 * 7 });
 }
 export function verifyToken(token?: string | null): SessionUser | null {
-  if (!token || !token.includes(".")) return null;
-  const [payloadB64, sig] = token.split(".");
-  const expected = sign(payloadB64);
-  try {
-    if (!crypto.timingSafeEqual(Buffer.from(sig) as any, Buffer.from(expected) as any)) return null;
-    const user = JSON.parse(Buffer.from(payloadB64, "base64url").toString()) as SessionUser;
-    if (!user.exp || user.exp < Date.now()) return null;
-    return user;
-  } catch { return null; }
+  const user = decodeSessionPayload(token);
+  if (!user || (user.kind !== undefined && user.kind !== "admin") || user.p !== undefined) return null;
+  if (!Number.isSafeInteger(user.id) || user.id <= 0 || typeof user.email !== "string" || typeof user.name !== "string") return null;
+  if (typeof user.role !== "string" || !Object.prototype.hasOwnProperty.call(ROLE_PERMS, user.role)) return null;
+  if (user.sv !== undefined && (!Number.isSafeInteger(user.sv) || user.sv < 0)) return null;
+  return user as SessionUser;
 }
-/* "Log out everywhere" (Admin → Security) bumps User.sessionVersion. A token carrying an older
-   version is dead — that is what makes the button real instead of a promise. Tokens minted
-   before this feature have no `sv` and keep working until they expire (7 days).
-   This check lives here (not only in the cookie path) because API calls can also present the
-   token as `Authorization: Bearer …`: skipping it there would have left a stolen token usable
-   after the owner pressed the button. */
+
+/* Always re-read the account, including for legacy tokens and URL/Bearer
+   fallbacks. A disabled/deleted/downgraded user must not keep the role embedded
+   in a seven-day-old token. Legacy tokens belong to session version zero. */
 export async function verifySessionToken(token?: string | null): Promise<SessionUser | null> {
   const user = verifyToken(token);
   if (!user) return null;
-  if (user.sv !== undefined) {
-    const u = await db.user.findUnique({ where: { id: user.id }, select: { sessionVersion: true, active: true } }).catch(() => null);
-    if (!u || !u.active || u.sessionVersion !== user.sv) return null;
-  }
-  return user;
+  const current = await db.user.findUnique({
+    where: { id: user.id },
+    select: { email: true, name: true, role: true, sessionVersion: true, active: true },
+  }).catch(() => null);
+  if (!current?.active || current.sessionVersion !== (user.sv ?? 0)) return null;
+  if (!Object.prototype.hasOwnProperty.call(ROLE_PERMS, current.role)) return null;
+  return { ...user, email: current.email, name: current.name, role: current.role, sv: current.sessionVersion };
 }
-export async function getSessionUser(): Promise<SessionUser | null> {
+export async function getSessionUser(req?: Request): Promise<SessionUser | null> {
+  if (req) return verifySessionToken(cookieToken(req, ["sz_session", "sz_session_fb"]));
   const { cookies } = await import("next/headers");
-  // primary: httpOnly cookie set by the API · fallback: JS-set cookie for browsers
-  // that block Set-Cookie from fetch responses (embedded/preview browsers)
-  const c = cookies().get("sz_session") || cookies().get("sz_session_fb");
+  const jar = await cookies();
+  const c = jar.get("sz_session") || jar.get("sz_session_fb");
   return verifySessionToken(c?.value);
 }
 
@@ -88,18 +60,12 @@ export async function getSessionUser(): Promise<SessionUser | null> {
    nothing is logged in until the 6-digit code checks out. Same secret as the session,
    so a forged ticket cannot outlive its window or name a different account. */
 export function sessionTicket(userId: number, sv: number, minutes = 5): string {
-  const body = Buffer.from(JSON.stringify({ id: userId, sv, p: "2fa", exp: Date.now() + minutes * 60_000 })).toString("base64url");
-  return body + "." + sign(body);
+  return encodeSessionPayload({ id: userId, sv, p: "2fa", nonce: crypto.randomBytes(12).toString("hex"), exp: Date.now() + minutes * 60_000 });
 }
 export function verifySessionTicket(ticket?: string | null): { id: number; sv: number } | null {
-  if (!ticket || !ticket.includes(".")) return null;
-  const [body, sig] = ticket.split(".");
-  try {
-    if (!crypto.timingSafeEqual(new TextEncoder().encode(sig), new TextEncoder().encode(sign(body)))) return null;
-    const p = JSON.parse(Buffer.from(body, "base64url").toString());
-    if (p.p !== "2fa" || !p.exp || p.exp < Date.now()) return null;
-    return { id: Number(p.id), sv: Number(p.sv) || 0 };
-  } catch { return null; }
+  const p = decodeSessionPayload(ticket);
+  if (!p || p.p !== "2fa" || !Number.isSafeInteger(p.id) || p.id <= 0 || !Number.isSafeInteger(p.sv) || p.sv < 0) return null;
+  return { id: p.id, sv: p.sv };
 }
 export function sessionCookie(token: string) {
   return { name: "sz_session", value: token, httpOnly: true, sameSite: "lax" as const, secure: IS_PROD, path: "/", maxAge: 60 * 60 * 24 * 7 };
@@ -117,16 +83,25 @@ export function rateLimit(key: string, max: number, windowMs: number): boolean {
 }
 
 // ---- URL-token fallback (for browsers/previews that block cookies) ----
-export async function requireAdmin(sp?: { t?: string | string[] | undefined }): Promise<SessionUser> {
-  const cookieUser = await getSessionUser();
-  if (cookieUser) return cookieUser;
-  if (ALLOW_URL_TOKEN) {
-    const t = Array.isArray(sp?.t) ? sp?.t?.[0] : sp?.t;
-    const tokenUser = verifyToken(t);
-    if (tokenUser && tokenUser.role) return tokenUser; // reject customer tokens
-  }
+export function adminLanding(user: SessionUser): string {
+  if (can(user, "orders")) return "/admin/dashboard";
+  if (can(user, "products")) return "/admin/products";
+  if (can(user, "marketing")) return "/admin/marketing";
+  return "/admin/login";
+}
+
+export async function requireAdmin(sp?: { t?: string | string[] | undefined }, perm?: string | string[]): Promise<SessionUser> {
+  let user = await getSessionUser();
+  const t = Array.isArray(sp?.t) ? sp.t[0] : sp?.t;
+  if (!user && ALLOW_URL_TOKEN) user = await verifySessionToken(t);
   const { redirect } = await import("next/navigation");
-  redirect("/admin/login");
+  if (!user) redirect("/admin/login");
+  if (perm && !(Array.isArray(perm) ? perm : [perm]).some((p) => can(user, p))) {
+    const query = new URLSearchParams({ denied: "1" });
+    if (ALLOW_URL_TOKEN && t) query.set("t", t);
+    redirect(adminLanding(user) + "?" + query);
+  }
+  return user;
 }
 export function tokenFromRequest(req?: Request): string | null {
   if (!req) return null;
@@ -140,7 +115,7 @@ export function tokenFromRequest(req?: Request): string | null {
    The link in a campaign email carries an HMAC of the address, signed with the same app secret
    as session tokens. Without it any visitor could unsubscribe any address by guessing it. */
 export function unsubscribeToken(email: string): string {
-  return crypto.createHmac("sha256", SECRET).update(String(email || "").trim().toLowerCase()).digest("hex").slice(0, 32);
+  return crypto.createHmac("sha256", SESSION_SECRET).update(String(email || "").trim().toLowerCase()).digest("hex").slice(0, 32);
 }
 export function verifyUnsubscribe(email: string, k?: string | null): boolean {
   const want = unsubscribeToken(email);

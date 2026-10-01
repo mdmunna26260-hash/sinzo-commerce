@@ -10,8 +10,9 @@ export const metadata = { title: "Waitlist" };
 /* Everyone who asked to be told when a sold-out piece comes back.
    A sold-out page is a lost sale; this is the list that turns it into a second chance —
    and the restock screen pings them automatically (lib/waitlist.ts). */
-export default async function WaitlistPage({ searchParams }: { searchParams: { t?: string; product?: string } }) {
-  const user = await requireAdmin(searchParams);
+export default async function WaitlistPage(props: { searchParams: Promise<{ t?: string; product?: string }> }) {
+  const searchParams = await props.searchParams;
+  const user = await requireAdmin(searchParams, "products");
   const productId = Number(searchParams.product || 0);
   const rows = await db.waitlist.findMany({
     where: productId ? { productId } : {},

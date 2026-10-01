@@ -5,6 +5,7 @@ import { createCustomerToken, customerCookie } from "@/lib/customer-auth";
 import { rateLimit } from "@/lib/auth";
 import { getClientIp } from "@/lib/ua";
 import { normalizeBDPhone, isValidBDPhone } from "@/lib/phone";
+import { ALLOW_URL_TOKEN } from "@/lib/session-token";
 export const dynamic = "force-dynamic";
 export async function POST(req: Request) {
   if (!rateLimit("custlogin:" + getClientIp(req), 10, 10 * 60 * 1000)) return NextResponse.json({ error: "Too many attempts, try later." }, { status: 429 });
@@ -26,7 +27,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Invalid phone number or password" }, { status: 401 });
     }
     const token = createCustomerToken({ id: customer.id, phone: customer.phone, name: customer.name || "Customer" });
-    const res = NextResponse.json({ ok: true, token, user: { name: customer.name, phone: customer.phone } });
+    const res = NextResponse.json({ ok: true, ...(ALLOW_URL_TOKEN ? { token } : {}), user: { name: customer.name, phone: customer.phone } });
     const c = customerCookie(token);
     (res.cookies as any).set(c.name, c.value, c);
     return res;

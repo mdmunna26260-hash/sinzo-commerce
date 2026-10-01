@@ -16,8 +16,9 @@ type SP = { t?: string };
    - Subscribers list (recent 200)
    - Web Push broadcast (moved here from Marketing — both are outbound
      messaging channels and belong in one place) */
-export default async function CampaignsPage({ searchParams }: { searchParams: SP }) {
-  const user = await requireAdmin(searchParams);
+export default async function CampaignsPage(props: { searchParams: Promise<SP> }) {
+  const searchParams = await props.searchParams;
+  const user = await requireAdmin(searchParams, "marketing");
   const t = searchParams.t || "";
   const tk = (p: string) => (t ? p + (p.includes("?") ? "&" : "?") + "t=" + encodeURIComponent(t) : p);
 

@@ -29,6 +29,10 @@ async function run(): Promise<void> {
       ? `ALTER TABLE "Order" ADD COLUMN IF NOT EXISTS "stockDeducted" BOOLEAN NOT NULL DEFAULT false`
       : `ALTER TABLE "Order" ADD COLUMN "stockDeducted" BOOLEAN NOT NULL DEFAULT 0`)
     .catch(() => {});
+  // Exact delivery deduction per line (shortfalls must never inflate a later return).
+  await db.$executeRawUnsafe(isPg
+    ? `ALTER TABLE "OrderItem" ADD COLUMN IF NOT EXISTS "stockDeductedQty" INTEGER`
+    : `ALTER TABLE "OrderItem" ADD COLUMN "stockDeductedQty" INTEGER`).catch(() => {});
   // ProductVariant.image (linked color variants)
   await db
     .$executeRawUnsafe(isPg
@@ -47,6 +51,13 @@ async function run(): Promise<void> {
   // AbandonedCheckout: email + recovery tracking columns
   await db.$executeRawUnsafe(isPg ? `ALTER TABLE "AbandonedCheckout" ADD COLUMN IF NOT EXISTS "email" TEXT` : `ALTER TABLE "AbandonedCheckout" ADD COLUMN "email" TEXT`).catch(() => {});
   await db.$executeRawUnsafe(isPg ? `ALTER TABLE "AbandonedCheckout" ADD COLUMN IF NOT EXISTS "recoveryEmailedAt" TIMESTAMP(3)` : `ALTER TABLE "AbandonedCheckout" ADD COLUMN "recoveryEmailedAt" DATETIME`).catch(() => {});
+  // Durable capture identity, recovery attempt claims and conversion idempotency.
+  for (const [column, pgType, sqliteType] of [
+    ["captureKeyHash", "TEXT", "TEXT"], ["captureRevision", "INTEGER NOT NULL DEFAULT 0", "INTEGER NOT NULL DEFAULT 0"], ["recoveryAttemptedAt", "TIMESTAMP(3)", "DATETIME"],
+    ["recoveryClaimId", "TEXT", "TEXT"], ["recoveryError", "TEXT", "TEXT"], ["convertedOrderId", "INTEGER", "INTEGER"],
+  ]) await db.$executeRawUnsafe(`ALTER TABLE "AbandonedCheckout" ADD COLUMN ${isPg ? "IF NOT EXISTS " : ""}"${column}" ${isPg ? pgType : sqliteType}`).catch(() => {});
+  await db.$executeRawUnsafe(`CREATE UNIQUE INDEX IF NOT EXISTS "AbandonedCheckout_captureKeyHash_key" ON "AbandonedCheckout"("captureKeyHash")`);
+  await db.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "AbandonedCheckout_checkoutStatus_recoveryAttemptedAt_updatedAt_idx" ON "AbandonedCheckout"("checkoutStatus", "recoveryAttemptedAt", "updatedAt")`);
   // Product.saleEnds (flash sale countdown)
   await db
     .$executeRawUnsafe(isPg

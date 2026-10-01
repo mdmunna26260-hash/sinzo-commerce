@@ -9,7 +9,7 @@ const TTL = 3000;
    Admin saves call revalidateTag("settings") → instant refresh. */
 const readSettings = unstable_cache(
   async () => {
-    const rows = await db.setting.findMany();
+    const rows = await db.setting.findMany({ where: { NOT: { key: { startsWith: "security." } } } });
     const out: SettingsMap = {};
     for (const r of rows) { try { out[r.key] = JSON.parse(r.value); } catch { out[r.key] = r.value; } }
     return out;
@@ -21,7 +21,7 @@ const readSettings = unstable_cache(
 export async function getSettings(force = false): Promise<SettingsMap> {
   if (!force && cache && Date.now() - cache.at < TTL) return cache.data;
   const out: SettingsMap = force ? await (async () => {
-    const rows = await db.setting.findMany();
+    const rows = await db.setting.findMany({ where: { NOT: { key: { startsWith: "security." } } } });
     const o: SettingsMap = {};
     for (const r of rows) { try { o[r.key] = JSON.parse(r.value); } catch { o[r.key] = r.value; } }
     return o;

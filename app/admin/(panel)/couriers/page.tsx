@@ -15,8 +15,9 @@ type SP = { preset?: string; from?: string; to?: string; t?: string };
    invisible — order status showed RETURNED on one row at a time and no screen ever added it up.
    Classification of Steadfast's free-text statuses lives in lib/reports.parcelState() so this
    page, Profit and the order list never disagree about what "delivered" means. */
-export default async function CouriersPage({ searchParams }: { searchParams: SP }) {
-  const user = await requireAdmin(searchParams);
+export default async function CouriersPage(props: { searchParams: Promise<SP> }) {
+  const searchParams = await props.searchParams;
+  const user = await requireAdmin(searchParams, "orders");
   const t = searchParams.t || "";
   const tk = (p: string) => (t ? p + (p.includes("?") ? "&" : "?") + "t=" + encodeURIComponent(t) : p);
   const { start, end, label, preset } = resolveRange(searchParams);

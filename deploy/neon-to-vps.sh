@@ -19,7 +19,7 @@
 #
 # Required env:
 #   SRC_URL   Neon, use the DIRECT (non-pooled) endpoint for dumps:
-#             postgresql://user:pass@ep-xxx.ap-southeast-1.aws.neon.tech/neondb?sslmode=require
+#             postgresql://USER:PASSWORD@DIRECT_NEON_HOST/DATABASE?sslmode=require
 #   DST_URL   VPS target — point at a FRESH empty database first, e.g.
 #             postgresql://sinzo:PASS@127.0.0.1:5432/sinzo_live
 #

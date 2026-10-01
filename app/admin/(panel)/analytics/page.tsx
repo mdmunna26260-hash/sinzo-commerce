@@ -27,8 +27,9 @@ function resolveRange(sp: SP): { start: Date; end: Date; label: string } {
   return { start, end, label };
 }
 
-export default async function AnalyticsPage({ searchParams }: { searchParams: SP }) {
-  const user = await requireAdmin(searchParams);
+export default async function AnalyticsPage(props: { searchParams: Promise<SP> }) {
+  const searchParams = await props.searchParams;
+  const user = await requireAdmin(searchParams, "orders");
   const t = searchParams.t || "";
   const tk = (p: string) => (t ? p + (p.includes("?") ? "&" : "?") + "t=" + encodeURIComponent(t) : p);
   const { start, end, label } = resolveRange(searchParams);

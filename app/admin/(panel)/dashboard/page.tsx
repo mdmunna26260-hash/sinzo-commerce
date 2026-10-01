@@ -78,15 +78,16 @@ function Delta({ now, prev, sub }: { now: number; prev: number; sub?: string }) 
   return <div className={"k-delta " + (up ? "up" : "down")}>{up ? "▲" : "▼"} {Math.abs(pct).toFixed(1)}% <span className="vs">{sub}</span></div>;
 }
 
-export default async function Dashboard({ searchParams }: { searchParams: any }) {
-  const user = await requireAdmin(searchParams);
+export default async function Dashboard(props: { searchParams: Promise<any> }) {
+  const searchParams = await props.searchParams;
+  const user = await requireAdmin(searchParams, "orders");
   const { ensureExtraTables } = await import("@/lib/db-ensure");
   await ensureExtraTables().catch(() => {});
   const t = (searchParams?.t as string) || "";
   const tk = (p: string) => (t ? p + "?t=" + encodeURIComponent(t) : p);
 
-  const startToday = new Date(); startToday.setHours(0, 0, 0, 0);
-  const startYesterday = new Date(startToday); startYesterday.setDate(startYesterday.getDate() - 1);
+  const startToday = new Date();startToday.setHours(0, 0, 0, 0);
+  const startYesterday = new Date(startToday);startYesterday.setDate(startYesterday.getDate() - 1);
   const start7 = new Date(Date.now() - 7 * 86400000);
   const start14 = new Date(Date.now() - 14 * 86400000);
   const valid = { status: { notIn: ["CANCELLED"] } };
@@ -119,7 +120,7 @@ export default async function Dashboard({ searchParams }: { searchParams: any })
 
   // sales chart: last 14 days
   const days: { label: string; total: number }[] = [];
-  const chartStart = new Date(Date.now() - 13 * 86400000); chartStart.setHours(0, 0, 0, 0);
+  const chartStart = new Date(Date.now() - 13 * 86400000);chartStart.setHours(0, 0, 0, 0);
   const ordersInRange = await db.order.findMany({ where: { createdAt: { gte: chartStart }, status: { notIn: ["CANCELLED"] } }, select: { createdAt: true, total: true } });
   for (let i = 0; i < 14; i++) {
     const d = new Date(chartStart.getTime() + i * 86400000);

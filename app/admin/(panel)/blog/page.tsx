@@ -12,8 +12,9 @@ type SP = { t?: string };
    The BlogPost model, its API and the site have existed for a while — the API was never wired to
    a screen and no public /blog route read it, so nothing that got saved could ever be seen. This
    is the screen; /blog and /blog/<slug> are the pages. */
-export default async function BlogAdminPage({ searchParams }: { searchParams: SP }) {
-  const user = await requireAdmin(searchParams);
+export default async function BlogAdminPage(props: { searchParams: Promise<SP> }) {
+  const searchParams = await props.searchParams;
+  const user = await requireAdmin(searchParams, "marketing");
   const t = searchParams.t || "";
   const tk = (p: string) => (t ? p + (p.includes("?") ? "&" : "?") + "t=" + encodeURIComponent(t) : p);
 

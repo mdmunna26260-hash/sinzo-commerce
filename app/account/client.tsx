@@ -36,9 +36,9 @@ export default function AccountClient({ customer, orders, token, rewards }: { cu
     if (profile.newPassword) { body.currentPassword = profile.currentPassword; body.newPassword = profile.newPassword; }
     const r = await call("/api/account/update", { method: "POST", body: JSON.stringify(body) });
     const j = await r.json();
-    if (r.ok && j.token) { document.cookie = `sz_customer=${j.token}; path=/; max-age=2592000; SameSite=Lax`; router.refresh(); }
+    if (r.ok && j.token) { document.cookie = `sz_customer_fb=${j.token}; path=/; max-age=2592000; SameSite=Lax${location.protocol === "https:" ? "; Secure" : ""}`; router.refresh(); }
     setMsg(r.ok ? "Saved ✓" : j.error || "Failed");
-    if (r.ok) setProfile({ ...profile, currentPassword: "", newPassword: "" });
+    if (r.ok) { setProfile({ ...profile, currentPassword: "", newPassword: "" }); router.refresh(); }
     setBusy(false);
     setTimeout(() => setMsg(""), 3000);
   };

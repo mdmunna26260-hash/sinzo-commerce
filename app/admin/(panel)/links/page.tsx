@@ -9,8 +9,9 @@ export const metadata = { title: "Campaign links" };
    "Facebook theke koto order elo?" is unanswerable unless the links are tagged. This builds
    tagged links for the pages that matter, keeps the ones already used, and shows the tag the
    site's own first-party attribution stores on every order (source/medium/campaign). */
-export default async function LinksPage({ searchParams }: { searchParams: { t?: string } }) {
-  const user = await requireAdmin(searchParams);
+export default async function LinksPage(props: { searchParams: Promise<{ t?: string }> }) {
+  const searchParams = await props.searchParams;
+  const user = await requireAdmin(searchParams, "marketing");
   const { ensureExtraTables } = await import("@/lib/db-ensure");
   await ensureExtraTables().catch(() => {});
   const [products, posts] = await Promise.all([

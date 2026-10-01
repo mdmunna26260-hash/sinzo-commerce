@@ -5,8 +5,9 @@ import OrdersClient from "./client";
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Orders" };
 
-export default async function OrdersPage({ searchParams }: { searchParams: any }) {
-  await requireAdmin(searchParams);
+export default async function OrdersPage(props: { searchParams: Promise<any> }) {
+  const searchParams = await props.searchParams;
+  await requireAdmin(searchParams, "orders");
   const orders = await db.order.findMany({ include: { items: true }, orderBy: { id: "desc" }, take: 200 });
   const data = orders.map((o) => ({
     id: o.id, code: o.code, name: o.name, phone: o.phone, address: o.address, area: o.area, total: o.total,

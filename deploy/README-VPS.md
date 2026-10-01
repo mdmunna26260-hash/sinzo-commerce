@@ -19,12 +19,16 @@ bash deploy/setup-swap.sh      # 2GB swap → traffic spikes won't crash the box
 2. Build type: Dockerfile (repo root)
 3. Environment:
    - POSTGRES_PASSWORD=(strong password)
+   - DATABASE_URL=postgresql://sinzo:(password)@db:5432/sinzo (use your database host)
    - SESSION_SECRET=(long random string)
    - SITE_URL=https://sinzooffcial.com
    - (+ all integrations: STEADFAST_*, META_*, SMTP/Gmail, GOOGLE_CLIENT_*)
 4. Domain: sinzooffcial.com → port 3000 → HTTPS (Let's Encrypt auto)
-5. Database: `npx prisma migrate deploy` (first run) — or Dokploy terminal:
-   `cd /app && npx prisma migrate deploy`
+5. Database: this repository ships schemas, not a `prisma/migrations` history.
+   Before initial launch or an upgrade, back up the database, review schema changes, and run:
+   `cd /app && npx prisma db push --schema prisma/schema.prod.prisma`.
+   Do not add `--accept-data-loss` blindly. Seed only an initial/demo database with
+   `npm run db:seed:prod`; an upgrade must not overwrite existing data.
 6. Health check hits /api/health (endpoint already exists)
 
 ## Rollback
@@ -49,3 +53,16 @@ SRC_URL='<neon direct url>' DST_URL='postgresql://sinzo:<pw>@127.0.0.1:5432/sinz
   RUNNER=container ./deploy/neon-to-vps.sh all
 # store live until here → then: stop app → catchup → verify → flip DATABASE_URL in Dokploy → start
 ```
+
+## Release 2026-10-01
+
+- `OrderItem.stockDeductedQty` is a new nullable integer used by delivery/return stock tracking.
+  Apply the production schema before rollout; the container entrypoint also runs additive DDL
+  against its runtime database. This safety net is not a substitute for a reviewed schema upgrade.
+- Docker/CI builds no longer need production `DATABASE_URL`. Configure it **at runtime**;
+  never put secrets into Docker build args. `.dockerignore` excludes local DB/env/session files.
+- Rotate the database credential previously committed to the workflow (history still contains it).
+  Set a persistent, random `SESSION_SECRET`; a missing/placeholder value produces an ephemeral
+  process key and is not suitable for production workers/restarts.
+- Back up before applying schema changes. Runtime PostgreSQL/Docker verification is still
+  required in staging; the audit exercised real isolated SQLite rather than the live database.

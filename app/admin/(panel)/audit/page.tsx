@@ -2,8 +2,9 @@ import { db } from "@/lib/db";
 import { requireAdmin } from "@/lib/auth";
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Audit Log" };
-export default async function AuditPage({ searchParams }: { searchParams: any }) {
-  await requireAdmin(searchParams);
+export default async function AuditPage(props: { searchParams: Promise<any> }) {
+  const searchParams = await props.searchParams;
+  await requireAdmin(searchParams, "audit");
   const logs = await db.auditLog.findMany({ orderBy: { id: "desc" }, take: 300 });
   return (
     <>

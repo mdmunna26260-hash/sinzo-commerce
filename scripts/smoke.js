@@ -1,8 +1,12 @@
 /* Smoke test: core flows against a running instance (BASE_URL, default localhost:3000) */
 const BASE = process.env.BASE_URL || "http://localhost:3000";
+const { randomInt, randomUUID } = require("node:crypto");
+// A fixed phone made reruns fail legitimate per-customer/first-order coupon limits.
+const testPhone = "018" + randomInt(10_000_000, 100_000_000);
+const testIp = `10.249.${randomInt(1, 255)}.${randomInt(1, 255)}`;
 let cookie = "";
 async function req(path, opts = {}) {
-  const r = await fetch(BASE + path, { ...opts, headers: { "Content-Type": "application/json", ...(cookie ? { cookie } : {}), ...(opts.headers || {}) } });
+  const r = await fetch(BASE + path, { ...opts, headers: { "Content-Type": "application/json", "x-forwarded-for": testIp, ...(cookie ? { cookie } : {}), ...(opts.headers || {}) } });
   const sc = r.headers.get("set-cookie");
   if (sc && sc.includes("sz_session")) cookie = sc.split(";")[0];
   let body = null;
@@ -98,7 +102,7 @@ function check(name, cond, extra) {
   const target = live;
   const variant = (target.variants || []).find((v) => v.stock > 0) || null;
   r = await req("/api/checkout", { method: "POST", body: JSON.stringify({
-    name: "Smoke Test Customer", phone: "01812345678", address: "House 99, Road 12, Banani, Dhaka",
+    name: "Smoke Test Customer", phone: testPhone, address: "House 99, Road 12, Banani, Dhaka",
     area: "INSIDE_DHAKA", paymentMethod: "COD", couponCode: "WELCOME10",
     items: [{ productId: target.id, variantId: variant?.id || null, qty: 1 }],
   })});
@@ -112,18 +116,25 @@ function check(name, cond, extra) {
     // status update
     r = await req("/api/admin/orders/" + orderId, { method: "PUT", body: JSON.stringify({ status: "CONFIRMED" }) });
     check("order status update", r.status === 200);
-    // settings update reflects
-    r = await req("/api/admin/settings", { method: "PUT", body: JSON.stringify({ group: "shipping", value: { insideDhaka: 90 } }) });
-    check("settings update", r.status === 200);
-    r = await req("/api/admin/settings", { method: "PUT", body: JSON.stringify({ group: "shipping", value: { insideDhaka: 80 } }) });
+    // Restore the actual settings, not a hard-coded fee that changes the shop.
+    const originalShipping = (await req("/api/admin/settings")).body?.settings?.shipping;
+    if (originalShipping) {
+      try {
+        r = await req("/api/admin/settings", { method: "PUT", body: JSON.stringify({ group: "shipping", value: { insideDhaka: 90 } }) });
+        check("settings update", r.status === 200);
+      } finally {
+        r = await req("/api/admin/settings", { method: "PUT", body: JSON.stringify({ group: "shipping", value: originalShipping }) });
+        check("smoke restores the original shipping settings", r.status === 200);
+      }
+    } else check("read settings before fixture update", false);
   }
   // public tracking
-  r = await req("/api/track/order", { method: "POST", body: JSON.stringify({ code, phone: "01812345678" }) });
+  r = await req("/api/track/order", { method: "POST", body: JSON.stringify({ code, phone: testPhone }) });
   check("customer can track order", adminAuthed
     ? r.body?.order?.status === "CONFIRMED"
     : r.body?.order?.status === "PENDING");
   // CAPI not configured -> honest response
-  r = await req("/api/track/event", { method: "POST", body: JSON.stringify({ name: "AddToCart", eventId: "t1", data: { value: 100 } }) });
+  r = await req("/api/track/event", { method: "POST", body: JSON.stringify({ name: "AddToCart", eventId: "smoke-" + randomUUID(), data: { value: 100 } }) });
   check("tracking endpoint responds (CAPI honest about config)", r.status === 200);
   /* customer login must not reveal whether a phone number has an account */
   {
@@ -228,7 +239,7 @@ function check(name, cond, extra) {
     if (code) {
       const t1 = await req("/api/track/courier?code=" + encodeURIComponent(code));
       check("tracking: ORD code without phone is refused", t1.status === 400 && t1.body?.needPhone === true, "(status=" + t1.status + ")");
-      const t2 = await req("/api/track/courier?code=" + encodeURIComponent(code) + "&phone=01812345678");
+      const t2 = await req("/api/track/courier?code=" + encodeURIComponent(code) + "&phone=" + encodeURIComponent(testPhone));
       check("tracking: ORD code + phone works", t2.status === 200 && !!t2.body?.status);
     }
     // 5) analytics endpoints are bounded

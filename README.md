@@ -18,18 +18,16 @@ npm run dev          # http://localhost:3000
 - **Storefront:** http://localhost:3000
 - **Admin panel:** http://localhost:3000/admin
 
-### Default admin credentials (from MASTER PROMPT §49)
+### Seeded admin accounts
 
-| Role        | Email                  | Password          |
-| ----------- | ---------------------- | ----------------- |
-| Super Admin | `Sinzo.bd@gmail.com`   | `do you love me?` |
-| Order Mgr   | `orders@sinzo.com.bd`  | `order@123`       |
-
-> ⚠️ **Change these immediately** (Admin → Team) before real use.
+The seed creates `Sinzo.bd@gmail.com` (Super Admin) and `orders@sinzo.com.bd` (Order Manager).
+Passwords are **randomly generated and printed once** unless you provide `SEED_ADMIN_PASS` and
+`SEED_MANAGER_PASS`. There is no shared default password. `SEED_ADMIN_EMAIL` / `SEED_MANAGER_EMAIL`
+can also override the email addresses. Keep credentials out of source control.
 
 ---
 
-## What works right now (verified by `npm run test` — 20/20 checks)
+## Core flows covered by automated checks
 
 ### Customer storefront
 - Premium minimal fashion design, mobile-first, announcement bar, sticky header, search with autocomplete
@@ -68,20 +66,20 @@ npm run dev          # http://localhost:3000
 
 ## Tech stack
 
-- **Next.js 14 (App Router) + React 18 + TypeScript**, zero-UI-library custom CSS design system
-- **Prisma ORM** — dev: SQLite (`prisma/dev.db`, zero setup) · production: change `provider` to `"postgresql"` in `prisma/schema.prisma` + set `DATABASE_URL` (Docker compose included)
+- **Next.js 15.5 (App Router) + React 18 + TypeScript**, zero-UI-library custom CSS design system
+- **Prisma ORM** — dev: SQLite (`prisma/schema.prisma`, `prisma/dev.db`) · production: PostgreSQL (`prisma/schema.prod.prisma`) + `DATABASE_URL` (Docker compose included). Edit the dev schema and run `npm run schema:sync` to keep both schemas aligned.
 - **Auth**: bcryptjs + HMAC-signed cookies (no external auth service needed)
 - **Validation**: zod-grade manual validation on all API inputs; secrets never sent to the browser (masked in settings UI)
 
 ## Project structure
 
 ```
-prisma/schema.prisma      21 models (see spec §59)
+prisma/schema.prisma      development database models (production mirror: schema.prod.prisma)
 prisma/seed.js            realistic demo data
 lib/                      db, auth+RBAC, settings engine, CAPI, steadfast, risk, audit
-app/api/                  30 REST endpoints (public + admin, permission-guarded)
+app/api/                  public + permission-guarded admin REST endpoints
 app/                      storefront (home, products, pdp, cart, checkout, track)
-app/admin/(panel)/        13 admin pages behind session guard
+app/admin/(panel)/        server-rendered admin pages behind role/permission guards
 components/               storefront chrome, cart/tracking services, admin sidebar
 scripts/smoke.js          end-to-end smoke test (npm run test)
 Dockerfile + docker-compose.yml   VPS deployment (PostgreSQL + Redis)
@@ -92,8 +90,9 @@ Dockerfile + docker-compose.yml   VPS deployment (PostgreSQL + Redis)
 ```bash
 # 1. clone + configure
 cp .env.example .env   # set DATABASE_URL (postgres), SESSION_SECRET, SITE_URL, keys
-# 2. switch prisma provider to postgresql, then:
-npm run db:migrate && npm run db:seed
+# 2. apply the production schema (no hand-editing of the dev provider):
+npm run db:push:prod
+npm run db:seed:prod  # only for initial setup; do not re-seed a live store blindly
 npm run build && npm run start
 # or: docker compose up -d --build   (app + postgres + redis)
 ```
@@ -115,3 +114,48 @@ Put Nginx in front for TLS. Uploads persist to `public/uploads` (mount as volume
 - Prices, stock, discounts, delivery fees are computed **server-side only**
 - Secrets (Steadfast keys, Meta token) are masked in UI responses and stored in DB/env — never shipped to the client
 - Login is rate-limited; passwords hashed; sessions expire in 7 days
+
+
+## Checks and regression tests
+
+```bash
+npm run check       # TypeScript + unit regressions + touch/gesture audit; no running server needed
+npm audit           # dependency advisories
+```
+
+For HTTP/database tests, start a **seeded, isolated local SQLite instance** with `npm run dev`,
+then export `DATABASE_URL` and `SMOKE_ADMIN_PASSWORD` (and `SMOKE_ADMIN_EMAIL` if customized):
+
+```bash
+npm test            # existing storefront/admin/checkout smoke checks; writes demo orders
+AUDIT_ALLOW_MUTATIONS=1 npm run test:api
+```
+
+`test:api` refuses remote hosts, non-SQLite URLs, and a production test environment. It uses
+temporary fixtures, restores settings, and checks auth/2FA, coupons, pricing, and inventory races.
+Do not point either integration suite at a live store. `dev-start.sh` now generates the real
+Prisma client instead of replacing it with demo data.
+
+### Upgrade / deployment notes (2026-10-01)
+
+- Next.js 15.5.27: route params, page search params, and cookies are awaited; React remains 18.3.1.
+- Apply `npm run db:push:prod` before deploying this release. `OrderItem.stockDeductedQty` is a
+  new nullable column; the runtime Docker schema safety net also adds it. No historical stock
+  balances are automatically rewritten.
+- Inventory stays **delivery-time**, not checkout-time. Single, bulk, and courier delivery use
+  one atomic mutation; returns restore only the actual deducted quantities and are idempotent.
+- Docker builds no longer receive production `DATABASE_URL`. Set it (and a strong
+  `SESSION_SECRET`) in the **runtime** environment. Build context excludes local env/DB/session
+  files. Rotate any credentials previously committed to the workflow, including history.
+
+Latest audit results and verification limits are in **[FIX-LOG.md](./FIX-LOG.md), §19**.
+
+
+### Abandoned checkout recovery
+
+Secure, cross-browser cart restore and the authenticated recovery worker are now
+implemented. **Automation is off by default.** Apply the reviewed schema update,
+configure SMTP/site URL and a strong runtime `CRON_SECRET`, then enable the Marketing
+setting and start the scheduler. See [recovery setup and testing](docs/ABANDONED-CART-RECOVERY.md)
+and `FIX-LOG.md` §22. Recovery mutations read fresh pricing/coupon settings; old
+SKU-less drafts require the customer to rebuild checkout rather than guessing stock.

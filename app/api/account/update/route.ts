@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { db } from "@/lib/db";
-import { getCustomerSessionFromRequest, createCustomerToken } from "@/lib/customer-auth";
+import { getCustomerSessionFromRequest, createCustomerToken, customerCookie } from "@/lib/customer-auth";
 import { normalizeBDPhone, isValidBDPhone } from "@/lib/phone";
+import { ALLOW_URL_TOKEN } from "@/lib/session-token";
 export const dynamic = "force-dynamic";
 export async function POST(req: Request) {
   const s = await getCustomerSessionFromRequest(req);
@@ -37,8 +38,8 @@ export async function POST(req: Request) {
     // phone changed → refresh the session token so order lookups use the new number
     if (data.phone) {
       const token = createCustomerToken({ id: s.id, phone: data.phone, name: (data.name as string) || s.name });
-      const res = NextResponse.json({ ok: true, token });
-      res.cookies.set({ name: "sz_customer", value: token, httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", path: "/", maxAge: 60 * 60 * 24 * 30 });
+      const res = NextResponse.json({ ok: true, ...(ALLOW_URL_TOKEN ? { token } : {}) });
+      res.cookies.set(customerCookie(token));
       return res;
     }
     return NextResponse.json({ ok: true });

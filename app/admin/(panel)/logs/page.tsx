@@ -15,8 +15,9 @@ type SP = { t?: string; level?: string; kind?: string; q?: string };
 const KINDS = ["CLIENT", "WEBHOOK", "SMS", "WHATSAPP", "MAIL", "CRON", "BACKUP"];
 const KIND_ICON: Record<string, string> = { CLIENT: "💥", WEBHOOK: "🔗", SMS: "📱", WHATSAPP: "🟢", MAIL: "✉️", CRON: "⏰", BACKUP: "💾" };
 
-export default async function LogsPage({ searchParams }: { searchParams: SP }) {
-  const user = await requireAdmin(searchParams);
+export default async function LogsPage(props: { searchParams: Promise<SP> }) {
+  const searchParams = await props.searchParams;
+  const user = await requireAdmin(searchParams, "settings");
   const t = searchParams.t || "";
   const tk = (p: string) => (t ? p + "&t=" + encodeURIComponent(t) : p);
   const level = (searchParams.level || "").toUpperCase();
