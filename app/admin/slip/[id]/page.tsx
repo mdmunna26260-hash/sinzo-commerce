@@ -7,8 +7,10 @@ export const dynamic = "force-dynamic";
 
 /* Printable packing slip with a QR of the order code — the packer scans it on
    admin → Scan-to-pack, so nobody types a code by hand. */
-export default async function Slip({ params, searchParams }: { params: { id: string }; searchParams: any }) {
-  await requireAdmin(searchParams);
+export default async function Slip(props: { params: Promise<{ id: string }>; searchParams: Promise<any> }) {
+  const searchParams = await props.searchParams;
+  const params = await props.params;
+  await requireAdmin(searchParams, "orders");
   const o = await db.order.findUnique({ where: { id: Number(params.id) }, include: { items: true } });
   if (!o) notFound();
   const qr = await QRCode.toDataURL(o.code, { margin: 1, width: 220 });

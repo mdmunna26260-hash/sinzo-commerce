@@ -2,52 +2,40 @@ import { NextResponse } from "next/server";
 import { requirePerm } from "@/lib/admin-guard";
 import { getSettings, saveGroup, envFallback } from "@/lib/settings";
 import { logAudit } from "@/lib/auth";
+import { maskAdminSettings, mergeSettingsValue, SETTING_GROUPS } from "@/lib/settings-values";
 export const dynamic = "force-dynamic";
+
 export async function GET(req: Request) {
   const g = await requirePerm("settings", req);
   if ("res" in g) return g.res;
-  const s = envFallback(await getSettings(true));
-  // mask secrets for display (show last 4 chars)
-  const mask = (v: string) => (v ? v.length > 8 ? "••••••••" + v.slice(-4) : "••••••" : "");
-  const courier = { ...s.courier, apiKey: mask(s.courier?.apiKey || ""), secretKey: mask(s.courier?.secretKey || "") };
-  const integrations = { ...s.integrations, metaAccessToken: mask(s.integrations?.metaAccessToken || "") };
-  const notifications = {
-    ...s.notifications,
-    telegramBotToken: mask(s.notifications?.telegramBotToken || ""),
-    smtp: { ...s.notifications?.smtp, pass: mask(s.notifications?.smtp?.pass || "") },
-    sms: { ...(s.notifications as any)?.sms, apiKey: mask((s.notifications as any)?.sms?.apiKey || "") },
-  };
-  return NextResponse.json({ settings: { ...s, courier, integrations, notifications }, hasCourierKeys: !!s.courier?.apiKey, hasMetaToken: !!s.integrations?.metaAccessToken });
+  const settings = envFallback(await getSettings(true));
+  return NextResponse.json({ settings: maskAdminSettings(settings), hasCourierKeys: !!(settings.courier?.apiKey && settings.courier?.secretKey), hasMetaToken: !!settings.integrations?.metaAccessToken });
 }
+
 export async function PUT(req: Request) {
   const g = await requirePerm("settings", req);
   if ("res" in g) return g.res;
-  const { group, value } = await req.json();
-  if (!group || typeof value !== "object") return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
-  // merge with existing; masked/empty secrets keep old values
-  const current = await getSettings(true);
-  let merged: any;
-  if (Array.isArray(value)) {
-    merged = value; // arrays (e.g. homepage sections) replace wholesale
-  } else {
-    // numeric fields must be stored as numbers (string "2500" breaks comparisons)
-    if (group === "shipping") {
-      for (const k of ["insideDhaka", "outsideDhaka", "freeShippingThreshold"]) {
-        if (value[k] !== undefined && value[k] !== "") value[k] = Number(value[k]) || 0;
-      }
+  const body = await req.json().catch(() => null);
+  if (!body || !SETTING_GROUPS.has(body.group) || !body.value || typeof body.value !== "object") return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
+  const { group, value } = body;
+  if ((group === "homeSections") !== Array.isArray(value)) return NextResponse.json({ error: "Invalid settings value" }, { status: 400 });
+
+  const numericFields = group === "shipping" ? ["insideDhaka", "outsideDhaka", "freeShippingThreshold"] : group === "checkout" ? ["giftWrapFee"] : [];
+  for (const key of numericFields) {
+    if (value[key] === undefined) continue;
+    const amount = Number(value[key]);
+    if (value[key] === null || value[key] === "" || !["number", "string"].includes(typeof value[key]) || !Number.isFinite(amount) || amount < 0) {
+      return NextResponse.json({ error: `${key} must be a non-negative number` }, { status: 400 });
     }
-    const existing: any = (current as any)[group] || {};
-    merged = { ...existing };
-    for (const [k, v] of Object.entries(value)) {
-      if (typeof v === "string" && v.startsWith("••")) continue; // masked — keep old
-      // Test Event Code cleanup: empty/"-" = admin wants it gone (production mode)
-      if (group === "integrations" && k === "metaTestEventCode" && (v === "" || v === "-" || v == null)) {
-        delete merged.metaTestEventCode;
-        continue;
-      }
-      (merged as any)[k] = v;
-    }
+    value[key] = amount;
   }
+  if (group === "marketing") {
+    if (value.recoveryAutoEnabled !== undefined && typeof value.recoveryAutoEnabled !== "boolean") return NextResponse.json({ error: "Recovery automation must be a boolean" }, { status: 400 });
+    if (value.recoveryCoupon !== undefined && (typeof value.recoveryCoupon !== "string" || value.recoveryCoupon.length > 64 || /[\r\n]/.test(value.recoveryCoupon))) return NextResponse.json({ error: "Invalid recovery coupon" }, { status: 400 });
+  }
+  const current = await getSettings(true);
+  const merged = mergeSettingsValue(current[group], value);
+  if (group === "integrations" && (value.metaTestEventCode === "" || value.metaTestEventCode === "-" || value.metaTestEventCode === null)) delete merged.metaTestEventCode;
   await saveGroup(group, merged);
   await logAudit(g.user.email, "SETTINGS_UPDATED", group);
   return NextResponse.json({ ok: true });

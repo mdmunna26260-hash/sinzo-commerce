@@ -4,10 +4,11 @@ import { requirePerm } from "@/lib/admin-guard";
 import { createConsignment, checkStatusByConsignment } from "@/lib/steadfast";
 import { logAudit } from "@/lib/auth";
 import { emailCustomerStatus } from "@/lib/notify";
-import { applyDeliveryStockDeduction } from "@/lib/deliver-stock";
+import { updateOrder } from "@/lib/order-mutations";
 export const dynamic = "force-dynamic";
-type Ctx = { params: { id: string } };
-export async function POST(req: Request, { params }: Ctx) {
+type Ctx = { params: Promise<{ id: string }> };
+export async function POST(req: Request, props: Ctx) {
+  const params = await props.params;
   const g = await requirePerm("orders", req);
   if ("res" in g) return g.res;
   const order = await db.order.findUnique({ where: { id: Number(params.id) }, include: { items: true } });
@@ -29,7 +30,8 @@ export async function POST(req: Request, { params }: Ctx) {
   }
   return NextResponse.json({ ok: false, configured: r.configured, error: r.error }, { status: r.configured ? 502 : 400 });
 }
-export async function GET(req: Request, { params }: Ctx) {
+export async function GET(req: Request, props: Ctx) {
+  const params = await props.params;
   const g = await requirePerm("orders", req);
   if ("res" in g) return g.res;
   const { ensureExtraTables } = await import("@/lib/db-ensure");
@@ -40,16 +42,16 @@ export async function GET(req: Request, { params }: Ctx) {
   const r = await checkStatusByConsignment(order.courierConsignmentId);
   if (r.ok) {
     const newStatus = r.data?.delivery_status || order.courierStatus;
-    await db.order.update({ where: { id: order.id }, data: { courierStatus: newStatus, courierTracking: JSON.stringify(r.data) } }).catch(() => {});
-    if (r.data?.delivery_status === "delivered") {
-      await db.order.update({ where: { id: order.id }, data: { status: "DELIVERED", paymentStatus: "PAID" } }).catch(() => {});
-      await import("@/lib/wa-queue").then(({ enqueueOrderEvent }) => enqueueOrderEvent(order.id, "order_delivered")).catch(() => {});
-      // Stock: minus exactly once, here — on Steadfast "delivered".
-      // Atomic claim (Order.stockDeducted) makes repeated syncs race-safe.
-      await applyDeliveryStockDeduction(order.id, order.code).catch(() => {});
-      // courier-confirmed delivery is the same event as a manual one: points + review ask
-      const { onOrderDelivered } = await import("@/lib/on-delivered");
-      await onOrderDelivered(order.id).catch(() => {});
+    if (r.data?.delivery_status === "delivered" && !["CANCELLED", "RETURNED"].includes(order.status)) {
+      // Same atomic status + inventory mutation as manual/bulk delivery. Do not
+      // undo an admin's later return because a courier still reports delivered.
+      try {
+        await updateOrder(order.id, { courierStatus: newStatus, courierTracking: JSON.stringify(r.data), status: "DELIVERED", paymentStatus: "PAID" }, g.user.email);
+      } catch {
+        return NextResponse.json({ ok: false, error: "Delivery stock sync failed. Please retry." }, { status: 409 });
+      }
+    } else {
+      await db.order.update({ where: { id: order.id }, data: { courierStatus: newStatus, courierTracking: JSON.stringify(r.data) } });
     }
     // customer email on rider pickup / in transit (only on transition, never repeats)
     if (order.email && newStatus && beforeStatus !== newStatus && ["picked_up", "in_transit"].includes(String(newStatus))) {

@@ -5,9 +5,10 @@ import { slugify } from "@/lib/slug";
 import { logAudit } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
-type Ctx = { params: { id: string } };
+type Ctx = { params: Promise<{ id: string }> };
 
-export async function POST(req: Request, { params }: Ctx) {
+export async function POST(req: Request, props: Ctx) {
+  const params = await props.params;
   const g = await requirePerm("products", req);
   if ("res" in g) return g.res;
   try {

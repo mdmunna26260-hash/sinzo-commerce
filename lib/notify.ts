@@ -1,6 +1,7 @@
 import { db } from "./db";
 import { getSettings, envFallback } from "./settings";
 import { waSend, waStatus } from "./wa";
+const emailText = (value: string) => value.replace(/[&<>"\']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!));
 
 /* Notification abstraction (PDF §38): in-app center (always) + Telegram + SMTP email.
    Channels are independent; unconfigured channels are skipped honestly (never faked). */
@@ -123,10 +124,10 @@ export async function emailCustomerOrder(to: string, name: string, order: { code
     const s = envFallback(await getSettings());
     const n = s.notifications || {};
     if (!n.smtp?.host || !n.smtp?.user || !n.smtp?.pass) return { configured: false };
-    const rows = order.items.map((i) => `<tr><td style="padding:6px 0">${i.title} × ${i.qty}</td><td style="text-align:right">৳${Math.round(i.price * i.qty).toLocaleString("en-IN")}</td></tr>`).join("");
+    const rows = order.items.map((i) => `<tr><td style="padding:6px 0">${emailText(i.title)} × ${i.qty}</td><td style="text-align:right">৳${Math.round(i.price * i.qty).toLocaleString("en-IN")}</td></tr>`).join("");
     const url = storeUrl(s);
     const html = emailHtml(
-      `Thank you for your order, ${name}!`,
+      `Thank you for your order, ${emailText(name)}!`,
       `Order <b>${order.code}</b> received. We'll call you shortly to confirm.<br><br>
        <table style="width:100%;border-collapse:collapse">${rows}</table>
        <div style="border-top:2px solid #141414;margin-top:8px;padding-top:8px;font-weight:700">Total: ৳${Math.round(order.total).toLocaleString("en-IN")} (COD)</div>

@@ -6,8 +6,10 @@ import { getSettings } from "@/lib/settings";
 export const dynamic = "force-dynamic";
 const money = (n: number) => "৳" + Math.round(n).toLocaleString("en-IN");
 
-export default async function Invoice({ params, searchParams }: { params: { id: string }; searchParams: any }) {
-  await requireAdmin(searchParams);
+export default async function Invoice(props: { params: Promise<{ id: string }>; searchParams: Promise<any> }) {
+  const searchParams = await props.searchParams;
+  const params = await props.params;
+  await requireAdmin(searchParams, "orders");
   const order = await db.order.findUnique({ where: { id: Number(params.id) }, include: { items: true } });
   if (!order) notFound();
   const s = await getSettings();

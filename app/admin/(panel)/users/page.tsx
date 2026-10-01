@@ -3,8 +3,9 @@ import { requireAdmin, ROLE_PERMS } from "@/lib/auth";
 import UsersClient from "./client";
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Team" };
-export default async function UsersPage({ searchParams }: { searchParams: any }) {
-  const me = await requireAdmin(searchParams);
+export default async function UsersPage(props: { searchParams: Promise<any> }) {
+  const searchParams = await props.searchParams;
+  const me = await requireAdmin(searchParams, "users");
   const users = await db.user.findMany({ select: { id: true, email: true, name: true, role: true, active: true, createdAt: true }, orderBy: { id: "asc" } });
   return <UsersClient initial={users.map((u) => ({ ...u, createdAt: u.createdAt.toISOString() }))} meId={me?.id} meRole={me?.role} perms={ROLE_PERMS} />;
 }

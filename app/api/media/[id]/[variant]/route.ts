@@ -3,7 +3,7 @@ import { db } from "@/lib/db";
 import { renderVariant, isVariantWidth } from "@/lib/image-variants";
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
-type Ctx = { params: { id: string; variant: string } };
+type Ctx = { params: Promise<{ id: string; variant: string }> };
 
 /* Images are immutable — a new upload always gets a new media id — so a variant
    URL can be cached forever.
@@ -30,7 +30,8 @@ async function buildAndStore(id: string, width: number, index: Record<string, { 
   return bytes;
 }
 
-export async function GET(_: Request, { params }: Ctx) {
+export async function GET(_: Request, props: Ctx) {
+  const params = await props.params;
   const m = await db.media.findUnique({
     where: { id: params.id },
     select: { variantsJson: true }, // never pull the big primary blob just to read the index

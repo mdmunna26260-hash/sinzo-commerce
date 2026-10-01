@@ -12,14 +12,18 @@ export const metadata = { title: "WhatsApp — New campaign" };
    Write the offer, attach photos / product cards / coupon, then build the audience on the right with
    a live count — and only then start it (now or on a schedule). Nothing is sent from this page:
    starting a campaign freezes the audience and lets the worker pace the messages out. */
-export default async function NewCampaignPage({ searchParams }: { searchParams: { t?: string } }) {
-  const user = await requireAdmin(searchParams);
+export default async function NewCampaignPage(props: { searchParams: Promise<{ t?: string }> }) {
+  const searchParams = await props.searchParams;
+  const user = await requireAdmin(searchParams, "settings");
   const { ensureExtraTables } = await import("@/lib/db-ensure");
   await ensureExtraTables().catch(() => {});
 
   const s = envFallback(await getSettings());
   const rules = waRules(s);
-  const status = await waStatus().catch(() => ({ running: false, connected: false }) as any);
+  const status = await waStatus().catch(() => (({
+    running: false,
+    connected: false
+  }) as any));
   const devices = await db.waDevice.findMany({ orderBy: { id: "asc" }, select: { id: true, name: true, status: true, phone: true, sentToday: true, dailyCap: true } }).catch(() => []);
   const optOuts = await db.waOptOut.count().catch(() => 0);
 

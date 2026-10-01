@@ -3,6 +3,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useCart, toast } from "@/components/store";
 import { imgSrc, imgSrcSet } from "@/components/parts";
+import { checkoutTotals, couponDiscount, nonNegativeAmount } from "@/lib/checkout-pricing";
 
 /* Cart — original clean layout + "Continue Shopping" button on top. */
 export default function CartPage() {
@@ -11,24 +12,26 @@ export default function CartPage() {
   const [applied, setApplied] = useState<any>(null);
   const [busy, setBusy] = useState(false);
   const [sizing, setSizing] = useState<string | null>(null);
-  const [cfg, setCfg] = useState({ freeT: 5000, inside: 80, outside: 140 });
+  const [cfg, setCfg] = useState({ freeT: 0, inside: 80, outside: 140 });
 
   useEffect(() => {
     try {
       const c = JSON.parse(document.getElementById("sz-cfg")?.textContent || "{}");
       setCfg({
-        freeT: Number(c?.shipping?.freeShippingThreshold) || 5000,
-        inside: Number(c?.shipping?.insideDhaka) || 80,
-        outside: Number(c?.shipping?.outsideDhaka) || 140,
+        freeT: nonNegativeAmount(c?.shipping?.freeShippingThreshold),
+        inside: nonNegativeAmount(c?.shipping?.insideDhaka, 80),
+        outside: nonNegativeAmount(c?.shipping?.outsideDhaka, 140),
       });
     } catch {}
   }, []);
 
-  const discount = applied ? applied.discount : 0;
+  const discount = couponDiscount(subtotal, applied);
   const effectiveTotal = subtotal - discount; // free shipping applies to discounted total
   const FREE_T = cfg.freeT;
-  const ship = applied?.freeship || effectiveTotal >= FREE_T ? 0 : cfg.inside;
-  const total = Math.max(0, effectiveTotal) + (applied?.freeship ? 0 : ship);
+  const { deliveryFee: ship, total } = checkoutTotals({
+    subtotal, discount, area: "INSIDE_DHAKA", freeship: applied?.freeship,
+    shipping: { insideDhaka: cfg.inside, outsideDhaka: cfg.outside, freeShippingThreshold: FREE_T },
+  });
   const itemCount = lines.reduce((s, l) => s + (l.qty || 1), 0);
 
   const bump = (l: any, q: number) => {
@@ -63,7 +66,7 @@ export default function CartPage() {
   }, [ready, lines.length]);
 
   const applyCoupon = async () => {
-    if (!coupon.trim()) return;
+    if (!coupon.trim() || busy) return;
     setBusy(true);
     try {
       const r = await fetch("/api/coupon", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code: coupon.trim(), subtotal }) });
@@ -111,7 +114,7 @@ export default function CartPage() {
     );
   }
 
-  const remaining = Math.max(0, FREE_T - subtotal);
+  const remaining = Math.max(0, FREE_T - effectiveTotal);
 
   return (
     <div className="container" style={{ padding: "34px 24px 100px" }}>
@@ -156,10 +159,12 @@ export default function CartPage() {
         </div>
         <aside className="summary">
           <h3>Order Summary</h3>
-          <div className="freeship-note">
-            {remaining > 0 ? <>Add <b>৳{remaining.toLocaleString("en-IN")}</b> more for free delivery</> : <>🎉 You&apos;ve unlocked <b>free delivery</b></>}
-          </div>
-          <div className="freebar"><i style={{ width: Math.min(100, (subtotal / FREE_T) * 100) + "%" }} /></div>
+          {FREE_T > 0 && <>
+            <div className="freeship-note">
+              {ship > 0 && remaining > 0 ? <>Add <b>৳{remaining.toLocaleString("en-IN")}</b> more for free delivery</> : <>🎉 You&apos;ve unlocked <b>free delivery</b></>}
+            </div>
+            <div className="freebar"><i style={{ width: (ship === 0 ? 100 : Math.min(100, (effectiveTotal / FREE_T) * 100)) + "%" }} /></div>
+          </>}
           <div className="sum-row"><span>Subtotal ({itemCount} items)</span><span>৳{subtotal.toLocaleString("en-IN")}</span></div>
           {discount > 0 && <div className="sum-row" style={{ color: "var(--ok)" }}><span>Discount ({applied.code})</span><span>−৳{discount.toLocaleString("en-IN")}</span></div>}
           <div className="sum-row"><span>Delivery (est.)</span><span>{(applied?.freeship || ship === 0) ? "Free" : "৳" + ship}</span></div>

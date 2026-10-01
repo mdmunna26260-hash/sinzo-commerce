@@ -18,7 +18,8 @@ import Link from "next/link";
 export const dynamic = "force-dynamic";
 // runtime caching via CDN keeps fast; skip build-time prerender (small VPS RAM)
 
-export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
+export async function generateMetadata(props: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+  const params = await props.params;
   const p = await db.product.findUnique({ where: { slug: params.slug }, include: { images: { orderBy: { position: "asc" }, take: 1 } } });
   if (!p) return { title: "Product not found" };
   const base = (process.env.NEXT_PUBLIC_SITE_URL || "https://sinzooffcial.com").replace(/\/$/, "");
@@ -45,7 +46,8 @@ export async function generateMetadata({ params }: { params: { slug: string } })
   };
 }
 
-export default async function PDP({ params, searchParams }: { params: { slug: string }; searchParams?: any }) {
+export default async function PDP(props: { params: Promise<{ slug: string }>; searchParams?: Promise<any> }) {
+  const params = await props.params;
   // ensure newer columns (colorGroupId, soldCount, variant image etc.) exist before querying
   const { ensureExtraTables } = await import("@/lib/db-ensure");
   await ensureExtraTables().catch(() => {});
@@ -297,7 +299,7 @@ export default async function PDP({ params, searchParams }: { params: { slug: st
           soldMode={p.soldMode || "fixed"}
           product={{
             id: p.id, title: p.title, slug: p.slug, price: p.price, comparePrice: p.comparePrice,
-            shortDesc: p.shortDesc, description: p.description, sku: p.sku, stock: totalStock, lowStock: p.lowStock,
+            shortDesc: p.shortDesc, description: p.description, sku: p.sku, stock: p.stock, lowStock: p.lowStock,
             // gallery = product images + any linked variant (color) images appended
             images: [
               ...p.images.map((i) => ({ url: i.url, alt: i.alt || p.title })),
@@ -305,8 +307,9 @@ export default async function PDP({ params, searchParams }: { params: { slug: st
                 .filter(Boolean)
                 .map((u) => ({ url: u, alt: `${p.title}` })),
             ],
-            variants: (p.preorder ? p.variants : p.variants.filter((v) => v.stock > 0)).map((v) => ({ id: v.id, size: v.size, color: v.color, stock: v.stock, price: v.price, image: v.image || null })),
+            variants: p.variants.map((v) => ({ id: v.id, size: v.size, color: v.color, stock: v.stock, price: v.price, image: v.image || null })),
             categoryName: p.category?.name,
+            categorySlug: p.category?.slug,
             colorName: p.colorName,
             colorImage: p.colorImage,
           }}

@@ -5,12 +5,13 @@ import { logAudit } from "@/lib/auth";
 import { sendBatch } from "@/lib/campaign";
 
 export const dynamic = "force-dynamic";
-type Ctx = { params: { id: string } };
+type Ctx = { params: Promise<{ id: string }> };
 
 /* One campaign: read it, edit a draft, delete it, or push the next batch of sends.
    `action: "send"` is deliberately repeatable — the client keeps calling it until
    `done` comes back, which is how a large list goes out without a long request. */
-export async function GET(req: Request, { params }: Ctx) {
+export async function GET(req: Request, props: Ctx) {
+  const params = await props.params;
   const { ensureExtraTables } = await import("@/lib/db-ensure");
   await ensureExtraTables().catch(() => {});
   const g = await requirePerm("marketing", req);
@@ -20,7 +21,8 @@ export async function GET(req: Request, { params }: Ctx) {
   return NextResponse.json({ campaign });
 }
 
-export async function POST(req: Request, { params }: Ctx) {
+export async function POST(req: Request, props: Ctx) {
+  const params = await props.params;
   const { ensureExtraTables } = await import("@/lib/db-ensure");
   await ensureExtraTables().catch(() => {});
   const g = await requirePerm("marketing", req);
@@ -44,7 +46,8 @@ export async function POST(req: Request, { params }: Ctx) {
   }
 }
 
-export async function PUT(req: Request, { params }: Ctx) {
+export async function PUT(req: Request, props: Ctx) {
+  const params = await props.params;
   const { ensureExtraTables } = await import("@/lib/db-ensure");
   await ensureExtraTables().catch(() => {});
   const g = await requirePerm("marketing", req);
@@ -69,7 +72,8 @@ export async function PUT(req: Request, { params }: Ctx) {
   return NextResponse.json({ ok: true, campaign });
 }
 
-export async function DELETE(req: Request, { params }: Ctx) {
+export async function DELETE(req: Request, props: Ctx) {
+  const params = await props.params;
   const { ensureExtraTables } = await import("@/lib/db-ensure");
   await ensureExtraTables().catch(() => {});
   const g = await requirePerm("marketing", req);

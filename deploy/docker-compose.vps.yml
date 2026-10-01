@@ -33,6 +33,7 @@ services:
     environment:
       DATABASE_URL: postgresql://sinzo:${POSTGRES_PASSWORD}@db:5432/sinzo
       SESSION_SECRET: ${SESSION_SECRET:?set in .env}
+      CRON_SECRET: ${CRON_SECRET:-}
       NEXT_PUBLIC_SITE_URL: ${SITE_URL:-https://sinzooffcial.com}
       NODE_ENV: production
       # order isolation: this deployment only shows/manages its own orders
@@ -49,6 +50,26 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
+
+  # Optional automation. Enable Marketing → automatic recovery first, then:
+  # docker compose --profile recovery up -d recovery
+  recovery:
+    profiles: [recovery]
+    build: .
+    restart: unless-stopped
+    depends_on:
+      app:
+        condition: service_healthy
+    command: ["npm", "run", "recovery:worker"]
+    environment:
+      DATABASE_URL: postgresql://sinzo:${POSTGRES_PASSWORD}@db:5432/sinzo
+      CRON_SECRET: ${CRON_SECRET:-}
+      RECOVERY_API_URL: http://app:3000/api/admin/abandoned-recover
+      NODE_ENV: production
+      NODE_OPTIONS: --max-old-space-size=128
+    deploy:
+      resources:
+        limits: { memory: 160M }
 
 volumes:
   pgdata:

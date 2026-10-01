@@ -11,8 +11,9 @@ export const metadata = { title: "Loyalty & Referral" };
    Repeat customers are the cheapest sales a shop has: points make the second order feel earned,
    and a referral code turns a happy customer into a channel. Both pay out on DELIVERED orders
    only, so a returned parcel never costs anything. */
-export default async function LoyaltyPage({ searchParams }: { searchParams: { t?: string } }) {
-  const user = await requireAdmin(searchParams);
+export default async function LoyaltyPage(props: { searchParams: Promise<{ t?: string }> }) {
+  const searchParams = await props.searchParams;
+  const user = await requireAdmin(searchParams, "customers");
   const { ensureExtraTables } = await import("@/lib/db-ensure");
   await ensureExtraTables().catch(() => {});
   const s = envFallback(await getSettings());

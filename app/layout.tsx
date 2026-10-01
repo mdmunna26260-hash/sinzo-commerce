@@ -148,7 +148,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         {gtmId ? (
           <script id="gtm" dangerouslySetInnerHTML={{ __html: `(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src='https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);})(window,document,'script','dataLayer','${gtmId}');` }} />
         ) : null}
-        <script id="sz-cfg" type="application/json" dangerouslySetInnerHTML={{ __html: JSON.stringify(cfg || {}) }} />
+        <script id="sz-cfg" type="application/json" dangerouslySetInnerHTML={{ __html: JSON.stringify(cfg || {}).replace(/</g, "\\u003c") }} />
         {orgLd ? (
           /* Entity + sitelinks-searchbox markup for the whole site (the PDP has Product
              schema, but "/" had no structured data at all → no knowledge panel, no

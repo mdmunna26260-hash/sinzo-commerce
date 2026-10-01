@@ -11,7 +11,11 @@ const money = (n: number) => "৳" + Math.round(n).toLocaleString("en-IN");
 /* Public customer invoice — GATED by the order's phone number (PII protection).
    Order codes are sequential (ORD-XXXX), so without this gate anyone could
    enumerate every customer's name/phone/address. Only the buyer can view it. */
-export default async function CustomerInvoice({ params, searchParams }: { params: { code: string }; searchParams?: { phone?: string } }) {
+export default async function CustomerInvoice(
+  props: { params: Promise<{ code: string }>; searchParams?: Promise<{ phone?: string }> }
+) {
+  const searchParams = await props.searchParams;
+  const params = await props.params;
   const id = parseOrderCode(params.code);
   if (id == null) notFound();
 

@@ -34,7 +34,7 @@ if [ -s "$MIGRATE_MARKER" ]; then
   esac
 fi
 
-# historical behaviour: make sure columns added by later releases exist (no-op when scripts/ is not in the image)
+# Make sure newly added columns exist against the runtime database before serving requests.
 [ -f scripts/ensure-db.js ] && node scripts/ensure-db.js
 
 exec "$@"

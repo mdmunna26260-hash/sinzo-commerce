@@ -9,8 +9,9 @@ export const metadata = { title: "Security" };
    The admin panel is the keys to the shop; a password alone is thin protection, so TOTP
    (Google Authenticator / Authy / 1Password) can be switched on here, with one-time recovery
    codes for the day the phone is lost. */
-export default async function SecurityPage({ searchParams }: { searchParams: { t?: string } }) {
-  const user = await requireAdmin(searchParams);
+export default async function SecurityPage(props: { searchParams: Promise<{ t?: string }> }) {
+  const searchParams = await props.searchParams;
+  const user = await requireAdmin(searchParams, "settings");
   const { ensureExtraTables } = await import("@/lib/db-ensure");
   await ensureExtraTables().catch(() => {});
   const u = await db.user.findUnique({ where: { id: user.id } });

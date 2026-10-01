@@ -6,8 +6,12 @@ import ThermalPrintClient from "./thermal-client";
 
 export const dynamic = "force-dynamic";
 
-export default async function ReceiptPage({ params, searchParams }: { params: { id: string }; searchParams: { t?: string; print?: string } }) {
-  await requireAdmin(searchParams);
+export default async function ReceiptPage(
+  props: { params: Promise<{ id: string }>; searchParams: Promise<{ t?: string; print?: string }> }
+) {
+  const searchParams = await props.searchParams;
+  const params = await props.params;
+  await requireAdmin(searchParams, "orders");
   const order = await db.order.findUnique({ where: { id: Number(params.id) }, include: { items: true } });
   if (!order) notFound();
   const s = await getSettings();

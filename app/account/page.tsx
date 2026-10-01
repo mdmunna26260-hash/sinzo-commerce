@@ -1,18 +1,19 @@
 import { db } from "@/lib/db";
 import { getSettings, publicSettings } from "@/lib/settings";
 import { getCategories } from "@/lib/catalog";
-import { getCustomerSessionFromRequest, verifyCustomerToken } from "@/lib/customer-auth";
+import { getCustomerSessionFromRequest } from "@/lib/customer-auth";
 import { Header, Footer, Announcement } from "@/components/chrome";
 import { redirect } from "next/navigation";
 import AccountClient from "./client";
-import { getSettings as _getSettings } from "@/lib/settings";
+import { ALLOW_URL_TOKEN } from "@/lib/session-token";
 import { loyaltyCfg, pointsValue } from "@/lib/loyalty";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "My Account" };
 
-export default async function AccountPage({ searchParams }: { searchParams: { ct?: string } }) {
-  const session = (await getCustomerSessionFromRequest()) || verifyCustomerToken(searchParams?.ct);
+export default async function AccountPage(props: { searchParams: Promise<{ ct?: string }> }) {
+  const searchParams = await props.searchParams;
+  const session = await getCustomerSessionFromRequest(undefined, searchParams?.ct);
   if (!session) redirect("/login");
   const customer = await db.customer.findUnique({ where: { id: session.id } });
   if (!customer) redirect("/login");
@@ -34,7 +35,7 @@ export default async function AccountPage({ searchParams }: { searchParams: { ct
       <AccountClient
         customer={{ name: customer.name, phone: customer.phone, email: customer.email, address: customer.address, area: customer.area }}
         rewards={rewards}
-        token={searchParams?.ct || ""}
+        token={ALLOW_URL_TOKEN ? searchParams?.ct || "" : ""}
         orders={orders.map((o) => ({
           code: o.code, status: o.status, total: o.total, paymentMethod: o.paymentMethod, paymentStatus: o.paymentStatus,
           createdAt: o.createdAt.toISOString(), itemCount: o.items.reduce((a, i) => a + i.qty, 0),
