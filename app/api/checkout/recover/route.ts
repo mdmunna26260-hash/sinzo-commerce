@@ -19,7 +19,7 @@ export async function POST(req: Request) {
     const { row, couponCode } = await verifyRecovery(db, body?.token);
     const settings = await getSettings(true);
     const result = await prepareRecoveredCart(db, row, settings, couponCode);
-    const pricing = { shipping: { insideDhaka: settings.shipping?.insideDhaka, outsideDhaka: settings.shipping?.outsideDhaka, freeShippingThreshold: settings.shipping?.freeShippingThreshold }, checkout: { codEnabled: settings.checkout?.codEnabled, giftWrapFee: settings.checkout?.giftWrapFee } };
+    const pricing = { shipping: { insideDhaka: settings.shipping?.insideDhaka, outsideDhaka: settings.shipping?.outsideDhaka, freeShippingThreshold: settings.shipping?.freeShippingThreshold }, checkout: { codEnabled: settings.checkout?.codEnabled } };
     return NextResponse.json({ ok: true, ...result, pricing }, { headers });
   } catch (e: any) {
     if (e instanceof CheckoutValidationError) return NextResponse.json({ error: e.message }, { status: e instanceof RecoveryError ? e.status : 400, headers });

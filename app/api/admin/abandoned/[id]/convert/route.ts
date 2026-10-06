@@ -50,7 +50,7 @@ export async function POST(req: Request, props: { params: Promise<{ id: string }
       const customer = await tx.customer.update({ where: { phone: quote.contact.phone }, data: { ...quote.contact, area: quote.saved.area } });
       const order = await tx.order.create({ data: {
         code: "TEMP-" + crypto.randomUUID(), ...quote.contact, area: quote.saved.area,
-        notes: quote.saved.giftWrap ? (quote.saved.notes ? quote.saved.notes + " | " : "") + `🎁 GIFT WRAP (+৳${quote.totals.giftWrapFee})` : quote.saved.notes || null,
+        notes: quote.saved.notes || null,
         subtotal: quote.totals.subtotal, discount: quote.totals.discount, deliveryFee: quote.totals.deliveryFee, total: quote.totals.total,
         couponCode: quote.applied?.code || null, status: risk.level === "HIGH" ? "ON_HOLD" : "CONFIRMED", paymentStatus: "PENDING", paymentMethod: "COD",
         source: "Recovered", channel: deployChannel(), customerId: customer.id,

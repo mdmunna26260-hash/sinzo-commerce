@@ -30,13 +30,15 @@ export async function getSettings(force = false): Promise<SettingsMap> {
   return out;
 }
 export function publicSettings(s: SettingsMap) {
+  const checkout = { ...(s.checkout || {}) };
+  delete checkout.giftWrapFee;
   return {
     store: s.store, theme: s.theme, shipping: {
       insideDhaka: s.shipping?.insideDhaka, outsideDhaka: s.shipping?.outsideDhaka,
       freeShippingThreshold: s.shipping?.freeShippingThreshold,
       estimateInside: s.shipping?.estimateInside, estimateOutside: s.shipping?.estimateOutside,
     },
-    homepage: s.homepage, checkout: s.checkout, seo: s.seo,
+    homepage: s.homepage, checkout, seo: s.seo,
     integrations: {
       metaPixelId: s.integrations?.metaPixelId || process.env.META_PIXEL_ID || "",
       ga4Id: s.integrations?.ga4Id || process.env.GA4_MEASUREMENT_ID || "",

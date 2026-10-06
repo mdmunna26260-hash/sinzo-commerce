@@ -9,6 +9,7 @@ export async function GET(req: Request) {
   const g = await requirePerm("settings", req);
   if ("res" in g) return g.res;
   const settings = envFallback(await getSettings(true));
+  if (settings.checkout) delete settings.checkout.giftWrapFee;
   return NextResponse.json({ settings: maskAdminSettings(settings), hasCourierKeys: !!(settings.courier?.apiKey && settings.courier?.secretKey), hasMetaToken: !!settings.integrations?.metaAccessToken });
 }
 
@@ -20,7 +21,7 @@ export async function PUT(req: Request) {
   const { group, value } = body;
   if ((group === "homeSections") !== Array.isArray(value)) return NextResponse.json({ error: "Invalid settings value" }, { status: 400 });
 
-  const numericFields = group === "shipping" ? ["insideDhaka", "outsideDhaka", "freeShippingThreshold"] : group === "checkout" ? ["giftWrapFee"] : [];
+  const numericFields = group === "shipping" ? ["insideDhaka", "outsideDhaka", "freeShippingThreshold"] : [];
   for (const key of numericFields) {
     if (value[key] === undefined) continue;
     const amount = Number(value[key]);
@@ -35,6 +36,7 @@ export async function PUT(req: Request) {
   }
   const current = await getSettings(true);
   const merged = mergeSettingsValue(current[group], value);
+  if (group === "checkout") delete merged.giftWrapFee;
   if (group === "integrations" && (value.metaTestEventCode === "" || value.metaTestEventCode === "-" || value.metaTestEventCode === null)) delete merged.metaTestEventCode;
   await saveGroup(group, merged);
   await logAudit(g.user.email, "SETTINGS_UPDATED", group);

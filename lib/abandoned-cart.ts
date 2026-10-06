@@ -8,7 +8,7 @@ import { readRecoveryToken, matchesRecoverySubject } from "./recovery-security";
 export class RecoveryError extends CheckoutValidationError {
   constructor(message: string, public status = 400) { super(message); }
 }
-export type SavedCart = { version: 2; items: CheckoutLine[]; area: "INSIDE_DHAKA" | "OUTSIDE_DHAKA"; giftWrap: boolean; notes: string; couponCode: string | null };
+export type SavedCart = { version: 2; items: CheckoutLine[]; area: "INSIDE_DHAKA" | "OUTSIDE_DHAKA"; notes: string; couponCode: string | null };
 export function validateRecoveryContact(raw: any) {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) throw new RecoveryError("Invalid checkout details");
   const name = typeof raw.name === "string" ? raw.name.trim() : "";
@@ -21,10 +21,9 @@ export function validateRecoveryContact(raw: any) {
 }
 export function cartMetadata(raw: any): Omit<SavedCart, "version" | "items"> {
   if (raw.area !== "INSIDE_DHAKA" && raw.area !== "OUTSIDE_DHAKA") throw new RecoveryError("Select a delivery zone");
-  if (raw.giftWrap !== undefined && typeof raw.giftWrap !== "boolean") throw new RecoveryError("Invalid gift-wrap option");
   if (raw.notes !== undefined && typeof raw.notes !== "string") throw new RecoveryError("Invalid checkout notes");
   if (raw.couponCode != null && (typeof raw.couponCode !== "string" || raw.couponCode.length > 64 || /[\r\n]/.test(raw.couponCode))) throw new RecoveryError("Invalid coupon code");
-  return { area: raw.area, giftWrap: raw.giftWrap === true, notes: (raw.notes || "").trim().slice(0, 2000), couponCode: raw.couponCode?.trim().toUpperCase() || null };
+  return { area: raw.area, notes: (raw.notes || "").trim().slice(0, 2000), couponCode: raw.couponCode?.trim().toUpperCase() || null };
 }
 export function readSavedCart(cartJson: string): SavedCart {
   let raw;
@@ -65,7 +64,7 @@ export async function quoteSavedCart(tx: Prisma.TransactionClient | any, row: Ab
     applied = await validateCoupon(tx, await tx.coupon.findUnique({ where: { code } }), subtotal, contact.phone);
     if (consume) await tx.coupon.update({ where: { code }, data: { usedCount: { increment: 1 } } });
   }
-  const totals = checkoutTotals({ subtotal, discount: applied?.discount, freeship: applied?.freeship, area: saved.area, shipping: settings.shipping, checkout: settings.checkout, giftWrap: saved.giftWrap });
+  const totals = checkoutTotals({ subtotal, discount: applied?.discount, freeship: applied?.freeship, area: saved.area, shipping: settings.shipping });
   return { saved, contact, items, subtotal, applied, totals, products };
 }
 /* Restore only current, real SKUs. Explicit warnings accompany any removal or
@@ -108,6 +107,6 @@ export async function prepareRecoveredCart(tx: Prisma.TransactionClient | any, r
     try { applied = await validateCoupon(tx, await tx.coupon.findUnique({ where: { code } }), subtotal, contact.phone); }
     catch (e) { if (!(e instanceof CouponValidationError)) throw e; restored.warnings.push("The recovery coupon is no longer eligible. No discount has been applied."); }
   }
-  const totals = checkoutTotals({ subtotal, discount: applied?.discount, freeship: applied?.freeship, area: saved.area, shipping: settings.shipping, checkout: settings.checkout, giftWrap: saved.giftWrap });
-  return { ...restored, contact: { ...contact, area: saved.area }, giftWrap: saved.giftWrap, notes: saved.notes, couponCode: code, applied, totals };
+  const totals = checkoutTotals({ subtotal, discount: applied?.discount, freeship: applied?.freeship, area: saved.area, shipping: settings.shipping });
+  return { ...restored, contact: { ...contact, area: saved.area }, notes: saved.notes, couponCode: code, applied, totals };
 }

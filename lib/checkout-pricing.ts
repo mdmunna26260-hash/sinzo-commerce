@@ -17,12 +17,12 @@ export function couponDiscount(subtotal: number, coupon?: CouponPricing | null):
 
 /* One calculation for the browser and the order API. A threshold of zero means
    the promotion is DISABLED, not that every order gets free shipping. Zero
-   delivery fees are valid settings, and gift-wrap fees are configurable. */
+   delivery fees are valid settings. */
 export function checkoutTotals(input: {
   subtotal: number; discount?: number; area: string; shipping?: Record<string, any>;
-  checkout?: Record<string, any>; giftWrap?: boolean; freeship?: boolean;
+  freeship?: boolean;
 }) {
-  const { shipping = {}, checkout = {} } = input;
+  const { shipping = {} } = input;
   const subtotal = nonNegativeAmount(input.subtotal);
   const discount = Math.min(subtotal, nonNegativeAmount(input.discount));
   const threshold = nonNegativeAmount(shipping.freeShippingThreshold);
@@ -30,7 +30,6 @@ export function checkoutTotals(input: {
     ? nonNegativeAmount(shipping.insideDhaka, 80)
     : nonNegativeAmount(shipping.outsideDhaka, 140);
   const deliveryFee = input.freeship || (threshold > 0 && subtotal - discount >= threshold) ? 0 : fee;
-  const giftWrapFee = input.giftWrap ? nonNegativeAmount(checkout.giftWrapFee, 60) : 0;
-  const total = roundMoney(subtotal - discount + deliveryFee + giftWrapFee);
-  return { subtotal, discount, deliveryFee, giftWrapFee, total };
+  const total = roundMoney(subtotal - discount + deliveryFee);
+  return { subtotal, discount, deliveryFee, total };
 }

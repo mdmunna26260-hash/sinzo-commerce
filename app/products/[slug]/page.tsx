@@ -91,8 +91,8 @@ export default async function PDP(props: { params: Promise<{ slug: string }>; se
   const cfg = publicSettings(s);
   const pol = readPolicy(s);
   const cats = await getCategories();
-  /* `images` is capped at 6 (same as the /products grid): the card draws its own photo dots and
-     drag gallery, so the rail needs the whole photo list, not just the cover. */
+  /* `images` is capped at 6 (same as the /products grid): the card draws its segmented photo
+     progress bar and drag gallery, so the rail needs the whole photo list, not just the cover. */
   const relSelect = { id: true, title: true, slug: true, price: true, comparePrice: true, stock: true, badge: true, isNew: true, isBestSeller: true, categoryId: true, preorder: true, images: { select: { url: true, alt: true }, orderBy: { position: "asc" }, take: 6 }, variants: { select: { size: true, stock: true } } } as const;
   const sizesOf = (r: typeof related[number]) => Array.from(new Set((r.variants || []).filter((v) => (r.preorder ? !!v.size : v.stock > 0 && v.size)).map((v) => v.size!))).sort((a, b) => {
     const na = Number(a), nb = Number(b);

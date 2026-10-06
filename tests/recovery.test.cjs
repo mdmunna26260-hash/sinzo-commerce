@@ -49,9 +49,12 @@ test('capture contact normalizes international BD numbers and supports clearing 
   assert.equal(cart.validateRecoveryContact({ ...c, email: '' }).email, null);
   assert.throws(() => cart.validateRecoveryContact({ ...c, phone: '123' }), cart.RecoveryError);
 });
-test('saved snapshots require explicit delivery zone and trusted SKU references', () => {
-  const raw = { version: 2, area: 'OUTSIDE_DHAKA', items: [{ productId: 1, variantId: 11, qty: 2 }], giftWrap: true, notes: 'ok', couponCode: 'back10' };
-  assert.equal(cart.readSavedCart(JSON.stringify(raw)).couponCode, 'BACK10');
+test('saved snapshots require explicit delivery zone and trusted SKU references, ignoring legacy gift-wrap data', () => {
+  const raw = { version: 2, area: 'OUTSIDE_DHAKA', items: [{ productId: 1, variantId: 11, qty: 2 }], giftWrap: { forged: true }, notes: 'ok', couponCode: 'back10' };
+  const saved = cart.readSavedCart(JSON.stringify(raw));
+  assert.equal(saved.couponCode, 'BACK10');
+  assert.equal(saved.notes, 'ok');
+  assert.equal(Object.hasOwn(saved, 'giftWrap'), false);
   assert.throws(() => cart.readSavedCart(JSON.stringify([{ title: 'Fake', qty: 2, price: 1 }])), cart.RecoveryError);
   assert.throws(() => cart.readSavedCart(JSON.stringify({ ...raw, area: 'unknown' })), cart.RecoveryError);
   assert.throws(() => cart.readSavedCart('malformed'), cart.RecoveryError);

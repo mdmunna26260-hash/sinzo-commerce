@@ -115,7 +115,7 @@ export async function updateOrder(orderId: number, body: Record<string, any>, us
       const subtotal = await editItems(tx, before, body.items, userEmail);
       const deliveryFee = typeof data.deliveryFee === "number" ? data.deliveryFee : before.deliveryFee;
       const discount = Math.min(subtotal, before.discount);
-      // Preserve the checkout's extra gift-wrap charge when changing quantities.
+      // Preserve add-on charges already recorded on historical orders when editing line items.
       const extras = before.notes?.includes("GIFT WRAP") ? Math.max(0, before.total - (Math.max(0, before.subtotal - before.discount) + before.deliveryFee)) : 0;
       data.subtotal = subtotal;
       data.discount = discount;

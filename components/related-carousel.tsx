@@ -73,9 +73,8 @@ export default function RelatedCarousel({ items, dots = false, cap = 40 }: { ite
         ))}
       </div>
       {totalPages > 1 && (dots ? (
-        /* PDP style: one dot per page, the current one bigger and dark — the same language
-           the card photos (.pcard-dots) and the home rails (.crs-dots) already speak, and
-           live feedback that a swipe actually moved the rail. */
+        /* This is a page indicator for the related-products rail, not a product-photo gallery;
+           keep the compact page dots here and in the home rails. */
         <div className="rel-dots" aria-hidden>
           {pages.map((_, pi) => <span key={pi} className={"rel-dot" + (pi === page ? " on" : "")} />)}
         </div>

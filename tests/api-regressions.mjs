@@ -85,6 +85,8 @@ try {
   adminCookie = cookieOf(login, 'sz_session'); assert.ok(adminCookie);
   await save('shipping', { insideDhaka: 80, outsideDhaka: 140, freeShippingThreshold: 0 });
   await save('checkout', { codEnabled: true, giftWrapFee: 95 });
+  const checkoutSettings = await request('/api/admin/settings');
+  check('legacy gift-wrap pricing is stripped from checkout settings', checkoutSettings.body?.settings?.checkout?.giftWrapFee === undefined);
   const p = await product();
 
   const publicCustomers = await expectRedirect('customer admin page is private without a session', '/admin/customers', '');
@@ -136,9 +138,9 @@ try {
   await expect('invalid coupon does not silently create a full-price order', '/api/checkout', { json: await checkout(p, { couponCode: 'DOES-NOT-EXIST' }) }, 400);
   const zero = await place(p, { items: [{ productId: p.id, variantId: p.variants[1].id, qty: 1 }] });
   check('zero-price variant is honored by the server', zero.order.subtotal === 0 && zero.order.total === 80);
-  const gift = await place(p, { giftWrap: true, attribution: { utm_source: { invalid: true } } });
-  check('disabled free-shipping threshold and custom gift-wrap fee match the order total', gift.order.subtotal === 200 && gift.order.deliveryFee === 80 && gift.order.total === 375);
-  check('malformed attribution does not break a valid checkout', gift.result.status === 200);
+  const legacyWrap = await place(p, { giftWrap: true, attribution: { utm_source: { invalid: true } } });
+  check('legacy gift-wrap flags cannot add a checkout charge or order note', legacyWrap.order.subtotal === 200 && legacyWrap.order.deliveryFee === 80 && legacyWrap.order.total === 280 && !String(legacyWrap.order.notes || '').includes('GIFT WRAP'));
+  check('malformed attribution does not break a valid checkout', legacyWrap.result.status === 200);
   await save('shipping', { insideDhaka: 0 });
   const free = await place(p);
   check('an explicitly zero delivery fee stays zero', free.order.deliveryFee === 0 && free.order.total === 200);

@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { imgSrc, imgSrcSet, PDP_WIDTHS, PDP_SIZES, PDP_SRC_WIDTH, THUMB_WIDTHS } from "./img-src";
 import { warmImage } from "./img-warm";
+import SegmentedProgress from "./segmented-progress";
 
 type Img = { url: string; alt: string };
 
@@ -33,7 +34,7 @@ export default function MobileGallery({ images, title, active, onIndexChange }: 
     el.style.transform = `translate3d(-${i * W}%,0,0)`;
   }, []);
 
-  // keep track in sync when index changes from outside (dots/thumbs)
+  // keep track in sync when index changes from outside (progress bar/thumbs)
   useEffect(() => { if (!dragging) slideTo(active); }, [active, dragging, slideTo]);
 
   // keep the active thumbnail scrolled into view (strip scrolls, page never jumps)
@@ -168,22 +169,15 @@ export default function MobileGallery({ images, title, active, onIndexChange }: 
         </div>
       </div>
 
-      {/* Pagination dots — BELOW the image (owner's reference): one per photo, the current one
-          bigger and dark, the others small and light. They used to float on top of the photo;
-          a single photo renders no dots (the counter chip above covers that case). */}
+      {/* Thin segmented progress bar BELOW the image: one segment per photo, with the active
+          segment filled. Tapping a segment jumps directly to that image. */}
       {N > 1 && (
-        <div className="mgal-dots" role="tablist" aria-label="Image pagination">
-          {images.map((_, i) => (
-            <button
-              key={i}
-              role="tab"
-              aria-selected={i === active}
-              aria-label={`Image ${i + 1}`}
-              className={i === active ? "on" : ""}
-              onClick={() => onIndexChange(i)}
-            />
-          ))}
-        </div>
+        <SegmentedProgress
+          count={N}
+          activeIndex={active}
+          className="mgal-progress"
+          onSelect={onIndexChange}
+        />
       )}
 
       {/* thumbnail strip — tap to jump, active highlighted, auto-centred */}

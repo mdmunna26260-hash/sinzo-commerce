@@ -8,6 +8,7 @@ const load = loader();
 const pricing = load('lib/checkout-pricing.ts');
 const cart = load('lib/checkout-items.ts');
 const settings = load('lib/settings-values.ts');
+const publicSettings = loader({ 'next/cache': { unstable_cache: fn => fn, revalidateTag() {} }, './db': { db: {} } })('lib/settings.ts').publicSettings;
 const { validateCoupon, CouponValidationError } = load('lib/coupons.ts');
 
 const product = (patch = {}) => ({ id: 1, title: 'Test shirt', price: 200, stock: 10, preorder: false, variants: [{ id: 11, size: 'M', price: null, stock: 10 }, { id: 12, size: 'L', price: 0, stock: 10 }], images: [{ url: '/second', position: 1 }, { url: '/first', position: 0 }], ...patch });
@@ -18,13 +19,20 @@ test('zero free-shipping threshold disables the promotion, not the delivery fee'
   assert.equal(total.deliveryFee, 80);
   assert.equal(total.total, 280);
 });
-test('zero configured delivery/gift-wrap fees are not replaced by defaults', () => {
-  const total = pricing.checkoutTotals({ subtotal: 200, area: 'OUTSIDE_DHAKA', shipping: { outsideDhaka: 0 }, checkout: { giftWrapFee: 0 }, giftWrap: true });
+test('zero configured delivery fee remains valid and legacy gift-wrap values add no charge', () => {
+  const total = pricing.checkoutTotals({ subtotal: 200, area: 'OUTSIDE_DHAKA', shipping: { outsideDhaka: 0 }, checkout: { giftWrapFee: 95 }, giftWrap: true });
+  assert.equal(total.deliveryFee, 0);
   assert.equal(total.total, 200);
-  assert.equal(total.giftWrapFee, 0);
+  assert.equal(Object.hasOwn(total, 'giftWrapFee'), false);
 });
-test('gift wrap uses the configured price and both zones use the same calculation', () => {
-  assert.equal(pricing.checkoutTotals({ subtotal: 200, area: 'OUTSIDE_DHAKA', checkout: { giftWrapFee: 95 }, giftWrap: true }).total, 435);
+test('legacy gift-wrap flags and settings never change the checkout total', () => {
+  const total = pricing.checkoutTotals({ subtotal: 200, area: 'OUTSIDE_DHAKA', shipping: { outsideDhaka: 140 }, checkout: { giftWrapFee: 95 }, giftWrap: true });
+  assert.equal(total.total, 340);
+});
+test('public settings no longer expose a retired gift-wrap fee', () => {
+  const exposed = publicSettings({ checkout: { codEnabled: true, giftWrapFee: 95 }, shipping: {} });
+  assert.equal(exposed.checkout.codEnabled, true);
+  assert.equal(Object.hasOwn(exposed.checkout, 'giftWrapFee'), false);
 });
 test('free shipping applies to the discounted subtotal and free-shipping coupons', () => {
   const input = { subtotal: 1000, discount: 100, area: 'INSIDE_DHAKA', shipping: { freeShippingThreshold: 1000 } };

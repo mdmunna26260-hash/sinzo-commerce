@@ -3,17 +3,18 @@ import { useState } from "react";
 import type { ReactNode } from "react";
 import CardGallery from "./card-gallery";
 import CardImg from "./card-img";
+import SegmentedProgress from "./segmented-progress";
 
-/* The card's media block: the product photo(s) plus the image pagination dots that sit
-   UNDER the image (the owner's reference: one dot per photo, the current one bigger and
-   dark, the others small and light — PacSun-style).
+/* The card's media block: the product photo(s) plus the segmented image progress bar that sits
+   UNDER the image. Each photo gets one thin segment, and swiping fills the segment for the
+   currently visible photo.
 
-   Why the dots live here and not inside CardGallery: `.pcard-img` clips its content
+   Why the progress bar lives here and not inside CardGallery: `.pcard-img` clips its content
    (`overflow: hidden`, needed by the sliding track), so anything drawn "below the image"
    has to be a sibling of that box. The gallery reports its index up (`onIndexChange`) and
-   this wrapper draws the row, so the dots can never be cropped or sit on top of the photo.
+   this wrapper draws the bar, so it can never be cropped or sit on top of the photo.
 
-   The dots are decoration, never buttons — the whole card is one <a>, and an <a> may not
+   The bar is decoration, never buttons — the whole card is one <a>, and an <a> may not
    contain interactive elements. Tapping the row therefore opens the product, like the
    rest of the card. */
 export default function CardMedia({ images, image, alt, slug, children }: {
@@ -31,9 +32,7 @@ export default function CardMedia({ images, image, alt, slug, children }: {
         {children}
       </div>
       {pics.length > 1 && (
-        <span className="pcard-dots" aria-hidden>
-          {pics.map((_, k) => <i key={k} className={k === i ? "on" : ""} />)}
-        </span>
+        <SegmentedProgress count={pics.length} activeIndex={i} className="pcard-progress" />
       )}
     </div>
   );

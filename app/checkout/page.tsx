@@ -32,7 +32,6 @@ export default function CheckoutPage() {
   const shipCfg = recoveryPricing?.shipping || cfg?.shipping || {};
   const inside = nonNegativeAmount(shipCfg.insideDhaka, 80);
   const outside = nonNegativeAmount(shipCfg.outsideDhaka, 140);
-  const freeT = nonNegativeAmount(shipCfg.freeShippingThreshold);
   const checkoutCfg = recoveryPricing?.checkout || cfg?.checkout;
   const codEnabled = checkoutCfg?.codEnabled !== false;
 
@@ -42,14 +41,11 @@ export default function CheckoutPage() {
   const [errors, setErrors] = useState<any>({});
   const [busy, setBusy] = useState(false);
   const [cbusy, setCBusy] = useState(false);
-  const [giftWrap, setGiftWrap] = useState(false);
-  const GIFT_WRAP_PRICE = nonNegativeAmount(checkoutCfg?.giftWrapFee, 60);
   const [payment, setPayment] = useState("COD");
 
   const discount = couponDiscount(subtotal, applied);
   const { deliveryFee: ship, total } = checkoutTotals({
-    subtotal, discount, area: form.area, shipping: shipCfg, checkout: checkoutCfg,
-    giftWrap, freeship: applied?.freeship,
+    subtotal, discount, area: form.area, shipping: shipCfg, freeship: applied?.freeship,
   });
 
   useLayoutEffect(() => {
@@ -70,7 +66,7 @@ export default function CheckoutPage() {
     clearCaptureKey();
     replace(saved.lines);
     setForm({ ...saved.contact, email: saved.contact.email || "", notes: saved.notes || "" });
-    setGiftWrap(!!saved.giftWrap); setCoupon(saved.couponCode || ""); setApplied(saved.applied || null);
+    setCoupon(saved.couponCode || ""); setApplied(saved.applied || null);
     setRecoveryPricing(saved.pricing || null); setRecoveryWarnings(saved.warnings || []);
     setPendingRecovery(null); setRecoveryStage("restored");
     setRecoveryMessage("Your saved cart is restored. Please review the current prices and delivery details.");
@@ -145,7 +141,7 @@ export default function CheckoutPage() {
           captureKey: key, revision: nextCaptureRevision(),
           items: lines.map(l => ({ productId: l.productId, variantId: l.variantId || null, qty: l.qty })),
           phone, name: form.name.trim(), address: form.address.trim(), email: form.email.trim(),
-          area: form.area, notes: form.notes, giftWrap, couponCode: applied?.code || null,
+          area: form.area, notes: form.notes, couponCode: applied?.code || null,
         }) });
         const saved = await response.json();
         if (!response.ok) throw new Error();
@@ -154,12 +150,12 @@ export default function CheckoutPage() {
     }, 800);
     const saveOnLeave = () => {
       if (orderInFlight.current || controller.signal.aborted) return;
-      const body = JSON.stringify({ captureKey: key, revision: nextCaptureRevision(), items: lines.map(l => ({ productId: l.productId, variantId: l.variantId || null, qty: l.qty })), phone, name: form.name.trim(), address: form.address.trim(), email: form.email.trim(), area: form.area, notes: form.notes, giftWrap, couponCode: applied?.code || null });
+      const body = JSON.stringify({ captureKey: key, revision: nextCaptureRevision(), items: lines.map(l => ({ productId: l.productId, variantId: l.variantId || null, qty: l.qty })), phone, name: form.name.trim(), address: form.address.trim(), email: form.email.trim(), area: form.area, notes: form.notes, couponCode: applied?.code || null });
       navigator.sendBeacon?.("/api/checkout/start", new Blob([body], { type: "application/json" }));
     };
     window.addEventListener("pagehide", saveOnLeave);
     return () => { clearTimeout(timer); controller.abort(); window.removeEventListener("pagehide", saveOnLeave); };
-  }, [ready, lines, form.phone, form.name, form.address, form.email, form.area, form.notes, giftWrap, applied?.code, busy, recoveryStage]);
+  }, [ready, lines, form.phone, form.name, form.address, form.email, form.area, form.notes, applied?.code, busy, recoveryStage]);
 
   const recoveryBanner = recoveryStage !== "idle" ? (
     <div className={"recovery-banner " + (recoveryStage === "error" ? "error" : "")} role="status" aria-live="polite">
@@ -242,7 +238,6 @@ export default function CheckoutPage() {
         body: JSON.stringify({
           ...form, phone: normalizeBDPhone(form.phone), paymentMethod: payment,
           captureKey: getCaptureKey(), recoveryToken: recoveryStage === "restored" ? recoveryToken : undefined,
-      giftWrap,
           couponCode: applied?.code || null, purchaseEventId: eventId,
           attribution: captureAttribution(),
           items: lines.map((l) => ({ productId: l.productId, variantId: l.variantId || null, qty: l.qty })),
@@ -266,120 +261,167 @@ export default function CheckoutPage() {
   };
 
   return (
-    <div className="container checkout-page">
+    <div className="container checkout-page checkout-minimal">
       {recoveryBanner}
       <h1 className="checkout-h1">Checkout</h1>
-      <div className="checkout-layout">
-        <div>
-          <div className="acard" style={{ padding: 26, marginBottom: 20 }}>
-            <h3 style={{ fontFamily: "var(--font-body)", fontSize: 15, fontWeight: 600, marginBottom: 18 }}>Delivery Information</h3>
-            <div className="field-row">
-              <div className="field">
-                <label>Full Name *</label>
-                <input value={form.name} onChange={(e) => set("name", e.target.value)} placeholder="e.g. Rahim Ahmed" autoComplete="name" />
-                {errors.name && <div className="err">{errors.name}</div>}
-              </div>
-              <div className="field">
-                <label>Mobile Number *</label>
-                <input value={form.phone} onChange={(e) => set("phone", e.target.value)} placeholder="01XXXXXXXXX" inputMode="numeric" autoComplete="tel" />
-                {errors.phone && <div className="err">{errors.phone}</div>}
-              </div>
+      <div className="checkout-layout checkout-minimal-layout">
+        <section className="checkout-minimal-form" aria-label="Delivery details">
+          <div className="checkout-minimal-fields">
+            <div className="field checkout-field">
+              <label className="sr-only" htmlFor="checkout-phone">Mobile number</label>
+              <input
+                id="checkout-phone"
+                type="tel"
+                value={form.phone}
+                onChange={(e) => set("phone", e.target.value)}
+                placeholder="Mobile number"
+                inputMode="numeric"
+                autoComplete="tel"
+                required
+                aria-invalid={Boolean(errors.phone) || undefined}
+                aria-describedby={errors.phone ? "checkout-phone-error" : undefined}
+              />
+              {errors.phone && <div className="err" id="checkout-phone-error">{errors.phone}</div>}
             </div>
-            <div className="field">
-              <label>Full Address *</label>
-              <textarea value={form.address} onChange={(e) => set("address", e.target.value)} placeholder="House / Road / Area, Thana, City" rows={2} style={{ minHeight: 0, resize: "vertical" }} />
-              {errors.address && <div className="err">{errors.address}</div>}
+            <div className="field checkout-field">
+              <label className="sr-only" htmlFor="checkout-email">Email (optional)</label>
+              <input
+                id="checkout-email"
+                type="email"
+                value={form.email}
+                onChange={(e) => set("email", e.target.value)}
+                placeholder="Email (optional)"
+                autoComplete="email"
+                aria-invalid={Boolean(errors.email) || undefined}
+                aria-describedby={errors.email ? "checkout-email-error" : undefined}
+              />
+              {errors.email && <div className="err" id="checkout-email-error">{errors.email}</div>}
             </div>
-            <div className="field-row">
-              <div className="field">
-                <label>Delivery Zone</label>
-                <select value={form.area} onChange={(e) => set("area", e.target.value)}>
-                  <option value="INSIDE_DHAKA">Inside Dhaka — ৳{inside}</option>
-                  <option value="OUTSIDE_DHAKA">Outside Dhaka — ৳{outside}</option>
-                </select>
-              </div>
-              <div className="field">
-                <label>Email (optional)</label>
-                <input type="email" value={form.email} onChange={(e) => set("email", e.target.value)} placeholder="you@example.com" autoComplete="email" />
-                <div className="s" style={{ marginTop: 5 }}>Order updates and one reminder if you leave checkout unfinished.</div>
-              </div>
+            <div className="field checkout-field">
+              <label className="sr-only" htmlFor="checkout-name">Full name</label>
+              <input
+                id="checkout-name"
+                value={form.name}
+                onChange={(e) => set("name", e.target.value)}
+                placeholder="Full name"
+                autoComplete="name"
+                required
+                aria-invalid={Boolean(errors.name) || undefined}
+                aria-describedby={errors.name ? "checkout-name-error" : undefined}
+              />
+              {errors.name && <div className="err" id="checkout-name-error">{errors.name}</div>}
             </div>
-            <div className="field" style={{ marginBottom: 0 }}>
-              <label>Order Notes (optional)</label>
-              <input value={form.notes} onChange={(e) => set("notes", e.target.value)} placeholder="Any special instruction" />
+            <div className="field checkout-field">
+              <label className="sr-only" htmlFor="checkout-address">Address (house, road, thana, district)</label>
+              <textarea
+                id="checkout-address"
+                value={form.address}
+                onChange={(e) => set("address", e.target.value)}
+                placeholder="Address (house, road, thana, district)"
+                autoComplete="street-address"
+                rows={3}
+                required
+                aria-invalid={Boolean(errors.address) || undefined}
+                aria-describedby={errors.address ? "checkout-address-error" : undefined}
+              />
+              {errors.address && <div className="err" id="checkout-address-error">{errors.address}</div>}
             </div>
           </div>
 
-          <div className="acard" style={{ padding: "14px 18px", marginBottom: 8 }}>
-            <label style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }}>
-              <input type="checkbox" checked={giftWrap} onChange={(e) => setGiftWrap(e.target.checked)} style={{ width: 16, height: 16 }} />
-              <div style={{ flex: 1 }}>
-                <b style={{ fontSize: 13.5 }}>🎁 Gift Wrap</b>
-                <div style={{ fontSize: 11.5, color: "var(--muted)" }}>Premium packaging + gift note</div>
-              </div>
-              <b style={{ fontSize: 13 }}>+৳{GIFT_WRAP_PRICE}</b>
+          <div className="checkout-area-picker" role="radiogroup" aria-label="Delivery area">
+            <label className={"checkout-area-option" + (form.area === "INSIDE_DHAKA" ? " selected" : "")}>
+              <input
+                className="checkout-area-input"
+                type="radio"
+                name="delivery-area"
+                value="INSIDE_DHAKA"
+                checked={form.area === "INSIDE_DHAKA"}
+                onChange={() => set("area", "INSIDE_DHAKA")}
+              />
+              <span className="checkout-area-radio" aria-hidden="true" />
+              <span className="checkout-area-name">Inside Dhaka</span>
+              <span className="checkout-area-fee">৳{inside.toLocaleString("en-IN")}</span>
             </label>
+            <label className={"checkout-area-option" + (form.area === "OUTSIDE_DHAKA" ? " selected" : "")}>
+              <input
+                className="checkout-area-input"
+                type="radio"
+                name="delivery-area"
+                value="OUTSIDE_DHAKA"
+                checked={form.area === "OUTSIDE_DHAKA"}
+                onChange={() => set("area", "OUTSIDE_DHAKA")}
+              />
+              <span className="checkout-area-radio" aria-hidden="true" />
+              <span className="checkout-area-name">Outside Dhaka</span>
+              <span className="checkout-area-fee">৳{outside.toLocaleString("en-IN")}</span>
+            </label>
+            {errors.area && <div className="err checkout-area-error">{errors.area}</div>}
           </div>
 
-          <div className="acard" style={{ padding: "16px 18px", marginBottom: 8 }}>
-            <h3 style={{ fontFamily: "var(--font-body)", fontSize: 14, fontWeight: 600, marginBottom: 8 }}>Payment Method</h3>
-            {codEnabled && (
-              <div className={"pay-opt" + (payment === "COD" ? " active" : "")} onClick={() => setPayment("COD")}>
-                <input type="radio" checked={payment === "COD"} readOnly />
-                <div>
-                  <b>Cash on Delivery</b>
-                  <div style={{ fontSize: 11.5, color: "var(--muted)" }}>Pay with cash when the parcel arrives.</div>
-                </div>
-                <span className="tag">RECOMMENDED</span>
-              </div>
+          <details className="checkout-note-disclosure">
+            <summary>Add an order note <span>Optional</span></summary>
+            <label className="sr-only" htmlFor="checkout-notes">Order notes</label>
+            <textarea
+              id="checkout-notes"
+              value={form.notes}
+              onChange={(e) => set("notes", e.target.value)}
+              placeholder="Any special instructions"
+              rows={2}
+            />
+          </details>
+
+          <div className="checkout-payment-row">
+            <span className="checkout-payment-heading">Payment</span>
+            {codEnabled ? (
+              <label className="checkout-payment-option">
+                <input type="radio" name="payment" checked={payment === "COD"} onChange={() => setPayment("COD")} />
+                <span>Cash on delivery</span>
+              </label>
+            ) : (
+              <span className="checkout-payment-disabled">Cash on delivery is currently unavailable.</span>
             )}
-            {!codEnabled && <div className="cfg-note">Online payment gateway will appear here once configured from the admin panel.</div>}
-            <div className="trust">
-              <span>🔒 Your data is protected</span><span>↩ 7-day easy returns</span><span>📞 Phone support</span>
-            </div>
           </div>
-        </div>
+        </section>
 
-        <aside className="summary">
-          <h3>Your Order</h3>
-          {freeT > 0 && (
-            <div style={{ marginBottom: 14 }}>
-              <div style={{ fontSize: 12.5, marginBottom: 6, color: "var(--muted)" }}>
-                {subtotal - discount >= freeT
-                  ? <span style={{ color: "var(--ok)", fontWeight: 600 }}>🎉 You&apos;ve unlocked FREE delivery</span>
-                  : <>Add <b style={{ color: "var(--text)" }}>৳{Math.max(0, freeT - (subtotal - discount)).toLocaleString("en-IN")}</b> more for <b>FREE delivery</b></>}
-              </div>
-              <div className="freebar"><i style={{ width: Math.min(100, ((subtotal - discount) / freeT) * 100) + "%" }} /></div>
-            </div>
-          )}
-          {lines.map((l) => (
-            <div className="mini-item" key={l.key}>
-              <img src={imgSrc(l.image, 200) || l.image} srcSet={imgSrcSet(l.image, [200, 300])} sizes="52px" alt="" width={52} height={66} loading="lazy" decoding="async" />
-              <div style={{ flex: 1 }}>
-                <div className="m">{l.title}{l.preorder && <span className="po-tag">Pre-order</span>}</div>
-                <div className="s">{[l.size, l.color].filter(Boolean).join(" · ")}</div>
-                <div className="mini-qty">
-                  <button type="button" onClick={() => setQty(l.key, l.qty - 1)} aria-label="Decrease">−</button>
-                  <span>{l.qty}</span>
-                  <button type="button" onClick={() => setQty(l.key, l.qty + 1)} aria-label="Increase">+</button>
+        <aside className="checkout-summary" aria-labelledby="checkout-summary-title">
+          <h2 id="checkout-summary-title">Your order</h2>
+          <div className="checkout-order-items">
+            {lines.map((l) => (
+              <div className="checkout-order-item" key={l.key}>
+                <img
+                  src={imgSrc(l.image, 160) || l.image}
+                  srcSet={imgSrcSet(l.image, [120, 200])}
+                  sizes="48px"
+                  alt=""
+                  width={48}
+                  height={62}
+                  loading="lazy"
+                  decoding="async"
+                />
+                <div className="checkout-order-copy">
+                  <div className="checkout-order-name">{l.title}{l.preorder && <span className="po-tag">Pre-order</span>}</div>
+                  <div className="checkout-order-variant">{[l.size, l.color].filter(Boolean).join(" · ")}</div>
+                  <div className="checkout-order-actions">
+                    <div className="mini-qty" aria-label={`Quantity: ${l.qty}`}>
+                      <button type="button" onClick={() => setQty(l.key, l.qty - 1)} aria-label={`Decrease ${l.title} quantity`}>−</button>
+                      <span>{l.qty}</span>
+                      <button type="button" onClick={() => setQty(l.key, l.qty + 1)} aria-label={`Increase ${l.title} quantity`}>+</button>
+                    </div>
+                    <button type="button" className="checkout-item-remove" onClick={() => remove(l.key)}>Remove</button>
+                  </div>
                 </div>
+                <div className="checkout-order-price">৳{(l.price * l.qty).toLocaleString("en-IN")}</div>
               </div>
-              <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
-                <button type="button" className="mini-del" onClick={() => remove(l.key)} aria-label="Remove item">
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M3 6h18M8 6V4a1 1 0 011-1h6a1 1 0 011 1v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6h14z"/></svg>
-                  <span style={{ fontSize: 10.5, marginLeft: 2 }}>Remove</span>
-                </button>
-                <div style={{ fontSize: 13.5, fontWeight: 600 }}>৳{(l.price * l.qty).toLocaleString("en-IN")}</div>
-              </div>
-            </div>
-          ))}
-          <div style={{ marginTop: 14 }}>
+            ))}
+          </div>
+
+          <div className="checkout-totals">
             <div className="sum-row"><span>Subtotal</span><span>৳{subtotal.toLocaleString("en-IN")}</span></div>
-            {discount > 0 && <div className="sum-row" style={{ color: "var(--ok)" }}><span>Discount ({applied.code})</span><span>−৳{discount.toLocaleString("en-IN")}</span></div>}
-            <div className="sum-row"><span>Delivery</span><span>{ship === 0 ? "Free" : "৳" + ship}</span></div>
-            {giftWrap && <div className="sum-row"><span>Gift Wrap</span><span>+৳{GIFT_WRAP_PRICE}</span></div>}
+            {discount > 0 && <div className="sum-row checkout-discount"><span>Discount ({applied.code})</span><span>−৳{discount.toLocaleString("en-IN")}</span></div>}
+            <div className="sum-row"><span>Delivery</span><span>{ship === 0 ? "Free" : "৳" + ship.toLocaleString("en-IN")}</span></div>
             <div className="sum-row total"><span>Total</span><span>৳{total.toLocaleString("en-IN")}</span></div>
           </div>
+
           <div className="coupon-row">
             <input placeholder="Coupon code" value={coupon} onChange={(e) => setCoupon(e.target.value.toUpperCase())} disabled={busy} aria-label="Coupon code" />
             <button className="abtn" onClick={applyCoupon} type="button" disabled={busy || cbusy || !coupon.trim()} aria-busy={cbusy || undefined}>
@@ -388,20 +430,15 @@ export default function CheckoutPage() {
           </div>
           {applied && (
             <div className="coupon-applied">
-              <span className="promo-badge ok">🎟️ Coupon <b>{applied.code}</b> applied{discount > 0 && <> · −৳{discount.toLocaleString("en-IN")}</>}</span>
-              <button type="button" className="promo-remove" onClick={() => { setApplied(null); setCoupon(""); }} aria-label="Remove coupon">✕</button>
+              <span className="promo-badge ok">Coupon <b>{applied.code}</b> applied{discount > 0 && <> · −৳{discount.toLocaleString("en-IN")}</>}</span>
+              <button type="button" className="promo-remove" onClick={() => { setApplied(null); setCoupon(""); }} aria-label="Remove coupon">×</button>
             </div>
           )}
           {captureStatus && <p className="checkout-capture-status" aria-live="polite">{captureStatus}</p>}
-          <button className="btn btn-accent" style={{ width: "100%" }} onClick={placeOrder} disabled={busy || cbusy || !codEnabled || recoveryStage === "choice"} aria-busy={busy || undefined}>
+          <button className="btn btn-accent checkout-submit" onClick={placeOrder} disabled={busy || cbusy || !codEnabled || recoveryStage === "choice"} aria-busy={busy || undefined}>
             {busy && <span className="spinner" aria-hidden="true" />}
-            <span style={busy ? { marginLeft: 8 } : undefined}>
-              {busy ? "Processing Order…" : `Place Order · ৳${total.toLocaleString("en-IN")}`}
-            </span>
+            <span>{busy ? "Processing order…" : `Place order · ৳${total.toLocaleString("en-IN")}`}</span>
           </button>
-          <p style={{ fontSize: 12, color: "var(--muted)", marginTop: 12, textAlign: "center" }}>
-            Estimated delivery: {form.area === "INSIDE_DHAKA" ? shipCfg.estimateInside || "1-2 days" : shipCfg.estimateOutside || "2-4 days"}
-          </p>
         </aside>
       </div>
     </div>

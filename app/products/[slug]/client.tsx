@@ -8,10 +8,10 @@ import { imgSrc, imgSrcSet, PDP_WIDTHS, PDP_SIZES, PDP_SRC_WIDTH, THUMB_WIDTHS }
 import { warmImage, warmWhenIdle } from "@/components/img-warm";
 import { trackRecentlyViewed } from "@/components/recently-viewed";
 import MobileGallery from "@/components/mobile-gallery";
+import SegmentedProgress from "@/components/segmented-progress";
 import { notifyHeroMounted } from "@/components/view-transition";
 // LiveWatching import removed — live views OFF per user request
 import SoldCount from "@/components/sold-count";
-import SizeRecommendation from "@/components/size-rec";
 import { normAlpha, ALPHA_ORDER } from "@/lib/size-rec";
 
 type V = { id: number; size: string | null; color: string | null; stock: number; price: number | null; image?: string | null };
@@ -204,7 +204,7 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
   });
   const colors = Array.from(new Set(product.variants.map((v) => v.color).filter(Boolean))) as string[];
 
-  // per-size stock for the currently selected color (used by size recommendation)
+  // Per-size availability for the selected color; out-of-stock sizes stay disabled.
   const sizeStock: Record<string, number> = {};
   for (const s of sizes) {
     const matching = product.variants.filter((v) => v.size === s && (!color || v.color === color));
@@ -347,17 +347,14 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
             {avail <= 0 && !preorder && <div className="soldout-overlay"><span>Sold Out</span></div>}
           </div>
 
-          {/* Pagination dots — BELOW the image, the same language as the mobile gallery and the product
-              cards: one dot per photo, the current one bigger + dark, the rest small + light. They used
-              to float over the bottom of the photo as white pills; now they sit on the page background
-              like the owner's reference. Desktop = pointer, so these stay real buttons (click to jump,
-              Tab + Enter works) — the card grids keep them decorative. */}
+          {/* One thin, clickable progress segment per photo, kept below the main image. */}
           {N > 1 && (
-            <div className="gal-dots" role="tablist" aria-label="Image pagination">
-              {product.images.map((_, i) => (
-                <button key={i} role="tab" aria-selected={i === img} aria-label={"Image " + (i + 1)} className={i === img ? "on" : ""} onClick={() => goTo(i)} />
-              ))}
-            </div>
+            <SegmentedProgress
+              count={N}
+              activeIndex={img}
+              className="gal-progress"
+              onSelect={goTo}
+            />
           )}
 
           {N > 1 && (
@@ -446,13 +443,6 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
                 })}
               </div>
             </>
-          )}
-          {sizes.length > 0 && (
-            <SizeRecommendation sizes={sizes} stockMap={sizeStock} productTitle={product.title}
-              categoryName={product.categoryName} categorySlug={product.categorySlug} sizeChartHtml={sizeChartImage ? null : sizeChartHtml}
-              activeSize={size} colorLabel={color} preorder={preorder}
-              onSelectSize={(recommended) => { setSize(recommended); setQty(1); }}
-              onOpenChart={sizeChartHtml || sizeChartImage ? () => setChart(true) : undefined} />
           )}
           {colors.length > 0 && (
             <>

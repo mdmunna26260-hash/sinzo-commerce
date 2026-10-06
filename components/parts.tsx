@@ -35,7 +35,7 @@ export function ProductCard({ p, rd }: { p: CardProduct; rd?: number }) {
   return (
     <div className="pcard-cell" style={rd != null ? ({ "--rd": rd } as CSSProperties) : undefined}>
     <CardLink className="pcard reveal" href={"/products/" + p.slug}>
-      {/* photo(s) + the image pagination dots under them — see components/card-media.tsx.
+      {/* photo(s) + the segmented image progress bar under them — see components/card-media.tsx.
           The badges are passed as children so they stay inside the clipped image box. */}
       <CardMedia images={p.images} image={p.image} alt={p.title} slug={p.slug}>
         <div className="pcard-badges">

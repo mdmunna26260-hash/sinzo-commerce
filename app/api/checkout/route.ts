@@ -77,7 +77,7 @@ export async function POST(req: Request) {
       if (captureHash) {
         draft = await tx.abandonedCheckout.upsert({ where: { captureKeyHash: captureHash }, update: {}, create: {
           captureKeyHash: captureHash, name, phone: cleanPhone, email: email || null, address,
-          total: subtotal, cartJson: JSON.stringify({ version: 2, items: orderItems, area, notes, giftWrap: body.giftWrap === true, couponCode: typeof couponCode === "string" ? couponCode : null }),
+          total: subtotal, cartJson: JSON.stringify({ version: 2, items: orderItems, area, notes, couponCode: typeof couponCode === "string" ? couponCode : null }),
         } });
         await lockAbandoned(tx, draft.id);
         draft = await tx.abandonedCheckout.findUniqueOrThrow({ where: { id: draft.id } });
@@ -107,7 +107,7 @@ export async function POST(req: Request) {
         appliedCode = applied.code;
         await tx.coupon.update({ where: { code }, data: { usedCount: { increment: 1 } } });
       }
-      const { total, deliveryFee, giftWrapFee } = checkoutTotals({ subtotal, discount, area, shipping: shipCfg, checkout: checkoutCfg, giftWrap: body.giftWrap === true, freeship });
+      const { total, deliveryFee } = checkoutTotals({ subtotal, discount, area, shipping: shipCfg, freeship });
       const customer = await tx.customer.upsert({
         where: { phone: cleanPhone },
         update: { name, address, area, ...(email ? { email } : {}) },
@@ -116,7 +116,7 @@ export async function POST(req: Request) {
       const order = await tx.order.create({
         data: {
           code: "TEMP-" + crypto.randomUUID(), name, phone: cleanPhone, email: email || null,
-          address, area, notes: body.giftWrap === true ? (notes ? notes + " | " : "") + "🎁 GIFT WRAP (+৳" + giftWrapFee + ")" : notes || null,
+          address, area, notes: notes || null,
           subtotal, discount, deliveryFee, total, couponCode: appliedCode,
           paymentMethod, paymentStatus: "PENDING", status: risk.level === "HIGH" ? "ON_HOLD" : "PENDING",
           riskLevel: risk.level, riskFlags: risk.flags.join(", ") || null,

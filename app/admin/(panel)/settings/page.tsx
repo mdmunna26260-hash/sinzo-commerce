@@ -12,6 +12,7 @@ export default async function SettingsPage(props: { searchParams: Promise<any> }
   const user = await requireAdmin(searchParams, "settings");
   const raw = envFallback(await getSettings(true));
   const s = maskAdminSettings(raw);
+  if (s.checkout) delete s.checkout.giftWrapFee;
   const courierCfg = s.courier;
   const notificationsCfg = s.notifications;
   const hasCourier = !!(raw.courier?.apiKey && raw.courier?.secretKey);

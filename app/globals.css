@@ -143,24 +143,54 @@ h1, h2, h3, .serif { font-family: var(--font-head); font-weight: 500; letter-spa
 .pcard { position: relative; }
 .pcard-img { position: relative; overflow: hidden; aspect-ratio: var(--img-ratio, 3 / 4); background: #eee9e2; border-radius: var(--radius); }
 .pcard-img img { width: 100%; height: 100%; object-fit: cover; transition: transform .6s ease; -webkit-user-drag: none; }
-/* Card media: the photo box plus the image pagination dots that hang UNDER the image.
-   ONE dot per photo — the current one bigger and dark, the others small and light.
-   `.pcard-info` already leaves 14px above the title, so the row is absolutely positioned inside
-   that gap: a card with several photos stays exactly as tall as its single-photo neighbours and
-   the grid never goes ragged. It cannot live inside `.pcard-img` — that box clips its content
-   (components/card-media.tsx draws the row and explains why). */
+/* Product-card image progress: one thin, equal-width segment per photo, placed in the gap
+   before the title. The absolutely positioned bar keeps photo cards aligned with single-image cards. */
 .pcard-media { position: relative; }
-.pcard-dots {
-  position: absolute; left: 0; right: 0; bottom: -11px;
-  display: flex; align-items: center; justify-content: center; gap: 5px;
-  pointer-events: none;              /* the whole card is the link — the dots are decoration */
+.image-progress {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  min-width: 0;
 }
-.pcard-dots i {
-  display: block; width: 5px; height: 5px; border-radius: 99px;
+.image-progress-segment {
+  display: block;
+  position: relative;
+  flex: 1 1 0;
+  min-width: 0;
+  height: 2px;
+  border: 0;
+  border-radius: 99px;
+  padding: 0;
   background: rgba(20, 20, 20, .22);
-  transition: background .18s ease, width .18s ease, height .18s ease;
+  transition: background-color .18s ease;
 }
-.pcard-dots i.on { width: 8px; height: 8px; background: var(--text); }
+.image-progress-segment.is-active { background: var(--text); }
+button.image-progress-segment {
+  -webkit-appearance: none;
+  appearance: none;
+  color: inherit;
+  cursor: pointer;
+}
+@media (prefers-reduced-motion: reduce) { .image-progress-segment { transition: none; } }
+button.image-progress-segment::after {
+  content: "";
+  position: absolute;
+  inset: -11px 0;
+}
+button.image-progress-segment:focus-visible { outline: none; }
+button.image-progress-segment:focus-visible::after {
+  inset: -8px 1px;
+  border: 2px solid var(--accent);
+  border-radius: 4px;
+}
+.pcard-progress {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -8px;
+  pointer-events: none;              /* the whole card is the link — this bar is decoration */
+}
 @media (hover: hover) { .pcard:hover .pcard-img img { transform: scale(1.05); } }
 /* Badges are decoration on top of the photo — they must not punch a dead hole in the swipe
    surface (a gesture that started on a badge reached neither the photo gallery nor the rail).
@@ -850,16 +880,15 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 13.5px; }
 .crs-ui { display: flex; align-items: center; justify-content: center; gap: 14px; padding: 14px 0 0; }
 .crs-arrow { width: 34px; height: 34px; border-radius: 99px; border: 1px solid var(--line); background: transparent; color: var(--text); font-size: 18px; line-height: 0; display: flex; align-items: center; justify-content: center; cursor: pointer; padding-bottom: 3px; }
 .crs-arrow:active { background: rgba(20, 20, 20, .06); }
-/* same dot language as the product-image dots: current one bigger + dark, the rest small + light */
+/* Home rails use page dots (product-photo galleries use the separate segmented progress bar). */
 .crs-dots { display: flex; gap: 6px; align-items: center; }
 .crs-dots button { width: 6px; height: 6px; border-radius: 99px; border: none; background: rgba(20, 20, 20, .22); padding: 0; cursor: pointer;
   transition: background .18s ease, width .18s ease, height .18s ease; }
 .crs-dots button.on { background: var(--text); width: 9px; height: 9px; }
-/* the dots are 6px — too small to hit reliably with a thumb. Grow only the hit area (no visual
-   change) so pagination meets the 44px guideline, and give keyboard users a visible ring. */
-.crs-dots button, .mgal-dots button, .gal-dots button { position: relative; }
-.crs-dots button::after, .mgal-dots button::after { content: ""; position: absolute; inset: -19px -8px; }
-.crs-dots button:focus-visible, .mgal-dots button:focus-visible, .gal-dots button:focus-visible { outline: 2px solid var(--accent); outline-offset: 10px; }
+/* Home-carousel dots are 6px — grow only their hit area, without changing the visuals. */
+.crs-dots button { position: relative; }
+.crs-dots button::after { content: ""; position: absolute; inset: -19px -8px; }
+.crs-dots button:focus-visible { outline: 2px solid var(--accent); outline-offset: 10px; }
 @media (min-width: 900px) { .crs { margin: 0; } }
 
 /* ---------- filter drawer UI polish ---------- */
@@ -1347,33 +1376,9 @@ a, button, [role="button"], label, summary, input, select, textarea,
   color: var(--text);
   transition: transform .2s ease;
 }
-/* dots — BELOW the image (they used to float over the photo), one per image.
-   Minimal, SINZO palette: the current dot is bigger + dark, the rest stay small + light. */
-.mgal-dots {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 6px;
-  padding: 10px 0 4px;
-}
-.mgal-dots button {
-  width: 6px;
-  height: 6px;
-  border-radius: 99px;
-  border: none;
-  background: rgba(20,20,20,.22);
-  padding: 0;
-  cursor: pointer;
-  transition: background .18s ease, width .18s ease, height .18s ease;
-}
-.mgal-dots button.on {
-  background: var(--text);
-  width: 9px;
-  height: 9px;
-}
-/* the shared rule below grows every dot's hit area by 19px — right for the rail dots, but here
-   it would reach into the photo above and the thumbnail strip below, so it is trimmed to ~32px */
-.mgal-dots button::after { inset: -13px -7px; }
+/* One-segment-per-photo progress bar BELOW the image. The buttons retain a generous invisible
+   hit area while the visible track stays a refined 2px line. */
+.mgal-progress { padding: 10px 0 4px; }
 
 /* thumbnail strip under the mobile swipe gallery */
 .mgal-thumbs { display: flex; gap: 8px; overflow-x: auto; padding: 10px 16px 2px; scrollbar-width: none; -webkit-overflow-scrolling: touch; scroll-padding: 0 16px; }
@@ -1383,8 +1388,6 @@ a, button, [role="button"], label, summary, input, select, textarea,
 .mgal-thumbs button img { width: 100%; height: 100%; object-fit: cover; display: block; -webkit-user-drag: none; user-select: none; }
 @media (max-width: 360px) {
   .mgal-count { bottom: 10px; left: 10px; }
-  .mgal-dots button { width: 5px; height: 5px; }
-  .mgal-dots button.on { width: 8px; height: 8px; }
 }
 
 /* ================================================================
@@ -1824,9 +1827,8 @@ input::placeholder, textarea::placeholder { color: #b0aaa1; }
 }
 .mini-del span { color: var(--danger); }
 
-/* Page dots under the "you may also like" rail (PDP). The markup was always there, but no rule
-   had ever been written for it: the spans rendered zero-sized, so the rail gave no sign that it
-   had more than one page. Same dot language as .pcard-dots (card photos) and .crs-dots (home). */
+/* Page dots under the "you may also like" rail (PDP). These track carousel pages, so they stay
+   as dots; the segmented progress bar is reserved for individual product-photo galleries. */
 .rel-dots {
   display: flex;
   gap: 6px;
@@ -2328,16 +2330,11 @@ html.theme-transition *::after {
 :root[data-theme="dark"] .pdp-price .off { color: #b3392f; }
 :root[data-theme="dark"] .badge.sale { background: #b3392f; }
 
-/* Pagination dots used to sit ON the light image mat, so dark mode needed dark dots there.
-   They now sit BELOW the image, on the page background: in dark mode the *inactive* dot has
-   to flip to light (the active one already uses var(--text), which is light in dark mode). */
-:root[data-theme="dark"] .mgal-dots button,
-:root[data-theme="dark"] .pcard-dots i,
-:root[data-theme="dark"] .gal-dots button,
+/* The inactive segments sit beneath the image: keep them visible in dark mode while the
+   active segment uses the theme text color. Home-rail dots keep their existing treatment. */
+:root[data-theme="dark"] .image-progress-segment:not(.is-active) { background: rgba(255, 255, 255, .26); }
+:root[data-theme="dark"] .image-progress-segment.is-active { background: var(--text); }
 :root[data-theme="dark"] .crs-dots button { background: rgba(255, 255, 255, .26); }
-:root[data-theme="dark"] .mgal-dots button.on,
-:root[data-theme="dark"] .pcard-dots i.on,
-:root[data-theme="dark"] .gal-dots button.on,
 :root[data-theme="dark"] .crs-dots button.on { background: var(--text); }
 
 /* Admin + customer login: card blends into the dark canvas — give it an
@@ -2363,53 +2360,6 @@ html.theme-transition *::after {
   .mobile-nav.open { animation: none; }
 }
 
-/* ---- Size recommendation (PDP) — theme-aware surfaces
-   (was hardcoded light inline: panel #f8f7f5, inputs #fff — unreadable
-   on the dark PDP). Light values preserved, dark variants below. */
-.srec { background: #f8f7f5; }
-.srec-input { background: #fff; border: 1px solid var(--line); color: var(--text); }
-.srec-input::placeholder { color: #a39d92; }
-.srec-unit { border: 1px solid var(--line); background: #fff; color: var(--text); }
-.srec-unit.on { background: var(--text); color: var(--bg); border-color: var(--text); }
-:root[data-theme="dark"] .srec { background: #1b1917; border: 1px solid #2c2923; }
-:root[data-theme="dark"] .srec-input { background: #171512; color: #f1eee8; }
-:root[data-theme="dark"] .srec-input::placeholder { color: #8f897d; }
-:root[data-theme="dark"] .srec-unit { background: #171512; color: #e8e4dc; }
-:root[data-theme="dark"] .srec-unit.on { background: #f5f2ec; color: #131210; border-color: #f5f2ec; }
-
-/* Height/weight-only advanced recommendation: compact, mobile-friendly controls. */
-.srec-wrap { margin: -4px 0 10px; }
-.srec-toggle { background: none; border: 0; color: var(--accent); font-size: 12px; cursor: pointer; padding: 4px 0; text-decoration: underline; text-underline-offset: 3px; }
-.srec { padding: 16px; border: 1px solid var(--line); border-radius: 10px; margin-top: 8px; display: grid; gap: 14px; }
-.srec-intro b { font-size: 15px; }
-.srec-intro p { font-size: 12px; line-height: 1.5; color: var(--muted); margin: 4px 0 0; }
-.srec-height-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
-.srec-label { display: block; color: var(--muted); font-size: 11px; margin-bottom: 5px; }
-.srec-height-head .srec-label { margin: 0; text-transform: uppercase; letter-spacing: .08em; }
-.srec-units { display: flex; gap: 6px; }
-.srec-unit { font-size: 11px; padding: 6px 12px; min-height: 32px; border-radius: 99px; cursor: pointer; font-weight: 600; }
-.srec-fields { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; }
-.srec-fields-ft .srec-weight { grid-column: 1 / -1; }
-.srec-input { width: 100%; min-width: 0; padding: 10px 12px; border-radius: 5px; font-size: 16px; min-height: 44px; }
-.srec-input[aria-invalid="true"] { border-color: var(--danger); }
-.srec .err { color: var(--danger); font-size: 11.5px; line-height: 1.5; margin-top: 4px; }
-.srec-result { border-top: 1px solid var(--line); padding-top: 12px; font-size: 13px; }
-.srec-recommended { display: flex; align-items: baseline; flex-wrap: wrap; gap: 6px; }
-.srec-recommended strong { color: var(--accent); font-size: 19px; }
-.srec-available { color: var(--ok); font-size: 12px; font-weight: 600; }
-.srec-guide { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 12px 0; }
-.srec-guide > div { border: 1px solid var(--line); border-radius: 6px; padding: 9px 12px; }
-.srec-guide span { display: block; color: var(--muted); font-size: 11px; margin-bottom: 3px; }
-.srec-guide b { font-size: 19px; }
-.srec-help { color: var(--muted); font-size: 11.5px; line-height: 1.55; margin: 6px 0; }
-.srec-invalid { color: var(--danger); font-size: 12px; }
-.srec-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 4px; }
-.srec-use { min-height: 38px; padding: 8px 12px; border: 1px solid var(--text); border-radius: 5px; background: var(--text); color: var(--bg); font-size: 12px; cursor: pointer; }
-.srec-use:disabled { background: transparent; color: var(--muted); border-color: var(--line); cursor: default; }
-.srec-foot { border-top: 1px solid var(--line); padding-top: 10px; }
-.srec-foot p { color: var(--muted); font-size: 11px; line-height: 1.5; margin: 0; }
-.srec-foot button { border: 0; background: none; padding: 6px 0 0; font-size: 12px; color: var(--accent); text-decoration: underline; cursor: pointer; }
-
 /* Account page — disabled login-id field was hardcoded light */
 :root[data-theme="dark"] .acct-disabled { background: #171512; color: #c6c0b4; }
 
@@ -2422,16 +2372,10 @@ html.theme-transition *::after {
 :root[data-theme="dark"] .ad-row { background: #171512; }
 
 /* ================= Live watching (social proof, PDP) ================= */
-/* desktop gallery carousel dots — BELOW the main image (they used to float over the photo as
-   white pills), same language as `.mgal-dots` (mobile) and `.pcard-dots` (cards): centre on the
-   page background, current dot bigger + dark, the rest small + light.
-   Placement: `.pdp-gallery-desktop` is `display: contents`, so this row is a grid item of
-   `.pdp-gallery` (72px thumbs | photo). Column 2 / row 2 puts it exactly under the photo while
-   the thumbnail rail keeps column 1 — the order the mobile gallery uses (photo → dots → thumbs). */
-.gal-dots { grid-column: 2; grid-row: 2; display: flex; justify-content: center; align-items: center; gap: 6px; padding: 2px 0 0; }
-.gal-dots button { width: 6px; height: 6px; border-radius: 99px; border: none; padding: 0; cursor: pointer; background: rgba(20, 20, 20, .22); transition: background .18s ease, width .18s ease, height .18s ease; }
-.gal-dots button.on { width: 9px; height: 9px; background: var(--text); }
-.gal-dots button::after { inset: -10px -6px; }
+/* Desktop segmented image progress bar, placed below the main image. `.pdp-gallery-desktop`
+   is `display: contents`, so the bar is a grid item: column 2 / row 2 keeps it under the photo
+   while the thumbnail rail stays in column 1. */
+.gal-progress { grid-column: 2; grid-row: 2; padding: 2px 0 0; }
 
 /* pre-order (PDP badge + order line tag) */
 .pdp-preorder { display: flex; align-items: center; gap: 8px; margin: 4px 0 2px; font-size: 13px; color: var(--muted); }
@@ -2909,7 +2853,7 @@ html.theme-transition *::after {
   .cg-arrow.off { pointer-events: none; }
 }
 
-/* (the image dots are drawn by the card, under the image — see `.pcard-dots` above) */
+/* (the product-image progress bar is drawn by the card under the image — see `.pcard-progress` above) */
 
 /* ====================================================================
    MODERN UI PASS — home page + global polish (2026-09-21)
@@ -3616,3 +3560,251 @@ body:has(.admin-body) .scroll-progress { display: none !important; }
 .recovery-banner ul { margin: 8px 0 0; padding-left: 20px; color: var(--muted); font-size: 12px; }
 .recovery-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px; }
 .checkout-capture-status { color: var(--muted); font-size: 11px; margin: 10px 0; }
+
+/* Minimal, mobile-first storefront checkout. Keep the form quiet and let the
+   outlined fields and delivery choice carry the visual hierarchy. */
+.checkout-page.checkout-minimal {
+  max-width: 1160px;
+  padding: 30px 24px 72px;
+}
+.checkout-minimal .checkout-h1 {
+  max-width: 1040px;
+  margin: 2px auto 22px;
+  font-family: var(--font-body);
+  font-size: 25px;
+  font-weight: 500;
+  letter-spacing: -.025em;
+}
+.checkout-layout.checkout-minimal-layout {
+  max-width: 1040px;
+  grid-template-columns: minmax(0, 1.2fr) minmax(290px, .8fr);
+  gap: 42px;
+  margin: 0 auto;
+  padding: 0;
+  animation: none;
+}
+.checkout-minimal-layout > * { min-width: 0; }
+.checkout-minimal-form { display: grid; gap: 18px; align-content: start; }
+.checkout-minimal-fields { display: grid; gap: 12px; }
+.checkout-minimal-form .field { margin: 0; }
+.checkout-minimal-form .field input,
+.checkout-minimal-form .field textarea {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  min-height: 54px;
+  padding: 13px 16px;
+  border: 1px solid color-mix(in srgb, var(--line) 94%, var(--text));
+  border-radius: 14px;
+  background: var(--bg);
+  color: var(--text);
+  font: 400 16px/1.4 var(--font-body);
+  box-shadow: none;
+  transition: border-color .16s ease, box-shadow .16s ease;
+}
+.checkout-minimal-form .field textarea {
+  height: 96px;
+  min-height: 96px;
+  padding: 14px 16px;
+  resize: vertical;
+}
+.checkout-minimal-form .field input::placeholder,
+.checkout-minimal-form .field textarea::placeholder {
+  color: var(--muted);
+  opacity: .96;
+}
+.checkout-minimal-form .field input:focus,
+.checkout-minimal-form .field textarea:focus {
+  border-color: var(--text);
+  outline: none;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--text) 10%, transparent);
+}
+.checkout-minimal-form .field .err { padding: 0 3px; }
+.checkout-area-picker {
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--line) 94%, var(--text));
+  border-radius: 14px;
+  background: var(--bg);
+}
+.checkout-area-option {
+  position: relative;
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  min-height: 56px;
+  padding: 0 16px;
+  color: var(--text);
+  cursor: pointer;
+  transition: background .16s ease;
+}
+.checkout-area-option + .checkout-area-option { border-top: 1px solid var(--line); }
+.checkout-area-option.selected {
+  z-index: 1;
+  background: color-mix(in srgb, var(--bg) 94%, var(--text));
+  box-shadow: inset 0 0 0 1px var(--text);
+}
+.checkout-area-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+.checkout-area-radio {
+  display: grid;
+  width: 18px;
+  height: 18px;
+  place-items: center;
+  border: 1.5px solid var(--muted-soft);
+  border-radius: 50%;
+  background: var(--bg);
+}
+.checkout-area-input:checked + .checkout-area-radio {
+  border: 5px solid var(--text);
+}
+.checkout-area-input:focus-visible + .checkout-area-radio {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+.checkout-area-name { font-size: 16px; line-height: 1.35; }
+.checkout-area-fee { font-size: 16px; white-space: nowrap; }
+.checkout-area-error { padding: 8px 14px; }
+.checkout-note-disclosure { color: var(--text); }
+.checkout-note-disclosure summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 28px;
+  cursor: pointer;
+  list-style: none;
+  font-size: 13px;
+}
+.checkout-note-disclosure summary::-webkit-details-marker { display: none; }
+.checkout-note-disclosure summary span { margin-left: auto; color: var(--muted); font-size: 12px; }
+.checkout-note-disclosure summary::after { content: "+"; color: var(--muted); font-size: 19px; line-height: 1; }
+.checkout-note-disclosure[open] summary::after { content: "−"; }
+.checkout-note-disclosure textarea {
+  display: block;
+  width: 100%;
+  min-height: 72px;
+  margin-top: 10px;
+  padding: 12px 14px;
+  border: 1px solid color-mix(in srgb, var(--line) 94%, var(--text));
+  border-radius: 12px;
+  background: var(--bg);
+  color: var(--text);
+  font: 400 15px/1.45 var(--font-body);
+  resize: vertical;
+}
+.checkout-payment-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding-top: 15px;
+  border-top: 1px solid var(--line);
+}
+.checkout-payment-heading { color: var(--muted); font-size: 13px; }
+.checkout-payment-option { display: inline-flex; align-items: center; gap: 9px; font-size: 14px; cursor: pointer; }
+.checkout-payment-option input { width: 16px; height: 16px; accent-color: var(--text); }
+.checkout-payment-disabled { color: var(--muted); font-size: 13px; text-align: right; }
+.checkout-summary {
+  position: static;
+  padding: 18px 20px 20px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--bg) 78%, var(--card));
+}
+.checkout-summary h2 {
+  margin-bottom: 8px;
+  font-family: var(--font-body);
+  font-size: 17px;
+  font-weight: 550;
+  letter-spacing: -.01em;
+}
+.checkout-order-items { border-top: 1px solid var(--line); }
+.checkout-order-item {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 11px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line);
+}
+.checkout-order-item > img {
+  width: 48px;
+  height: 62px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--bg) 88%, var(--text));
+  object-fit: cover;
+}
+.checkout-order-copy { min-width: 0; }
+.checkout-order-name { font-size: 13px; line-height: 1.35; }
+.checkout-order-variant { min-height: 17px; color: var(--muted); font-size: 11.5px; }
+.checkout-order-actions { display: flex; align-items: center; gap: 11px; margin-top: 3px; }
+.checkout-summary .mini-qty { margin-top: 0; border-radius: 7px; }
+.checkout-summary .mini-qty button { width: 24px; height: 23px; }
+.checkout-summary .mini-qty span { min-width: 23px; font-size: 12px; }
+.checkout-item-remove {
+  padding: 2px 0;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 11px;
+}
+.checkout-item-remove:hover { color: var(--danger); }
+.checkout-order-price { padding-top: 1px; font-size: 13px; font-weight: 550; white-space: nowrap; }
+.checkout-totals { margin-top: 10px; }
+.checkout-summary .sum-row { padding: 5px 0; font-size: 13px; }
+.checkout-summary .sum-row.total { margin-top: 7px; padding-top: 11px; font-size: 16px; }
+.checkout-summary .checkout-discount { color: var(--ok); }
+.checkout-summary .coupon-row { gap: 7px; margin: 14px 0 10px; }
+.checkout-summary .coupon-row input {
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--line) 94%, var(--text));
+  border-radius: 10px;
+  background: var(--bg);
+  font-size: 13px;
+}
+.checkout-summary .coupon-row .abtn { min-width: 72px; border-radius: 10px; }
+.checkout-summary .coupon-applied { padding: 8px 10px; border-radius: 10px; }
+.checkout-summary .checkout-capture-status { margin: 8px 0; }
+.checkout-summary .checkout-submit.btn {
+  display: flex;
+  width: 100%;
+  min-height: 52px;
+  margin-top: 14px;
+  padding: 12px 16px;
+  border: 1px solid var(--text);
+  border-radius: 12px;
+  background: var(--text);
+  color: var(--bg);
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: .01em;
+  text-transform: none;
+}
+.checkout-summary .checkout-submit.btn:disabled { opacity: .48; }
+
+@media (max-width: 900px) {
+  .checkout-layout.checkout-minimal-layout {
+    max-width: 640px;
+    grid-template-columns: 1fr;
+    gap: 26px;
+  }
+  .checkout-summary { padding: 17px 16px 18px; }
+}
+@media (max-width: 640px) {
+  .checkout-page.checkout-minimal { padding: 22px 16px 56px; }
+  .checkout-minimal .checkout-h1 { margin: 0 0 17px; font-size: 23px; }
+  .checkout-layout.checkout-minimal-layout { gap: 24px; padding: 0; }
+  .checkout-minimal-form { gap: 16px; }
+  .checkout-minimal-fields { gap: 12px; }
+  .checkout-minimal-form .field input,
+  .checkout-minimal-form .field textarea { font-size: 16px; }
+  .checkout-area-option { min-height: 56px; padding-inline: 15px; }
+  .checkout-summary { border-radius: 14px; }
+}

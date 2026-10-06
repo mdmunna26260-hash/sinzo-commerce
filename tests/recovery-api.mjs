@@ -94,8 +94,8 @@ try {
   const a = await capture(p, { giftWrap: true, total: 1, items: [{ productId: p.id, variantId: p.variants[0].id, qty: 2, price: 1, title: 'Fake cheap title' }] });
   const captured = JSON.parse(a.row.cartJson);
   ok('capture keeps real product and variant references', captured.version === 2 && captured.items[0].productId === p.id && captured.items[0].variantId === p.variants[0].id);
-  ok('capture ignores forged title/price/total and includes shipping/wrap', captured.items[0].price === 200 && a.row.total === 635 && captured.items[0].title === p.title);
-  const updated = { ...a.input, revision: 2, phone: '+88' + a.input.phone, email: tag + '-changed@example.invalid', area: 'INSIDE_DHAKA', giftWrap: false, items: [{ productId: p.id, variantId: p.variants[0].id, qty: 3 }] };
+  ok('capture ignores forged title/price/total and never charges for a legacy gift-wrap flag', captured.items[0].price === 200 && a.row.total === 540 && captured.items[0].title === p.title && !Object.hasOwn(captured, 'giftWrap'));
+  const updated = { ...a.input, revision: 2, phone: '+88' + a.input.phone, email: tag + '-changed@example.invalid', area: 'INSIDE_DHAKA', items: [{ productId: p.id, variantId: p.variants[0].id, qty: 3 }] };
   assert.equal((await request('/api/checkout/start', { json: updated })).status, 200);
   let current = await db.abandonedCheckout.findUnique({ where: { id: a.row.id } });
   ok('email/quantity/zone edits update the same private draft', current.email === updated.email && JSON.parse(current.cartJson).items[0].qty === 3 && current.total === 680);
@@ -120,6 +120,7 @@ try {
   ok('fresh-browser API restores live SKU data and current price', restored.status === 200 && restored.body.lines[0].price === 250 && restored.body.lines[0].variantId === p.variants[0].id);
   ok('stock reduction is explicit, never silently overcommitted', restored.body.lines[0].qty === 2 && restored.body.warnings.length >= 2);
   ok('delivery zone/contact are restored without address guessing', restored.body.contact.area === 'INSIDE_DHAKA' && restored.body.contact.email === updated.email);
+  ok('recovery response omits legacy gift-wrap data and charges', !Object.hasOwn(restored.body, 'giftWrap') && !Object.hasOwn(restored.body.totals, 'giftWrapFee'));
   ok('private cart response cannot be cached', /no-store/.test(restored.headers.get('cache-control')));
   await db.productVariant.update({ where: { id: p.variants[0].id }, data: { stock: 30 } });
   await db.abandonedCheckout.update({ where: { id: a.row.id }, data: { email: tag + '-new@example.invalid' } });
@@ -145,13 +146,14 @@ try {
   ok('internal mail cooldown rows stay out of settings responses', !Object.keys(settingsResponse.body.settings).some(k => k.startsWith('security.')));
 
   const checkoutKey = crypto.randomBytes(32).toString('hex'); keys.push(checkoutKey);
-  const purchase = { ...withCoupon.body.contact, notes: withCoupon.body.notes, giftWrap: withCoupon.body.giftWrap, paymentMethod: 'COD', couponCode: withCoupon.body.applied.code, recoveryToken: delivered.token, captureKey: checkoutKey, items: withCoupon.body.lines.map(l => ({ productId: l.productId, variantId: l.variantId, qty: l.qty })) };
+  const purchase = { ...withCoupon.body.contact, notes: withCoupon.body.notes, paymentMethod: 'COD', couponCode: withCoupon.body.applied.code, recoveryToken: delivered.token, captureKey: checkoutKey, items: withCoupon.body.lines.map(l => ({ productId: l.productId, variantId: l.variantId, qty: l.qty })) };
   const purchases = await Promise.all([request('/api/checkout', { json: purchase }), request('/api/checkout', { json: purchase })]);
   ok('concurrent recovered checkout creates one order and returns the same code', purchases.every(r => r.status === 200) && purchases[0].body.code === purchases[1].body.code);
   await new Promise(r => setTimeout(r, 300));
   const order = await db.order.findUnique({ where: { code: purchases[0].body.code } });
   order.items = await db.orderItem.findMany({ where: { orderId: order.id } });
   ok('recovered order has linked inventory lines and source attribution', order.source === 'Recovered' && order.items[0].productId === p.id && order.items[0].variantId === p.variants[0].id);
+  ok('recovered legacy gift-wrap carts are not charged', order.total === 560 && !String(order.notes || '').includes('GIFT WRAP'));
   ok('coupon consumed only once across checkout retry', (await db.coupon.findUnique({ where: { id: c.id } })).usedCount === 1);
   ok('source draft and any late capture marker close atomically', (await db.abandonedCheckout.findUnique({ where: { id: a.row.id } })).convertedOrderId === order.id);
   const late = await request('/api/checkout/start', { json: { ...a.input, revision: 999 } });
@@ -164,13 +166,13 @@ try {
 
   const b = await capture(p, { area: 'OUTSIDE_DHAKA', giftWrap: true });
   const preview = await request(`/api/admin/abandoned/${b.row.id}/convert?preview=1`, { method: 'POST' });
-  ok('admin preview uses explicit outside zone and current fee/wrap/coupon: ' + JSON.stringify(preview.body), preview.body.area === 'OUTSIDE_DHAKA' && preview.body.total === 2 * 250 + 140 + 95 - 20);
+  ok('admin preview ignores legacy gift-wrap and applies delivery fee/coupon: ' + JSON.stringify(preview.body), preview.body.area === 'OUTSIDE_DHAKA' && preview.body.total === 2 * 250 + 140 - 20 && !Object.hasOwn(preview.body, 'giftWrapFee'));
   ok('admin conversion rolls back if confirmed price changed', (await request(`/api/admin/abandoned/${b.row.id}/convert`, { json: { expectedTotal: 1 } })).status === 409);
   const conversions = await Promise.all([request(`/api/admin/abandoned/${b.row.id}/convert`, { json: { expectedTotal: preview.body.total } }), request(`/api/admin/abandoned/${b.row.id}/convert`, { json: { expectedTotal: preview.body.total } })]);
   ok('concurrent admin conversion is atomic and idempotent', conversions.every(r => r.status === 200) && conversions[0].body.orderId === conversions[1].body.orderId && await db.order.count({ where: { phone: b.input.phone } }) === 1);
   const converted = await db.order.findUnique({ where: { id: conversions[0].body.orderId } });
   converted.items = await db.orderItem.findMany({ where: { orderId: converted.id } });
-  ok('admin recovery retains SKU/variant and correct outside Dhaka total', converted.items[0].productId === p.id && converted.items[0].variantId === p.variants[0].id && converted.total === preview.body.total);
+  ok('admin recovery retains SKU/variant and correct outside Dhaka total', converted.items[0].productId === p.id && converted.items[0].variantId === p.variants[0].id && converted.total === preview.body.total && !String(converted.notes || '').includes('GIFT WRAP'));
   const beforeDelivery = (await db.product.findUnique({ where: { id: p.id } })).stock;
   assert.equal((await request(`/api/admin/orders/${converted.id}`, { method: 'PUT', json: { status: 'DELIVERED' } })).status, 200);
   ok('admin recovered order participates in real stock delivery lifecycle', (await db.product.findUnique({ where: { id: p.id } })).stock === beforeDelivery - 2);
