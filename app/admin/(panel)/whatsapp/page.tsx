@@ -7,8 +7,9 @@ export const metadata = { title: "WhatsApp" };
 /* WhatsApp hub — the queue, the delivery rules and the health of the 2–3 numbers.
    Everything the panel shows comes from the store's own tables + the local bridge; the browser
    never talks to WhatsApp. Messages leave only through scripts/wa-worker.js → bridge. */
-export default async function WhatsAppPage({ searchParams }: { searchParams: { t?: string } }) {
-  const user = await requireAdmin(searchParams);
+export default async function WhatsAppPage(props: { searchParams: Promise<{ t?: string }> }) {
+  const searchParams = await props.searchParams;
+  const user = await requireAdmin(searchParams, "settings");
   return (
     <>
       <div className="admin-top">

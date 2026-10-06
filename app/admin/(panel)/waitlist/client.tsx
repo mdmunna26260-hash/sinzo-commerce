@@ -46,6 +46,7 @@ export default function WaitlistClient({ rows, productId }: { rows: Row[]; produ
       {msg && <div className={"noti " + (msg.ok ? "ok" : "err")} style={{ marginBottom: 12, wordBreak: "break-word" }}>{msg.text}</div>}
 
       {shown.length === 0 ? <div style={{ color: "var(--muted)" }}>No entries{q ? " matching that search" : " yet"}.</div> : (
+        <div className="tbl-scroll">
         <table className="tbl">
           <thead><tr><th>Contact</th><th>Product</th><th>Asked</th><th>Status</th><th></th></tr></thead>
           <tbody>
@@ -69,6 +70,7 @@ export default function WaitlistClient({ rows, productId }: { rows: Row[]; produ
             ))}
           </tbody>
         </table>
+        </div>
       )}
     </>
   );

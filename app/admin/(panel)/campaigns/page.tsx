@@ -16,8 +16,9 @@ type SP = { t?: string };
    - Subscribers list (recent 200)
    - Web Push broadcast (moved here from Marketing — both are outbound
      messaging channels and belong in one place) */
-export default async function CampaignsPage({ searchParams }: { searchParams: SP }) {
-  const user = await requireAdmin(searchParams);
+export default async function CampaignsPage(props: { searchParams: Promise<SP> }) {
+  const searchParams = await props.searchParams;
+  const user = await requireAdmin(searchParams, "marketing");
   const t = searchParams.t || "";
   const tk = (p: string) => (t ? p + (p.includes("?") ? "&" : "?") + "t=" + encodeURIComponent(t) : p);
 
@@ -49,7 +50,7 @@ export default async function CampaignsPage({ searchParams }: { searchParams: SP
         </div>
       </div>
 
-      <div className="kpis" style={{ gridTemplateColumns: "repeat(4, 1fr)", marginBottom: 16 }}>
+      <div className="kpis kpis-4" style={{ gridTemplateColumns: "repeat(4, 1fr)", marginBottom: 16 }}>
         <div className="kpi"><div className="k-label">Email — Reachable</div><div className="k-val">{audience.toLocaleString("en-IN")}</div><div className="k-sub">will receive a campaign</div></div>
         <div className="kpi"><div className="k-label">Email — Unsubscribed</div><div className="k-val">{Math.max(0, all - audience).toLocaleString("en-IN")}</div><div className="k-sub">never mailed again</div></div>
         <div className="kpi"><div className="k-label">Push devices</div><div className="k-val">{pushTotal}</div><div className="k-sub">{pushWithPhone} linked to a phone</div></div>

@@ -15,8 +15,9 @@ type SP = { preset?: string; from?: string; to?: string; t?: string };
    invisible — order status showed RETURNED on one row at a time and no screen ever added it up.
    Classification of Steadfast's free-text statuses lives in lib/reports.parcelState() so this
    page, Profit and the order list never disagree about what "delivered" means. */
-export default async function CouriersPage({ searchParams }: { searchParams: SP }) {
-  const user = await requireAdmin(searchParams);
+export default async function CouriersPage(props: { searchParams: Promise<SP> }) {
+  const searchParams = await props.searchParams;
+  const user = await requireAdmin(searchParams, "orders");
   const t = searchParams.t || "";
   const tk = (p: string) => (t ? p + (p.includes("?") ? "&" : "?") + "t=" + encodeURIComponent(t) : p);
   const { start, end, label, preset } = resolveRange(searchParams);
@@ -126,7 +127,7 @@ export default async function CouriersPage({ searchParams }: { searchParams: SP 
         </form>
       </div>
 
-      <div className="kpis" style={{ gridTemplateColumns: "repeat(6, 1fr)" }}>
+      <div className="kpis kpis-6" style={{ gridTemplateColumns: "repeat(6, 1fr)" }}>
         {kpis.map((k) => <div className="kpi" key={k.label}><div className="k-label">{k.label}</div><div className="k-val">{k.val}</div>{k.sub && <div className="k-sub">{k.sub}</div>}</div>)}
       </div>
 
@@ -136,11 +137,12 @@ export default async function CouriersPage({ searchParams }: { searchParams: SP 
           : <>Returned parcels cost <b>{money(rtoLoss)}</b> in courier charges alone{rtoUnpriced > 0 && <> (plus {rtoUnpriced} parcels with no rate set)</>}, on top of <b>{money(blocked)}</b> of goods that came back instead of being sold. Both legs of a returned parcel are paid; that is why an RTO rate above 10% eats a margin alive.</>}
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, alignItems: "start", marginBottom: 16 }}>
+      <div className="adm-cols" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, alignItems: "start", marginBottom: 16  }}>
         <div className="acard">
           <div className="acard-h"><h3>By courier</h3></div>
           <div className="acard-b" style={{ overflowX: "auto" }}>
             {byCourier.length === 0 ? <div style={{ color: "var(--muted)" }}>No parcels booked in this range.</div> : (
+              <div className="tbl-scroll">
               <table className="tbl">
                 <thead><tr><th>Courier</th><th>Sent</th><th>Delivered</th><th>RTO</th><th>RTO %</th><th>Loss</th></tr></thead>
                 <tbody>
@@ -156,6 +158,7 @@ export default async function CouriersPage({ searchParams }: { searchParams: SP 
                   ))}
                 </tbody>
               </table>
+              </div>
             )}
           </div>
         </div>
@@ -163,6 +166,7 @@ export default async function CouriersPage({ searchParams }: { searchParams: SP 
         <div className="acard">
           <div className="acard-h"><h3>Where parcels go</h3></div>
           <div className="acard-b" style={{ display: "grid", gap: 14 }}>
+            <div className="tbl-scroll">
             <table className="tbl">
               <thead><tr><th>Zone</th><th>Sent</th><th>Delivered</th><th>RTO</th><th>RTO %</th></tr></thead>
               <tbody>
@@ -177,10 +181,12 @@ export default async function CouriersPage({ searchParams }: { searchParams: SP 
                 ))}
               </tbody>
             </table>
+            </div>
             <div>
               <div style={{ fontSize: 12, color: "var(--muted)", marginBottom: 6 }}>
                 RTO by the risk level the fraud check gave the order at checkout — if HIGH is not clearly worse than LOW, the flags need tuning.
               </div>
+              <div className="tbl-scroll">
               <table className="tbl">
                 <thead><tr><th>Risk</th><th>Sent</th><th>RTO</th><th>RTO %</th></tr></thead>
                 <tbody>
@@ -194,9 +200,11 @@ export default async function CouriersPage({ searchParams }: { searchParams: SP 
                   ))}
                 </tbody>
               </table>
+              </div>
             </div>
             <div>
               <div style={{ fontSize: 12, color: "var(--muted)", marginBottom: 6 }}>COD vs prepaid — the honest argument for asking for an advance on risky orders.</div>
+              <div className="tbl-scroll">
               <table className="tbl">
                 <thead><tr><th>Payment</th><th>Sent</th><th>RTO</th><th>RTO %</th></tr></thead>
                 <tbody>
@@ -210,16 +218,18 @@ export default async function CouriersPage({ searchParams }: { searchParams: SP 
                   ))}
                 </tbody>
               </table>
+              </div>
             </div>
           </div>
         </div>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, alignItems: "start" }}>
+      <div className="adm-cols" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, alignItems: "start"  }}>
         <div className="acard">
           <div className="acard-h"><h3>Repeated returns</h3><span style={{ fontSize: 12, color: "var(--muted)" }}>customers whose parcels came back</span></div>
           <div className="acard-b" style={{ overflowX: "auto" }}>
             {repeat.length === 0 ? <div style={{ color: "var(--muted)" }}>Nobody in this range has a returned parcel. 👌</div> : (
+              <div className="tbl-scroll">
               <table className="tbl">
                 <thead><tr><th>Customer</th><th>Orders</th><th>RTO</th><th>Goods returned</th><th>Last</th></tr></thead>
                 <tbody>
@@ -237,6 +247,7 @@ export default async function CouriersPage({ searchParams }: { searchParams: SP 
                   ))}
                 </tbody>
               </table>
+              </div>
             )}
           </div>
           <div className="acard-b" style={{ paddingTop: 0, fontSize: 12, color: "var(--muted)" }}>
@@ -249,6 +260,7 @@ export default async function CouriersPage({ searchParams }: { searchParams: SP 
           <div className="acard-h"><h3>RTO month by month</h3><span style={{ fontSize: 12, color: "var(--muted)" }}>last 8 months</span></div>
           <div className="acard-b" style={{ overflowX: "auto" }}>
             {months.length === 0 ? <div style={{ color: "var(--muted)" }}>No parcels booked yet.</div> : (
+              <div className="tbl-scroll">
               <table className="tbl">
                 <thead><tr><th>Month</th><th>Sent</th><th>Delivered</th><th>RTO</th><th>RTO %</th><th style={{ width: "26%" }}></th></tr></thead>
                 <tbody>
@@ -271,6 +283,7 @@ export default async function CouriersPage({ searchParams }: { searchParams: SP 
                   })}
                 </tbody>
               </table>
+              </div>
             )}
           </div>
           <div className="acard-b" style={{ paddingTop: 0, fontSize: 12, color: "var(--muted)" }}>

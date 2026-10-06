@@ -99,7 +99,7 @@ export default function ScanClient() {
             {["CANCELLED", "RETURNED"].includes(order.status) && (
               <div className="noti err" style={{ marginBottom: 12 }}>This order is {order.status}. Do not pack it.</div>
             )}
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+            <div className="adm-cols" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
               <div style={{ fontSize: 13.5 }}>
                 <div><b>{order.name}</b> · {order.phone}</div>
                 <div style={{ color: "var(--muted)", marginTop: 2 }}>{order.address}</div>
@@ -111,6 +111,7 @@ export default function ScanClient() {
                 </div>
               </div>
               <div>
+                <div className="tbl-scroll">
                 <table className="tbl">
                   <thead><tr><th>Item</th><th>Qty</th></tr></thead>
                   <tbody>
@@ -122,6 +123,7 @@ export default function ScanClient() {
                     ))}
                   </tbody>
                 </table>
+                </div>
               </div>
             </div>
             {msg && <div className={"noti " + (msg.ok ? "ok" : "err")} style={{ marginTop: 12 }}>{msg.text}</div>}
@@ -137,11 +139,12 @@ export default function ScanClient() {
         </div>
       )}
 
-      <div style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr", gap: 16, alignItems: "start" }}>
+      <div className="adm-cols" style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr", gap: 16, alignItems: "start"  }}>
         <div className="acard">
           <div className="acard-h"><h3>Waiting to pack</h3><span style={{ fontSize: 12, color: "var(--muted)" }}>oldest first</span></div>
           <div className="acard-b" style={{ overflowX: "auto" }}>
             {queue.length === 0 ? <div style={{ color: "var(--muted)" }}>Nothing is waiting — every order is packed or shipped.</div> : (
+              <div className="tbl-scroll">
               <table className="tbl">
                 <thead><tr><th>Order</th><th>Customer</th><th>Area</th><th>COD</th><th>Age</th></tr></thead>
                 <tbody>
@@ -159,6 +162,7 @@ export default function ScanClient() {
                   })}
                 </tbody>
               </table>
+              </div>
             )}
           </div>
         </div>

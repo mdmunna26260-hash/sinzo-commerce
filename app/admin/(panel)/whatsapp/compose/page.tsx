@@ -10,8 +10,11 @@ export const metadata = { title: "WhatsApp — New message" };
 /* Composer (Phase 2): write a message, attach up to 10 photos, drop in a product card + coupon and
    watch the exact text the customer will read. Sending goes through the outbox queue and runs one
    worker tick immediately, so the preview and the send share one code path. */
-export default async function ComposePage({ searchParams }: { searchParams: { t?: string; to?: string; order?: string } }) {
-  const user = await requireAdmin(searchParams);
+export default async function ComposePage(
+  props: { searchParams: Promise<{ t?: string; to?: string; order?: string }> }
+) {
+  const searchParams = await props.searchParams;
+  const user = await requireAdmin(searchParams, "settings");
   const { ensureExtraTables } = await import("@/lib/db-ensure");
   await ensureExtraTables().catch(() => {});
   const s = envFallback(await getSettings());

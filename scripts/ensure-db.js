@@ -1,14 +1,14 @@
-/* Build-time database schema safety net.
-   Runs after `next build` — ensures all new columns/tables exist in the
-   production database BEFORE the server handles any request.
-   Idempotent — safe to run every deploy. */
+/* Additive PostgreSQL schema safety net.
+   Runs on container start with the runtime DATABASE_URL, and after a direct
+   npm build when DATABASE_URL is available. Idempotent. A reviewed production
+   schema push is still required for full initialization/schema changes. */
 const path = require("path");
 
 async function main() {
   const databaseUrl = process.env.DATABASE_URL || "";
   if (!databaseUrl) { console.log("ensure-db: no DATABASE_URL, skipping"); return; }
   const isPg = databaseUrl.startsWith("postgres");
-  if (!isPg) { console.log("ensure-db: sqlite, using prisma db push"); return; }
+  if (!isPg) { console.log("ensure-db: SQLite requires npm run db:push; no PostgreSQL DDL applied"); return; }
 
   console.log("ensure-db: running DDL for PostgreSQL...");
   const { PrismaClient } = require("@prisma/client");
@@ -27,6 +27,8 @@ async function main() {
     await db.$executeRawUnsafe(`ALTER TABLE "ProductVariant" ADD COLUMN IF NOT EXISTS "image" TEXT`).catch(() => {});
     // OrderItem.variantId
     await db.$executeRawUnsafe(`ALTER TABLE "OrderItem" ADD COLUMN IF NOT EXISTS "variantId" INTEGER`).catch(() => {});
+    await db.$executeRawUnsafe(`ALTER TABLE "OrderItem" ADD COLUMN IF NOT EXISTS "stockDeductedQty" INTEGER`);
+    await db.$executeRawUnsafe(`ALTER TABLE "Order" ADD COLUMN IF NOT EXISTS "stockDeducted" BOOLEAN NOT NULL DEFAULT false`);
     // Order.channel
     await db.$executeRawUnsafe(`ALTER TABLE "Order" ADD COLUMN IF NOT EXISTS "channel" TEXT NOT NULL DEFAULT 'vps'`).catch(() => {});
     // Subscriber unsubscribe flags + Campaign table (newsletter send)
@@ -37,6 +39,12 @@ async function main() {
     // AbandonedCheckout.email + recoveryEmailedAt
     await db.$executeRawUnsafe(`ALTER TABLE "AbandonedCheckout" ADD COLUMN IF NOT EXISTS "email" TEXT`).catch(() => {});
     await db.$executeRawUnsafe(`ALTER TABLE "AbandonedCheckout" ADD COLUMN IF NOT EXISTS "recoveryEmailedAt" TIMESTAMP(3)`).catch(() => {});
+    // Recovery capture ownership + durable dispatch/conversion guards.
+    for (const [column, type] of [["captureKeyHash", "TEXT"], ["captureRevision", "INTEGER NOT NULL DEFAULT 0"], ["recoveryAttemptedAt", "TIMESTAMP(3)"], ["recoveryClaimId", "TEXT"], ["recoveryError", "TEXT"], ["convertedOrderId", "INTEGER"]]) {
+      await db.$executeRawUnsafe(`ALTER TABLE "AbandonedCheckout" ADD COLUMN IF NOT EXISTS "${column}" ${type}`).catch(() => {});
+    }
+    await db.$executeRawUnsafe(`CREATE UNIQUE INDEX IF NOT EXISTS "AbandonedCheckout_captureKeyHash_key" ON "AbandonedCheckout"("captureKeyHash")`);
+    await db.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "AbandonedCheckout_checkoutStatus_recoveryAttemptedAt_updatedAt_idx" ON "AbandonedCheckout"("checkoutStatus", "recoveryAttemptedAt", "updatedAt")`);
     // Review.photos
     await db.$executeRawUnsafe(`ALTER TABLE "Review" ADD COLUMN IF NOT EXISTS "photos" TEXT`).catch(() => {});
     // PushSubscription table

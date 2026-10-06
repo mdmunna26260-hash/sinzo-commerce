@@ -30,7 +30,7 @@ export default function TrackingClient({ cfg, events, counts, lastEvent }: any) 
     <>
       <div className="admin-top"><h1>Tracking &amp; Pixels</h1></div>
       {msg && <div className="noti ok">{msg}</div>}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1.2fr", gap: 16, alignItems: "start" }}>
+      <div className="adm-cols" style={{ display: "grid", gridTemplateColumns: "1fr 1.2fr", gap: 16, alignItems: "start"  }}>
         <div className="acard">
           <div className="acard-h"><h3>Meta Pixel + Conversions API</h3>
             <span className={"risk-badge " + (metaReady ? "risk-LOW" : "risk-HIGH")}>{metaReady ? "CONFIGURED" : "NOT CONFIGURED"}</span>
@@ -57,7 +57,7 @@ export default function TrackingClient({ cfg, events, counts, lastEvent }: any) 
         <div>
           <div className="acard" style={{ marginBottom: 16 }}>
             <div className="acard-h"><h3>Status</h3></div>
-            <div className="acard-b" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, fontSize: 13 }}>
+            <div className="acard-b adm-grid-2" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, fontSize: 13 }}>
               <div>Meta Pixel: <b style={{ color: cfg.metaPixelId ? "#2e6b4f" : "#b3392f" }}>{cfg.metaPixelId ? "Active" : "Not set"}</b></div>
               <div>Meta CAPI: <b style={{ color: cfg.hasMetaToken ? "#2e6b4f" : "#b3392f" }}>{cfg.hasMetaToken ? "Active" : "Not set"}</b></div>
               <div>GA4: <b style={{ color: cfg.ga4Id ? "#2e6b4f" : "#b3392f" }}>{cfg.ga4Id ? cfg.ga4Id : "Not set"}</b></div>
@@ -67,6 +67,7 @@ export default function TrackingClient({ cfg, events, counts, lastEvent }: any) 
           </div>
           <div className="acard">
             <div className="acard-h"><h3>Recent Tracking Events</h3></div>
+            <div className="tbl-scroll">
             <table className="tbl">
               <thead><tr><th>Event</th><th>Source</th><th>Event ID</th><th>Match keys</th><th>Result</th><th>Time</th></tr></thead>
               <tbody>
@@ -83,6 +84,7 @@ export default function TrackingClient({ cfg, events, counts, lastEvent }: any) 
                 ))}
               </tbody>
             </table>
+            </div>
           </div>
         </div>
       </div>

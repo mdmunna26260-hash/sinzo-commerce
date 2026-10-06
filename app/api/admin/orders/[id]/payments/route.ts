@@ -4,14 +4,15 @@ import { requirePerm } from "@/lib/admin-guard";
 import { logAudit } from "@/lib/auth";
 import { PAYMENT_KINDS, methodLabel, paymentStatusFor, paymentSummary, summarize, type PaymentRow } from "@/lib/payments";
 export const dynamic = "force-dynamic";
-type Ctx = { params: { id: string } };
+type Ctx = { params: Promise<{ id: string }> };
 
 /* Advance / due / refund rows for one order.
    GET  → the rows + the running summary (paid, refunded, balance)
    POST → record a payment; the order's paymentStatus follows the money:
           nothing paid → PENDING, partly paid → PARTIAL?, fully → PAID. We only ever write
           PENDING/PAID/REFUNDED because those are the values the rest of the admin uses. */
-export async function GET(_req: Request, { params }: Ctx) {
+export async function GET(_req: Request, props: Ctx) {
+  const params = await props.params;
   const g = await requirePerm("orders", _req);
   if ("res" in g) return g.res;
   const { ensureExtraTables } = await import("@/lib/db-ensure");
@@ -21,7 +22,8 @@ export async function GET(_req: Request, { params }: Ctx) {
   return NextResponse.json(data);
 }
 
-export async function POST(req: Request, { params }: Ctx) {
+export async function POST(req: Request, props: Ctx) {
+  const params = await props.params;
   const g = await requirePerm("orders", req);
   if ("res" in g) return g.res;
   const { ensureExtraTables } = await import("@/lib/db-ensure");
@@ -55,7 +57,8 @@ export async function POST(req: Request, { params }: Ctx) {
 }
 
 /** Undo a wrong entry (audited — the row goes away but the trail stays). */
-export async function DELETE(req: Request, { params }: Ctx) {
+export async function DELETE(req: Request, props: Ctx) {
+  const params = await props.params;
   const g = await requirePerm("orders", req);
   if ("res" in g) return g.res;
   const pid = Number(new URL(req.url).searchParams.get("paymentId"));

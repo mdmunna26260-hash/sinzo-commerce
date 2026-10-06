@@ -1,5 +1,5 @@
 "use client";
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { afetch, copyText } from "@/lib/afetch";
 
@@ -15,22 +15,25 @@ export default function MarketingClient({ abandoned, sources, recCouponInit, rec
 
   // ---- abandoned recovery ----
   const [recCoupon, setRecCoupon] = useState(recCouponInit || "");
+  const [recAuto, setRecAuto] = useState(recSettings?.recoveryAutoEnabled === true);
   const [recBusy, setRecBusy] = useState(false);
   const [recMsg, setRecMsg] = useState("");
   const saveRecCoupon = async () => {
     setRecBusy(true);
-    const r = await afetch("/api/admin/settings", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ group: "marketing", value: { ...(recSettings || {}), recoveryCoupon: recCoupon.trim() } }) });
-    setRecMsg(r.ok ? "Coupon saved ✓" : "Failed");
-    setRecBusy(false);
-    setTimeout(() => setRecMsg(""), 2500);
+    try {
+      const r = await afetch("/api/admin/abandoned-recover/settings", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ value: { recoveryCoupon: recCoupon.trim(), recoveryAutoEnabled: recAuto } }) });
+      const result = await r.json(); setRecMsg(r.ok ? "Recovery settings saved ✓" : result.error || "Failed");
+    } catch { setRecMsg("Network error — try again"); } finally { setRecBusy(false); }
   };
   const runRecovery = async () => {
-    if (!confirm("Ekhon recovery pass chalaben? 45min+ purano, email-ase, emnei-sob abandoned checkout e 1ta kore email jabe.")) return;
+    if (!confirm("Run recovery now? 45-minute inactive, valid-email carts only. One automatic send attempt; check provider logs before retrying failures.")) return;
     setRecBusy(true); setRecMsg("Running…");
-    const r = await afetch("/api/admin/abandoned-recover", { method: "POST" });
-    const j = await r.json().catch(() => ({}));
-    setRecMsg(r.ok ? `✓ Sent: ${j.sent} · skipped: ${j.skipped} · failed: ${j.failed}` : (j.error || "Failed"));
-    setRecBusy(false);
+    try {
+      const r = await afetch("/api/admin/abandoned-recover", { method: "POST" });
+      const result = await r.json();
+      setRecMsg(r.ok ? `Sent: ${result.sent} · skipped: ${result.skipped} · failed: ${result.failed}` : result.error || "Failed");
+      if (r.ok) router.refresh();
+    } catch { setRecMsg("Network error. Check reminder status/provider logs before retrying."); } finally { setRecBusy(false); }
   };
 
   const open = items.filter((a: any) => a.status === "OPEN");
@@ -57,18 +60,37 @@ export default function MarketingClient({ abandoned, sources, recCouponInit, rec
     setBusy(false);
   };
 
-  const takeToOrder = async (a: any, e: React.MouseEvent) => {
+  const copyRecovery = async (a: any, e: React.MouseEvent) => {
+    e.stopPropagation(); setBusy(true);
+    try {
+      const r = await afetch(`/api/admin/abandoned/${a.id}/link`, { method: "POST" });
+      const result = await r.json();
+      if (!r.ok) throw new Error(result.error || "Could not create recovery link");
+      flash(await copyText(result.url) ? "Private recovery link copied — share only with this customer" : "Could not copy link");
+    } catch (e: any) { flash(e.message || "Failed"); } finally { setBusy(false); }
+  };
+  const retryReminder = async (a: any, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!confirm("Ei abandoned checkout theke real ORDER banaben? (Status: CONFIRMED, COD)")) return;
+    if (!confirm("Check SMTP/provider logs first. Confirm NO reminder was delivered. Retrying an uncertain delivery can send a duplicate.")) return;
     setBusy(true);
-    const r = await afetch(`/api/admin/abandoned/${a.id}/convert`, { method: "POST" });
-    const j = await r.json();
-    if (r.ok) {
-      setItems((xs: any[]) => xs.map((x) => x.id === a.id ? { ...x, status: "CONVERTED" } : x));
-      flash("✓ Order " + j.code + " created — Orders page-e dekhun!");
-      router.refresh();
-    } else flash(j.error || "Failed");
-    setBusy(false);
+    try {
+      const r = await afetch(`/api/admin/abandoned/${a.id}/retry`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ confirmedProviderNotDelivered: true }) });
+      const result = await r.json(); if (!r.ok) throw new Error(result.error || "Failed");
+      setItems((rows: any[]) => rows.map(row => row.id === a.id ? { ...row, recoveryAttemptedAt: null, recoveryError: null } : row));
+      flash("Reminder reset. Run a recovery pass after checking SMTP configuration."); router.refresh();
+    } catch (e: any) { flash(e.message || "Failed"); } finally { setBusy(false); }
+  };
+  const takeToOrder = async (a: any, e: React.MouseEvent) => {
+    e.stopPropagation(); setBusy(true);
+    try {
+      const preview = await afetch(`/api/admin/abandoned/${a.id}/convert?preview=1`, { method: "POST" });
+      const quote = await preview.json(); if (!preview.ok) throw new Error(quote.error || "Cannot convert checkout");
+      if (!confirm(`Create a real COD order using CURRENT product prices/stock? Total: ${money(quote.total)} · ${quote.area === "INSIDE_DHAKA" ? "Inside Dhaka" : "Outside Dhaka"}. Stock is deducted only at delivery.`)) return;
+      const r = await afetch(`/api/admin/abandoned/${a.id}/convert`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ expectedTotal: quote.total }) });
+      const result = await r.json(); if (!r.ok) throw new Error(result.error || "Could not create order");
+      setItems((rows: any[]) => rows.map(row => row.id === a.id ? { ...row, status: "CONVERTED" } : row));
+      flash(`Order ${result.code} created · ${money(result.total)}`); router.refresh();
+    } catch (e: any) { flash(e.message || "Failed"); } finally { setBusy(false); }
   };
 
   const deleteRow = async (a: any, e: React.MouseEvent) => {
@@ -83,7 +105,7 @@ export default function MarketingClient({ abandoned, sources, recCouponInit, rec
   const deleteOld2wk = async () => {
     if (!confirm("2 week+ purano OPEN checkouts delete hobe. Confirm?")) return;
     setBusy(true);
-    const r = await afetch("/api/admin/abandoned?olderThanDays=2", { method: "DELETE" });
+    const r = await afetch("/api/admin/abandoned?olderThanDays=14", { method: "DELETE" });
     const j = await r.json().catch(() => ({}));
     if (r.ok) {
       setItems((xs: any[]) => xs.filter((x) => {
@@ -117,26 +139,26 @@ export default function MarketingClient({ abandoned, sources, recCouponInit, rec
         </div>
       </div>
       {msg && <div className="noti ok">{msg}</div>}
-      <div className="kpis" style={{ gridTemplateColumns: "repeat(3,1fr)" }}>
+      <div className="kpis kpis-3" style={{ gridTemplateColumns: "repeat(3, 1fr)" }}>
         <div className="kpi"><div className="k-label">Abandoned Checkouts</div><div className="k-val">{open.length}</div><div className="k-sub">not recovered</div></div>
         <div className="kpi"><div className="k-label">Recovered</div><div className="k-val">{items.filter((a: any) => a.status === "RECOVERED").length}</div></div>
         <div className="kpi"><div className="k-label">Recovery Rate</div><div className="k-val">{rate}%</div></div>
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr", gap: 16, alignItems: "start" }}>
+      <div className="adm-cols" style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr", gap: 16, alignItems: "start"  }}>
         <div className="acard">
           <div className="acard-h">
             <h3>Abandoned Checkouts (latest 50)</h3>
             <button className="abtn sm danger" onClick={deleteOld2wk} disabled={busy}>🗑 Delete 2wk+ old</button>
           </div>
-          <div style={{ overflowX: "auto" }}>
+          <div className="tbl-scroll">
             <table className="tbl">
               <thead><tr><th>Date</th><th>Items</th><th>Value</th><th>Status</th><th>Actions</th></tr></thead>
               <tbody>
                 {items.length === 0 && <tr><td colSpan={5} style={{ color: "var(--muted)", padding: 30 }}>No abandoned checkouts recorded yet.</td></tr>}
                 {items.map((a: any) => (
-                  <>
+                  <Fragment key={a.id}>
                   <tr key={a.id} className="abandoned-row" style={{ cursor: "pointer" }} onClick={() => setExpanded(expanded === a.id ? null : a.id)} title="Tap for details">
-                    <td style={{ fontSize: 12.5 }}>{new Date(a.updatedAt).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}{a.recoveryEmailedAt ? <div style={{ color: "var(--ok)", fontSize: 10.5 }}>✉ emailed</div> : null}</td>
+                    <td style={{ fontSize: 12.5 }}>{new Date(a.updatedAt).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}{a.recoveryEmailedAt ? <div style={{ color: "var(--ok)", fontSize: 10.5 }}>✉ SMTP accepted</div> : a.recoveryAttemptedAt ? <div style={{ color: "var(--danger)", fontSize: 10.5 }}>{a.recoveryError ? "⚠ reminder needs review" : "Sending / delivery uncertain"}</div> : null}</td>
                     <td style={{ fontSize: 12.5 }}>{a.cart.map((i: any) => i.title + " ×" + i.qty).join(", ").slice(0, 80)}</td>
                     <td><b>{money(a.total)}</b></td>
                     <td><span className={"pill " + (STATUS_PILL[a.status] || "PENDING")}>{a.status}</span></td>
@@ -147,10 +169,12 @@ export default function MarketingClient({ abandoned, sources, recCouponInit, rec
                       )}{" "}
                       {a.status === "OPEN" && (
                         <>
+                          {!a.legacy && <button className="abtn sm" disabled={busy} onClick={(e) => copyRecovery(a, e)}>Copy recovery link</button>}
+                          {(a.recoveryError || (a.recoveryAttemptedAt && !a.recoveryEmailedAt && Date.now() - new Date(a.recoveryAttemptedAt).getTime() > 300000)) && <button className="abtn sm" disabled={busy} onClick={(e) => retryReminder(a, e)}>Review / retry reminder</button>}
                           <button className="abtn sm primary" disabled={busy} onClick={(e) => markRecovered(a, e)}>Mark Recovered</button>
                           {a.phone && a.address && (
-                            <button className="abtn sm" style={{ color: "var(--accent)", borderColor: "#d9c49a", fontWeight: 600 }} disabled={busy}
-                              title="Real order hishebe convert korun" onClick={(e) => takeToOrder(a, e)}>🛒 Take to Order</button>
+                            <button className="abtn sm" style={{ color: "var(--accent)", borderColor: "#d9c49a", fontWeight: 600 }} disabled={busy || a.legacy}
+                              title="Validate current products, prices and delivery zone before conversion" onClick={(e) => takeToOrder(a, e)}>🛒 Take to Order</button>
                           )}
                         </>
                       )}{" "}
@@ -160,9 +184,11 @@ export default function MarketingClient({ abandoned, sources, recCouponInit, rec
                   {expanded === a.id && (
                     <tr key={a.id + "-detail"}>
                       <td colSpan={5} className="ad-row" style={{ padding: 16 }}>
-                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 18 }}>
+                        <div className="adm-grid-2" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 18  }}>
                           <div>
                             <div style={{ fontSize: 10.5, letterSpacing: ".16em", textTransform: "uppercase", color: "var(--muted)", marginBottom: 8 }}>🛒 Cart Items</div>
+                            {a.legacy && <p style={{ color: "var(--danger)", fontSize: 12 }}>Older capture has no trusted SKU references. Ask the customer to rebuild checkout; it will not be auto-emailed.</p>}
+                            {a.recoveryError && <p style={{ color: "var(--danger)", fontSize: 12 }}>{a.recoveryError}</p>}
                             {a.cart.map((i: any, k: number) => (
                               <div key={k} style={{ display: "flex", justifyContent: "space-between", padding: "5px 0", borderBottom: "1px solid #f0f2f5", fontSize: 13 }}>
                                 <span>{i.title} × {i.qty}</span>
@@ -202,7 +228,7 @@ export default function MarketingClient({ abandoned, sources, recCouponInit, rec
                       </td>
                     </tr>
                   )}
-                  </>
+                  </Fragment>
                 ))}
               </tbody>
             </table>
@@ -211,6 +237,7 @@ export default function MarketingClient({ abandoned, sources, recCouponInit, rec
         <div>
           <div className="acard" style={{ marginBottom: 16 }}>
             <div className="acard-h"><h3>Order Sources</h3></div>
+            <div className="tbl-scroll">
             <table className="tbl">
               <thead><tr><th>Source</th><th>Orders</th><th>Revenue</th></tr></thead>
               <tbody>
@@ -220,6 +247,7 @@ export default function MarketingClient({ abandoned, sources, recCouponInit, rec
                 {sources.length === 0 && <tr><td colSpan={3} style={{ color: "var(--muted)", padding: 20 }}>No orders yet.</td></tr>}
               </tbody>
             </table>
+            </div>
           </div>
         </div>
       </div>
@@ -230,19 +258,21 @@ export default function MarketingClient({ abandoned, sources, recCouponInit, rec
           <h3>Abandoned Cart Recovery (Email)</h3>
           <span style={{ fontSize: 12, color: "var(--muted)" }}>45min+ purano · OPEN · email thakle 1ta recovery email</span>
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 18, alignItems: "start" }}>
+        <div className="adm-grid-2" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 18, alignItems: "start"  }}>
           <div>
             <div className="field" style={{ marginBottom: 10 }}>
               <label>Recovery coupon code (optional — email e dekhabe, checkout e apply hobe)</label>
               <input value={recCoupon} onChange={(e) => setRecCoupon(e.target.value.toUpperCase())} placeholder="e.g. COMEBACK10" style={{ textTransform: "uppercase" }} />
             </div>
-            <button className="abtn primary" onClick={saveRecCoupon} disabled={recBusy}>Save coupon</button>
+            <label style={{ display: "flex", gap: 8, fontSize: 13, margin: "12px 0" }}><input type="checkbox" checked={recAuto} onChange={(e) => setRecAuto(e.target.checked)} /> Enable automatic recovery (requires scheduler + SMTP)</label>
+            <button className="abtn primary" onClick={saveRecCoupon} disabled={recBusy}>Save recovery settings</button>
+            <p style={{ color: "var(--muted)", fontSize: 12, marginTop: 8 }}>Automation is off by default. Start the recovery worker or an authenticated cron job; never put CRON_SECRET in a URL.</p>
           </div>
           <div style={{ borderLeft: "1px solid #eee", paddingLeft: 18 }}>
             <div style={{ fontSize: 12, color: "var(--muted)", marginBottom: 10 }}>
               Kivabe kaj kore: checkout form e customer name/phone/address fill kore chole gele abandoned hishebe save hoy.
               Recovery pass chalale 45min+ purano OPEN checkout gulo te ekta kore reminder email jay (cart items + total + coupon + resume link).
-              Prottekta checkout e maximum 1ta email — spam nai.
+              Prottekta draft e 1ta automatic send attempt; recipient e 24h cooldown. Delivery uncertain hole provider logs check kore manual retry approval lagbe.
             </div>
             <button className="abtn primary" onClick={runRecovery} disabled={recBusy} aria-busy={recBusy || undefined}>
               {recBusy && <span className="spinner" aria-hidden="true" />}Run recovery pass now

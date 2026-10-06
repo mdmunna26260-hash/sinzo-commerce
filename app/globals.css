@@ -1,3 +1,7 @@
+/* Brand wordmark font — Charm (SIL OFL 1.1, self-hosted from @fontsource/charm 5.3.0,
+   Latin subset; licence in public/fonts/Charm-OFL.txt). Used ONLY for the "SINZO" logo text. */
+@font-face { font-family: 'Charm'; font-style: normal; font-weight: 400; font-display: swap; src: url('/fonts/charm-400.woff2') format('woff2'); }
+@font-face { font-family: 'Charm'; font-style: normal; font-weight: 700; font-display: swap; src: url('/fonts/charm-700.woff2') format('woff2'); }
 :root {
   --bg: #faf9f7;
   --text: #111111;
@@ -11,6 +15,7 @@
   --radius: 2px;
   --font-head: 'Didot', 'Bodoni MT', 'Playfair Display', Georgia, serif;
   --font-body: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+  --font-logo: 'Charm', 'Brush Script MT', cursive;
   --container: 1440px;
 
   /* One glass recipe for the frosted surfaces that sit next to each other.
@@ -62,7 +67,7 @@ h1, h2, h3, .serif { font-family: var(--font-head); font-weight: 500; letter-spa
 /* ---------- Header ---------- */
 .header { position: sticky; top: 0; z-index: 50; background: rgba(250,249,247,.92); backdrop-filter: blur(10px); border-bottom: 1px solid var(--line); }
 .header-inner { display: flex; align-items: center; justify-content: space-between; height: 66px; gap: 20px; }
-.logo { font-family: var(--font-head); font-size: 26px; letter-spacing: .28em; text-transform: uppercase; }
+.logo { font-family: var(--font-logo); font-size: 26px; letter-spacing: .28em; text-transform: uppercase; }
 .nav { display: flex; gap: 28px; }
 .nav a { font-size: 12px; letter-spacing: .16em; text-transform: uppercase; padding: 6px 0; border-bottom: 1.5px solid transparent; color: var(--text); font-weight: 550; transition: border-color .2s ease, color .2s ease; opacity: .82; }
 .nav a:hover { opacity: 1; border-color: var(--accent); }
@@ -138,24 +143,54 @@ h1, h2, h3, .serif { font-family: var(--font-head); font-weight: 500; letter-spa
 .pcard { position: relative; }
 .pcard-img { position: relative; overflow: hidden; aspect-ratio: var(--img-ratio, 3 / 4); background: #eee9e2; border-radius: var(--radius); }
 .pcard-img img { width: 100%; height: 100%; object-fit: cover; transition: transform .6s ease; -webkit-user-drag: none; }
-/* Card media: the photo box plus the image pagination dots that hang UNDER the image.
-   ONE dot per photo — the current one bigger and dark, the others small and light.
-   `.pcard-info` already leaves 14px above the title, so the row is absolutely positioned inside
-   that gap: a card with several photos stays exactly as tall as its single-photo neighbours and
-   the grid never goes ragged. It cannot live inside `.pcard-img` — that box clips its content
-   (components/card-media.tsx draws the row and explains why). */
+/* Product-card image progress: one thin, equal-width segment per photo, placed in the gap
+   before the title. The absolutely positioned bar keeps photo cards aligned with single-image cards. */
 .pcard-media { position: relative; }
-.pcard-dots {
-  position: absolute; left: 0; right: 0; bottom: -11px;
-  display: flex; align-items: center; justify-content: center; gap: 5px;
-  pointer-events: none;              /* the whole card is the link — the dots are decoration */
+.image-progress {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  min-width: 0;
 }
-.pcard-dots i {
-  display: block; width: 5px; height: 5px; border-radius: 99px;
+.image-progress-segment {
+  display: block;
+  position: relative;
+  flex: 1 1 0;
+  min-width: 0;
+  height: 2px;
+  border: 0;
+  border-radius: 99px;
+  padding: 0;
   background: rgba(20, 20, 20, .22);
-  transition: background .18s ease, width .18s ease, height .18s ease;
+  transition: background-color .18s ease;
 }
-.pcard-dots i.on { width: 8px; height: 8px; background: var(--text); }
+.image-progress-segment.is-active { background: var(--text); }
+button.image-progress-segment {
+  -webkit-appearance: none;
+  appearance: none;
+  color: inherit;
+  cursor: pointer;
+}
+@media (prefers-reduced-motion: reduce) { .image-progress-segment { transition: none; } }
+button.image-progress-segment::after {
+  content: "";
+  position: absolute;
+  inset: -11px 0;
+}
+button.image-progress-segment:focus-visible { outline: none; }
+button.image-progress-segment:focus-visible::after {
+  inset: -8px 1px;
+  border: 2px solid var(--accent);
+  border-radius: 4px;
+}
+.pcard-progress {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -8px;
+  pointer-events: none;              /* the whole card is the link — this bar is decoration */
+}
 @media (hover: hover) { .pcard:hover .pcard-img img { transform: scale(1.05); } }
 /* Badges are decoration on top of the photo — they must not punch a dead hole in the swipe
    surface (a gesture that started on a badge reached neither the photo gallery nor the rail).
@@ -642,6 +677,7 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 13.5px; }
 .admin-side .signout:hover { background: var(--ad-red-soft); color: var(--ad-red) !important; }
 .admin-side.collapsed .signout { border-left: none; border-radius: 10px; }
 /* native CSS tooltips for collapsed icons */
+@media (hover: hover) {
 .admin-side.collapsed a[title]:hover::after,
 .admin-side.collapsed button[title]:hover::after {
   content: attr(title); position: absolute; left: calc(100% + 10px); top: 50%; transform: translateY(-50%);
@@ -653,6 +689,7 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 13.5px; }
 .admin-side.collapsed button[title]:hover::before {
   content: ""; position: absolute; left: calc(100% + 4px); top: 50%; transform: translateY(-50%);
   border: 6px solid transparent; border-right-color: var(--ad-text); z-index: 101; pointer-events: none;
+}
 }
 .admin-body .bell-count { margin-left: auto; background: var(--ad-red); color: #fff; font-size: 10.5px; min-width: 18px; height: 18px; border-radius: 99px; display: inline-flex; align-items: center; justify-content: center; padding: 0 5px; font-weight: 700; }
 /* modern SVG area chart */
@@ -841,18 +878,17 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 13.5px; }
 .crs-page .grid.grid-3 { grid-template-columns: repeat(2, 1fr) !important; }
 .crs-page .quote { height: 100%; }
 .crs-ui { display: flex; align-items: center; justify-content: center; gap: 14px; padding: 14px 0 0; }
-.crs-arrow { width: 34px; height: 34px; border-radius: 99px; border: 1px solid var(--line); background: #fff; color: var(--text); font-size: 18px; line-height: 0; display: flex; align-items: center; justify-content: center; cursor: pointer; padding-bottom: 3px; }
-.crs-arrow:active { background: var(--bg); }
-/* same dot language as the product-image dots: current one bigger + dark, the rest small + light */
+.crs-arrow { width: 34px; height: 34px; border-radius: 99px; border: 1px solid var(--line); background: transparent; color: var(--text); font-size: 18px; line-height: 0; display: flex; align-items: center; justify-content: center; cursor: pointer; padding-bottom: 3px; }
+.crs-arrow:active { background: rgba(20, 20, 20, .06); }
+/* Home rails use page dots (product-photo galleries use the separate segmented progress bar). */
 .crs-dots { display: flex; gap: 6px; align-items: center; }
 .crs-dots button { width: 6px; height: 6px; border-radius: 99px; border: none; background: rgba(20, 20, 20, .22); padding: 0; cursor: pointer;
   transition: background .18s ease, width .18s ease, height .18s ease; }
 .crs-dots button.on { background: var(--text); width: 9px; height: 9px; }
-/* the dots are 6px — too small to hit reliably with a thumb. Grow only the hit area (no visual
-   change) so pagination meets the 44px guideline, and give keyboard users a visible ring. */
-.crs-dots button, .mgal-dots button, .gal-dots button { position: relative; }
-.crs-dots button::after, .mgal-dots button::after { content: ""; position: absolute; inset: -19px -8px; }
-.crs-dots button:focus-visible, .mgal-dots button:focus-visible, .gal-dots button:focus-visible { outline: 2px solid var(--accent); outline-offset: 10px; }
+/* Home-carousel dots are 6px — grow only their hit area, without changing the visuals. */
+.crs-dots button { position: relative; }
+.crs-dots button::after { content: ""; position: absolute; inset: -19px -8px; }
+.crs-dots button:focus-visible { outline: 2px solid var(--accent); outline-offset: 10px; }
 @media (min-width: 900px) { .crs { margin: 0; } }
 
 /* ---------- filter drawer UI polish ---------- */
@@ -1103,42 +1139,38 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 13.5px; }
 /* NOTE: .pcard-info intentionally NOT animated here — cards already use the
    .reveal IntersectionObserver animation; a second animation = double fade + wasted paint on mobile */
 
-/* View Transition API — PDP main image gets a unique name so it can morph.
-   NOTE: cards must NOT have a view-transition-name — duplicate names on a page
-   make the browser skip the whole transition (all transitions would break). */
-.pdp-main-img {
-  view-transition-name: product-hero;
-}
+/* View Transition API — shared-element morph: product card photo ⇄ product page hero.
+   The name `product-hero` is NOT set here: components/view-transition.ts puts it on exactly one
+   element per page for the length of one transition (tapped card photo / visible PDP hero).
+   A permanent name on the PDP hero broke every transition started from a card on the same page
+   (two elements with one name → the browser skips the transition).
 
-/* During transition, product image morphs smoothly */
-@keyframes vtOut {
-  to { opacity: 0; }
-}
-@keyframes vtIn {
-  from { opacity: 0; transform: translateY(6px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-/* Old page fades out quickly, new page content fades up */
-::view-transition-old(root) {
-  animation: vtOut 150ms ease-out both;
-}
+   Page behind the morph: the browser's own cross-fade (both layers blend with plus-lighter, so
+   anything identical on both pages — header, tab bar — stays perfectly still). The previous
+   staggered fade-out/fade-in dipped the header's opacity mid-way. */
+::view-transition-old(root),
 ::view-transition-new(root) {
-  animation: vtIn 200ms ease-out 80ms both;
+  animation-duration: 260ms;
+  animation-timing-function: ease;
 }
 
-/* product-hero: image itself doesn't animate (group handles the morph) */
+/* The photo box flies from the card's rect to the hero's rect; the two snapshots cross-fade
+   inside it and are cropped to the box (card and hero can have different aspect ratios). */
+::view-transition-group(product-hero) {
+  animation-duration: 420ms;
+  animation-timing-function: cubic-bezier(0.32, 0.72, 0, 1);
+}
 ::view-transition-old(product-hero),
 ::view-transition-new(product-hero) {
-  animation: none;
-  mix-blend-mode: normal;
   height: 100%;
-  overflow: clip;
   object-fit: cover;
+  overflow: clip;
+  animation-duration: 420ms;
 }
-::view-transition-group(product-hero) {
-  animation-duration: 300ms;
-  animation-timing-function: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) { animation: none !important; }
 }
 
 /* Ensure no layout shift during transitions */
@@ -1344,33 +1376,9 @@ a, button, [role="button"], label, summary, input, select, textarea,
   color: var(--text);
   transition: transform .2s ease;
 }
-/* dots — BELOW the image (they used to float over the photo), one per image.
-   Minimal, SINZO palette: the current dot is bigger + dark, the rest stay small + light. */
-.mgal-dots {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 6px;
-  padding: 10px 0 4px;
-}
-.mgal-dots button {
-  width: 6px;
-  height: 6px;
-  border-radius: 99px;
-  border: none;
-  background: rgba(20,20,20,.22);
-  padding: 0;
-  cursor: pointer;
-  transition: background .18s ease, width .18s ease, height .18s ease;
-}
-.mgal-dots button.on {
-  background: var(--text);
-  width: 9px;
-  height: 9px;
-}
-/* the shared rule below grows every dot's hit area by 19px — right for the rail dots, but here
-   it would reach into the photo above and the thumbnail strip below, so it is trimmed to ~32px */
-.mgal-dots button::after { inset: -13px -7px; }
+/* One-segment-per-photo progress bar BELOW the image. The buttons retain a generous invisible
+   hit area while the visible track stays a refined 2px line. */
+.mgal-progress { padding: 10px 0 4px; }
 
 /* thumbnail strip under the mobile swipe gallery */
 .mgal-thumbs { display: flex; gap: 8px; overflow-x: auto; padding: 10px 16px 2px; scrollbar-width: none; -webkit-overflow-scrolling: touch; scroll-padding: 0 16px; }
@@ -1380,8 +1388,6 @@ a, button, [role="button"], label, summary, input, select, textarea,
 .mgal-thumbs button img { width: 100%; height: 100%; object-fit: cover; display: block; -webkit-user-drag: none; user-select: none; }
 @media (max-width: 360px) {
   .mgal-count { bottom: 10px; left: 10px; }
-  .mgal-dots button { width: 5px; height: 5px; }
-  .mgal-dots button.on { width: 8px; height: 8px; }
 }
 
 /* ================================================================
@@ -1416,8 +1422,7 @@ a, button, [role="button"], label, summary, input, select, textarea,
        rgba(250,249,247,.68) while the panel below ran blur(20px) saturate(1.9) over
        rgba(255,255,255,.62) — three differences on two surfaces that touch). */
     background: var(--glass-bg);
-    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
-    backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
+    /* the frost itself lives on .header::before (block below) — see note there */
     border-bottom: 1px solid rgba(255, 255, 255, 0.5);
     box-shadow: 0 1px 12px rgba(0, 0, 0, 0.04);
   }
@@ -1428,6 +1433,23 @@ a, button, [role="button"], label, summary, input, select, textarea,
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
   @media (max-width: 899px) {
     .header { background: rgba(250, 249, 247, 0.97); -webkit-backdrop-filter: none; backdrop-filter: none; }
+  }
+}
+
+/* Header frost on a ::before layer, NOT on .header itself (<=900px, where the ☰ menu exists).
+   An element with backdrop-filter becomes a "backdrop root": any descendant's backdrop-filter
+   can then only see what's inside that ancestor. .mobile-nav lives inside .header but hangs
+   below it (top:100%), so with the frost on .header the menu's 20px blur had nothing to blur —
+   the page showed through almost sharp, only the tint was working. Moving the header's blur to a
+   pseudo-element behind its content keeps the header looking identical while letting the menu
+   panel blur the real page. The header's own background tint is untouched (theme overrides
+   keep working); blurring over a flat tint looks the same as tint-over-blur. */
+@media (max-width: 900px) {
+  .header { -webkit-backdrop-filter: none; backdrop-filter: none; }
+  .header::before {
+    content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none;
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
+    backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
   }
 }
 
@@ -1805,9 +1827,8 @@ input::placeholder, textarea::placeholder { color: #b0aaa1; }
 }
 .mini-del span { color: var(--danger); }
 
-/* Page dots under the "you may also like" rail (PDP). The markup was always there, but no rule
-   had ever been written for it: the spans rendered zero-sized, so the rail gave no sign that it
-   had more than one page. Same dot language as .pcard-dots (card photos) and .crs-dots (home). */
+/* Page dots under the "you may also like" rail (PDP). These track carousel pages, so they stay
+   as dots; the segmented progress bar is reserved for individual product-photo galleries. */
 .rel-dots {
   display: flex;
   gap: 6px;
@@ -2128,7 +2149,8 @@ h1, h2, h3 { text-wrap: balance; }
 :root[data-theme="dark"] .cart-size-select { background: #171512; }
 :root[data-theme="dark"] .cat-pill:not(.active) { background: #1b1917; }
 :root[data-theme="dark"] .promo-split { background: #1b1917; }
-:root[data-theme="dark"] .crs-arrow { background: #1b1917; }
+:root[data-theme="dark"] .crs-arrow { background: transparent; }
+:root[data-theme="dark"] .crs-arrow:active { background: rgba(255, 255, 255, .08); }
 :root[data-theme="dark"] .lb-top button { background: #221f1b; }
 :root[data-theme="dark"] .lb-nav { background: rgba(30, 27, 23, 0.88); }
 :root[data-theme="dark"] .lb-nav:hover { background: #2a2622; }
@@ -2308,16 +2330,11 @@ html.theme-transition *::after {
 :root[data-theme="dark"] .pdp-price .off { color: #b3392f; }
 :root[data-theme="dark"] .badge.sale { background: #b3392f; }
 
-/* Pagination dots used to sit ON the light image mat, so dark mode needed dark dots there.
-   They now sit BELOW the image, on the page background: in dark mode the *inactive* dot has
-   to flip to light (the active one already uses var(--text), which is light in dark mode). */
-:root[data-theme="dark"] .mgal-dots button,
-:root[data-theme="dark"] .pcard-dots i,
-:root[data-theme="dark"] .gal-dots button,
+/* The inactive segments sit beneath the image: keep them visible in dark mode while the
+   active segment uses the theme text color. Home-rail dots keep their existing treatment. */
+:root[data-theme="dark"] .image-progress-segment:not(.is-active) { background: rgba(255, 255, 255, .26); }
+:root[data-theme="dark"] .image-progress-segment.is-active { background: var(--text); }
 :root[data-theme="dark"] .crs-dots button { background: rgba(255, 255, 255, .26); }
-:root[data-theme="dark"] .mgal-dots button.on,
-:root[data-theme="dark"] .pcard-dots i.on,
-:root[data-theme="dark"] .gal-dots button.on,
 :root[data-theme="dark"] .crs-dots button.on { background: var(--text); }
 
 /* Admin + customer login: card blends into the dark canvas — give it an
@@ -2343,20 +2360,6 @@ html.theme-transition *::after {
   .mobile-nav.open { animation: none; }
 }
 
-/* ---- Size recommendation (PDP) — theme-aware surfaces
-   (was hardcoded light inline: panel #f8f7f5, inputs #fff — unreadable
-   on the dark PDP). Light values preserved, dark variants below. */
-.srec { background: #f8f7f5; }
-.srec-input { background: #fff; border: 1px solid var(--line); color: var(--text); }
-.srec-input::placeholder { color: #a39d92; }
-.srec-unit { border: 1px solid var(--line); background: #fff; color: var(--text); }
-.srec-unit.on { background: var(--text); color: var(--bg); border-color: var(--text); }
-:root[data-theme="dark"] .srec { background: #1b1917; border: 1px solid #2c2923; }
-:root[data-theme="dark"] .srec-input { background: #171512; color: #f1eee8; }
-:root[data-theme="dark"] .srec-input::placeholder { color: #8f897d; }
-:root[data-theme="dark"] .srec-unit { background: #171512; color: #e8e4dc; }
-:root[data-theme="dark"] .srec-unit.on { background: #f5f2ec; color: #131210; border-color: #f5f2ec; }
-
 /* Account page — disabled login-id field was hardcoded light */
 :root[data-theme="dark"] .acct-disabled { background: #171512; color: #c6c0b4; }
 
@@ -2369,16 +2372,10 @@ html.theme-transition *::after {
 :root[data-theme="dark"] .ad-row { background: #171512; }
 
 /* ================= Live watching (social proof, PDP) ================= */
-/* desktop gallery carousel dots — BELOW the main image (they used to float over the photo as
-   white pills), same language as `.mgal-dots` (mobile) and `.pcard-dots` (cards): centre on the
-   page background, current dot bigger + dark, the rest small + light.
-   Placement: `.pdp-gallery-desktop` is `display: contents`, so this row is a grid item of
-   `.pdp-gallery` (72px thumbs | photo). Column 2 / row 2 puts it exactly under the photo while
-   the thumbnail rail keeps column 1 — the order the mobile gallery uses (photo → dots → thumbs). */
-.gal-dots { grid-column: 2; grid-row: 2; display: flex; justify-content: center; align-items: center; gap: 6px; padding: 2px 0 0; }
-.gal-dots button { width: 6px; height: 6px; border-radius: 99px; border: none; padding: 0; cursor: pointer; background: rgba(20, 20, 20, .22); transition: background .18s ease, width .18s ease, height .18s ease; }
-.gal-dots button.on { width: 9px; height: 9px; background: var(--text); }
-.gal-dots button::after { inset: -10px -6px; }
+/* Desktop segmented image progress bar, placed below the main image. `.pdp-gallery-desktop`
+   is `display: contents`, so the bar is a grid item: column 2 / row 2 keeps it under the photo
+   while the thumbnail rail stays in column 1. */
+.gal-progress { grid-column: 2; grid-row: 2; padding: 2px 0 0; }
 
 /* pre-order (PDP badge + order line tag) */
 .pdp-preorder { display: flex; align-items: center; gap: 8px; margin: 4px 0 2px; font-size: 13px; color: var(--muted); }
@@ -2856,7 +2853,7 @@ html.theme-transition *::after {
   .cg-arrow.off { pointer-events: none; }
 }
 
-/* (the image dots are drawn by the card, under the image — see `.pcard-dots` above) */
+/* (the product-image progress bar is drawn by the card under the image — see `.pcard-progress` above) */
 
 /* ====================================================================
    MODERN UI PASS — home page + global polish (2026-09-21)
@@ -2984,28 +2981,31 @@ html.theme-transition *::after {
   .cat-grid-desktop { grid-template-columns: repeat(5, minmax(0, 1fr)); }
 }
 
-/* ---------- F. Testimonials — seamless marquee (desktop) ---------- */
+/* ---------- F. Testimonials — seamless marquee on every screen ---------- */
 .qmarquee {
   overflow: hidden;
-  /* edge fade — cards hard-cut na kore melt hoy */
-  -webkit-mask-image: linear-gradient(90deg, transparent, #000 5%, #000 95%, transparent);
-  mask-image: linear-gradient(90deg, transparent, #000 5%, #000 95%, transparent);
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 3%, #000 97%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 3%, #000 97%, transparent);
 }
-.qmarquee-track { display: flex; width: max-content; animation: qmar linear infinite; }
-.qmarquee-track > .quote2 { flex: 0 0 340px; margin-right: 28px; }
-/* quote2 base rule e !important ache (border-radius: 0, border: none) — marquee te card look.
-   Background `var(--card)`: dark theme e #1b1917, nohoile dark canvas e sada card vese jeto. */
+.qmarquee:focus-visible { outline: 2px solid var(--accent); outline-offset: 5px; }
+.qmarquee-track { display: flex; align-items: stretch; width: max-content; animation: qmar linear infinite; }
 .qmarquee-track > .quote2 {
+  flex: 0 0 340px; width: 340px; margin-right: 28px;
   border: 1px solid var(--line) !important;
   border-radius: var(--radius) !important;
   background: var(--card);
   padding: 28px 26px 24px;
 }
+.qmarquee-track > .quote2 p { overflow-wrap: anywhere; line-height: 1.6; }
 @keyframes qmar { from { transform: translate3d(0, 0, 0); } to { transform: translate3d(-50%, 0, 0); } }
-.qmarquee:hover .qmarquee-track { animation-play-state: paused; }
-@media (max-width: 1099px) { .qmarquee { display: none; } }
-/* 900–1099px: marquee off, tai grid fallback ta-i dekhbe; >=1100px marquee-i jayga ney */
-@media (min-width: 1100px) { .qgrid-fallback { display: none !important; } }
+/* A tap must not leave a sticky :hover pause on a phone. */
+@media (hover: hover) and (pointer: fine) {
+  .qmarquee:hover .qmarquee-track { animation-play-state: paused; }
+}
+.qmarquee:focus-visible .qmarquee-track { animation-play-state: paused; }
+@media (max-width: 899px) {
+  .qmarquee-track > .quote2 { flex-basis: min(300px, 78vw); width: min(300px, 78vw); margin-right: 16px; padding: 24px 22px 22px; }
+}
 
 /* ---------- G. Mobile tab bar ---------- */
 /* Active tab er filled pill-ta-i indicator. Ei pass e ekta alada sonali line
@@ -3036,7 +3036,8 @@ html.theme-transition *::after {
   .hero-media, .hero-cue i::after, .qmarquee-track {
     animation: none !important;
   }
-  .qmarquee { overflow-x: auto; }          /* scroll kore dekhbe, nijei cholbe na */
+  .qmarquee { overflow-x: auto; -webkit-mask-image: none; mask-image: none; }
+  .qmarquee-track > .quote2[aria-hidden="true"] { display: none; }
   .toast { transition: none; }
 }
 
@@ -3262,7 +3263,7 @@ body:has(.admin-body) .scroll-progress { display: none !important; }
 .slip-actions { display: flex; gap: 10px; }
 .slip { width: min(680px, 100%); background: #fff; color: #1b1b1b; border: 1px solid #e4e7ec; border-radius: 4px; padding: 26px 28px 34px; }
 .slip-head { display: flex; justify-content: space-between; align-items: flex-start; }
-.slip-brand { font-family: var(--font-head, Georgia, serif); font-size: 24px; letter-spacing: .16em; }
+.slip-brand { font-family: var(--font-logo, Georgia, serif); font-size: 24px; letter-spacing: .16em; }
 .slip-sub { font-size: 11px; letter-spacing: .2em; text-transform: uppercase; color: #7a7a7a; margin-top: 2px; }
 .slip-code { font-family: ui-monospace, monospace; font-size: 20px; letter-spacing: .06em; margin: 14px 0 6px; padding-bottom: 10px; border-bottom: 2px solid #1b1b1b; }
 .slip-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; font-size: 13px; line-height: 1.6; margin: 14px 0; }
@@ -3322,3 +3323,488 @@ body:has(.admin-body) .scroll-progress { display: none !important; }
 .wa2-bubble-imgs img { width: 100%; height: 108px; object-fit: cover; display: block; }
 .wa2-more { position: absolute; right: 6px; bottom: 6px; background: rgba(0,0,0,.6); color: #fff; font-size: 11px; padding: 2px 7px; border-radius: 10px; }
 @media (max-width: 1000px) { .wa2-grid { grid-template-columns: 1fr; } .acard[style*="sticky"] { position: static !important; } }
+
+/* ════════════════════════════════════════════════════════════════════════════
+   § N — ADMIN MOBILE RESPONSIVE (per page)
+   Sits last on purpose: several older blocks (#7, #8, "Responsive admin tables",
+   "Account page form on mobile") fight each other for the same selectors. The
+   hooks below are class-based (.admin-actions, .adm-split, .tbl-scroll …) so each
+   page opts in explicitly instead of relying on inline grid styles that CSS
+   can't override.
+     ≤900px  sidebar → off-canvas drawer (topbar ☰ + scrim)
+     ≤640px  phone density
+   ════════════════════════════════════════════════════════════════════════════ */
+
+/* ---- shared: header action buttons wrap instead of overflowing ---- */
+.admin-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+
+/* ---- shared: two-card splits (dashboard chart / analytics rows) ---- */
+.adm-split { display: grid; gap: 16px; align-items: start; margin-bottom: 16px; }
+.adm-split > * { min-width: 0; }            /* let tables/charts shrink instead of blowing the grid out */
+.adm-split > .acard { margin-bottom: 0; }
+.adm-split-dash, .adm-split-wide { grid-template-columns: 1.5fr 1fr; }
+.adm-split-even { grid-template-columns: 1fr 1fr; }
+.adm-split-narrow { grid-template-columns: 1fr 1.4fr; }
+.adm-split-dash { margin-bottom: 0; }
+
+/* ---- shared: horizontally scrollable tables ---- */
+.tbl-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain; max-width: 100%; }
+.tbl-scroll > .tbl { display: table !important; overflow: visible !important; width: 100%; }
+/* sticky leading column(s): stays put while the rest of the row scrolls under it */
+.tbl-sticky .tbl th:first-child, .tbl-sticky .tbl td:first-child {
+  position: sticky !important; left: 0; z-index: 2; background: var(--ad-card) !important;
+}
+.tbl-sticky .tbl th:first-child { background: var(--ad-line-soft) !important; z-index: 3; }
+.tbl-sticky .tbl tr:hover td:first-child { background: var(--ad-bg) !important; }
+/* orders: checkbox column + order code column both stick */
+.tbl-sticky-2 .tbl th:first-child, .tbl-sticky-2 .tbl td:first-child {
+  box-sizing: border-box; width: 40px; min-width: 40px; max-width: 40px; padding-left: 12px !important; padding-right: 0 !important;
+}
+.tbl-sticky-2 .tbl th:nth-child(2), .tbl-sticky-2 .tbl td:nth-child(2) {
+  position: sticky !important; left: 40px; z-index: 2; background: var(--ad-card) !important; white-space: nowrap;
+}
+.tbl-sticky-2 .tbl th:nth-child(2) { background: var(--ad-line-soft) !important; z-index: 3; }
+.tbl-sticky-2 .tbl tr:hover td:nth-child(2) { background: var(--ad-bg) !important; }
+/* the "edge" shadow on the last sticky column so it reads as floating over the scroll */
+.tbl-sticky:not(.tbl-sticky-2) .tbl th:first-child, .tbl-sticky:not(.tbl-sticky-2) .tbl td:first-child,
+.tbl-sticky-2 .tbl th:nth-child(2), .tbl-sticky-2 .tbl td:nth-child(2) {
+  box-shadow: inset -1px 0 0 var(--ad-line), 6px 0 8px -6px rgba(16,24,40,.18);
+}
+/* the ≤640 "#8" block turns every .acard table into a block scroller and un-sticks
+   column 1 — tables inside .tbl-scroll already scroll via their wrapper */
+@media (max-width: 640px) {
+  .acard .tbl-scroll > .tbl { display: table !important; }
+  .acard .tbl-scroll > .tbl td, .acard .tbl-scroll > .tbl th { white-space: nowrap; }
+  .acard .tbl-scroll > .tbl td:has(> div + div) { white-space: normal; }
+  .tbl-sticky .tbl td:first-child, .tbl-sticky .tbl th:first-child { position: sticky !important; }
+}
+
+/* ---- settings tabs: active state (was only styled for <a>) ---- */
+.admin-body .settings-nav .chip { white-space: nowrap; font-size: 13px; font-weight: 550; letter-spacing: 0; color: var(--ad-sub); background: var(--ad-card); border-color: var(--ad-line); }
+.admin-body .settings-nav .chip:hover { border-color: var(--ad-mute); color: var(--ad-text); }
+.admin-body .settings-nav .chip.active { background: var(--ad-accent-soft); color: var(--ad-accent); border-color: var(--ad-accent-line); font-weight: 650; }
+
+/* ---- form fields: checkboxes/radios inside .af must not inherit the full-width text-input box ---- */
+.af input[type="checkbox"], .af input[type="radio"] { width: auto; min-width: 16px; height: 16px; padding: 0; flex: none; margin-top: 2px; box-shadow: none; }
+
+/* ---- product modal: variant rows ---- */
+.var-head { margin: 18px 0 8px; font-weight: 600; font-size: 13.5px; display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+.var-head-btns { display: flex; gap: 6px; flex-wrap: wrap; }
+.var-row { display: grid; grid-template-columns: 1fr 1fr 1.3fr .8fr .8fr auto auto; gap: 8px; margin-bottom: 8px; align-items: center; }
+.var-row > * { min-width: 0; }
+.var-row input { width: 100%; min-width: 0; box-sizing: border-box; border: 1px solid #d0d5dd; border-radius: 8px; padding: 8px 10px; background: var(--ad-card, #fff); color: var(--ad-text, inherit); font-size: 13.5px; }
+.var-row input:focus { outline: none; border-color: var(--ad-accent); box-shadow: 0 0 0 3px rgba(79,70,229,.10); }
+
+/* ---- whatsapp compose: preview sticks beside the form on desktop only ---- */
+.wa2-preview { position: static; }
+@media (min-width: 1001px) { .wa2-preview { position: sticky; top: 12px; } }
+
+/* ---- analytics: 6 KPIs — never squeeze six into a narrow row ---- */
+.kpis.kpis-6 { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+.kpis.kpis-6 .kpi { min-width: 0; }
+.kpis.kpis-6 .k-val { overflow-wrap: anywhere; }
+@media (max-width: 1320px) { .kpis.kpis-6 { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; } }
+@media (max-width: 640px)  { .kpis.kpis-6 { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; } }
+
+/* ---- splits go single-column once the sidebar + two cards no longer fit ---- */
+@media (max-width: 1100px) {
+  .adm-split-wide, .adm-split-even, .adm-split-narrow { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 900px) {
+  .adm-split-dash { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* ════ drawer (≤900px) ════ */
+.admin-side .drawer-close { display: none; }
+.admin-scrim { display: none; }
+.admin-topbar .logo small { display: none; }
+@media (max-width: 900px) {
+  .admin-topbar { padding: 10px 12px; gap: 10px; padding-top: max(10px, env(safe-area-inset-top)); }
+  .admin-topbar .logo {
+    flex: 1; min-width: 0; display: flex; align-items: baseline; gap: 8px; white-space: nowrap; overflow: hidden;
+    font-size: 16px; font-weight: 700; letter-spacing: .2em; color: var(--ad-text); text-decoration: none;
+  }
+  .admin-topbar .logo small { display: inline; font-size: 9.5px; font-weight: 500; letter-spacing: .22em; color: var(--ad-mute); overflow: hidden; text-overflow: ellipsis; }
+  .admin-topbar button { flex: none; }
+
+  /* hidden drawer: no shadow bleeding onto the page, not tabbable */
+  .admin-side {
+    box-shadow: none; visibility: hidden; height: 100dvh; max-height: 100dvh;
+    width: min(84vw, 300px); padding-bottom: max(12px, env(safe-area-inset-bottom));
+    transition: transform .28s cubic-bezier(.32,.72,0,1), visibility 0s linear .28s, box-shadow .28s ease;
+  }
+  .admin-side.open {
+    visibility: visible; box-shadow: 20px 0 60px rgba(0,0,0,.28);
+    transition: transform .28s cubic-bezier(.32,.72,0,1), visibility 0s, box-shadow .28s ease;
+  }
+  .admin-side .collapse-btn { display: none !important; }
+  .admin-side .drawer-close {
+    display: flex; align-items: center; justify-content: center; flex: none;
+    width: 36px; height: 36px; border-radius: 9px; border: 1px solid var(--ad-line);
+    background: var(--ad-card); color: var(--ad-sub); cursor: pointer;
+  }
+  .admin-side .drawer-close:hover { color: var(--ad-text); background: var(--ad-line-soft); }
+  .admin-side a { padding: 11px 10px; }            /* thumb-sized rows in the drawer */
+
+  .admin-scrim {
+    display: block; position: fixed; inset: 0; z-index: 89; background: rgba(15,17,21,.45);
+    opacity: 0; pointer-events: none; transition: opacity .28s ease;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .admin-scrim.open { opacity: 1; pointer-events: auto; }
+  html.ad-drawer-open, html.ad-drawer-open body { overflow: hidden; overscroll-behavior: none; }
+
+  /* ---- dashboard: 5 operational counters 2-up (last one spans when odd) ---- */
+  .stat-strip.dash-strip { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; flex-direction: initial; }
+  .stat-strip.dash-strip .kpi { min-width: 0; }
+  .stat-strip.dash-strip .kpi:last-child:nth-child(odd) { grid-column: 1 / -1; }
+
+  /* ---- orders: search full width, filters wrap underneath ---- */
+  .stat-strip.admin-filters { display: flex; flex-direction: row; flex-wrap: wrap; gap: 8px; }
+  .stat-strip.admin-filters .asearch { flex: 1 1 100%; width: 100%; min-width: 0; min-height: 44px; }
+  .stat-strip.admin-filters select { flex: 1 1 140px; min-width: 0; justify-content: flex-start; text-align: left; padding-left: 12px; padding-right: 8px; }
+}
+
+/* ════ phones (≤640px) ════ */
+@media (max-width: 640px) {
+  /* "Account page form on mobile" pads every .acard — admin cards already pad
+     their own header/body, so that doubled every card's inset */
+  .admin-body .acard:has(> .acard-h), .admin-body .acard:has(> .acard-b),
+  .admin-body .acard:has(> .tbl-scroll), .admin-body .acard:has(> table) { padding: 0 !important; }
+
+  .admin-top { gap: 10px; margin-bottom: 14px; }
+  .admin-top > .admin-actions, .admin-top > form { width: 100%; }
+  .admin-actions > .abtn, .admin-actions > select { flex: 1 1 auto; }
+  .admin-actions > select { min-width: 0; max-width: 100%; }
+
+  /* dashboard KPI cards: keep the 2-up grid readable */
+  .kpis { gap: 10px; }
+  .kpi .k-label { font-size: 12px; }
+  .kpi .k-ic { width: 28px; height: 28px; border-radius: 8px; }
+  .kpi .k-ic svg { width: 14px; height: 14px; }
+  .kpi .k-val { font-size: 18px; overflow-wrap: anywhere; }
+  .kpi .k-sub, .kpi .k-delta { font-size: 11.5px; }
+
+  /* charts: full width, a touch shorter */
+  .achart { height: 150px; }
+
+  /* product modal: variant rows 2-up
+       Size | Color
+       SKU  | Price
+       Stock| [img] ✕                     */
+  .var-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px;
+    padding: 10px; border: 1px solid var(--ad-line, #e4e7ec); border-radius: 10px; background: var(--ad-line-soft, #f7f7f8); margin-bottom: 10px;
+  }
+  .var-row input { font-size: 16px !important; min-height: 42px; }
+  /* image cell + delete share the last cell (explicit placement; Stock auto-flows into col 1) */
+  .var-row > div { grid-column: 2; grid-row: 3; justify-self: start; }
+  .var-row > .var-del { grid-column: 2; grid-row: 3; justify-self: end; min-width: 44px; }
+  .var-row > div .abtn { min-width: 44px; }
+
+  /* settings: tabs are one swipeable row */
+  .settings-nav {
+    flex-wrap: nowrap !important; overflow-x: auto; overscroll-behavior-x: contain;
+    scroll-snap-type: x proximity; scrollbar-width: none; padding: 2px 0 8px; margin-bottom: 14px;
+    -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 28px), transparent);
+            mask-image: linear-gradient(90deg, #000 calc(100% - 28px), transparent);
+  }
+  .settings-nav::-webkit-scrollbar { display: none; }
+  .settings-nav .chip, .settings-nav a { flex: 0 0 auto; scroll-snap-align: start; }
+  .settings-nav .chip:last-child { margin-right: 24px; }
+}
+
+/* ---- every other admin page (§ N, part 2) -------------------------------------------------
+   Pages keep their inline desktop grid; these classes only take over below the breakpoints.
+     .adm-cols    page-level card splits (order detail, coupons, catalog, couriers …)
+     .adm-grid-2  two-column form grids inside a card
+     .kpis-N      KPI rows with an inline repeat(N) column count                           */
+.adm-cols > *, .adm-grid-2 > * { min-width: 0; }
+.kpis[class*="kpis-"] > .kpi { min-width: 0; }
+.kpis[class*="kpis-"] .k-val { overflow-wrap: anywhere; }
+@media (max-width: 1320px) { .kpis.kpis-5, .kpis.kpis-6 { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; } }
+@media (max-width: 1100px) {
+  .adm-cols { grid-template-columns: minmax(0, 1fr) !important; }
+  .kpis.kpis-4 { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+}
+@media (max-width: 640px) {
+  .adm-grid-2 { grid-template-columns: minmax(0, 1fr) !important; }
+  .kpis.kpis-3, .kpis.kpis-4, .kpis.kpis-5, .kpis.kpis-6 { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+  /* odd KPI count on a 2-up grid: the last card takes the full row instead of leaving a hole */
+  .kpis > .kpi:last-child:nth-child(odd) { grid-column: 1 / -1; }
+}
+/* the old "#7" phone rule painted column 1 #fff (for a sticky column that "#8" later
+   un-sticks) — header cell came out white on grey, and white in dark mode */
+@media (max-width: 640px) {
+  .admin-body .tbl th:first-child { background: var(--ad-line-soft); }
+  .admin-body .tbl td:first-child { background: transparent; }
+  .admin-body .tbl tr:hover td:first-child { background: var(--ad-bg); }
+}
+/* KPI strips (customer history modal …): the old ≤768 rule stacks .stat-strip into one tall
+   column — on a phone two-up reads far better. Filter strips (.admin-filters) are separate. */
+@media (max-width: 768px) {
+  .admin-body .stat-strip:has(> .kpi) { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .admin-body .stat-strip:has(> .kpi) > .kpi { min-width: 0; }
+  .admin-body .stat-strip:has(> .kpi) > .kpi:last-child:nth-child(odd) { grid-column: 1 / -1; }
+}
+
+/* ── Brand wordmark: only the word "SINZO" uses Charm; sub-labels inside the logo
+      (e.g. "COMMERCE PANEL") keep the normal UI font. ─────────────────────────── */
+.brand-wm { font-family: var(--font-logo) !important; }
+.logo small, .logo .logo-full > span { font-family: var(--font-body); }
+
+/* Secure abandoned-cart restore: current-cart replacement always needs consent. */
+.recovery-banner { margin: 22px 0; padding: 16px 18px; border: 1px solid var(--line); border-radius: 8px; background: var(--card); font-size: 13px; line-height: 1.6; }
+.recovery-banner p { margin: 0; }
+.recovery-banner.error { border-color: var(--danger); }
+.recovery-banner ul { margin: 8px 0 0; padding-left: 20px; color: var(--muted); font-size: 12px; }
+.recovery-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px; }
+.checkout-capture-status { color: var(--muted); font-size: 11px; margin: 10px 0; }
+
+/* Minimal, mobile-first storefront checkout. Keep the form quiet and let the
+   outlined fields and delivery choice carry the visual hierarchy. */
+.checkout-page.checkout-minimal {
+  max-width: 1160px;
+  padding: 30px 24px 72px;
+}
+.checkout-minimal .checkout-h1 {
+  max-width: 1040px;
+  margin: 2px auto 22px;
+  font-family: var(--font-body);
+  font-size: 25px;
+  font-weight: 500;
+  letter-spacing: -.025em;
+}
+.checkout-layout.checkout-minimal-layout {
+  max-width: 1040px;
+  grid-template-columns: minmax(0, 1.2fr) minmax(290px, .8fr);
+  gap: 42px;
+  margin: 0 auto;
+  padding: 0;
+  animation: none;
+}
+.checkout-minimal-layout > * { min-width: 0; }
+.checkout-minimal-form { display: grid; gap: 18px; align-content: start; }
+.checkout-minimal-fields { display: grid; gap: 12px; }
+.checkout-minimal-form .field { margin: 0; }
+.checkout-minimal-form .field input,
+.checkout-minimal-form .field textarea {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  min-height: 54px;
+  padding: 13px 16px;
+  border: 1px solid color-mix(in srgb, var(--line) 94%, var(--text));
+  border-radius: 14px;
+  background: var(--bg);
+  color: var(--text);
+  font: 400 16px/1.4 var(--font-body);
+  box-shadow: none;
+  transition: border-color .16s ease, box-shadow .16s ease;
+}
+.checkout-minimal-form .field textarea {
+  height: 96px;
+  min-height: 96px;
+  padding: 14px 16px;
+  resize: vertical;
+}
+.checkout-minimal-form .field input::placeholder,
+.checkout-minimal-form .field textarea::placeholder {
+  color: var(--muted);
+  opacity: .96;
+}
+.checkout-minimal-form .field input:focus,
+.checkout-minimal-form .field textarea:focus {
+  border-color: var(--text);
+  outline: none;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--text) 10%, transparent);
+}
+.checkout-minimal-form .field .err { padding: 0 3px; }
+.checkout-area-picker {
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--line) 94%, var(--text));
+  border-radius: 14px;
+  background: var(--bg);
+}
+.checkout-area-option {
+  position: relative;
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  min-height: 56px;
+  padding: 0 16px;
+  color: var(--text);
+  cursor: pointer;
+  transition: background .16s ease;
+}
+.checkout-area-option + .checkout-area-option { border-top: 1px solid var(--line); }
+.checkout-area-option.selected {
+  z-index: 1;
+  background: color-mix(in srgb, var(--bg) 94%, var(--text));
+  box-shadow: inset 0 0 0 1px var(--text);
+}
+.checkout-area-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+.checkout-area-radio {
+  display: grid;
+  width: 18px;
+  height: 18px;
+  place-items: center;
+  border: 1.5px solid var(--muted-soft);
+  border-radius: 50%;
+  background: var(--bg);
+}
+.checkout-area-input:checked + .checkout-area-radio {
+  border: 5px solid var(--text);
+}
+.checkout-area-input:focus-visible + .checkout-area-radio {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+.checkout-area-name { font-size: 16px; line-height: 1.35; }
+.checkout-area-fee { font-size: 16px; white-space: nowrap; }
+.checkout-area-error { padding: 8px 14px; }
+.checkout-note-disclosure { color: var(--text); }
+.checkout-note-disclosure summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 28px;
+  cursor: pointer;
+  list-style: none;
+  font-size: 13px;
+}
+.checkout-note-disclosure summary::-webkit-details-marker { display: none; }
+.checkout-note-disclosure summary span { margin-left: auto; color: var(--muted); font-size: 12px; }
+.checkout-note-disclosure summary::after { content: "+"; color: var(--muted); font-size: 19px; line-height: 1; }
+.checkout-note-disclosure[open] summary::after { content: "−"; }
+.checkout-note-disclosure textarea {
+  display: block;
+  width: 100%;
+  min-height: 72px;
+  margin-top: 10px;
+  padding: 12px 14px;
+  border: 1px solid color-mix(in srgb, var(--line) 94%, var(--text));
+  border-radius: 12px;
+  background: var(--bg);
+  color: var(--text);
+  font: 400 15px/1.45 var(--font-body);
+  resize: vertical;
+}
+.checkout-payment-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding-top: 15px;
+  border-top: 1px solid var(--line);
+}
+.checkout-payment-heading { color: var(--muted); font-size: 13px; }
+.checkout-payment-option { display: inline-flex; align-items: center; gap: 9px; font-size: 14px; cursor: pointer; }
+.checkout-payment-option input { width: 16px; height: 16px; accent-color: var(--text); }
+.checkout-payment-disabled { color: var(--muted); font-size: 13px; text-align: right; }
+.checkout-summary {
+  position: static;
+  padding: 18px 20px 20px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--bg) 78%, var(--card));
+}
+.checkout-summary h2 {
+  margin-bottom: 8px;
+  font-family: var(--font-body);
+  font-size: 17px;
+  font-weight: 550;
+  letter-spacing: -.01em;
+}
+.checkout-order-items { border-top: 1px solid var(--line); }
+.checkout-order-item {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 11px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line);
+}
+.checkout-order-item > img {
+  width: 48px;
+  height: 62px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--bg) 88%, var(--text));
+  object-fit: cover;
+}
+.checkout-order-copy { min-width: 0; }
+.checkout-order-name { font-size: 13px; line-height: 1.35; }
+.checkout-order-variant { min-height: 17px; color: var(--muted); font-size: 11.5px; }
+.checkout-order-actions { display: flex; align-items: center; gap: 11px; margin-top: 3px; }
+.checkout-summary .mini-qty { margin-top: 0; border-radius: 7px; }
+.checkout-summary .mini-qty button { width: 24px; height: 23px; }
+.checkout-summary .mini-qty span { min-width: 23px; font-size: 12px; }
+.checkout-item-remove {
+  padding: 2px 0;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 11px;
+}
+.checkout-item-remove:hover { color: var(--danger); }
+.checkout-order-price { padding-top: 1px; font-size: 13px; font-weight: 550; white-space: nowrap; }
+.checkout-totals { margin-top: 10px; }
+.checkout-summary .sum-row { padding: 5px 0; font-size: 13px; }
+.checkout-summary .sum-row.total { margin-top: 7px; padding-top: 11px; font-size: 16px; }
+.checkout-summary .checkout-discount { color: var(--ok); }
+.checkout-summary .coupon-row { gap: 7px; margin: 14px 0 10px; }
+.checkout-summary .coupon-row input {
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--line) 94%, var(--text));
+  border-radius: 10px;
+  background: var(--bg);
+  font-size: 13px;
+}
+.checkout-summary .coupon-row .abtn { min-width: 72px; border-radius: 10px; }
+.checkout-summary .coupon-applied { padding: 8px 10px; border-radius: 10px; }
+.checkout-summary .checkout-capture-status { margin: 8px 0; }
+.checkout-summary .checkout-submit.btn {
+  display: flex;
+  width: 100%;
+  min-height: 52px;
+  margin-top: 14px;
+  padding: 12px 16px;
+  border: 1px solid var(--text);
+  border-radius: 12px;
+  background: var(--text);
+  color: var(--bg);
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: .01em;
+  text-transform: none;
+}
+.checkout-summary .checkout-submit.btn:disabled { opacity: .48; }
+
+@media (max-width: 900px) {
+  .checkout-layout.checkout-minimal-layout {
+    max-width: 640px;
+    grid-template-columns: 1fr;
+    gap: 26px;
+  }
+  .checkout-summary { padding: 17px 16px 18px; }
+}
+@media (max-width: 640px) {
+  .checkout-page.checkout-minimal { padding: 22px 16px 56px; }
+  .checkout-minimal .checkout-h1 { margin: 0 0 17px; font-size: 23px; }
+  .checkout-layout.checkout-minimal-layout { gap: 24px; padding: 0; }
+  .checkout-minimal-form { gap: 16px; }
+  .checkout-minimal-fields { gap: 12px; }
+  .checkout-minimal-form .field input,
+  .checkout-minimal-form .field textarea { font-size: 16px; }
+  .checkout-area-option { min-height: 56px; padding-inline: 15px; }
+  .checkout-summary { border-radius: 14px; }
+}

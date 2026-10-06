@@ -5,8 +5,9 @@ import ProductsClient from "./client";
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Products" };
 
-export default async function AdminProducts({ searchParams }: { searchParams: any }) {
-  await requireAdmin(searchParams);
+export default async function AdminProducts(props: { searchParams: Promise<any> }) {
+  const searchParams = await props.searchParams;
+  await requireAdmin(searchParams, "products");
   // make sure newer columns (Product.soldCount etc.) exist before querying
   const { ensureExtraTables } = await import("@/lib/db-ensure");
   await ensureExtraTables().catch(() => {});

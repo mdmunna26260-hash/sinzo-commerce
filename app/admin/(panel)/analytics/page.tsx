@@ -27,8 +27,9 @@ function resolveRange(sp: SP): { start: Date; end: Date; label: string } {
   return { start, end, label };
 }
 
-export default async function AnalyticsPage({ searchParams }: { searchParams: SP }) {
-  const user = await requireAdmin(searchParams);
+export default async function AnalyticsPage(props: { searchParams: Promise<SP> }) {
+  const searchParams = await props.searchParams;
+  const user = await requireAdmin(searchParams, "orders");
   const t = searchParams.t || "";
   const tk = (p: string) => (t ? p + (p.includes("?") ? "&" : "?") + "t=" + encodeURIComponent(t) : p);
   const { start, end, label } = resolveRange(searchParams);
@@ -165,7 +166,7 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: SP
         </form>
       </div>
 
-      <div className="kpis" style={{ gridTemplateColumns: "repeat(6, 1fr)" }}>
+      <div className="kpis kpis-6">
         {kpis.map((k) => <div className="kpi" key={k.label}><div className="k-label">{k.label}</div><div className="k-val">{k.val}</div>{k.sub && <div className="k-sub">{k.sub}</div>}</div>)}
       </div>
 
@@ -187,7 +188,7 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: SP
         </div>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr", gap: 16, alignItems: "start", marginBottom: 16 }}>
+      <div className="adm-split adm-split-wide">
         {/* REVENUE CHART */}
         <div className="acard">
           <div className="acard-h"><h3>Revenue &amp; Orders over time</h3><span style={{ fontSize: 12, color: "var(--muted)" }}>{valid.length} orders · {money(revenue)}</span></div>
@@ -220,10 +221,11 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: SP
         </div>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, alignItems: "start", marginBottom: 16 }}>
+      <div className="adm-split adm-split-even">
         {/* SOURCES */}
         <div className="acard">
           <div className="acard-h"><h3>Traffic → Order Sources</h3></div>
+          <div className="tbl-scroll">
           <table className="tbl">
             <thead><tr><th>Source</th><th>Orders</th><th>Revenue</th></tr></thead>
             <tbody>
@@ -231,10 +233,12 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: SP
               {srcRows.map(([src, v]) => <tr key={src}><td><b>{src}</b></td><td>{v.orders}</td><td>{money(v.revenue)}</td></tr>)}
             </tbody>
           </table>
+          </div>
         </div>
         {/* CAMPAIGNS */}
         <div className="acard">
           <div className="acard-h"><h3>Campaign Attribution (utm_campaign)</h3></div>
+          <div className="tbl-scroll">
           <table className="tbl">
             <thead><tr><th>Campaign</th><th>Orders</th><th>Revenue</th></tr></thead>
             <tbody>
@@ -242,6 +246,7 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: SP
               {campRows.map(([c, v]) => <tr key={c}><td><b>{c}</b></td><td>{v.orders}</td><td>{money(v.revenue)}</td></tr>)}
             </tbody>
           </table>
+          </div>
         </div>
       </div>
 
@@ -249,14 +254,14 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: SP
       <div className="acard" style={{ marginBottom: 16 }}>
         <div className="acard-h">
           <h3>Product Performance (Top 10)</h3>
-          <span style={{ display: "flex", gap: 6, fontSize: 12 }}>
+          <span style={{ display: "flex", gap: 6, fontSize: 12, flexWrap: "wrap", alignItems: "center" }}>
             Sort:
             {[["revenue", "Revenue"], ["units", "Units"], ["views", "Views"], ["conv", "Conv%"]].map(([v, l]) => (
               <Link key={v} className={"abtn sm" + (sortKey === v ? " primary" : "")} href={tk(`/admin/analytics?preset=${activePreset}${searchParams.from ? "&from=" + searchParams.from : ""}${searchParams.to ? "&to=" + searchParams.to : ""}&sort=${v}`)}>{l}</Link>
             ))}
           </span>
         </div>
-        <div style={{ overflowX: "auto" }}>
+        <div className="tbl-scroll">
           <table className="tbl">
             <thead><tr><th>Product</th><th>Views (total)</th><th>Add-to-carts (period)</th><th>Units sold</th><th>Revenue</th><th>Conv.</th><th>Stock</th></tr></thead>
             <tbody>
@@ -277,7 +282,7 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: SP
       </div>
 
       {/* CUSTOMERS */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1.4fr", gap: 16, alignItems: "start" }}>
+      <div className="adm-split adm-split-narrow" style={{ marginBottom: 0 }}>
         <div className="acard">
           <div className="acard-h"><h3>Customer Retention</h3></div>
           <div className="acard-b" style={{ display: "grid", gap: 12, fontSize: 13.5 }}>
@@ -297,6 +302,7 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: SP
         </div>
         <div className="acard">
           <div className="acard-h"><h3>Top Customers (by revenue)</h3></div>
+          <div className="tbl-scroll">
           <table className="tbl">
             <thead><tr><th>Customer</th><th>Phone</th><th>Orders</th><th>LTV (range)</th></tr></thead>
             <tbody>
@@ -306,6 +312,7 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: SP
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       </div>
       <div style={{ height: 30 }} />

@@ -1,10 +1,12 @@
 import { db } from "@/lib/db";
 import { getSettings, envFallback } from "@/lib/settings";
 import MarketingClient from "./client";
+import { displaySavedItems } from "@/lib/abandoned-cart";
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Marketing" };
-export default async function MarketingPage({ searchParams }: { searchParams: any }) {
-  await (await import("@/lib/auth")).requireAdmin(searchParams);
+export default async function MarketingPage(props: { searchParams: Promise<any> }) {
+  const searchParams = await props.searchParams;
+  await (await import("@/lib/auth")).requireAdmin(searchParams, "marketing");
   const { ensureExtraTables } = await import("@/lib/db-ensure");
   await ensureExtraTables().catch(() => {});
   const [abandoned, sources] = await Promise.all([
@@ -18,7 +20,10 @@ export default async function MarketingPage({ searchParams }: { searchParams: an
     recSettings={marketingCfg}
     abandoned={abandoned.map((a) => ({
       id: a.id, phone: a.phone, name: a.name, address: a.address, email: a.email,
-      cart: JSON.parse(a.cartJson || "[]"),
+      cart: displaySavedItems(a.cartJson || "[]"),
+      legacy: !a.captureKeyHash, recoveryError: a.recoveryError,
+      recoveryAttemptedAt: a.recoveryAttemptedAt?.toISOString() || null,
+      convertedOrderId: a.convertedOrderId,
       total: a.total, status: a.checkoutStatus || (a.recovered ? "RECOVERED" : "OPEN"),
       recoveryEmailedAt: a.recoveryEmailedAt ? a.recoveryEmailedAt.toISOString() : null,
       updatedAt: a.updatedAt.toISOString(),

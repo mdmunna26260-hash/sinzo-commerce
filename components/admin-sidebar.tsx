@@ -138,6 +138,27 @@ export default function Sidebar({ pending, lowStock }: { pending: number; lowSto
   const link = (href: string) => (t ? href + "?t=" + encodeURIComponent(t) : href);
   const user = decodeToken(t);
   const [menuOpen, setMenuOpen] = useState(false);
+  /* ≤900px the sidebar becomes an off-canvas drawer (opened from the topbar ☰).
+     Track that breakpoint so the desktop "collapsed" (icon-only) preference never
+     leaks into the drawer — on a phone the drawer is always full-label. */
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 900px)");
+    const sync = () => { setIsMobile(mq.matches); if (!mq.matches) setMenuOpen(false); };
+    sync();
+    mq.addEventListener("change", sync);
+    return () => mq.removeEventListener("change", sync);
+  }, []);
+  // close the drawer whenever the route changes (link tap, back button, global search)
+  useEffect(() => { setMenuOpen(false); }, [path]);
+  // while the drawer is open: lock page scroll behind it + Esc closes it
+  useEffect(() => {
+    document.documentElement.classList.toggle("ad-drawer-open", menuOpen);
+    if (!menuOpen) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setMenuOpen(false); };
+    window.addEventListener("keydown", onKey);
+    return () => { window.removeEventListener("keydown", onKey); document.documentElement.classList.remove("ad-drawer-open"); };
+  }, [menuOpen]);
   /* Desktop sidebar collapse — persisted in localStorage. Collapsed mode shows
      only icons (~68px wide), expanded shows full labels (248px). On small screens
      we force-expanded because the mobile drawer pattern takes over. */
@@ -174,7 +195,7 @@ export default function Sidebar({ pending, lowStock }: { pending: number; lowSto
      - When navigating: auto-open the new active page's section, close previous. */
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() => {
     const init: Record<string, boolean> = { __account: false };
-    NAV.forEach(g => { init[g.group] = g.items.some(it => typeof window !== "undefined" && window.location.pathname.startsWith(it.href)); });
+    NAV.forEach(g => { init[g.group] = g.items.some(it => path.startsWith(it.href)); });
     // Fallback: if nothing matched, open Overview
     if (!Object.values(init).some(Boolean)) init["Overview"] = true;
     return init;
@@ -224,27 +245,32 @@ export default function Sidebar({ pending, lowStock }: { pending: number; lowSto
   const clearAll = async () => { await afetch("/api/admin/notifications", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "clear" }) }); loadNotifs(); };
 
   const initial = user?.name ? user.name.trim().charAt(0).toUpperCase() : "A";
+  // icon-only mode is a desktop preference; the mobile drawer always shows labels
+  const isCollapsed = collapsed && !isMobile;
 
   return (
     <>
       {/* mobile topbar */}
       <div className="admin-topbar">
-        <button aria-label="Open menu" onClick={() => setMenuOpen(true)}>
+        <button aria-label="Open menu" aria-expanded={menuOpen} aria-controls="admin-drawer" onClick={() => setMenuOpen(true)}>
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M3 6h18M3 12h18M3 18h18" /></svg>
         </button>
-        <span className="logo">COMMERCE PANEL</span>
+        <Link href={link("/admin/dashboard")} className="logo">SINZO<small>COMMERCE PANEL</small></Link>
         <Link href="/" target="_blank" aria-label="View website" style={{ display: "flex", padding: 8 }}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14 21 3" /></svg>
         </Link>
         <ThemeIconToggle />
       </div>
-      {menuOpen && <div className="admin-scrim" onClick={() => setMenuOpen(false)} />}
-    <aside className={"admin-side" + (menuOpen ? " open" : "") + (collapsed ? " collapsed" : "")}>
+      <div className={"admin-scrim" + (menuOpen ? " open" : "")} onClick={() => setMenuOpen(false)} aria-hidden="true" />
+    <aside id="admin-drawer" className={"admin-side" + (menuOpen ? " open" : "") + (isCollapsed ? " collapsed" : "")} aria-label="Admin sidebar">
       <div className="side-head">
         <Link href={link("/admin/dashboard")} className="logo" onClick={() => setMenuOpen(false)} title="Dashboard">
           <span className="logo-full">SINZO<span style={{ fontSize: 9.5, display: "block", color: "var(--ad-mute)", letterSpacing: ".24em", fontWeight: 500, marginTop: 3 }}>COMMERCE PANEL</span></span>
           <span className="logo-mini">S</span>
         </Link>
+        <button className="drawer-close" onClick={() => setMenuOpen(false)} aria-label="Close menu" title="Close menu">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9"><path d="M18 6 6 18M6 6l12 12" /></svg>
+        </button>
         <button className="collapse-btn" onClick={() => setCollapsed(c => !c)} aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"} title={collapsed ? "Expand sidebar" : "Collapse sidebar"}>
           {collapsed ? (
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="m9 18 6-6-6-6" /></svg>
@@ -305,7 +331,7 @@ export default function Sidebar({ pending, lowStock }: { pending: number; lowSto
                 const badge = it.badge === "pending" ? pending : it.badge === "stock" ? lowStock : 0;
                 const isActive = path.startsWith(it.href);
                 return (
-                  <Link key={it.href} href={link(it.href)} onClick={() => setMenuOpen(false)} className={isActive ? "active" : ""} title={collapsed ? it.label : undefined} data-tip={it.label}>
+                  <Link key={it.href} href={link(it.href)} onClick={() => setMenuOpen(false)} className={isActive ? "active" : ""} title={isCollapsed ? it.label : undefined} data-tip={it.label}>
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true"><path d={it.icon} /></svg>
                     <span className="nav-label" style={{ flex: 1 }}>{it.label}</span>
                     {badge > 0 && <span className={"nav-badge" + (it.badge === "stock" ? " warn" : "")}>{badge > 99 ? "99+" : badge}</span>}
@@ -315,8 +341,8 @@ export default function Sidebar({ pending, lowStock }: { pending: number; lowSto
             </div>
           </div>
           {/* Collapsed: a single icon tile per group (shows group glyph, click expands that group OR reveals flyout) */}
-          {collapsed && (
-            <button className={"grp-mini" + (hasActive ? " has-active" : "")} onClick={() => { if (collapsed) setCollapsed(false); setOpenGroups(prev => { const n:Record<string,boolean>={}; NAV.forEach(x=>{n[x.group]=false}); n[g.group]=true; return n; }); }} title={g.group + " (" + itemCount + ")"} aria-label={g.group}>
+          {isCollapsed && (
+            <button className={"grp-mini" + (hasActive ? " has-active" : "")} onClick={() => { if (isCollapsed) setCollapsed(false); setOpenGroups(prev => { const n:Record<string,boolean>={}; NAV.forEach(x=>{n[x.group]=false}); n[g.group]=true; return n; }); }} title={g.group + " (" + itemCount + ")"} aria-label={g.group}>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d={g.gicon} /></svg>
               {hasActive && <span className="grp-mini-dot" />}
             </button>
@@ -345,7 +371,7 @@ export default function Sidebar({ pending, lowStock }: { pending: number; lowSto
               </div>
             </div>
             <div className="side-theme"><ThemeSwitchRow /></div>
-            <Link href="/" target="_blank" title="View storefront" className={collapsed ? "" : ""}>
+            <Link href="/" target="_blank" title="View storefront" >
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14 21 3" /></svg>
               <span className="nav-label">View Storefront</span>
             </Link>
@@ -355,7 +381,7 @@ export default function Sidebar({ pending, lowStock }: { pending: number; lowSto
             </a>
           </div>
         </div>
-        {collapsed && (
+        {isCollapsed && (
           <button className="grp-mini" onClick={() => { setCollapsed(false); setOpenGroups(prev => ({ ...prev, __account: true })); }} title="Account (3)" aria-label="Account">
             <div className="av" style={{ width: 28, height: 28, fontSize: 12 }}>{initial}</div>
           </button>

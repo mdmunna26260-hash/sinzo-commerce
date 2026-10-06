@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import crypto from "crypto";
 import { db } from "@/lib/db";
 import { getSettings, envFallback } from "@/lib/settings";
 import { assessRisk } from "@/lib/risk";
@@ -9,164 +10,130 @@ import { orderCode } from "@/lib/slug";
 import { normalizeBDPhone, isValidBDPhone } from "@/lib/phone";
 import { notifyAdmin, emailCustomerOrder } from "@/lib/notify";
 import { subscribeImplicit } from "@/lib/newsletter";
+import { parseCheckoutLines, buildCheckoutItems, CheckoutValidationError } from "@/lib/checkout-items";
+import { checkoutTotals } from "@/lib/checkout-pricing";
+import { validateCoupon, CouponValidationError } from "@/lib/coupons";
+import { deployChannel } from "@/lib/deploy-channel";
+import { captureKeyHash } from "@/lib/recovery-security";
+import { verifyRecovery, lockAbandoned, RecoveryError } from "@/lib/abandoned-cart";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(req: Request) {
-  // safety: make sure newer columns (Order.channel, OrderItem.variantId etc.) exist before writing
-  const { ensureExtraTables } = await import("@/lib/db-ensure");
-  await ensureExtraTables().catch(() => {});
-  const { deployChannel } = await import("@/lib/deploy-channel");
   try {
-    const body = await req.json();
-    const { name, phone, email, address, area, notes, paymentMethod, couponCode, purchaseEventId, attribution } = body;
-    const items = Array.isArray(body.items) ? body.items : [];
-
-    // --- validation ---
-    const errors: any = {};
-    if (!name || String(name).trim().length < 3) errors.name = "Please enter your full name";
-    const cleanPhone = normalizeBDPhone(String(phone || ""));
+    const body = await req.json().catch(() => null);
+    if (!body || typeof body !== "object" || Array.isArray(body)) return NextResponse.json({ error: "Invalid checkout request" }, { status: 400 });
+    const name = typeof body.name === "string" ? body.name.trim() : "";
+    const address = typeof body.address === "string" ? body.address.trim() : "";
+    const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
+    const notes = typeof body.notes === "string" ? body.notes.trim().slice(0, 2000) : "";
+    const { area, couponCode } = body;
+    const paymentMethod = body.paymentMethod || "COD";
+    const purchaseEventId = typeof body.purchaseEventId === "string" ? body.purchaseEventId.slice(0, 128) : undefined;
+    const cleanPhone = normalizeBDPhone(String(body.phone || ""));
+    const errors: Record<string, string> = {};
+    if (name.length < 3 || name.length > 80) errors.name = "Please enter your full name (3–80 characters)";
     if (!isValidBDPhone(cleanPhone)) errors.phone = "Enter a valid BD mobile number";
-    if (!address || String(address).trim().length < 10) errors.address = "Please enter your full address";
+    if (address.length < 10 || address.length > 1000) errors.address = "Please enter your full address (10–1000 characters)";
+    if (body.email && (!email || email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))) errors.email = "Please enter a valid email address";
     if (area !== "INSIDE_DHAKA" && area !== "OUTSIDE_DHAKA") errors.area = "Select delivery zone";
-    if (items.length === 0) return NextResponse.json({ error: "Your cart is empty" }, { status: 400 });
     if (Object.keys(errors).length) return NextResponse.json({ error: "Please fix the highlighted fields", errors }, { status: 400 });
+    const lines = parseCheckoutLines(body.items);
+    const captureHash = body.captureKey == null ? null : captureKeyHash(body.captureKey);
+    if (body.captureKey != null && !captureHash) throw new RecoveryError("Invalid checkout session");
 
-    // basic bot/brute-force guard on top of the fraud velocity engine
     const ip = getClientIp(req);
     if (!rateLimit("checkout:" + ip, 10, 10 * 60 * 1000)) {
       return NextResponse.json({ error: "Too many attempts. Please try again in a few minutes." }, { status: 429 });
     }
-
-    const s = envFallback(await getSettings());
+    const { ensureExtraTables } = await import("@/lib/db-ensure");
+    await ensureExtraTables();
+    const s = envFallback(await getSettings(true));
     const shipCfg = s.shipping || {};
     const checkoutCfg = s.checkout || {};
+    if (paymentMethod !== "COD") return NextResponse.json({ error: "Online payment is not available yet. Please use Cash on Delivery." }, { status: 400 });
+    if (checkoutCfg.codEnabled === false) return NextResponse.json({ error: "Cash on Delivery is currently disabled. Please contact support." }, { status: 400 });
 
-    if (paymentMethod !== "COD" && !checkoutCfg.onlinePaymentEnabled) {
-      return NextResponse.json({ error: "Online payment is not available yet. Please use Cash on Delivery." }, { status: 400 });
+    const products = await db.product.findMany({
+      where: { id: { in: [...new Set(lines.map((i) => i.productId))] }, status: "ACTIVE" },
+      include: { variants: true, images: { orderBy: { position: "asc" } } },
+    });
+    const { items: orderItems, subtotal } = buildCheckoutItems(lines, products);
+    const risk = await assessRisk({ phone: cleanPhone, address, ip }, s.fraud);
+    if (risk.level === "CRITICAL") return NextResponse.json({ error: "We're unable to accept this order. Please contact support." }, { status: 403 });
+
+    // Only attribution strings are meaningful; an object in utm_source used to
+    // throw in detectSource() and turn an otherwise valid order into a 500.
+    const attribution: Record<string, string> = {};
+    for (const key of ["utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term", "fbclid", "fbp", "fbc", "referrer"]) {
+      if (typeof body.attribution?.[key] === "string") attribution[key] = body.attribution[key].slice(0, 2000);
     }
 
-    // --- load & verify products server-side (never trust client prices) ---
-    const productIds = items.map((i: any) => Number(i.productId)).filter(Boolean);
-    const products = await db.product.findMany({ where: { id: { in: productIds }, status: "ACTIVE" }, include: { variants: true, images: true } });
-    if (!products.length) return NextResponse.json({ error: "Products unavailable" }, { status: 400 });
-
-    let subtotal = 0;
-    const orderItems: any[] = [];
-    for (const line of items) {
-      const p = products.find((x) => x.id === Number(line.productId));
-      if (!p) return NextResponse.json({ error: "A product in your cart is no longer available" }, { status: 400 });
-      let unit = p.price;
-      let stockLeft = p.stock;
-      let variantLabel: string | undefined;
-      let variantId: number | null = null;
-      if (line.variantId) {
-        const v = p.variants.find((x) => x.id === Number(line.variantId));
-        if (v) {
-          if (v.stock <= 0 && !p.preorder) return NextResponse.json({ error: `${p.title} (${v.size || ""}${v.color ? " · " + v.color : ""}) is sold out` }, { status: 400 });
-          unit = v.price || p.price;
-          stockLeft = v.stock;
-          variantId = v.id;
-          variantLabel = [v.size, v.color].filter(Boolean).join(" · ");
+    const result = await db.$transaction(async (tx) => {
+      // Lock the buyer before draft/coupon mutations. Customer data changes
+      // only after a new order is validated; retries cannot consume coupons twice.
+      await tx.customer.upsert({ where: { phone: cleanPhone }, update: { phone: cleanPhone }, create: { phone: cleanPhone, name, address, area, email: email || null } });
+      let draft = null;
+      if (captureHash) {
+        draft = await tx.abandonedCheckout.upsert({ where: { captureKeyHash: captureHash }, update: {}, create: {
+          captureKeyHash: captureHash, name, phone: cleanPhone, email: email || null, address,
+          total: subtotal, cartJson: JSON.stringify({ version: 2, items: orderItems, area, notes, couponCode: typeof couponCode === "string" ? couponCode : null }),
+        } });
+        await lockAbandoned(tx, draft.id);
+        draft = await tx.abandonedCheckout.findUniqueOrThrow({ where: { id: draft.id } });
+        if (draft.checkoutStatus !== "OPEN") {
+          if (draft.phone !== cleanPhone || !draft.convertedOrderId) throw new RecoveryError("This checkout has already been handled", 409);
+          const previous = await tx.order.findUnique({ where: { id: draft.convertedOrderId } });
+          if (!previous) throw new RecoveryError("This checkout has already been handled", 409);
+          return { order: previous, appliedCode: previous.couponCode, reused: true };
         }
-      } else if (p.stock <= 0 && !p.preorder) {
-        return NextResponse.json({ error: `${p.title} is sold out` }, { status: 400 });
       }
-      const qty = Math.max(1, Math.min(Number(line.qty) || 1, p.preorder ? 99 : stockLeft));
-      subtotal += unit * qty;
-      orderItems.push({ productId: p.id, variantId, title: p.title, variant: variantLabel, price: unit, qty, image: p.images?.[0]?.url || null, stockLeft, preorder: !!p.preorder, preorderDate: p.preorderDate ? new Date(p.preorderDate) : null });
-    }
-
-    // --- fraud / risk (before committing anything) ---
-    const risk = await assessRisk({ phone: cleanPhone, address: String(address), ip }, s.fraud);
-    if (risk.level === "CRITICAL") {
-      return NextResponse.json({ error: "We're unable to accept this order. Please contact support." }, { status: 403 });
-    }
-
-    // --- delivery fee (from admin settings, never hardcoded) ---
-    const feeBase = area === "INSIDE_DHAKA" ? Number(shipCfg.insideDhaka ?? 80) : Number(shipCfg.outsideDhaka ?? 140);
-    const freeT = Number(shipCfg.freeShippingThreshold ?? 0);
-    const giftWrapFee = body.giftWrap ? Math.max(0, Number(checkoutCfg.giftWrapFee ?? 60)) : 0;
-
-    // --- transactional order placement: coupon + customer + order + guarded
-    //     stock all commit or roll back together (no oversell, no half-burned
-    //     coupons, no negative stock under concurrent checkouts) ---
-    class SoldOutError extends Error {}
-    let result: { order: any; appliedCode: string | null };
-    try {
-      result = await db.$transaction(async (tx) => {
-        // coupon (usageLimit enforced; usedCount increments atomically with the order)
-        let discount = 0;
-        let freeship = false;
-        let appliedCode: string | null = null;
-        if (couponCode) {
-          const c = await tx.coupon.findUnique({ where: { code: String(couponCode).toUpperCase().trim() } });
-          const now = new Date();
-          const firstOrderOk = !c?.firstOrderOnly || (await tx.order.count({ where: { phone: cleanPhone, status: { notIn: ["CANCELLED"] } } })) === 0;
-          const usable = c && c.active
-            && (!c.startsAt || now >= c.startsAt) && (!c.endsAt || now <= c.endsAt)
-            && (c.usageLimit == null || c.usedCount < c.usageLimit)
-            && (c.minOrder == null || subtotal >= c.minOrder)
-            && firstOrderOk;
-          if (usable) {
-            if (c!.type === "percent") discount = Math.round(((subtotal * c!.value) / 100) * 100) / 100;
-            else if (c!.type === "fixed") discount = c!.value;
-            if (c!.maxDiscount != null && discount > c!.maxDiscount) discount = c!.maxDiscount;
-            if (c!.type === "freeship") freeship = true;
-            appliedCode = c!.code;
-            await tx.coupon.update({ where: { id: c!.id }, data: { usedCount: { increment: 1 } } });
-          }
-        }
-
-        const deliveryFee = freeship || (freeT > 0 && subtotal - discount >= freeT) ? 0 : feeBase;
-        const total = Math.max(0, subtotal - discount) + deliveryFee + giftWrapFee;
-
-        // customer upsert
-        const customer = await tx.customer.upsert({
-          where: { phone: cleanPhone },
-          update: { name: String(name).trim(), address: String(address).trim(), area, email: email || null },
-          create: { phone: cleanPhone, name: String(name).trim(), address: String(address).trim(), area, email: email || null },
-        });
-
-        // create order
-        const order = await tx.order.create({
-          data: {
-            code: "TEMP", name: String(name).trim(), phone: cleanPhone, email: email || null,
-            address: String(address).trim(), area, notes: body.giftWrap ? (notes ? notes + " | " : "") + "🎁 GIFT WRAP (+৳" + giftWrapFee + ")" : notes || null,
-            subtotal, discount, deliveryFee, total,
-            couponCode: appliedCode, paymentMethod: paymentMethod || "COD", paymentStatus: "PENDING",
-            status: risk.level === "HIGH" ? "ON_HOLD" : "PENDING",
-            riskLevel: risk.level, riskFlags: risk.flags.join(", ") || null,
-            source: detectSource(body.attribution || attribution), attribution: (body.attribution || attribution) ? JSON.stringify(body.attribution || attribution) : null,
-            channel: deployChannel(),
-            ip, customerId: customer.id,
-            items: { create: orderItems.map((i) => ({ productId: i.productId, variantId: i.variantId, title: i.title, variant: i.variant, price: i.price, qty: i.qty, image: i.image, preorder: !!i.preorder, preorderDate: i.preorderDate ? new Date(i.preorderDate) : null })) },
-          },
-        });
-        const code = orderCode(order.id);
-        const finalOrder = await tx.order.update({ where: { id: order.id }, data: { code } });
-
-        // Inventory is NOT decremented at order time (Steadfast flow):
-        // stock is subtracted exactly once when the order is DELIVERED
-        // (lib/deliver-stock.ts). The sold-out validation above still
-        // protects against selling 0-stock non-pre-order items.
-
-        // abandoned checkout: mark CONVERTED (order placed)
-        await tx.abandonedCheckout.updateMany({
-          where: { phone: cleanPhone, checkoutStatus: "OPEN" },
-          data: { checkoutStatus: "CONVERTED", recovered: true },
-        }).catch(() => {});
-
-        return { order: finalOrder, appliedCode };
+      const recovered = body.recoveryToken ? await verifyRecovery(tx, body.recoveryToken) : null;
+      if (recovered) { await lockAbandoned(tx, recovered.row.id); await verifyRecovery(tx, body.recoveryToken); }
+      let discount = 0;
+      let freeship = false;
+      let appliedCode: string | null = null;
+      if (couponCode) {
+        if (typeof couponCode !== "string") throw new CouponValidationError("Invalid coupon code");
+        const code = couponCode.toUpperCase().trim();
+        // A zero increment acquires the coupon's write lock, serializing both
+        // usageLimit and per-customer/first-order checks across concurrent carts.
+        const locked = await tx.coupon.updateMany({ where: { code, active: true }, data: { usedCount: { increment: 0 } } });
+        if (!locked.count) throw new CouponValidationError("Invalid coupon code");
+        const coupon = await tx.coupon.findUnique({ where: { code } });
+        const applied = await validateCoupon(tx, coupon, subtotal, cleanPhone);
+        discount = applied.discount;
+        freeship = applied.freeship;
+        appliedCode = applied.code;
+        await tx.coupon.update({ where: { code }, data: { usedCount: { increment: 1 } } });
+      }
+      const { total, deliveryFee } = checkoutTotals({ subtotal, discount, area, shipping: shipCfg, freeship });
+      const customer = await tx.customer.upsert({
+        where: { phone: cleanPhone },
+        update: { name, address, area, ...(email ? { email } : {}) },
+        create: { phone: cleanPhone, name, address, area, email: email || null },
       });
-    } catch (e) {
-      if (e instanceof SoldOutError) return NextResponse.json({ error: e.message }, { status: 409 });
-      throw e;
-    }
+      const order = await tx.order.create({
+        data: {
+          code: "TEMP-" + crypto.randomUUID(), name, phone: cleanPhone, email: email || null,
+          address, area, notes: notes || null,
+          subtotal, discount, deliveryFee, total, couponCode: appliedCode,
+          paymentMethod, paymentStatus: "PENDING", status: risk.level === "HIGH" ? "ON_HOLD" : "PENDING",
+          riskLevel: risk.level, riskFlags: risk.flags.join(", ") || null,
+          source: recovered ? "Recovered" : detectSource(attribution), attribution: Object.keys(attribution).length ? JSON.stringify(attribution) : null,
+          channel: deployChannel(), ip, customerId: customer.id, items: { create: orderItems },
+        },
+      });
+      const finalOrder = await tx.order.update({ where: { id: order.id }, data: { code: orderCode(order.id) } });
+      // Keep the store's delivery-time inventory policy: no stock decrement at checkout.
+      await tx.abandonedCheckout.updateMany({ where: { OR: [{ phone: cleanPhone }, ...(draft ? [{ id: draft.id }] : []), ...(recovered ? [{ id: recovered.row.id }] : [])], checkoutStatus: "OPEN" }, data: { checkoutStatus: "CONVERTED", recovered: true, convertedOrderId: finalOrder.id } });
+      return { order: finalOrder, appliedCode, reused: false };
+    });
     const order = result.order;
     const code = order.code;
     const appliedCode = result.appliedCode;
     const total = order.total;
+    if (result.reused) return NextResponse.json({ ok: true, code, total, risk: order.riskLevel, reused: true });
 
     // --- server-side Purchase via Meta CAPI (dedup with browser pixel by event_id) ---
     sendCapi({
@@ -199,6 +166,9 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ ok: true, code, total, risk: risk.level });
   } catch (e: any) {
+    if (e instanceof CheckoutValidationError || e instanceof CouponValidationError) {
+      return NextResponse.json({ error: e.message }, { status: e instanceof RecoveryError ? e.status : 400 });
+    }
     console.error("checkout error", e);
     return NextResponse.json({ error: "Something went wrong placing your order. Please try again." }, { status: 500 });
   }

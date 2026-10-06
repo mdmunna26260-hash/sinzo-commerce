@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 export const dynamic = "force-dynamic";
-type Ctx = { params: { id: string } };
+type Ctx = { params: Promise<{ id: string }> };
 /* 24px LQIP — tiny; cached forever by browser + edge. */
-export async function GET(_: Request, { params }: Ctx) {
+export async function GET(_: Request, props: Ctx) {
+  const params = await props.params;
   const m = await db.media.findUnique({ where: { id: params.id }, select: { blurData: true } }).catch(() => null);
   if (!m?.blurData) return new Response(null, { status: 404, headers: { "Cache-Control": "no-store" } });
   return new Response(new Uint8Array(m.blurData), {

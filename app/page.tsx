@@ -11,6 +11,7 @@ import { CartProvider } from "@/components/store";
 import Carousel from "@/components/home/carousel";
 import SmartImg from "@/components/smart-img";
 import SafeSection from "@/components/safe-section";
+import { makeReviewLoop } from "@/lib/review-marquee";
 
 // ISR: Cache page for 60s, then revalidate in background
 // First visitor after expiry: gets cached page (fast), fresh page renders in background
@@ -55,11 +56,13 @@ function CatTile({ c, rd }: { c: any; rd?: number }) {
   );
 }
 
-function Quote({ r, rd, plain }: { r: any; rd?: number; plain?: boolean }) {
+type HomeReview = { id: number; name: string; rating: number; text: string; product: { title: string } };
+function Quote({ r, hidden }: { r: HomeReview; hidden?: boolean }) {
+  const rating = Math.max(0, Math.min(5, Math.round(r.rating)));
   return (
-    <div className={"quote2" + (plain ? "" : " reveal")} style={!plain && rd != null ? ({ "--rd": rd } as CSSProperties) : undefined}>
-      <span className="q-mark" aria-hidden>“</span>
-      <span className="stars">{"★".repeat(r.rating)}{"☆".repeat(5 - r.rating)}</span>
+    <div className="quote2" role="listitem" data-review-id={r.id} aria-hidden={hidden || undefined}>
+      <span className="q-mark" aria-hidden="true">“</span>
+      <span className="stars" role="img" aria-label={`${rating} out of 5 stars`}>{"★".repeat(rating)}{"☆".repeat(5 - rating)}</span>
       <p>{r.text}</p>
       <div className="who">{r.name || "Customer"} — {(r.product?.title || "SINZO").slice(0, 24)}…</div>
     </div>
@@ -71,7 +74,7 @@ export default async function HomePage() {
     return await HomeContent();
   } catch (e: any) {
     console.error("HomePage render error:", e?.message);
-    return <div className="container" style={{ padding: "80px 24px", textAlign: "center" }}><h1>SINZO</h1><p style={{ color: "var(--muted)" }}>Page load korte halka somossa hocche — refresh korun.</p></div>;
+    return <div className="container" style={{ padding: "80px 24px", textAlign: "center" }}><h1 className="brand-wm">SINZO</h1><p style={{ color: "var(--muted)" }}>Page load korte halka somossa hocche — refresh korun.</p></div>;
   }
 }
 
@@ -102,11 +105,14 @@ async function HomeContent() {
     where: { slug: "best-sellers" },
     include: { products: { take: 8, select: colProductSelect } },
   });
-  const reviews = await db.review.findMany({ where: { status: "APPROVED", featured: true }, include: { product: { select: { title: true } } }, take: 4 });
-  if (reviews.length < 4) {
-    const extra = await db.review.findMany({ where: { status: "APPROVED" }, include: { product: { select: { title: true } } }, take: 4 - reviews.length });
-    reviews.push(...extra);
-  }
+  // All published reviews, once each; featured first. Never expose pending
+  // reviews or private phone fields, and never cap the animation at four.
+  const reviews = await db.review.findMany({
+    where: { status: "APPROVED" },
+    select: { id: true, name: true, rating: true, text: true, product: { select: { title: true } } },
+    orderBy: [{ featured: "desc" }, { createdAt: "desc" }, { id: "desc" }],
+  });
+  const reviewLoop = makeReviewLoop(reviews);
   const hp = s.homepage || {};
   const sectionCfg: { id: string; enabled: boolean }[] =
     Array.isArray(s.homeSections) && s.homeSections.length ? s.homeSections : DEFAULT_SECTIONS;
@@ -241,26 +247,14 @@ async function HomeContent() {
       </section>
     ),
     testimonials: reviews.length > 0 ? (
-      <section className="section container" style={{ paddingTop: 0 }} key="testimonials">
+      <section className="section container testimonials" id="customer-reviews" style={{ paddingTop: 0 }} key="testimonials">
         <Head no="04" eyebrow="Reviews" title="What customers say" />
-        <Carousel className="mobile-only">
-          <div className="grid grid-2q">{reviews.slice(0, 2).map((r, idx) => <Quote key={r.id} r={r} rd={idx % 2} />)}</div>
-          <div className="grid grid-2q">{reviews.slice(2, 4).map((r, idx) => <Quote key={r.id} r={r} rd={idx % 2} />)}</div>
-        </Carousel>
-        {/* Desktop marquee: 4+ reviews thakle ekta seamless band — ek set er por hubohu
-            second copy, tai -50% translate korle loop dekha jay na. Duration content er
-            sathe scale kore (per-review ~11s), nohoile kom review e charto cholto.
-            Kom review hole marquee ta meaningless — tokhon grid e fallback. */}
-        {reviews.length >= 4 && (
-          <div className="qmarquee">
-            <div className="qmarquee-track" style={{ animationDuration: `${reviews.length * 11}s` }}>
-              {[...reviews, ...reviews].map((r, i) => <Quote key={"qm" + i} r={r} plain />)}
-            </div>
-          </div>
-        )}
-        <div className={reviews.length >= 4 ? "desktop-only qgrid-fallback" : "desktop-only"}>
-          <div className="grid grid-3">
-            {reviews.map((r, idx) => <Quote key={r.id} r={r} rd={idx % 3} />)}
+        {/* Same seamless, continuous band on phones, tablets and desktop.
+            Clone cards are decorative: assistive technology reads each real
+            review once. Reduced-motion visitors get a manually scrollable list. */}
+        <div className="qmarquee" role="region" aria-label="Customer reviews" tabIndex={0}>
+          <div className="qmarquee-track" role="list" style={{ animationDuration: `${reviewLoop.length * 11}s` }}>
+            {[...reviewLoop, ...reviewLoop].map((r, i) => <Quote key={`qm-${i}-${r.id}`} r={r} hidden={i >= reviews.length} />)}
           </div>
         </div>
       </section>

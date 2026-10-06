@@ -3,8 +3,9 @@ import { db } from "@/lib/db";
 import { requirePerm } from "@/lib/admin-guard";
 import { slugify } from "@/lib/slug";
 export const dynamic = "force-dynamic";
-type Ctx = { params: { id: string } };
-export async function PUT(req: Request, { params }: Ctx) {
+type Ctx = { params: Promise<{ id: string }> };
+export async function PUT(req: Request, props: Ctx) {
+  const params = await props.params;
   const g = await requirePerm("categories", req);
   if ("res" in g) return g.res;
   const b = await req.json();
@@ -24,7 +25,8 @@ export async function PUT(req: Request, { params }: Ctx) {
     return NextResponse.json({ error: "Update failed (slug may already be in use)" }, { status: 400 });
   }
 }
-export async function DELETE(req: Request, { params }: Ctx) {
+export async function DELETE(req: Request, props: Ctx) {
+  const params = await props.params;
   const g = await requirePerm("categories", req);
   if ("res" in g) return g.res;
   await db.category.delete({ where: { id: Number(params.id) } }).catch(() => {});

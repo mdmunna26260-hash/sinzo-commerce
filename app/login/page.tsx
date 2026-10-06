@@ -41,7 +41,7 @@ export default function CustomerLoginPage() {
           const probe = await fetch("/api/auth/me");
           if (probe.ok) { router.push("/account"); router.refresh(); return; }
         } catch {}
-        router.push("/account?ct=" + encodeURIComponent(j.token));
+        router.push(j.token ? "/account?ct=" + encodeURIComponent(j.token) : "/account");
         router.refresh();
       } else { setErr(j.error || "Failed"); setBusy(false); }
     } catch { setErr("Network error"); setBusy(false); }

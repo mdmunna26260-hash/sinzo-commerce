@@ -233,7 +233,7 @@ model Order {
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
 
-  stockDeducted Boolean  @default(false) // true once delivery-time stock decrement ran (idempotency guard)
+  stockDeducted Boolean  @default(false) // inventory currently deducted; reset atomically on return/cancel
   // pack & scan (barcode/SKU station), and the post-delivery review-request nudge
   packedAt          DateTime?
   packedBy          String?
@@ -253,6 +253,7 @@ model OrderItem {
   image     String?
   price     Float
   qty       Int
+  stockDeductedQty Int? // exact quantity deducted at delivery; null = legacy order line
 
   preorder      Boolean   @default(false) // order line was placed as pre-order
   preorderDate  DateTime?               // expected delivery date captured at order time
@@ -312,6 +313,14 @@ model AbandonedCheckout {
   recovered         Boolean  @default(false)
   checkoutStatus    String   @default("OPEN") // OPEN | RECOVERED | CONVERTED
   recoveryEmailedAt DateTime?
+  captureKeyHash    String?  @unique // browser-owned draft; never deduplicate/overwrite by phone alone
+  captureRevision  Int      @default(0) // ignore late/out-of-order draft writes
+  recoveryAttemptedAt DateTime? // durable at-most-once automatic SMTP attempt
+  recoveryClaimId   String?
+  recoveryError     String?
+  convertedOrderId Int? // assigned atomically; enables idempotent conversion/replay
+
+  @@index([checkoutStatus, recoveryAttemptedAt, updatedAt])
   updatedAt         DateTime @default(now())
   createdAt         DateTime @default(now())
 }

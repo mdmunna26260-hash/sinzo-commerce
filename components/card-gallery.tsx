@@ -40,7 +40,7 @@ import { imgSrc, imgSrcSet, CARD_WIDTHS, CARD_SIZES } from "./img-src";
 
    IMPORTANT (bug fix 2026-09-20): the track offset is written in PIXELS, never as
    `translate3d(calc(-100% + 0px))`. Percentage + calc() inside a transform function is
-   dropped by some WebKit/Safari builds → the state (dots) advanced while the image itself
+   dropped by some WebKit/Safari builds → the gallery state advanced while the image itself
    never moved. Pixels are width-independent, so every engine renders them identically.
    The step width is re-measured on mount + on resize (ResizeObserver) and immediately
    before every release, so a rotated phone / resized window can never desync. */
@@ -50,7 +50,7 @@ type Props = {
   alt: string;
   /* classes for the outer wrapper (fills .pcard-img) */
   className?: string;
-  /* Reports the visible photo upwards — the dots are drawn by the card (components/card-media.tsx),
+  /* Reports the visible photo upwards — the progress bar is drawn by the card (components/card-media.tsx),
      because this component lives inside `.pcard-img`, which clips anything below the image. */
   onIndexChange?: (i: number) => void;
 };

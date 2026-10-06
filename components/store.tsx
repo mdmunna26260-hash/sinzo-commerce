@@ -1,5 +1,6 @@
 "use client";
 import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
+import { safeTrackingUrl } from "@/lib/recovery-client";
 
 /* ============ Client-side tracking service (Meta Pixel + GA4 + GTM + server CAPI) ============ */
 export function getCfg(): any {
@@ -116,7 +117,7 @@ export function trackEvent(name: string, data?: Record<string, any>, opts?: { ev
   try {
     fetch("/api/track/event", {
       method: "POST", headers: { "Content-Type": "application/json" }, keepalive: true,
-      body: JSON.stringify({ name, eventId, url: location.href, data, fbp: getCookie("_fbp"), fbc: getFbc(), phone: getTrackingPhone() || undefined }),
+      body: JSON.stringify({ name, eventId, url: safeTrackingUrl(location.href), data, fbp: getCookie("_fbp"), fbc: getFbc(), phone: getTrackingPhone() || undefined }),
     }).catch(() => {});
   } catch {}
   return eventId;
@@ -144,8 +145,8 @@ function saveCart(c: CartLine[]) {
   try { localStorage.setItem(CART_KEY, JSON.stringify(c)); } catch {}
 }
 
-type CartCtx = { lines: CartLine[]; count: number; subtotal: number; ready: boolean; add: (l: Omit<CartLine, "key">, qty?: number) => void; setQty: (key: string, qty: number) => void; updateLine: (key: string, patch: Partial<CartLine>) => void; remove: (key: string) => void; clear: () => void; };
-const EMPTY_CTX: CartCtx = { lines: [], count: 0, subtotal: 0, ready: false, add: () => {}, setQty: () => {}, updateLine: () => {}, remove: () => {}, clear: () => {} };
+type CartCtx = { lines: CartLine[]; count: number; subtotal: number; ready: boolean; add: (l: Omit<CartLine, "key">, qty?: number) => void; setQty: (key: string, qty: number) => void; updateLine: (key: string, patch: Partial<CartLine>) => void; remove: (key: string) => void; clear: () => void; replace: (lines: CartLine[]) => void; };
+const EMPTY_CTX: CartCtx = { lines: [], count: 0, subtotal: 0, ready: false, add: () => {}, setQty: () => {}, updateLine: () => {}, remove: () => {}, clear: () => {}, replace: () => {} };
 const Ctx = createContext<CartCtx>(EMPTY_CTX);
 export function useCart() { return useContext(Ctx); }
 
@@ -189,9 +190,10 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   };
   const remove: CartCtx["remove"] = (key) => commit(loadCart().filter((x) => x.key !== key));
   const clear = () => commit([]);
+  const replace = (items: CartLine[]) => commit(items.map(l => ({ ...l, key: `${l.productId}:${l.variantId || 0}` })));
   const count = lines.reduce((s, l) => s + l.qty, 0);
   const subtotal = lines.reduce((s, l) => s + l.qty * l.price, 0);
-  return <Ctx.Provider value={{ lines, count, subtotal, ready, add, setQty, updateLine, remove, clear }}>{children}</Ctx.Provider>;
+  return <Ctx.Provider value={{ lines, count, subtotal, ready, add, setQty, updateLine, remove, clear, replace }}>{children}</Ctx.Provider>;
 }
 
 /* ============ Toast ============ */

@@ -7,8 +7,9 @@ export const metadata = { title: "Scan to pack" };
 /* Scan-to-pack station: scan a parcel's code, check the items, confirm, print the slip.
    The heavy lifting lives in /api/admin/scan so the same endpoint can be driven by a
    phone camera scanner later without touching this screen. */
-export default async function ScanPage({ searchParams }: { searchParams: { t?: string } }) {
-  const user = await requireAdmin(searchParams);
+export default async function ScanPage(props: { searchParams: Promise<{ t?: string }> }) {
+  const searchParams = await props.searchParams;
+  const user = await requireAdmin(searchParams, "orders");
   return (
     <>
       <div className="admin-top">

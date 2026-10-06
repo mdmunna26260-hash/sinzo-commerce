@@ -222,6 +222,7 @@ function HomepageLayoutTab({ groups, save, busy, collections = [] }: any) {
         <button className="abtn primary" onClick={() => save("homeSections", secs)} disabled={busy}>Save Layout</button>
       </div>
       <div style={{ padding: 14, fontSize: 12.5, color: "var(--muted)" }}>⠿ drag kore section reorder korun — homepage thik ei order-e dekhabe. Checkbox off = section hide.</div>
+      <div className="tbl-scroll">
       <table className="tbl">
         <tbody>
           {secs.map((s, i) => (
@@ -248,6 +249,7 @@ function HomepageLayoutTab({ groups, save, busy, collections = [] }: any) {
           ))}
         </tbody>
       </table>
+      </div>
     </div>
   );
 }
@@ -310,8 +312,8 @@ export default function SettingsClient({ groups, user, userCount, hasCourier, co
   return (
     <>
       <div className="admin-top"><h1>Settings</h1><span className="who">Everything here is editable without touching code.</span></div>
-      <div className="settings-nav">
-        {TABS.map((t) => <button key={t} className={"chip" + (tab === t ? " active" : "")} style={{ cursor: "pointer" }} onClick={() => setTab(t)}>{t}</button>)}
+      <div className="settings-nav" role="tablist" aria-label="Settings sections">
+        {TABS.map((t) => <button key={t} type="button" role="tab" aria-selected={tab === t} className={"chip" + (tab === t ? " active" : "")} style={{ cursor: "pointer" }} onClick={(e) => { setTab(t); e.currentTarget.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" }); }}>{t}</button>)}
       </div>
       {msg && <div className="noti ok">{msg}</div>}
 
@@ -535,7 +537,7 @@ export default function SettingsClient({ groups, user, userCount, hasCourier, co
       )}
 
       {tab === "Checkout & Fraud" && (
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+        <div className="adm-split adm-split-even" style={{ marginBottom: 0 }}>
           <div className="acard"><div className="acard-h"><h3>Checkout</h3></div>
             <div className="acard-b">
               <label style={{ display: "flex", gap: 8, fontSize: 13.5, padding: "6px 0" }}><input type="checkbox" checked={!!g.checkout?.codEnabled} onChange={(e) => setG({ ...g, checkout: { ...g.checkout, codEnabled: e.target.checked } })} /> Cash on Delivery enabled</label>
@@ -705,7 +707,7 @@ export default function SettingsClient({ groups, user, userCount, hasCourier, co
         </>
       )}
       {tab === "SEO & Maintenance" && (
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+        <div className="adm-split adm-split-even" style={{ marginBottom: 0 }}>
           <div className="acard"><div className="acard-h"><h3>SEO</h3></div>
             <div className="acard-b form-grid">
               <div className="af full"><label>Meta title</label><input value={g.seo?.metaTitle || ""} onChange={(e) => setG({ ...g, seo: { ...g.seo, metaTitle: e.target.value } })} /></div>

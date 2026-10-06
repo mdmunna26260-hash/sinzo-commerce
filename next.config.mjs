@@ -41,6 +41,8 @@ const nextConfig = {
      the dev server's `.next`. That separation matters: a prod build and a `next dev` sharing one
      directory corrupt each other's chunk graph (FIX-LOG §14). */
   distDir: process.env.NEXT_DIST_DIR || ".next",
+  /* Arena previews use a port-prefixed sandbox subdomain for both page and HMR origins. */
+  allowedDevOrigins: ["*.e2b.app"],
   images: { unoptimized: true },
   poweredByHeader: false,
   experimental: {

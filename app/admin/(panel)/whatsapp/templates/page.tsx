@@ -7,8 +7,9 @@ export const metadata = { title: "WhatsApp templates" };
 /* Event templates — what the customer actually reads.
    Each automatic event (order placed / confirmed / packed / shipped / delivered / cancelled) has
    its own switch and its own text; {variables} fill from the real order. */
-export default async function WaTemplatesPage({ searchParams }: { searchParams: { t?: string } }) {
-  const user = await requireAdmin(searchParams);
+export default async function WaTemplatesPage(props: { searchParams: Promise<{ t?: string }> }) {
+  const searchParams = await props.searchParams;
+  const user = await requireAdmin(searchParams, "settings");
   return (
     <>
       <div className="admin-top">

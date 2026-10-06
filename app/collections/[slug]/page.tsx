@@ -9,7 +9,8 @@ import { clean } from "@/lib/search";
 
 export const dynamic = "force-dynamic";
 
-export async function generateMetadata({ params }: { params: { slug: string } }) {
+export async function generateMetadata(props: { params: Promise<{ slug: string }> }) {
+  const params = await props.params;
   const col = await db.collection.findUnique({ where: { slug: params.slug }, select: { title: true, subtitle: true } });
   if (!col) return { title: "Collection not found" };
   const t = clean(col.title);
@@ -21,7 +22,8 @@ export async function generateMetadata({ params }: { params: { slug: string } })
   };
 }
 
-export default async function CollectionPage({ params }: { params: { slug: string } }) {
+export default async function CollectionPage(props: { params: Promise<{ slug: string }> }) {
+  const params = await props.params;
   const { ensureExtraTables } = await import("@/lib/db-ensure");
   await ensureExtraTables().catch(() => {});
   const col = await db.collection.findUnique({

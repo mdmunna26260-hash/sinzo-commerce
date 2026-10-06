@@ -6,6 +6,7 @@ import { rateLimit } from "@/lib/auth";
 import { getClientIp } from "@/lib/ua";
 import { normalizeBDPhone, isValidBDPhone } from "@/lib/phone";
 import { subscribeImplicit } from "@/lib/newsletter";
+import { ALLOW_URL_TOKEN } from "@/lib/session-token";
 export const dynamic = "force-dynamic";
 export async function POST(req: Request) {
   if (!rateLimit("custreg:" + getClientIp(req), 10, 10 * 60 * 1000)) return NextResponse.json({ error: "Too many attempts, try later." }, { status: 429 });
@@ -24,7 +25,7 @@ export async function POST(req: Request) {
     /* If they registered with an email, they've implicitly opted in. */
     if (email) subscribeImplicit(email).catch(() => {});
     const token = createCustomerToken({ id: customer.id, phone: customer.phone, name: customer.name || "Customer" });
-    const res = NextResponse.json({ ok: true, token, user: { name: customer.name, phone: customer.phone } });
+    const res = NextResponse.json({ ok: true, ...(ALLOW_URL_TOKEN ? { token } : {}), user: { name: customer.name, phone: customer.phone } });
     const c = customerCookie(token);
     (res.cookies as any).set(c.name, c.value, c);
     return res;

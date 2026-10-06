@@ -754,7 +754,7 @@ Note for the merge: `origin/main` carries a *different* second pass at these sam
 (PR #3, `components/gallery-gesture.ts` + pointer events). This branch's engine is independent of it
 and is the one the sandbox above exercises end to end; the only line both passes agreed on is the
 hover guard in (a).
-## NOT changed — deliberately
+## Previous audit conclusions — historical, superseded by §19
 
 - **Checkout pricing**: `POST /api/checkout` already re-loads products and re-prices server-side
   ("never trust client prices"), enforces per-variant stock, runs in a `$transaction` with atomic
@@ -765,3 +765,239 @@ hover guard in (a).
 - **Role/permission model**, audit log, bcrypt dummy-compare (no user-enumeration timing leak) —
   already good.
 - No database was touched in production; no deploy was triggered.
+
+
+## 19 · Real-database security and commerce regression audit (2026-10-01)
+
+Branch: `arena/01a0f869-sinzo-commerce`. This pass supersedes the historical
+“checkout already correct / permission model already good” conclusions above.
+Those earlier checks used a demo stand-in; the HTTP/database checks in this pass
+use real Prisma SQLite queries/transactions and actual persisted fixtures.
+
+### Bugs fixed
+
+**Authentication and authorization**
+- Customer tokens and password-step 2FA tickets shared the signing context and
+  could be interpreted as admin sessions. Tokens are now purpose-separated,
+  strictly validated, signature/expiry checked, and backed by the current DB
+  user's active state, role, and session version. Published placeholder signing
+  keys are refused; production URL-token authentication is disabled.
+- Server-rendered admin data pages, printable order slips, blog mutations, and
+  user mutations now enforce the relevant current-role permission. The panel
+  shell also checks permission before querying private badge aggregates.
+- Cookie-only customer profile/update requests now authenticate; canonical
+  phone/account state is read from the current customer record, not stale claims.
+- 2FA tickets are unique, expiry/version bound, and consumed atomically. Concurrent
+  recovery-code/ticket use succeeds once; replay/revoked tickets fail. Team
+  management's documented own-password restriction is now enforced.
+
+**Checkout, coupons, and configuration**
+- Reject invalid/fractional/oversize quantities, invalid/foreign/missing variants,
+  unavailable products, invalid payment methods, and aggregate stock bypasses
+  across repeated lines or different sizes. Zero variant prices are honored by
+  the server. Quantities are never silently changed during checkout.
+- Shared UI/server totals honor explicit zero fees, threshold zero (promotion
+  disabled), configured gift-wrap prices, discounted subtotal, and COD toggles.
+- Preview and checkout share date/minimum/usage/customer/first-order coupon
+  validation and canonical phone handling. Checkout validates and atomically
+  consumes coupons; concurrent requests cannot exceed global limits. Discounts
+  are capped and rejected orders do not consume coupon uses.
+- Nested masked settings saves no longer overwrite real credentials. Known
+  courier/Meta/OAuth/SMTP/SMS/Telegram/WA bridge secrets are masked, internal
+  security settings are excluded, and malformed/negative fee settings fail.
+- Embedded config/article JSON escapes `<` to prevent script-tag breakout.
+
+**Inventory and order lifecycle**
+- Single, bulk, and courier status updates share an atomic order/inventory path.
+  Repeated delivery cannot deduct twice; concurrent return/cancel cannot restock
+  twice; genuine redelivery deducts again. Item edits adjust only the actual
+  deduction delta and invalid edits roll back the entire transaction.
+- New nullable `OrderItem.stockDeductedQty` records per-line actual deductions.
+  Short-stock delivery stays nonnegative; returning it cannot invent undeducted
+  stock. A legacy ledger/claim compatibility guard handles stale return flags.
+- Manual restocks now lock before reading/computing a balance: concurrent adds
+  and delivery/restock combinations no longer overwrite inventory. Exact stock
+  take/cost zero are accepted; fractional/blank/invalid additions, negative
+  resulting balances, integer overflow, invalid costs/modes, and bad filters
+  are rejected/bounded. Stock and ledger commit together; notification failures
+  after commit cannot cause a false restock error/retry.
+- **Business policy preserved:** checkout does not reserve/deduct inventory;
+  inventory deduction still happens at delivery.
+
+**Runtime, dependencies, and repeatable checks**
+- Upgrade Next.js to 15.5.27, nodemailer to 10.0.13, and override postcss to 8.5.28;
+  update asynchronous cookies/params/searchParams for Next 15. Dependency audit: 0.
+- Touch-only hover tooltip no longer changes geometry on the first tap.
+- Docker now includes the runtime additive schema script. `.dockerignore`
+  excludes local dependencies/builds/env/DB/WA sessions and sandbox utilities.
+  Migration URL examples are generic; CI/Docker build args no longer contain a live DATABASE_URL (including secret
+  build args, which leak via provenance). Configure the DB only at runtime.
+- Dev startup generates the real Prisma client instead of copying an incomplete
+  in-memory stand-in. `.env.*` secrets are git-ignored; `.env.example` stays tracked.
+- Added dependency-free TS unit tests and guarded real HTTP/DB regression tests.
+  Smoke uses a fresh customer phone/event ID per run and restores original shipping
+  settings, rather than failing legitimate coupon limits or overwriting store fees.
+
+### Verified, not assumed
+
+| Check | Result |
+| --- | --- |
+| `npm run typecheck` | passed |
+| `npm run test:unit` | 38 passed, 0 failed |
+| `npm run test:touch` | 52 passed, 0 failed |
+| `AUDIT_ALLOW_MUTATIONS=1 npm run test:api` | 83 passed, 0 failed |
+| `npm test` (seeded local smoke) | 60 passed, 0 failed |
+| Actual mobile Chromium, 390 × 844 | 6 passed; no hydration/uncaught JS errors |
+| Optimized Next.js production-mode build | passed with the real local SQLite client |
+| `npm audit` | 0 vulnerabilities |
+| Shell/JS syntax checks, `git diff --check` | passed |
+
+The browser checks cover PDP size selection/add-to-cart, threshold-zero cart
+shipping, matching checkout/wrap totals, disabled COD, unauthorized page redirect,
+and JS/hydration errors. App Router streaming redirects can return HTTP 200 with
+an RSC/meta redirect; regressions verify the target and absence of private props,
+not an incorrect unconditional expectation of HTTP 307.
+
+Commands/fixture safety are documented in README. API fixtures and settings are
+cleaned/restored in `finally`; the older smoke intentionally leaves a demo order.
+The sandbox-only Chromium runner is ignored rather than adding heavyweight browser
+packages to application dependencies.
+
+### Deployment requirements and limits
+
+1. **Rotate the database credential formerly committed to the workflow.** Removal
+   from the working tree does not remove it from Git history or old image metadata.
+   Do not pass replacement credentials as build args. Configure a persistent,
+   random `SESSION_SECRET` in every runtime process; the emergency random fallback
+   is not suitable for deployment across workers/restarts.
+2. Back up and review, then apply `npm run db:push:prod` before rollout; this repo
+   has no migration history for `prisma migrate deploy` to initialize it. The new
+   nullable stock column must exist. Runtime additive DDL is only a safety net.
+   No historical production stock balances were recalculated automatically.
+3. Native Prisma binary downloads were blocked in this sandbox. Verification used
+   Prisma's real SQLite WASM engine/libSQL adapter with real generated types/data,
+   not a fake client. The optimized build used a separate `.next-prod` directory
+   (`NEXT_DIST_DIR=.next-prod next build`) so it did not corrupt the running dev
+   preview. Normal native/PostgreSQL runtime and Docker image execution were **not
+   verified here**; run staging PostgreSQL/Docker checks before deployment.
+4. No production database access or deployment was performed. This is a targeted
+   regression audit, not a guarantee that every existing feature/provider is bug-free.
+   Broader persisted-cart/size-switch/coupon-refresh UX and live integrations remain
+   candidates for further coverage; server checkout validation is authoritative.
+
+
+## 20 · All-review autoplay + advanced height/weight-only sizing (2026-10-02)
+
+### Homepage reviews
+- Fetch **all APPROVED reviews**, featured first, with stable ordering. Removed the
+  four-review cap and the featured/fallback query that could repeat the same row.
+  Query only public display fields; pending/rejected reviews and phones stay private.
+- One seamless CSS marquee runs on mobile, tablet and desktop. Removed the reviews
+  carousel's left/right arrows and dots; other storefront carousels are unchanged.
+- Short lists repeat complete sets to fill the track. Decorative clones are hidden
+  from assistive technology; every original review is represented once accessibly.
+  Desktop hover/keyboard focus pauses; a mobile tap cannot cause sticky hover pause.
+  Reduced-motion visitors get all original cards in a manually scrollable list.
+
+### Size recommendation
+- Customer inputs remain **height + weight only**, as requested. FT/IN and CM work;
+  switching units preserves the measurement. Decimal weights interpolate smoothly,
+  rather than falling into gaps in the former narrow rule table.
+- Height-adjusted weight estimates waist/chest proportions. Product title/category
+  distinguishes wide-leg/regular pants (waist numbers) from shirts (chest numbers).
+  Shirt slim/regular/oversized styles use different ease; wide legs do not arbitrarily
+  upsize the waist. Numeric and alphabet guides are shown together.
+- Recognize single numeric runs, alpha aliases (2XL/XXL, 3XL/XXXL), mixed size runs,
+  and combined labels. Only actual configured variants can be selected. Equivalent
+  numeric/alpha variants offer both choices when both are configured.
+- Recognizable HTML chart measurements override generic mappings, including CM/IN,
+  explicit half-chest, body charts and ranges. Collar/EU/custom numbers need a chart.
+  A per-product image chart is not silently replaced with a different category table.
+- Keep out-of-stock variants in the PDP size data, choose an initially purchasable
+  variant, and check selected color plus real product/variant stock. A correct but
+  sold-out size stays labeled unavailable; unrelated stocked sizes are not substituted.
+  “Use size” selects the real variant and resets quantity. Zero-priced variants stay zero.
+- This is an **estimated fit guide**, not a claim of 100% perfect fit: height/weight
+  cannot determine every body proportion or brand cut. The UI states this and links
+  the size chart; incompatible/unsupported measurements get a safe fallback.
+  Measurements stay client-side; no new collection endpoint or extra body inputs.
+
+### Verification
+- `npm run check`: TypeScript, **60 unit regressions**, **52 touch checks** passed.
+- Real Chromium: **15 feature checks** passed across 390px mobile, 768px tablet,
+  1440px desktop and reduced-motion mode; no hydration/uncaught JS errors.
+  Includes all-review/privacy coverage, actual animation/touch/hover behavior,
+  numeric pants/shirts, alpha/mixed variants, color stock, unit conversion,
+  invalid input, selection, zero pricing and chart priority/opening.
+- Optimized Next.js production-mode build passed using the existing real local
+  SQLite/WASM environment (native/PostgreSQL/Docker limits from §19 still apply).
+- Existing HTTP/database regressions: **83/83**; seeded smoke: **60/60** also passed.
+- Browser fixtures were cleaned after the checks. No production deploy/database change.
+
+
+## 21 · Historical abandoned recovery assessment — superseded by §22 (2026-10-02)
+
+User asked whether recovery works. Application behavior was **not enabled/changed**
+by this assessment. Guarded local HTTP/real SQLite check verified capture creates
+an OPEN row and cleans its fixture. Local SMTP is unconfigured; no recovery email,
+order, or customer contact was sent. A separate browser probe timed out, so no
+successful end-to-end UI/email delivery verification is claimed here.
+
+Findings from current source:
+- Checkout capture only starts once name/phone/address are filled. Its effect omits
+  email and cart quantities from dependencies, so later changes can remain stale;
+  rapid address typing also consumes the five-capture-per-hour limit.
+- Captured cart entries contain title/quantity/price, not product/variant IDs.
+  Admin conversion also creates unlinked order items using captured client prices.
+  That is not a reliable inventory/pricing-preserving recovery path.
+- Email CTA is a generic `/checkout` URL. There is no signed cart restore flow or
+  automatic coupon application. Same-browser persisted cart may remain, but the
+  link cannot restore a saved checkout on a different browser/device.
+- Email pass needs SMTP, an email address and an OPEN record inactive 45+ minutes.
+  Manual run exists; no automatic scheduler is wired in repo. Live VPS scheduling
+  and SMTP delivery have not been inspected or verified.
+- Recovery GET has **no authentication/token validation**, unlike protected POST.
+  Local probe returned SMTP-not-configured 400 on anonymous GET versus 401 on POST.
+  With SMTP configured, the public GET can trigger the job. Concurrent passes also
+  lack an atomic claim. Secure this before enabling production automation.
+
+
+## 22 · Secure abandoned checkout recovery implementation (2026-10-02)
+
+Implemented the requested end-to-end repair following §21. Configuration and
+release instructions: [docs/ABANDONED-CART-RECOVERY.md](docs/ABANDONED-CART-RECOVERY.md).
+
+- Debounced capture includes email, line quantities, zone, notes, wrap and coupon.
+  Normalized international phones work; page exit can flush a bounded snapshot.
+  Private browser keys avoid phone-based overwrites, revisions reject late writes,
+  and an atomic converted marker prevents resurrecting completed checkouts.
+- Version-2 snapshots retain real product/variant IDs and server-derived prices.
+  Current prices/stock/configuration are revalidated at recovery/order conversion.
+  Legacy title-only records are shown but never guessed into inventory orders.
+- Signed, purpose-separated, contact-bound seven-day fragment links restore cart
+  and delivery details in fresh browsers, apply eligible coupons, warn about changed
+  stock/prices, and require consent before replacing an existing different cart.
+  Link bearers are stripped from history/tracking; cart responses are no-store.
+- Anonymous/cookie-authenticated GET cannot trigger email. Cron requires a strong
+  runtime bearer key. Manual POST is marketing-permission guarded; automatic
+  recovery requires explicit opt-in and the new worker/optional compose profile.
+- Atomic dispatch claims and 24-hour phone/email cooldowns protect parallel passes.
+  One automatic SMTP attempt per draft; failed/uncertain delivery needs provider
+  review and explicit retry approval. SMTP acceptance is not a real-inbox guarantee.
+- Customer recovery and admin conversion are idempotent, preserve SKU linkage,
+  consume coupons once and close drafts transactionally. Delivery-time inventory
+  policy remains unchanged; real delivery tests verify deductions. Staff preview
+  current totals before conversion; converted records cannot be manually reopened.
+- Private cooldown settings are excluded from ordinary configuration reads. Sender
+  HTML is escaped, and marketing staff have a narrowly-scoped settings endpoint.
+
+Verified locally: **73 unit tests / 52 touch checks / 51 HTTP+database+loopback SMTP
+checks / 10 actual Chromium recovery checks**. Optimized production-mode compilation
+passes using the genuine local SQLite/WASM client. The local database uses WAL to
+avoid read/write contention during concurrent fixture/notification activity.
+
+Deploy requirements: reviewed/backed-up production schema push (six new nullable/
+defaulted draft fields plus indexes), persistent SESSION_SECRET, SMTP, public HTTPS
+site URL and a separate CRON_SECRET. Automatic recovery is off until explicitly
+enabled and scheduled. No real customer email or production deploy occurred.
+Native PostgreSQL and Docker execution remain staging verification requirements.

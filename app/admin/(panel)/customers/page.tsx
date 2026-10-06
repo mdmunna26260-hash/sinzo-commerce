@@ -1,10 +1,12 @@
 import { db } from "@/lib/db";
+import { requireAdmin } from "@/lib/auth";
 import CustomersClient from "./client";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Customers" };
 
-export default async function CustomersPage() {
+export default async function CustomersPage({ searchParams }: { searchParams: Promise<{ t?: string }> }) {
+  await requireAdmin(await searchParams, "customers");
   const [customers, blacklists] = await Promise.all([
     db.customer.findMany({ include: { orders: { orderBy: { id: "desc" }, take: 15 } }, orderBy: { id: "desc" }, take: 300 }),
     db.blacklist.findMany({ where: { type: { in: ["PHONE", "IP"] } } }),

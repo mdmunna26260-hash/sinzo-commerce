@@ -74,7 +74,7 @@ export default function OrdersClient({ initial }: { initial: O[] }) {
     <>
       <div className="admin-top">
         <h1>Orders <span style={{ fontSize: 14, color: "var(--muted)" }}>({list.length})</span></h1>
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        <div className="admin-actions">
           <button className="abtn" onClick={exportCsv}>⭳ Export CSV</button>
           {sel.size > 0 && <>
             <select className="abtn" defaultValue="" onChange={(e) => e.target.value && bulk("status", e.target.value)}>
@@ -100,7 +100,7 @@ export default function OrdersClient({ initial }: { initial: O[] }) {
                 const items = (o.items || []).map((i: any) => `${i.title}${i.variant ? " (" + i.variant + ")" : ""}${i.preorder ? " [PRE-ORDER]" : ""} × ${i.qty}`).join("<br>");
                 return `<div style="page-break-after:always;padding:20px 16px;border-bottom:2px solid #333;font-family:Arial,sans-serif">
                   <div style="text-align:center;margin-bottom:12px">
-                    <span style="font-size:18px;font-weight:700;letter-spacing:.15em">SINZO</span>
+                    <span style="font-family:Charm,'Brush Script MT',cursive;font-size:18px;font-weight:700;letter-spacing:.15em">SINZO</span>
                   </div>
                   <div style="border:1px solid #ccc;border-radius:6px;padding:12px;margin-bottom:10px">
                     <div style="font-size:10px;color:#888;text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px">Consignment ID</div>
@@ -120,15 +120,17 @@ export default function OrdersClient({ initial }: { initial: O[] }) {
                   </div>
                 </div>`;
               }).join("");
-              w.document.write("<html><head><style>@media print { .no-print { display:none } } body { margin: 0; background: #fff }</style></head><body>" + labels + "</body></html>");
+              w.document.write("<html><head><style>@font-face{font-family:Charm;font-weight:700;src:url(" + location.origin + "/fonts/charm-700.woff2) format('woff2')}@media print { .no-print { display:none } } body { margin: 0; background: #fff }</style></head><body>" + labels + "</body></html>");
               w.document.close();
-              setTimeout(() => w.print(), 200);
+              // wait for the Charm wordmark font so the printed label isn't in the fallback face
+              const go = () => setTimeout(() => w.print(), 200);
+              try { w.document.fonts.load("700 18px Charm").then(go, go); } catch { go(); }
             }}>🖨 Print labels</button>
             <button className="abtn danger" onClick={() => bulk("delete")}>Delete</button>
           </>}
         </div>
       </div>
-      <div className="stat-strip">
+      <div className="stat-strip admin-filters">
         <input className="asearch" placeholder="Search code / phone / name / consignment…" value={q} onChange={(e) => setQ(e.target.value)} />
         <select className="abtn" value={status} onChange={(e) => setStatus(e.target.value)}>
           <option value="">All statuses</option>{STATUSES.map((s) => <option key={s}>{s}</option>)}
@@ -146,7 +148,7 @@ export default function OrdersClient({ initial }: { initial: O[] }) {
         </select>
       </div>
       <div className="acard">
-        <div style={{ overflowX: "auto" }}>
+        <div className="tbl-scroll tbl-sticky tbl-sticky-2">
           <table className="tbl">
             <thead>
               <tr>

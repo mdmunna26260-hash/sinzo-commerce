@@ -5,12 +5,13 @@ import { checkCourierFraud, ownCustomerStats } from "@/lib/fraudcheck";
 import { steadfastFreeFraudCheck } from "@/lib/steadfast";
 import { rateLimit } from "@/lib/auth";
 export const dynamic = "force-dynamic";
-type Ctx = { params: { id: string } };
+type Ctx = { params: Promise<{ id: string }> };
 
 /* Courier fraud check for one order's phone:
    - provider report (Steadfast/Pathao/RedX/… delivery history) when configured
    - our own store history always (real data, free) */
-export async function POST(req: Request, { params }: Ctx) {
+export async function POST(req: Request, props: Ctx) {
+  const params = await props.params;
   const g = await requirePerm("orders", req);
   if ("res" in g) return g.res;
   if (!rateLimit("fraudchk:" + g.user.email, 20, 60 * 1000)) {

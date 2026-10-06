@@ -1,6 +1,6 @@
 "use client";
 import PdpWaitlist from "@/components/pdp-waitlist";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCart, trackEvent, toast } from "@/components/store";
@@ -8,16 +8,18 @@ import { imgSrc, imgSrcSet, PDP_WIDTHS, PDP_SIZES, PDP_SRC_WIDTH, THUMB_WIDTHS }
 import { warmImage, warmWhenIdle } from "@/components/img-warm";
 import { trackRecentlyViewed } from "@/components/recently-viewed";
 import MobileGallery from "@/components/mobile-gallery";
+import SegmentedProgress from "@/components/segmented-progress";
+import { notifyHeroMounted } from "@/components/view-transition";
 // LiveWatching import removed — live views OFF per user request
 import SoldCount from "@/components/sold-count";
-import SizeRecommendation from "@/components/size-rec";
+import { normAlpha, ALPHA_ORDER } from "@/lib/size-rec";
 
 type V = { id: number; size: string | null; color: string | null; stock: number; price: number | null; image?: string | null };
 type P = {
   id: number; title: string; slug: string; price: number; comparePrice: number | null;
   shortDesc?: string | null; description?: string | null; sku?: string | null;
   stock: number; lowStock: number; images: { url: string; alt: string }[];
-  variants: V[]; categoryName?: string; colorName?: string | null; colorImage?: string | null;
+  variants: V[]; categoryName?: string; categorySlug?: string; colorName?: string | null; colorImage?: string | null;
 };
 
 
@@ -60,6 +62,10 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
   const { add } = useCart();
   const router = useRouter();
   const N = product.images.length;
+
+  // card → product morph: tell the pending view transition the hero is on screen
+  // (components/view-transition.ts). Layout effect = before the browser's next frame.
+  useLayoutEffect(() => { notifyHeroMounted(); }, []);
 
   // ---------- gallery state ----------
   const [img, setImg] = useState(0);
@@ -178,8 +184,9 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
   }, [lightbox, lbIdx, N]);
 
   // ---------- variant / buy state (existing logic) ----------
-  const [size, setSize] = useState<string | null>(product.variants.find((v) => v.size)?.size || null);
-  const [color, setColor] = useState<string | null>(product.variants.find((v) => v.color)?.color || null);
+  const initialVariant = product.variants.find((v) => preorder || (product.stock > 0 && v.stock > 0)) || product.variants[0];
+  const [size, setSize] = useState<string | null>(initialVariant?.size || null);
+  const [color, setColor] = useState<string | null>(initialVariant?.color || null);
   const [qty, setQty] = useState(1);
   const [chart, setChart] = useState(false);
   const [buying, setBuying] = useState(false);
@@ -187,20 +194,21 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
 
   // size sequence maintained: numbers ascending first (28, 30, …40), then letter sizes (S→XL)
   const sizes = Array.from(new Set(product.variants.map((v) => v.size).filter(Boolean))) as string[];
-  const sizeOrder = ["XXS", "XS", "S", "M", "L", "XL", "XXL", "3XL", "4XL"];
+  const sizeOrder = ALPHA_ORDER;
   sizes.sort((a, b) => {
     const na = Number(a), nb = Number(b);
     if (!Number.isNaN(na) && !Number.isNaN(nb)) return na - nb;
     if (!Number.isNaN(na)) return -1;
     if (!Number.isNaN(nb)) return 1;
-    return sizeOrder.indexOf(a.toUpperCase()) - sizeOrder.indexOf(b.toUpperCase());
+    return sizeOrder.indexOf(normAlpha(a)) - sizeOrder.indexOf(normAlpha(b));
   });
   const colors = Array.from(new Set(product.variants.map((v) => v.color).filter(Boolean))) as string[];
 
-  // per-size stock for the currently selected color (used by size recommendation)
+  // Per-size availability for the selected color; out-of-stock sizes stay disabled.
   const sizeStock: Record<string, number> = {};
   for (const s of sizes) {
-    sizeStock[s] = product.variants.find((x) => x.size === s && (!color || x.color === color))?.stock || 0;
+    const matching = product.variants.filter((v) => v.size === s && (!color || v.color === color));
+    sizeStock[s] = preorder ? (matching.length ? 99 : 0) : Math.min(product.stock, Math.max(0, ...matching.map((v) => v.stock)));
   }
 
   /* Linked color variants: if the selected color has a linked image, jump the
@@ -220,9 +228,10 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
     }
   };
 
-  const activeVariant = product.variants.find((v) => (!size || v.size === size) && (!color || v.color === color)) || null;
-  const avail = activeVariant ? activeVariant.stock : product.variants.length ? 0 : product.stock;
-  const price = activeVariant?.price || product.price;
+  const matchesSelection = (v: V) => (!size || v.size === size) && (!color || v.color === color);
+  const activeVariant = product.variants.find((v) => matchesSelection(v) && (preorder || v.stock > 0)) || product.variants.find(matchesSelection) || null;
+  const avail = activeVariant ? Math.min(activeVariant.stock, product.stock) : product.variants.length ? 0 : product.stock;
+  const price = activeVariant?.price ?? product.price;
   const off = product.comparePrice && product.comparePrice > price ? Math.round((1 - price / product.comparePrice) * 100) : 0;
   const preDateStr = preorderDate ? new Date(preorderDate).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : "soon";
 
@@ -303,6 +312,7 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
           <div
             ref={mainRef}
             className={"pdp-main-img" + (N <= 1 ? " single" : "")}
+            data-vt-hero
             onTouchStart={onMainTouchStart}
             onTouchMove={onMainTouchMove}
             onTouchEnd={onMainTouchEnd}
@@ -337,17 +347,14 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
             {avail <= 0 && !preorder && <div className="soldout-overlay"><span>Sold Out</span></div>}
           </div>
 
-          {/* Pagination dots — BELOW the image, the same language as the mobile gallery and the product
-              cards: one dot per photo, the current one bigger + dark, the rest small + light. They used
-              to float over the bottom of the photo as white pills; now they sit on the page background
-              like the owner's reference. Desktop = pointer, so these stay real buttons (click to jump,
-              Tab + Enter works) — the card grids keep them decorative. */}
+          {/* One thin, clickable progress segment per photo, kept below the main image. */}
           {N > 1 && (
-            <div className="gal-dots" role="tablist" aria-label="Image pagination">
-              {product.images.map((_, i) => (
-                <button key={i} role="tab" aria-selected={i === img} aria-label={"Image " + (i + 1)} className={i === img ? "on" : ""} onClick={() => goTo(i)} />
-              ))}
-            </div>
+            <SegmentedProgress
+              count={N}
+              activeIndex={img}
+              className="gal-progress"
+              onSelect={goTo}
+            />
           )}
 
           {N > 1 && (
@@ -428,8 +435,7 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
               <div className="opt-label">Size {(sizeChartHtml || sizeChartImage) && <button className="sizechart-link" onClick={() => setChart(true)}>📏 Size chart</button>}</div>
               <div className="sizes">
                 {sizes.map((s) => {
-                  const v = product.variants.find((x) => x.size === s && (!color || x.color === color));
-                  const stock = v?.stock || 0;
+                  const stock = sizeStock[s] || 0;
                   return (
                     <button key={s} className={"size-btn" + (size === s ? " active" : "")} disabled={stock <= 0 && !preorder}
                       onClick={() => { setSize(s); setQty(1); }}>{s}</button>
@@ -437,9 +443,6 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
                 })}
               </div>
             </>
-          )}
-          {sizes.length > 0 && !preorder && (
-            <SizeRecommendation sizes={sizes} stockMap={sizeStock} />
           )}
           {colors.length > 0 && (
             <>

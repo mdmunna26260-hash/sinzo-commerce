@@ -67,7 +67,7 @@ export default function CustomersClient({ initial }: { initial: C[] }) {
       {msg && <div className="noti ok">{msg}</div>}
       <input className="asearch" style={{ marginBottom: 14 }} placeholder="Search name / phone / email…" value={q} onChange={(e) => setQ(e.target.value)} />
       <div className="acard">
-        <div style={{ overflowX: "auto" }}>
+        <div className="tbl-scroll">
           <table className="tbl">
             <thead><tr><th>Customer</th><th>Phone</th><th>Orders</th><th>Total Spent</th><th>Cancelled</th><th>Last Order</th><th>Segment</th><th>Actions</th></tr></thead>
             <tbody>

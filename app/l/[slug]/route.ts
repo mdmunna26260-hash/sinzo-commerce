@@ -9,7 +9,8 @@ export const dynamic = "force-dynamic";
    A campaign puts `{link}` in its body, which renders to this URL, so the click counter is a real
    count of how many people opened the offer. The redirect itself must never break: an unknown or
    expired slug falls back to the storefront instead of a 404 page. */
-export async function GET(req: Request, { params }: { params: { slug: string } }) {
+export async function GET(req: Request, props: { params: Promise<{ slug: string }> }) {
+  const params = await props.params;
   const slug = String(params.slug || "").replace(/[^a-z0-9-]/gi, "").slice(0, 60);
   const { ensureExtraTables } = await import("@/lib/db-ensure");
   await ensureExtraTables().catch(() => {});

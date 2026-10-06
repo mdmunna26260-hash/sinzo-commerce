@@ -7,8 +7,9 @@ export const metadata = { title: "WhatsApp devices" };
 /* Device manager — the 2–3 phone numbers.
    Pair by QR, watch today's usage against the daily cap, pause a number that misbehaves, and see
    immediately when WhatsApp drops one (the bridge pushes state here; no refresh dance needed). */
-export default async function WaDevicesPage({ searchParams }: { searchParams: { t?: string } }) {
-  const user = await requireAdmin(searchParams);
+export default async function WaDevicesPage(props: { searchParams: Promise<{ t?: string }> }) {
+  const searchParams = await props.searchParams;
+  const user = await requireAdmin(searchParams, "settings");
   return (
     <>
       <div className="admin-top">

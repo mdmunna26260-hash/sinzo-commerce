@@ -100,7 +100,7 @@ check("the swallow radius is inclusive, and only just",
 check("no plan, no swallow", G.shouldSwallow(null, { x: 200, y: 300, now: 0 }) === false);
 
 /* ================================================== 2. a swipe changes the photo, not the page */
-section("2 · a swipe changes the photo (and its dot), and never opens the page");
+section("2 · a swipe changes the photo (and its progress segment), and never opens the page");
 check("horizontal dominance takes the axis", G.lockAxis(20, 4) === "x", G.lockAxis(20, 4));
 check("a drag stays a drag when the rubber band compresses it",
   G.isDrag("x", 40) === true && G.resist(40, 0, 3) === 14,
@@ -177,8 +177,10 @@ check("the rail owns the horizontal axis (touch-action: pan-y)",
   /touch-action:\s*pan-y/.test(ruleBody(".crs-track") + ruleBody(".rel-scroll")));
 check("the card link keeps taps instant (touch-action: manipulation)",
   rules.some((r) => r.selector.split(",").map((s) => s.trim()).includes("a") && /touch-action:\s*manipulation/.test(r.body)));
-check("the dots row exists, and only the current one is marked",
-  /\.pcard-dots\s*\{/.test(css) && /\.pcard-dots i\.on\s*\{/.test(css));
+check("product images use a thin segmented bar with the active segment filled",
+  /\.image-progress-segment\s*\{[^}]*height:\s*2px/.test(css) &&
+  /\.image-progress-segment\.is-active\s*\{[^}]*background:\s*var\(--text\)/.test(css) &&
+  /\.pcard-progress\s*\{/.test(css));
 check("entrance animations on a touch screen never MOVE the card (fade only)",
   rules.some((r) => /\.reveal/.test(r.selector) && /transform:\s*none/.test(r.body) &&
     r.media.some((m) => /hover:\s*none/.test(m))));
@@ -200,6 +202,10 @@ const gallery = stripComments(read("components/card-gallery.tsx"));
 const swipe = stripComments(read("components/use-swipe.ts"));
 const rail = stripComments(read("components/swipe-rail.ts"));
 const parts = stripComments(read("components/parts.tsx"));
+const cardMedia = stripComments(read("components/card-media.tsx"));
+const segmentedProgress = stripComments(read("components/segmented-progress.tsx"));
+const mobileGallery = stripComments(read("components/mobile-gallery.tsx"));
+const pdpClient = stripComments(read("app/products/[slug]/client.tsx"));
 
 /* the body of one arrow function, by brace balance — so a check about one handler cannot
    accidentally read the next function down the file */
@@ -248,11 +254,21 @@ check("a release re-measures the card before it settles (rotation cannot desync 
   /width:\s*stepPx\(\)/.test(gallery) && /stepPx\(\) \?\? 0|stepPx\b/.test(gallery));
 check("...and an unmeasured card still swipes (the fallback lives in the pure module)",
   G.FALLBACK_WIDTH === 300 && G.slideAfter({ dx: -80, ms: 60, width: 0, index: 0, count: 3 }) === 1);
-check("the dots follow the photo (the index is reported up to the card)",
-  /onIndexChange=\{setI\}/.test(stripComments(read("components/card-media.tsx"))) &&
+check("the card progress bar follows the photo (the gallery index is reported up)",
+  /onIndexChange=\{setI\}/.test(cardMedia) &&
+  /<SegmentedProgress count=\{pics\.length\} activeIndex=\{i\}/.test(cardMedia) &&
   /onIdx\.current\?\.\(next\)/.test(gallery));
+check("the progress component creates one highlighted segment per image",
+  /Array\.from\(\{\s*length:\s*count\s*\}/.test(segmentedProgress) &&
+  /index === current/.test(segmentedProgress) && /is-active/.test(segmentedProgress));
+check("mobile PDP swipe state and tapped segments use the same gallery index",
+  /count=\{N\}/.test(mobileGallery) && /activeIndex=\{active\}/.test(mobileGallery) &&
+  /onSelect=\{onIndexChange\}/.test(mobileGallery));
+check("desktop PDP progress segments can jump to the chosen photo",
+  /count=\{N\}/.test(pdpClient) && /activeIndex=\{img\}/.test(pdpClient) &&
+  /onSelect=\{goTo\}/.test(pdpClient));
 check("the quick-add button is a SIBLING of the card link (a nested button eats the tap)",
-  /<\/Link>\s*\n\s*<QuickAdd/.test(parts));
+  /<\/(?:Card)?Link>\s*\n\s*<QuickAdd/.test(parts)); // CardLink = the card <Link> + view-transition morph
 check("an arrow press never starts a drag", /closest\?\.\("\.cg-arrow"\)/.test(gallery));
 
 /* ------------------------------------------------------------------ summary */

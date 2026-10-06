@@ -3,6 +3,7 @@ import "./globals.css";
 import RevealInit from "@/components/reveal";
 import PageViewTracker from "@/components/pageview";
 import PageTransition from "@/components/page-transition";
+import ViewTransitionRoot from "@/components/view-transition-root";
 import { CartProvider } from "@/components/store";
 import PushRegister from "@/components/push-register";
 import PushNudge from "@/components/push-nudge";
@@ -99,7 +100,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   if (cfg?.maintenance?.enabled && !adminBypass) {
     const store = cfg.store || {};
     return (
-      <html lang="en">
+      <html lang="en" suppressHydrationWarning>
         <head>
           <script dangerouslySetInnerHTML={{ __html: `(function(){try{var m=localStorage.getItem("sz_theme")||"system";var d=m==="dark"||(m==="system"&&matchMedia("(prefers-color-scheme: dark)").matches);document.documentElement.setAttribute("data-theme",d?"dark":"light");}catch(e){document.documentElement.setAttribute("data-theme","light");}})();` }} />
           <style dangerouslySetInnerHTML={{ __html: `:root{--bg:${theme.bg || "#faf9f7"};--text:${theme.text || "#141414"};}` }} />
@@ -128,10 +129,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     }`;
   const gtmId = cfg?.integrations?.gtmId || "";
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: `(function(){try{var m=localStorage.getItem("sz_theme")||"system";var d=m==="dark"||(m==="system"&&matchMedia("(prefers-color-scheme: dark)").matches);document.documentElement.setAttribute("data-theme",d?"dark":"light");}catch(e){document.documentElement.setAttribute("data-theme","light");}})();` }} />
         <style dangerouslySetInnerHTML={{ __html: cssVars }} />
+        <link rel="preload" href="/fonts/charm-400.woff2" as="font" type="font/woff2" crossOrigin="anonymous" />
         <link rel="manifest" href="/manifest.webmanifest" />
         {/* without an explicit 32px/ico entry browsers request /favicon.ico and got a 19 KB
             HTML 404 page back (that response is also uncacheable, so it repeats on every visit) */}
@@ -146,7 +148,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         {gtmId ? (
           <script id="gtm" dangerouslySetInnerHTML={{ __html: `(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src='https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);})(window,document,'script','dataLayer','${gtmId}');` }} />
         ) : null}
-        <script id="sz-cfg" type="application/json" dangerouslySetInnerHTML={{ __html: JSON.stringify(cfg || {}) }} />
+        <script id="sz-cfg" type="application/json" dangerouslySetInnerHTML={{ __html: JSON.stringify(cfg || {}).replace(/</g, "\\u003c") }} />
         {orgLd ? (
           /* Entity + sitelinks-searchbox markup for the whole site (the PDP has Product
              schema, but "/" had no structured data at all → no knowledge panel, no
@@ -206,6 +208,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <RevealInit />
         <PageViewTracker />
         <PageTransition />
+        <ViewTransitionRoot />
         {process.env.NODE_ENV === "development" && (
           /* Dev-preview self-heal. This sandbox restarts and takes the dev server with it, and a
              tab that is merely sitting there never hits the chunk-error reload above — it just keeps

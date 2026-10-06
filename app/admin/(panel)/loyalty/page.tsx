@@ -11,8 +11,9 @@ export const metadata = { title: "Loyalty & Referral" };
    Repeat customers are the cheapest sales a shop has: points make the second order feel earned,
    and a referral code turns a happy customer into a channel. Both pay out on DELIVERED orders
    only, so a returned parcel never costs anything. */
-export default async function LoyaltyPage({ searchParams }: { searchParams: { t?: string } }) {
-  const user = await requireAdmin(searchParams);
+export default async function LoyaltyPage(props: { searchParams: Promise<{ t?: string }> }) {
+  const searchParams = await props.searchParams;
+  const user = await requireAdmin(searchParams, "customers");
   const { ensureExtraTables } = await import("@/lib/db-ensure");
   await ensureExtraTables().catch(() => {});
   const s = envFallback(await getSettings());
@@ -38,7 +39,7 @@ export default async function LoyaltyPage({ searchParams }: { searchParams: { t?
         <a className="abtn" href="/api/admin/export?type=loyalty">CSV</a>
       </div>
 
-      <div className="kpis" style={{ gridTemplateColumns: "repeat(5, 1fr)" }}>
+      <div className="kpis kpis-5" style={{ gridTemplateColumns: "repeat(5, 1fr)" }}>
         <div className="kpi"><div className="k-label">Points outstanding</div><div className="k-val">{totals._sum.points || 0}</div><div className="k-sub">≈ ৳{pointsValue(totals._sum.points || 0, cfg)} of future discount</div></div>
         <div className="kpi"><div className="k-label">Members with points</div><div className="k-val">{top.length}</div><div className="k-sub">{codes} referral codes issued</div></div>
         <div className="kpi"><div className="k-label">Referrals</div><div className="k-val">{referrals.length}</div><div className="k-sub">{rewarded} rewarded · {referrals.length - rewarded} pending delivery</div></div>

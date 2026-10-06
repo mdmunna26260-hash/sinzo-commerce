@@ -95,7 +95,7 @@ export default function ReportClient({ id }: { id: number }) {
       {msg && <div className={"noti " + (msg.ok ? "ok" : "err")} style={{ marginBottom: 14 }}>{msg.text}</div>}
       {b.lastError && <div className="noti err" style={{ marginBottom: 14 }}>{b.lastError}</div>}
 
-      <div className="kpis" style={{ gridTemplateColumns: "repeat(6, 1fr)", marginBottom: 16 }}>
+      <div className="kpis kpis-6" style={{ gridTemplateColumns: "repeat(6, 1fr)", marginBottom: 16 }}>
         <div className="kpi"><div className="k-label">Progress</div><div className="k-val">{pct}%</div><div className="k-sub">{done}/{b.total} processed</div></div>
         <div className="kpi"><div className="k-label">Queue-e</div><div className="k-val">{c.queued + c.sending}</div><div className="k-sub">{b.total - b.enqueued} ekhono tairi hoy nai</div></div>
         <div className="kpi"><div className="k-label">Sent</div><div className="k-val">{reached}</div><div className="k-sub">device theke beriyechhe</div></div>
@@ -108,7 +108,7 @@ export default function ReportClient({ id }: { id: number }) {
         <div style={{ height: "100%", width: `${pct}%`, background: c.failed ? "#c0392b" : "#1f7a44", transition: "width .4s" }} />
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, alignItems: "start", marginBottom: 16 }}>
+      <div className="adm-cols" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, alignItems: "start", marginBottom: 16  }}>
         <div className="acard">
           <div className="acard-h"><h3>Attributed orders</h3><span style={{ fontSize: 12, color: "var(--muted)" }}>campaign-er por order koreche</span></div>
           <div className="acard-b">
@@ -118,6 +118,7 @@ export default function ReportClient({ id }: { id: number }) {
                 Ekhono keu order kore nai. (Campaign shuru-r por ja order hoy, ar recipient-der number theke ashe — seta ekhane count hoy.)
               </div>
             ) : (
+              <div className="tbl-scroll">
               <table className="tbl" style={{ fontSize: 12.5, marginTop: 8 }}>
                 <thead><tr><th>Order</th><th>Customer</th><th>Total</th><th>Status</th><th>Time</th></tr></thead>
                 <tbody>
@@ -132,6 +133,7 @@ export default function ReportClient({ id }: { id: number }) {
                   ))}
                 </tbody>
               </table>
+              </div>
             )}
           </div>
         </div>
@@ -158,6 +160,7 @@ export default function ReportClient({ id }: { id: number }) {
         <div className="acard" style={{ marginBottom: 16 }}>
           <div className="acard-h"><h3>Failures ({c.failed})</h3><button className="abtn sm" disabled={busy === "retryFailed"} onClick={() => act("retryFailed")}>Retry only failed</button></div>
           <div className="acard-b" style={{ maxHeight: 260, overflow: "auto" }}>
+            <div className="tbl-scroll">
             <table className="tbl" style={{ fontSize: 12.5 }}>
               <thead><tr><th>Number</th><th>Tries</th><th>Error</th></tr></thead>
               <tbody>
@@ -166,6 +169,7 @@ export default function ReportClient({ id }: { id: number }) {
                 ))}
               </tbody>
             </table>
+            </div>
           </div>
         </div>
       )}
@@ -173,6 +177,7 @@ export default function ReportClient({ id }: { id: number }) {
       <div className="acard">
         <div className="acard-h"><h3>Recipients ({r.messages.length} recent)</h3><span style={{ fontSize: 12, color: "var(--muted)" }}>शेष {r.audience.remaining} queue-te jabe</span></div>
         <div className="acard-b" style={{ maxHeight: 420, overflow: "auto" }}>
+          <div className="tbl-scroll">
           <table className="tbl" style={{ fontSize: 12.5 }}>
             <thead><tr><th>Number</th><th>Status</th><th>Photos</th><th>Tries</th><th>Queued</th><th>Sent</th><th>Delivered</th><th>Read</th><th>Error</th></tr></thead>
             <tbody>
@@ -195,6 +200,7 @@ export default function ReportClient({ id }: { id: number }) {
               })}
             </tbody>
           </table>
+          </div>
         </div>
       </div>
     </>

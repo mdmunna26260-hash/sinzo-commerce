@@ -4,8 +4,9 @@ import { getSettings, envFallback } from "@/lib/settings";
 import TrackingClient from "./client";
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Tracking" };
-export default async function TrackingPage({ searchParams }: { searchParams: any }) {
-  await requireAdmin(searchParams);
+export default async function TrackingPage(props: { searchParams: Promise<any> }) {
+  const searchParams = await props.searchParams;
+  await requireAdmin(searchParams, "tracking");
   const s = envFallback(await getSettings(true));
   const events = await db.trackingEvent.findMany({ orderBy: { id: "desc" }, take: 40 });
   const counts = await db.trackingEvent.groupBy({ by: ["name"], _count: { _all: true } });

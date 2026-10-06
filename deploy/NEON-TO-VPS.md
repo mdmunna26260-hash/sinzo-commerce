@@ -36,7 +36,7 @@ This file is the part no script can do for you (cloud consoles, DNS, webhooks) p
 
 | Need | Why |
 |---|---|
-| Neon **direct** (non-pooled) URL | `postgresql://user:pass@ep-xxx.ap-southeast-1.aws.neon.tech/neondb?sslmode=require`. The `-pooler` host works for queries but is hostile to `pg_dump`. The PostgREST URL from the audit **cannot** copy data — it needs a JWT and serves rows, not a dump. |
+| Neon **direct** (non-pooled) URL | `postgresql://USER:PASSWORD@DIRECT_NEON_HOST/DATABASE?sslmode=require`. The `-pooler` host works for queries but is hostile to `pg_dump`. The PostgREST URL from the audit **cannot** copy data — it needs a JWT and serves rows, not a dump. |
 | VPS shell or Dokploy → app → Console | the restore runs on the box |
 | ~2× DB size free disk | dump + restored copy coexist. `precheck` prints the size; check `df -h`. |
 | 2–5 min window with the app stopped | only for the final `catchup`; everything else happens with the store live |

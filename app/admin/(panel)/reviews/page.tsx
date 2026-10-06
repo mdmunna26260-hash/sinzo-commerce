@@ -6,8 +6,9 @@ import { getSettings, envFallback } from "@/lib/settings";
 import { reviewRequestQueue, reviewRequestStats, autoReviewRequestEnabled } from "@/lib/review-request";
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Reviews" };
-export default async function ReviewsPage({ searchParams }: { searchParams: any }) {
-  await requireAdmin(searchParams);
+export default async function ReviewsPage(props: { searchParams: Promise<any> }) {
+  const searchParams = await props.searchParams;
+  await requireAdmin(searchParams, "reviews");
   const { ensureExtraTables } = await import("@/lib/db-ensure");
   await ensureExtraTables().catch(() => {});
   const reviews = await db.review.findMany({ include: { product: { select: { title: true, slug: true } } }, orderBy: { id: "desc" } });

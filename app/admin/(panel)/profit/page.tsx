@@ -19,8 +19,9 @@ type SP = { preset?: string; from?: string; to?: string; t?: string; sort?: stri
        isn't set, the page says "not set" instead of pretending delivery was free.
    Cancelled and returned orders are excluded from revenue (a returned parcel is not a sale) and
    reported separately, with the loss itself on Couriers & RTO. */
-export default async function ProfitPage({ searchParams }: { searchParams: SP }) {
-  const user = await requireAdmin(searchParams);
+export default async function ProfitPage(props: { searchParams: Promise<SP> }) {
+  const searchParams = await props.searchParams;
+  const user = await requireAdmin(searchParams, "orders");
   const t = searchParams.t || "";
   const tk = (p: string) => (t ? p + (p.includes("?") ? "&" : "?") + "t=" + encodeURIComponent(t) : p);
   const { start, end, label, preset } = resolveRange(searchParams);
@@ -122,7 +123,7 @@ export default async function ProfitPage({ searchParams }: { searchParams: SP })
         </form>
       </div>
 
-      <div className="kpis" style={{ gridTemplateColumns: "repeat(6, 1fr)" }}>
+      <div className="kpis kpis-6" style={{ gridTemplateColumns: "repeat(6, 1fr)" }}>
         {kpis.map((k) => <div className="kpi" key={k.label}><div className="k-label">{k.label}</div><div className="k-val">{k.val}</div>{k.sub && <div className="k-sub">{k.sub}</div>}</div>)}
       </div>
 
@@ -155,6 +156,7 @@ export default async function ProfitPage({ searchParams }: { searchParams: SP })
         </div>
         <div className="acard-b" style={{ overflowX: "auto" }}>
           {rows.length === 0 ? <div style={{ color: "var(--muted)" }}>No orders in this range.</div> : (
+            <div className="tbl-scroll">
             <table className="tbl">
               <thead><tr><th>Product</th><th>Units</th><th>Revenue</th><th>Cost</th><th>Profit</th><th>Margin</th><th>Stock</th></tr></thead>
               <tbody>
@@ -171,15 +173,17 @@ export default async function ProfitPage({ searchParams }: { searchParams: SP })
                 ))}
               </tbody>
             </table>
+            </div>
           )}
         </div>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr", gap: 16, alignItems: "start" }}>
+      <div className="adm-cols" style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr", gap: 16, alignItems: "start"  }}>
         <div className="acard">
           <div className="acard-h"><h3>Thinnest orders</h3><span style={{ fontSize: 12, color: "var(--muted)" }}>worst 8 by profit</span></div>
           <div className="acard-b" style={{ overflowX: "auto" }}>
             {worst.length === 0 ? <div style={{ color: "var(--muted)" }}>—</div> : (
+              <div className="tbl-scroll">
               <table className="tbl">
                 <thead><tr><th>Order</th><th>Date</th><th>Revenue</th><th>Cost</th><th>Profit</th><th>Courier</th></tr></thead>
                 <tbody>
@@ -195,6 +199,7 @@ export default async function ProfitPage({ searchParams }: { searchParams: SP })
                   ))}
                 </tbody>
               </table>
+              </div>
             )}
           </div>
         </div>

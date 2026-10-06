@@ -4,7 +4,10 @@ import PushOptIn from "@/components/push-optin";
 
 export const metadata = { title: "Order Confirmed" };
 
-export default function SuccessPage({ searchParams }: { searchParams: { code?: string; total?: string; eid?: string; ids?: string; num?: string; ph?: string } }) {
+export default async function SuccessPage(
+  props: { searchParams: Promise<{ code?: string; total?: string; eid?: string; ids?: string; num?: string; ph?: string }> }
+) {
+  const searchParams = await props.searchParams;
   const code = searchParams.code || "";
   const total = searchParams.total || "";
   const eid = searchParams.eid || "";
