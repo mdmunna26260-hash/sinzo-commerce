@@ -2194,7 +2194,21 @@ h1, h2, h3 { text-wrap: balance; }
 
 /* ---- buttons: primary inverts, admin buttons go dark ---- */
 :root[data-theme="dark"] .abtn { background: #1b1917; border-color: #3a362f; }
-:root[data-theme="dark"] .abtn.primary { color: #131210; }
+/* `.abtn.primary` (0,2,0) loses to the `:root[data-theme] .abtn` rule above (0,3,0),
+   so the accent fill was being overwritten with the plain dark button background while
+   line below still darkened the label → #131210 text on #1b1917 = 1.07:1, invisible.
+   Restate the fill at matching specificity: inside the admin panel that is the themed
+   accent, on the storefront (no --ad-accent) it falls back to the inverted cream chip
+   the dark theme already uses for .login-card .abtn.primary. */
+:root[data-theme="dark"] .abtn.primary {
+  background: var(--ad-accent, #f5f2ec);
+  border-color: var(--ad-accent, #f5f2ec);
+  color: #131210;
+}
+:root[data-theme="dark"] .abtn.primary:hover {
+  background: var(--ad-accent-2, #fffdf8);
+  border-color: var(--ad-accent-2, #fffdf8);
+}
 :root[data-theme="dark"] .asearch { background: #171512; border-color: #2c2923; color: #f1eee8; }
 :root[data-theme="dark"] .abtn.danger { border-color: #5a2f2a; }
 
@@ -3377,6 +3391,14 @@ body:has(.admin-body) .scroll-progress { display: none !important; }
   .acard .tbl-scroll > .tbl td, .acard .tbl-scroll > .tbl th { white-space: nowrap; }
   .acard .tbl-scroll > .tbl td:has(> div + div) { white-space: normal; }
   .tbl-sticky .tbl td:first-child, .tbl-sticky .tbl th:first-child { position: sticky !important; }
+  /* A sticky first column only works when there is something to scroll. `.tbl-scroll > .tbl`
+     sets width:100%, so on a narrow phone the table SHRANK to the viewport instead of
+     overflowing: every column got ~50px, and the sticky cell — which paints with its own
+     opaque background above z-index 2 — sat on top of the next column (order code over the
+     customer name, date over the phone number, status clipped). Let a sticky table size to
+     its content so the wrapper actually scrolls and the sticky column has a layer to float
+     over. Non-sticky tables (e.g. Top Products) keep width:100% and never gain a scrollbar. */
+  .tbl-sticky .tbl { min-width: max-content; }
 }
 
 /* ---- settings tabs: active state (was only styled for <a>) ---- */
