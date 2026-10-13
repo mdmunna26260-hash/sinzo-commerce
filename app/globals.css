@@ -2934,11 +2934,76 @@ html.theme-transition *::after {
   @keyframes heroPar { to { transform: translate3d(0, 5%, 0) scale(1.12); } }
 }
 
+/* ---------- C2. Hero slideshow (image-only banners) ----------
+   Same rail contract as .crs-track: the browser owns the vertical axis only
+   (touch-action: pan-y), so a horizontal drag belongs to the slider and a
+   vertical one still scrolls the page. Scroll-snap keeps a flick landing on a
+   whole slide; the swipe-rail hook drives everything else. */
+.hero-slider { position: relative; overflow: hidden; }
+.hero-track {
+  display: flex; overflow-x: auto; scroll-snap-type: x mandatory;
+  scrollbar-width: none; -ms-overflow-style: none;
+  overscroll-behavior-x: contain; touch-action: pan-y;
+}
+.hero-track::-webkit-scrollbar { display: none; }
+.hero-slide {
+  flex: 0 0 100%; min-width: 100%; scroll-snap-align: start;
+  position: relative; height: 72vh; min-height: 440px; max-height: 700px; overflow: hidden;
+}
+.hero-slide .hero-slide-link { display: block; height: 100%; }
+.hero-slide .hero-img { width: 100%; height: 100%; min-height: 0; max-height: none; object-fit: cover; display: block; }
+@media (max-width: 900px) { .hero-slide { height: 64vh; } }
+
+/* The kenburns entrance belongs to a single static banner. On a slideshow it
+   would replay mid-swipe and fight the rail, so it only runs for one slide. */
+.hero-slider.single .hero-img { animation: kenburns 2.8s var(--ease) both; }
+.hero-slider:not(.single) .hero-img { animation: none; }
+
+/* Scroll parallax, kept from the single-image hero — on the slider it rides the
+   whole rail so the slides never drift out of sync with each other. */
+@supports (animation-timeline: scroll()) {
+  .hero-slider.single .hero-slide {
+    animation: heroPar linear both;
+    animation-timeline: scroll(root block);
+    animation-range: 0 80vh;
+  }
+}
+
+.hero-arrow {
+  position: absolute; top: 50%; transform: translateY(-50%); z-index: 3;
+  width: 42px; height: 42px; border-radius: 99px;
+  border: 1px solid rgba(255,255,255,.55); background: rgba(20,20,20,.28); color: #fff;
+  font-size: 22px; line-height: 0; display: flex; align-items: center; justify-content: center;
+  cursor: pointer; padding-bottom: 3px; backdrop-filter: blur(6px);
+  transition: background .18s ease, border-color .18s ease;
+}
+.hero-arrow:hover { background: rgba(20,20,20,.5); border-color: #fff; }
+.hero-arrow:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+.hero-arrow.prev { left: 18px; }
+.hero-arrow.next { right: 18px; }
+/* A 42px circle over a photo is a big tap target on a phone and the slide is
+   swipeable anyway — dots stay, arrows go. */
+@media (max-width: 900px) { .hero-arrow { display: none; } }
+
+.hero-dots {
+  position: absolute; left: 0; right: 0; bottom: 18px; z-index: 3;
+  display: flex; gap: 7px; align-items: center; justify-content: center;
+}
+.hero-dots button {
+  width: 8px; height: 8px; border-radius: 99px; padding: 0; cursor: pointer;
+  border: 1px solid rgba(255,255,255,.75); background: rgba(255,255,255,.28);
+  transition: width .22s ease, background .22s ease;
+}
+.hero-dots button.on { width: 26px; background: #fff; }
+.hero-dots button:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+
 .hero-cue {
   position: absolute; left: 48px; bottom: 32px; z-index: 2;
   display: flex; align-items: center; gap: 12px;
   font-size: 9.5px; letter-spacing: .24em; text-transform: uppercase; color: var(--muted);
 }
+/* the dots own the bottom strip of a multi-slide hero */
+.hero-banner .hero-cue { display: none; }
 .hero-cue i { display: block; width: 48px; height: 1px; background: var(--line); position: relative; overflow: hidden; }
 .hero-cue i::after {
   content: ""; position: absolute; inset: 0; background: var(--accent);

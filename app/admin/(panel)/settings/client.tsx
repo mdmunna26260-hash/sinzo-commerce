@@ -201,14 +201,23 @@ function TestSmsBtn() {
 
 const SECTION_LABELS: Record<string, string> = {
   hero: "Hero Banner", values: "Value Props (COD / delivery / returns)", featured: "Featured Collection",
-  categories: "Shop by Category", promo: "Promo Banner", bestsellers: "Best Sellers", testimonials: "Reviews",
+  discount: "On Sale (discounted products)", categories: "Shop by Category", promo: "Promo Banner",
+  bestsellers: "Best Sellers", mostviewed: "Most Viewed (trending)", testimonials: "Reviews",
 };
+const DEFAULT_SECS = [
+  { id: "hero", enabled: true }, { id: "values", enabled: true }, { id: "featured", enabled: true },
+  { id: "discount", enabled: true }, { id: "categories", enabled: true }, { id: "promo", enabled: true },
+  { id: "bestsellers", enabled: true }, { id: "mostviewed", enabled: true },
+  { id: "testimonials", enabled: true },
+];
 function HomepageLayoutTab({ groups, save, busy, collections = [] }: any) {
-  const [secs, setSecs] = useState<any[]>(groups.homeSections?.length ? groups.homeSections : [
-    { id: "hero", enabled: true }, { id: "values", enabled: true }, { id: "featured", enabled: true },
-    { id: "categories", enabled: true }, { id: "promo", enabled: true }, { id: "bestsellers", enabled: true },
-    { id: "testimonials", enabled: true },
-  ]);
+  /* A layout saved before a section existed simply would not list it, and the editor
+     would then never offer it. Append anything new to the end, keeping the saved order. */
+  const [secs, setSecs] = useState<any[]>(() => {
+    const saved: any[] = groups.homeSections?.length ? groups.homeSections : DEFAULT_SECS;
+    const seen = new Set(saved.map((s) => s.id));
+    return [...saved, ...DEFAULT_SECS.filter((d) => !seen.has(d.id))];
+  });
   const [drag, setDrag] = useState<number | null>(null);
   const move = (i: number, j: number) => {
     if (j < 0 || j >= secs.length) return;
@@ -295,6 +304,81 @@ export default function SettingsClient({ groups, user, userCount, hasCourier, co
       </div>
     </div>
   );
+  /* ---- hero slides: repeatable image + optional link ----
+     Stored as homepage.heroSlides = [{ image, href, alt }]. The storefront falls back to
+     the old single homepage.heroImage when this list is empty, so an existing store keeps
+     its banner until someone adds slides here. */
+  const slides: any[] = Array.isArray(g.homepage?.heroSlides) ? g.homepage.heroSlides : [];
+  const setSlides = (next: any[]) => setG({ ...g, homepage: { ...g.homepage, heroSlides: next } });
+  const patchSlide = (i: number, patch: any) => setSlides(slides.map((s, j) => (j === i ? { ...s, ...patch } : s)));
+  const moveSlide = (i: number, dir: number) => {
+    const j = i + dir;
+    if (j < 0 || j >= slides.length) return;
+    const next = [...slides];
+    [next[i], next[j]] = [next[j], next[i]];
+    setSlides(next);
+  };
+  const uploadSlide = async (file: File, i: number) => {
+    setBusy(true); setMsg("Uploading image…");
+    const fd = new FormData(); fd.append("file", file);
+    const r = await afetch("/api/admin/upload", { method: "POST", body: fd });
+    const j = await r.json();
+    if (r.ok) {
+      setG((x: any) => {
+        const cur: any[] = Array.isArray(x.homepage?.heroSlides) ? [...x.homepage.heroSlides] : [];
+        cur[i] = { ...(cur[i] || {}), image: j.url };
+        return { ...x, homepage: { ...x.homepage, heroSlides: cur } };
+      });
+      setMsg("Image uploaded ✓ — ekhon Save chapun");
+    } else setMsg(j.error || "Upload failed");
+    setBusy(false);
+    setTimeout(() => setMsg(""), 3500);
+  };
+  const HeroSlidesField = () => (
+    <div className="af full">
+      <label>Hero banner slides — multiple images, auto slideshow</label>
+      <div style={{ fontSize: 12, color: "var(--muted)", margin: "0 0 10px" }}>
+        Ekadhik image dile homepage e slideshow hobe (auto, swipe-able). Link dile puro banner clickable hobe.
+        Ekta o slide na thakle niche-r purono single &ldquo;Hero banner image&rdquo; ta use hobe.
+      </div>
+      {slides.length === 0 && (
+        <div style={{ fontSize: 12.5, color: "var(--muted)", padding: "10px 0" }}>Kono slide nei — &ldquo;+ Add slide&rdquo; chapun.</div>
+      )}
+      {slides.map((s, i) => (
+        <div key={i} style={{ display: "flex", gap: 10, alignItems: "flex-start", flexWrap: "wrap", padding: "10px 0", borderTop: i ? "1px solid var(--ad-line)" : "none" }}>
+          <span style={{ fontSize: 12, color: "var(--ad-mute)", width: 18, paddingTop: 24 }}>{i + 1}</span>
+          {s.image
+            ? <img src={s.image} alt="" style={{ width: 86, height: 54, objectFit: "cover", borderRadius: 4, border: "1px solid var(--ad-line)" }} />
+            : <div style={{ width: 86, height: 54, borderRadius: 4, border: "1px dashed var(--ad-line)" }} />}
+          <div style={{ flex: 1, minWidth: 220, display: "grid", gap: 6 }}>
+            <input value={s.image || ""} placeholder="/uploads/… (image URL)" onChange={(e) => patchSlide(i, { image: e.target.value })} />
+            <input value={s.href || ""} placeholder="Link (optional) — e.g. /collections/eid-sale" onChange={(e) => patchSlide(i, { href: e.target.value })} />
+            <input value={s.alt || ""} placeholder="Alt text (optional, for SEO & screen readers)" onChange={(e) => patchSlide(i, { alt: e.target.value })} />
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            <label className="abtn sm" style={{ cursor: "pointer", whiteSpace: "nowrap" }}>
+              ⬆ Upload
+              <input type="file" accept="image/*" hidden onChange={(e) => { if (e.target.files?.[0]) uploadSlide(e.target.files[0], i); e.target.value = ""; }} />
+            </label>
+            <div style={{ display: "flex", gap: 4 }}>
+              <button type="button" className="abtn sm" style={{ padding: "1px 8px" }} onClick={() => moveSlide(i, -1)} disabled={i === 0} aria-label="Move up">↑</button>
+              <button type="button" className="abtn sm" style={{ padding: "1px 8px" }} onClick={() => moveSlide(i, 1)} disabled={i === slides.length - 1} aria-label="Move down">↓</button>
+              <button type="button" className="abtn sm danger" style={{ padding: "1px 8px" }} onClick={() => setSlides(slides.filter((_, j) => j !== i))} aria-label="Remove slide">✕</button>
+            </div>
+          </div>
+        </div>
+      ))}
+      <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 10, flexWrap: "wrap" }}>
+        <button type="button" className="abtn sm" onClick={() => setSlides([...slides, { image: "", href: "", alt: "" }])}>+ Add slide</button>
+        <span style={{ fontSize: 12, color: "var(--ad-mute)" }}>
+          Slide change-er gap:
+          <input type="number" min={2} max={30} style={{ width: 64, marginLeft: 6, padding: "4px 6px" }}
+            value={Math.round((Number(g.homepage?.heroInterval) || 5500) / 1000)}
+            onChange={(e) => setG({ ...g, homepage: { ...g.homepage, heroInterval: Math.max(2, Number(e.target.value) || 5) * 1000 } })} /> second
+        </span>
+      </div>
+    </div>
+  );
   const F = ({ k, label, type = "text", group }: any) => (
     <div className="af">
       <label>{label}</label>
@@ -371,7 +455,7 @@ export default function SettingsClient({ groups, user, userCount, hasCourier, co
             <div className="af full"><label>Hero headline (supports line breaks)</label><textarea style={{ minHeight: 60 }} value={g.homepage?.heroTitle || ""} onChange={(e) => setG({ ...g, homepage: { ...g.homepage, heroTitle: e.target.value } })} /></div>
             <div className="af full"><label>Hero subtitle</label><input value={g.homepage?.heroSubtitle || ""} onChange={(e) => setG({ ...g, homepage: { ...g.homepage, heroSubtitle: e.target.value } })} /></div>
             <F k="heroCta" label="Hero button text" group="homepage" />
-            <ImgField k="heroImage" label="Hero banner image (upload or paste URL)" group="homepage" />
+            <ImgField k="heroImage" label="Hero banner image — fallback only; multiple slides are set in the Homepage Layout tab" group="homepage" />
             <F k="promoTitle" label="Promo banner title" group="homepage" />
             <F k="promoText" label="Promo banner text" group="homepage" />
             <ImgField k="promoImage" label="Promo banner image (upload or paste URL)" group="homepage" />
@@ -391,7 +475,8 @@ export default function SettingsClient({ groups, user, userCount, hasCourier, co
               <div className="af full"><label>Hero headline</label><textarea style={{ minHeight: 50 }} value={g.homepage?.heroTitle || ""} onChange={(e) => setG({ ...g, homepage: { ...g.homepage, heroTitle: e.target.value } })} /></div>
               <div className="af full"><label>Hero subtitle</label><input value={g.homepage?.heroSubtitle || ""} onChange={(e) => setG({ ...g, homepage: { ...g.homepage, heroSubtitle: e.target.value } })} /></div>
               <F k="heroCta" label="Hero button text" group="homepage" />
-              <ImgField k="heroImage" label="Hero banner image" group="homepage" />
+              <HeroSlidesField />
+              <ImgField k="heroImage" label="Hero banner image — fallback, used only when there are no slides above" group="homepage" />
               <div className="full">{saveBtn("homepage")}</div>
             </div>
           </div>

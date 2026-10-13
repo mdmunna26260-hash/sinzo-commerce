@@ -9,6 +9,7 @@ import { ProductCard } from "@/components/parts";
 import { imgSrc } from "@/components/img-src";
 import { CartProvider } from "@/components/store";
 import Carousel from "@/components/home/carousel";
+import HeroSlider from "@/components/home/hero-slider";
 import SmartImg from "@/components/smart-img";
 import SafeSection from "@/components/safe-section";
 import { makeReviewLoop } from "@/lib/review-marquee";
@@ -20,18 +21,28 @@ export const dynamic = "force-dynamic";
 
 const DEFAULT_SECTIONS = [
   { id: "hero", enabled: true }, { id: "values", enabled: true }, { id: "featured", enabled: true },
-  { id: "categories", enabled: true }, { id: "promo", enabled: true }, { id: "bestsellers", enabled: true },
+  { id: "discount", enabled: true }, { id: "categories", enabled: true }, { id: "promo", enabled: true },
+  { id: "bestsellers", enabled: true }, { id: "mostviewed", enabled: true },
   { id: "testimonials", enabled: true },
 ];
+
+/* A store that saved a layout before these sections existed has them missing from
+   s.homeSections, and an unknown id simply never renders — so the new sections would
+   stay invisible with no way to switch them on except re-saving the layout. Append any
+   section the saved list has not heard of, keeping the admin's order for the rest. */
+function withNewSections(saved: { id: string; enabled: boolean }[]) {
+  const seen = new Set(saved.map((s) => s.id));
+  return [...saved, ...DEFAULT_SECTIONS.filter((d) => !seen.has(d.id))];
+}
 
 const CAT_IMG: Record<string, string> = { shirts: "shirt", outerwear: "coat", dresses: "dress", bottoms: "trousers", knitwear: "knit", accessories: "bag", "t-shirts": "tee" };
 
 /* editorial section header: 01 — Eyebrow / Title / View All */
-function Head({ no, eyebrow, title, href }: { no: string; eyebrow: string; title: string; href?: string }) {
+function Head({ no, eyebrow, title, href }: { no?: string; eyebrow: string; title: string; href?: string }) {
   return (
     <div className="section-head2">
       <div>
-        <div className="sh-eyebrow"><span className="sh-no">{no}</span>{eyebrow}</div>
+        <div className="sh-eyebrow">{no && <span className="sh-no">{no}</span>}{eyebrow}</div>
         <h2>{title}</h2>
       </div>
       {href && <Link className="sh-link" href={href}>View All <span aria-hidden>→</span></Link>}
@@ -115,9 +126,71 @@ async function HomeContent() {
   const reviewLoop = makeReviewLoop(reviews);
   const hp = s.homepage || {};
   const sectionCfg: { id: string; enabled: boolean }[] =
-    Array.isArray(s.homeSections) && s.homeSections.length ? s.homeSections : DEFAULT_SECTIONS;
+    Array.isArray(s.homeSections) && s.homeSections.length ? withNewSections(s.homeSections) : DEFAULT_SECTIONS;
+
+  /* ---- the two data-driven product rails ----
+     Both read columns that already exist, so neither needs a migration:
+     `comparePrice` (set by the admin when a product goes on sale) and `views`
+     (incremented on every product-page render in app/products/[slug]/page.tsx).
+
+     SQLite/Postgres cannot compare two columns in a Prisma `where`, so the
+     discount rail filters `comparePrice != null` in the query and does the
+     `> price` test plus the percentage sort in JS. The candidate set is capped
+     so a large catalogue never pulls every sale product into memory. */
+  const enabledIds = new Set(sectionCfg.filter((x) => x.enabled).map((x) => x.id));
+  const RAIL_SIZE = 8;
+  const railSelect = {
+    id: true, title: true, slug: true, price: true, comparePrice: true, stock: true,
+    badge: true, isNew: true, isBestSeller: true, status: true, preorder: true, views: true,
+    category: { select: { name: true } },
+    images: { select: { url: true }, orderBy: { position: "asc" as const }, take: 6 },
+    variants: { select: { size: true, color: true, stock: true } },
+  };
+
+  const discountRaw = enabledIds.has("discount")
+    ? await db.product.findMany({
+        where: { status: "ACTIVE", comparePrice: { not: null } },
+        select: railSelect,
+        orderBy: { updatedAt: "desc" },
+        take: 60,
+      })
+    : [];
+  const discountProducts = discountRaw
+    .filter((p) => (p.comparePrice ?? 0) > p.price)
+    .sort((a, b) => {
+      const pct = (x: typeof a) => ((x.comparePrice! - x.price) / x.comparePrice!) * 100;
+      return pct(b) - pct(a);
+    })
+    .slice(0, RAIL_SIZE);
+
+  const mostViewed = enabledIds.has("mostviewed")
+    ? await db.product.findMany({
+        where: { status: "ACTIVE", views: { gt: 0 } },
+        select: railSelect,
+        orderBy: [{ views: "desc" }, { id: "desc" }],
+        take: RAIL_SIZE,
+      })
+    : [];
   const bust = (() => { let h = 0; const str = JSON.stringify(hp); for (let i = 0; i < str.length; i++) { h = ((h << 5) - h + str.charCodeAt(i)) | 0; } return Math.abs(h).toString(36); })();
   const vb = (u?: string) => (u ? (u.includes("?") ? u + "&v=" + bust : u + "?v=" + bust) : u);
+
+  /* Hero banners. `homepage.heroSlides` is the new multi-image field; a store that has
+     never opened the new editor still has the single `homepage.heroImage`, so fall back
+     to it and the hero keeps working untouched after deploy. Entries without an image
+     are dropped so a half-filled row in the admin cannot render an empty slide. */
+  const heroSlides: { image: string; href?: string; alt?: string }[] = (
+    Array.isArray(hp.heroSlides) && hp.heroSlides.length
+      ? hp.heroSlides
+      : hp.heroImage
+        ? [{ image: hp.heroImage, href: "/products" }]
+        : []
+  )
+    .filter((sl: any) => sl && typeof sl.image === "string" && sl.image.trim())
+    .map((sl: any) => ({
+      image: vb(sl.image.trim())!,
+      href: typeof sl.href === "string" && sl.href.trim() ? sl.href.trim() : undefined,
+      alt: typeof sl.alt === "string" && sl.alt.trim() ? sl.alt.trim() : cfg.store?.name || "Banner",
+    }));
 
   const cp = (col: any) =>
     (col?.products || []).filter((x: any) => x.product.status === "ACTIVE")
@@ -132,50 +205,77 @@ async function HomeContent() {
         colors: Array.from(new Set((x.product.variants || []).filter((v: any) => (x.product.preorder || v.stock > 0) && v.color).map((v: any) => v.color))),
       }));
 
+  /* same shape as cp(), for rails that query products directly instead of through a collection */
+  const mp = (rows: any[]) =>
+    rows.map((p: any) => ({
+      id: p.id, title: p.title, slug: p.slug, price: p.price,
+      comparePrice: p.comparePrice, image: p.images?.[0]?.url,
+      images: (p.images || []).map((im: any) => im.url),
+      categoryName: p.category?.name,
+      stock: Math.max(p.stock, (p.variants || []).reduce((s: number, v: any) => s + v.stock, 0)),
+      isNew: p.isNew, isBestSeller: p.isBestSeller, badge: p.badge, preorder: !!p.preorder,
+      sizes: Array.from(new Set((p.variants || []).filter((v: any) => (p.preorder || v.stock > 0) && v.size).map((v: any) => v.size))).sort(),
+      colors: Array.from(new Set((p.variants || []).filter((v: any) => (p.preorder || v.stock > 0) && v.color).map((v: any) => v.color))),
+    }));
+
+  /* a rail of up to 8 cards: swipeable pages of 4 on mobile, one grid on desktop */
+  const Rail = ({ items, k }: { items: any[]; k: string }) => (
+    <>
+      <Carousel className="mobile-only">
+        <div className="grid grid-4">{items.slice(0, 4).map((p: any, idx: number) => <ProductCard key={p.id} p={p} rd={idx % 4} />)}</div>
+        {items.length > 4 && (
+          <div className="grid grid-4">{items.slice(4, 8).map((p: any, idx: number) => <ProductCard key={p.id} p={p} rd={idx % 4} />)}</div>
+        )}
+      </Carousel>
+      <div className="desktop-only">
+        <div className="grid grid-4">
+          {items.map((p: any, idx: number) => <ProductCard key={p.id} p={p} rd={idx % 4} />)}
+        </div>
+      </div>
+    </>
+  );
+
   const values = ["Cash on Delivery", "Delivery in 24–72h", "7-Day Easy Returns", "100% Authentic"];
 
+  /* The "01 / 02 / 03" chapter numbers in each section heading used to be hard-coded, so they
+     went out of sequence the moment anyone reordered or hid a section in Settings → Homepage
+     Layout (and On Sale shipped colliding with Reviews on "04"). Derive them instead: walk the
+     admin's own order and number only the headed sections that will actually render. */
+  const headedIfVisible: Record<string, boolean> = {
+    featured: true,
+    categories: true,
+    bestsellers: true,
+    discount: discountProducts.length > 0,
+    mostviewed: mostViewed.length > 0,
+    testimonials: reviews.length > 0,
+  };
+  const no: Record<string, string> = {};
+  let headNo = 0;
+  for (const x of sectionCfg) {
+    if (x.enabled && headedIfVisible[x.id]) no[x.id] = String(++headNo).padStart(2, "0");
+  }
+
   const sections: Record<string, React.ReactNode> = {
-    hero: (
-      <section className="hero" key="hero">
-        {hp.heroImage && (
-          <>
-            {/* LCP element: hand the URL to the preload scanner instead of waiting for the client
-                component to render. Next hoists this <link> out of the body into <head>. */}
-            <link
-              rel="preload"
-              as="image"
-              fetchPriority="high"
-              href={imgSrc(vb(hp.heroImage), 1200)}
-              imageSrcSet={[600, 1000].map((n) => `${imgSrc(vb(hp.heroImage), n)} ${n}w`).join(", ")}
-              imageSizes="100vw"
-            />
-            <div className="hero-media">
-              {/* The <img> keeps its kenburns entrance; this wrapper carries the scroll-driven
-                  parallax, so the two animations never fight over one element. */}
-              <SmartImg className="hero-img" priority src={vb(hp.heroImage)} alt={cfg.store?.name || "Hero"} sizes="100vw" widths={[600, 1000]} />
-            </div>
-          </>
-        )}
-        {hp.heroImage && (
-          <div className="hero-cue" aria-hidden><i /><span>Scroll</span></div>
-        )}
-        <div className="hero-overlay">
-          <div className="hero-content">
-            <div className="eyebrow" style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <i style={{ display: "inline-block", width: 26, height: 1, background: "var(--text)" }} />
-              {cfg.store?.tagline || "New Season"}
-            </div>
-            <h1>{hp.heroTitle}</h1>
-            <p>{hp.heroSubtitle}</p>
-            <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-              {/* the two highest-intent clicks on the site, above the fold: warm them right away */}
-              <Link className="btn" href="/products" prefetch>{hp.heroCta || "Shop Now"}</Link>
-              <Link className="btn btn-ghost" href="/track" prefetch>Track Order</Link>
-            </div>
-          </div>
-        </div>
+    hero: heroSlides.length ? (
+      <section className="hero hero-banner" key="hero">
+        {/* LCP element: hand the FIRST slide to the preload scanner instead of waiting for the
+            client component to render. Next hoists this <link> out of the body into <head>.
+            Only the first one — preloading every slide would fight the LCP image for bandwidth. */}
+        <link
+          rel="preload"
+          as="image"
+          fetchPriority="high"
+          href={imgSrc(heroSlides[0].image, 1200)}
+          imageSrcSet={[600, 1000].map((n) => `${imgSrc(heroSlides[0].image, n)} ${n}w`).join(", ")}
+          imageSizes="100vw"
+        />
+        {/* The banners carry no text, so the page would otherwise ship without an h1.
+            Keep a real one for SEO and screen readers, visually hidden. */}
+        <h1 className="sr-only">{hp.heroTitle || cfg.store?.name || "SINZO"}</h1>
+        <HeroSlider slides={heroSlides} intervalMs={Number(hp.heroInterval) || 5500} label="Promotions" />
+        <div className="hero-cue" aria-hidden><i /><span>Scroll</span></div>
       </section>
-    ),
+    ) : null,
     values: (
       <div className="values" key="values">
         <div className="container values-inner2">
@@ -185,7 +285,7 @@ async function HomeContent() {
     ),
     featured: (
       <section className="section container" key="featured">
-        <Head no="01" eyebrow="Created for you" title={featuredCol?.title || "New Arrivals"} href={"/collections/" + featuredSlug} />
+        <Head no={no.featured} eyebrow="Created for you" title={featuredCol?.title || "New Arrivals"} href={"/collections/" + featuredSlug} />
         <Carousel className="mobile-only">
           {Array.from({ length: Math.max(1, Math.ceil(cp(featuredCol).length / 4)) }, (_, i) => (
             <div className="grid grid-4" key={"fp" + i}>{cp(featuredCol).slice(i * 4, i * 4 + 4).map((p: any, idx) => <ProductCard key={p.id} p={p} rd={(i * 4 + idx) % 4} />)}</div>
@@ -200,7 +300,7 @@ async function HomeContent() {
     ),
     categories: (
       <section className="section container" style={{ paddingTop: 0 }} key="categories">
-        <Head no="02" eyebrow="Browse" title="Shop by Category" href="/products" />
+        <Head no={no.categories} eyebrow="Browse" title="Shop by Category" href="/products" />
         {/* SOB category dekhabe: mobile-e swipeable carousel (3 per page), desktop-e full grid */}
         <Carousel className="mobile-only">
           {Array.from({ length: Math.ceil(cats.length / 4) }, (_, i) => (
@@ -234,7 +334,7 @@ async function HomeContent() {
     ) : null,
     bestsellers: (
       <section className="section container" style={{ paddingTop: 0 }} key="bestsellers">
-        <Head no="03" eyebrow="Loved by hundreds" title="Best Sellers" href="/collections/best-sellers" />
+        <Head no={no.bestsellers} eyebrow="Loved by hundreds" title="Best Sellers" href="/collections/best-sellers" />
         <Carousel className="mobile-only">
           <div className="grid grid-4">{cp(bestSellers).slice(0, 4).map((p: any, idx) => <ProductCard key={p.id} p={p} rd={idx % 4} />)}</div>
           <div className="grid grid-4">{cp(bestSellers).slice(4, 8).map((p: any, idx) => <ProductCard key={p.id} p={p} rd={idx % 4} />)}</div>
@@ -246,9 +346,23 @@ async function HomeContent() {
         </div>
       </section>
     ),
+    /* Both rails disappear completely when they have nothing to show, rather than
+       rendering an empty header — a new store has no discounts and no view counts yet. */
+    discount: discountProducts.length > 0 ? (
+      <section className="section container" style={{ paddingTop: 0 }} key="discount">
+        <Head no={no.discount} eyebrow="Limited time" title="On Sale" href="/products?onsale=1" />
+        <Rail items={mp(discountProducts)} k="discount" />
+      </section>
+    ) : null,
+    mostviewed: mostViewed.length > 0 ? (
+      <section className="section container" style={{ paddingTop: 0 }} key="mostviewed">
+        <Head no={no.mostviewed} eyebrow="Trending now" title="Most Viewed" href="/products?sort=popular" />
+        <Rail items={mp(mostViewed)} k="mostviewed" />
+      </section>
+    ) : null,
     testimonials: reviews.length > 0 ? (
       <section className="section container testimonials" id="customer-reviews" style={{ paddingTop: 0 }} key="testimonials">
-        <Head no="04" eyebrow="Reviews" title="What customers say" />
+        <Head no={no.testimonials} eyebrow="Reviews" title="What customers say" />
         {/* Same seamless, continuous band on phones, tablets and desktop.
             Clone cards are decorative: assistive technology reads each real
             review once. Reduced-motion visitors get a manually scrollable list. */}
