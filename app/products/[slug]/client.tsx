@@ -543,7 +543,10 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
             <button className="modal-close" onClick={() => setChart(false)} aria-label="Close">×</button>
             <h3>Size Chart</h3>
             {sizeChartImage && <img src={sizeChartImage} alt="Size chart" className="sizechart-img" />}
-            {!sizeChartImage && sizeChartHtml && <div dangerouslySetInnerHTML={{ __html: sizeChartHtml.replace(/<table/, '<table class="sizechart-table"') }} />}
+            {/* sizeChartHtml arrives pre-sanitised from the server page (lib/sanitize.ts) with
+                the .sizechart-table class already merged in. The old code re-injected the raw
+                DB value through a regex and no filtering — stored XSS on a public page. */}
+            {!sizeChartImage && sizeChartHtml && <div dangerouslySetInnerHTML={{ __html: sizeChartHtml }} />}
             <p style={{ fontSize: 12.5, color: "var(--muted)", marginTop: 14 }}>Measurements are approximate. Between sizes? We recommend sizing up.</p>
           </div>
         </div>

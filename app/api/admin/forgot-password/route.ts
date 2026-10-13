@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import crypto from "crypto";
 import { db } from "@/lib/db";
-import { rateLimit } from "@/lib/auth";
+import { rateLimit, rateLimitPeek, rateLimitHit } from "@/lib/auth";
 import { getClientIp } from "@/lib/ua";
 import { sendAdminResetEmail } from "@/lib/mailer";
 
@@ -23,7 +23,19 @@ export async function POST(req: Request) {
       // Still respond success to avoid email enumeration
       return NextResponse.json({ ok: true });
     }
-    rateLimit("reset-em:" + lowerEmail, 3, 15 * 60 * 1000); // per-email cap
+    /* Per-email cap. This used to call rateLimit() and throw the result away, so the
+       cap did nothing at all: only the per-IP limit above applied, and an attacker
+       rotating source addresses could request unlimited admin password resets. Every
+       request overwrites resetToken (killing any link the real admin is mid-way
+       through) and sends another email — a mailbox flood plus a reset-link DoS.
+
+       Peek here, and consume only when an email is actually queued, so the counter
+       tracks deliveries rather than guesses. */
+    const emailCapKey = "reset-em:" + lowerEmail;
+    if (!rateLimitPeek(emailCapKey, 3, 15 * 60 * 1000)) {
+      // Still answer ok: a 429 here would confirm the address belongs to an admin.
+      return NextResponse.json({ ok: true });
+    }
 
     // Find active admin user (case-insensitive)
     let user = await db.user.findFirst({ where: { email: lowerEmail, active: true } });
@@ -55,6 +67,7 @@ export async function POST(req: Request) {
         devPreviewUrl = res.devPreviewUrl;
         transport = !!res.transport;
       }
+      rateLimitHit(emailCapKey, 15 * 60 * 1000);
     }
 
     await wait(Math.max(0, 600 - (Date.now() - start)));

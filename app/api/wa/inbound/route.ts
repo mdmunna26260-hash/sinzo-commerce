@@ -1,16 +1,19 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { waSend } from "@/lib/wa";
+import { waSend, verifyBridgeKey } from "@/lib/wa";
 import { getSettings, envFallback } from "@/lib/settings";
 import { logApp } from "@/lib/logs";
 export const dynamic = "force-dynamic";
 
 /* Inbound WhatsApp webhook — called by the local bridge (scripts/whatsapp-bridge.js) when a
-   customer messages the shop number. The bridge key is checked against the same value the
-   bridge sends, so an open endpoint cannot be used to stuff the inbox. */
-function bridgeKey(): string {
-  return process.env.WA_BRIDGE_KEY || "local-bridge";
-}
+   customer messages the shop number.
+
+   This route is reachable from the public internet, and it used to accept the hardcoded
+   default key "local-bridge" whenever neither Settings nor WA_BRIDGE_KEY was configured.
+   That let an anonymous caller forge inbound messages and — through the STOP branch below —
+   opt arbitrary phone numbers out of marketing, i.e. unsubscribe the customer base with a
+   loop. verifyBridgeKey() now refuses the default key in production and compares in
+   constant time. */
 /** 8801676450711 → 01676450711 (how phone numbers are stored on orders). */
 function toLocal(waId: string): string {
   const d = String(waId || "").replace(/\D/g, "");
@@ -19,13 +22,7 @@ function toLocal(waId: string): string {
 }
 
 export async function POST(req: Request) {
-  let allowed = bridgeKey();
-  try {
-    const s = envFallback(await getSettings());
-    const configured = (s as any).notifications?.waBridgeKey;
-    if (configured) allowed = configured;
-  } catch {}
-  if ((req.headers.get("x-bridge-key") || "") !== allowed) {
+  if (!(await verifyBridgeKey(req))) {
     return NextResponse.json({ error: "bad bridge key" }, { status: 401 });
   }
 
