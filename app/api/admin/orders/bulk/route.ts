@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { requirePerm } from "@/lib/admin-guard";
 import { updateOrder, ORDER_STATUSES, PAYMENT_STATUSES } from "@/lib/order-mutations";
 import { logAudit } from "@/lib/auth";
+import { deleteAdminOrder } from "@/lib/order-deletion";
 export const dynamic = "force-dynamic";
 export async function POST(req: Request) {
   const g = await requirePerm("orders", req);
@@ -28,8 +29,18 @@ export async function POST(req: Request) {
     await db.order.updateMany({ where: { id: { in: orderIds } }, data: { paymentStatus: value } });
     await logAudit(g.user.email, "BULK_PAYMENT", `${ids.length} orders → ${value}`);
   } else if (action === "delete") {
-    await db.order.deleteMany({ where: { id: { in: orderIds } } });
-    await logAudit(g.user.email, "BULK_DELETE", `${ids.length} orders deleted`);
+    const results: { id: number; ok: boolean; code?: string; error?: string }[] = [];
+    for (const id of orderIds) {
+      try {
+        const deleted = await deleteAdminOrder(id, g.user.email);
+        results.push({ id, code: deleted.code, ok: true });
+      } catch (e: any) {
+        results.push({ id, ok: false, error: e?.message || "Delete failed" });
+      }
+    }
+    const deleted = results.filter((result) => result.ok).length;
+    await logAudit(g.user.email, "BULK_DELETE", `${deleted}/${orderIds.length} orders deleted`);
+    return NextResponse.json({ ok: deleted === orderIds.length, deleted, failed: orderIds.length - deleted, results }, { status: deleted === orderIds.length ? 200 : 409 });
   } else if (action === "courier") {
     // bulk send to Steadfast: per-order (needs order details); failures collected
     const { createConsignment } = await import("@/lib/steadfast");

@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requirePerm } from "@/lib/admin-guard";
 import { logAudit } from "@/lib/auth";
+import { slugify } from "@/lib/slug";
+import { parseProductInput, ProductInputError } from "@/lib/product-input";
 
 async function syncCollection(productId: number, slug: string, want: boolean) {
   const col = await db.collection.findUnique({ where: { slug } });
@@ -10,93 +12,142 @@ async function syncCollection(productId: number, slug: string, want: boolean) {
   if (want && !ex) await db.collectionProduct.create({ data: { collectionId: col.id, productId } });
   if (!want && ex) await db.collectionProduct.delete({ where: { collectionId_productId: { collectionId: col.id, productId } } }).catch(() => {});
 }
-import { slugify } from "@/lib/slug";
+
+function productId(raw: string): number | null {
+  const id = Number(raw);
+  return Number.isSafeInteger(id) && id > 0 ? id : null;
+}
 
 export const dynamic = "force-dynamic";
 type Ctx = { params: Promise<{ id: string }> };
+
 export async function GET(req: Request, props: Ctx) {
-  const params = await props.params;
   const g = await requirePerm("products", req);
   if ("res" in g) return g.res;
-  const p = await db.product.findUnique({ where: { id: Number(params.id) }, include: { images: true, variants: true } });
-  return NextResponse.json({ product: p });
-}
-export async function PUT(req: Request, props: Ctx) {
   const params = await props.params;
-  // make sure newer columns (Product.soldCount etc.) exist before writing
+  const id = productId(params.id);
+  if (!id) return NextResponse.json({ error: "Invalid product ID" }, { status: 400 });
+  const product = await db.product.findUnique({ where: { id }, include: { images: true, variants: true } });
+  if (!product) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  return NextResponse.json({ product });
+}
+
+export async function PUT(req: Request, props: Ctx) {
   const { ensureExtraTables } = await import("@/lib/db-ensure");
   await ensureExtraTables().catch(() => {});
   const g = await requirePerm("products", req);
   if ("res" in g) return g.res;
-  try {
-    const b = await req.json();
-    const id = Number(params.id);
-    const before = await db.product.findUnique({ where: { id }, include: { images: true } });
-    if (!before) return NextResponse.json({ error: "Not found" }, { status: 404 });
-    const data: any = {
-      soldCount: b.soldCount === "" || b.soldCount == null ? null : Math.max(0, Number(b.soldCount)),
-      saleEnds: b.saleEnds ? new Date(b.saleEnds) : null,
-      preorder: !!b.preorder,
-      preorderDate: b.preorderDate ? new Date(b.preorderDate) : null,
-      soldMode: b.soldMode === "random" ? "random" : "fixed",
-      colorGroupId: b.colorGroupId ? Number(b.colorGroupId) : null,
-      colorName: b.colorName ? String(b.colorName).trim().slice(0, 40) : null,
-      colorImage: b.colorImage || null,
-      title: b.title, shortDesc: b.shortDesc || null, description: b.description || null,
-      sku: b.sku || null, barcode: b.barcode || null,
-      price: Number(b.price) || 0, comparePrice: b.comparePrice ? Number(b.comparePrice) : null,
-      cost: b.cost ? Number(b.cost) : null, stock: Number(b.stock) || 0, lowStock: Number(b.lowStock) || 5,
-      status: b.status || "ACTIVE", featured: !!b.featured, tags: b.tags || null,
-      sizeChartImage: b.sizeChartImage || null, badge: b.badge || null, isNew: !!b.isNew, isBestSeller: !!b.isBestSeller,
-      categoryId: b.categoryId ? Number(b.categoryId) : null,
-    };
-    if (b.slug) {
-      const newSlug = slugify(b.slug);
-      if (newSlug && newSlug !== before.slug) {
-        const clash = await db.product.findFirst({ where: { slug: newSlug, id: { not: id } } });
-        data.slug = clash ? newSlug + "-" + Date.now().toString(36) : newSlug;
-      }
-    }
-    await db.product.update({ where: { id }, data });
-    /* Stock typed straight into the product form used to leave no trace at all, which is how a
-       ledger stops being able to answer "why is this 3?" — a delivery, a return and a typo all
-       looked the same. Record the difference as an adjustment (the dedicated Stock page writes
-       RESTOCK rows with a supplier note). */
-    if (data.stock !== before.stock) {
-      await db.inventoryMovement
-        .create({ data: { productId: id, delta: data.stock - before.stock, reason: "ADJUST", ref: g.user.email } })
-        .catch(() => {});
-    }
-    // sync images
-    const urls: string[] = b.images || [];
-    for (const img of before.images) if (!urls.includes(img.url)) await db.productImage.delete({ where: { id: img.id } });
-    for (let i = 0; i < urls.length; i++) {
-      const ex = before.images.find((im) => im.url === urls[i]);
-      if (ex) await db.productImage.update({ where: { id: ex.id }, data: { position: i } });
-      else await db.productImage.create({ data: { url: urls[i], position: i, productId: id, alt: b.title } });
-    }
-    // sync variants
-    const vs: any[] = b.variants || [];
-    const keepIds = vs.filter((v) => v.id).map((v) => Number(v.id));
-    await db.productVariant.deleteMany({ where: { productId: id, id: { notIn: keepIds } } });
-    for (const v of vs) {
-      if (v.id) await db.productVariant.update({ where: { id: Number(v.id) }, data: { size: v.size || null, color: v.color || null, sku: v.sku || null, price: v.price ? Number(v.price) : null, stock: Number(v.stock) || 0, image: v.image || null } });
-      else await db.productVariant.create({ data: { productId: id, size: v.size || null, color: v.color || null, sku: v.sku || null, price: v.price ? Number(v.price) : null, stock: Number(v.stock) || 0, image: v.image || null } });
-    }
-    await syncCollection(id, "new-arrivals", !!b.isNew);
-    await syncCollection(id, "best-sellers", !!b.isBestSeller);
-    await logAudit(g.user.email, "PRODUCT_UPDATED", `${b.title} (#${id}) price: ${before.price} → ${b.price}`);
-    return NextResponse.json({ ok: true });
-  } catch (e: any) { return NextResponse.json({ error: e?.message || "Server error" }, { status: 500 }); }
-}
-export async function DELETE(req: Request, props: Ctx) {
   const params = await props.params;
+  const id = productId(params.id);
+  if (!id) return NextResponse.json({ error: "Invalid product ID" }, { status: 400 });
+  try {
+    const input = parseProductInput(await req.json().catch(() => null));
+    const requestedSlug = slugify(input.slug || input.title);
+    if (!requestedSlug) throw new ProductInputError("Title or slug must contain letters or numbers");
+    const clash = await db.product.findFirst({ where: { slug: requestedSlug, id: { not: id } }, select: { id: true } });
+    const finalSlug = clash ? requestedSlug + "-" + Date.now().toString(36) : requestedSlug;
+
+    const before = await db.$transaction(async (tx) => {
+      const current = await tx.product.findUnique({ where: { id }, include: { images: true, variants: true } });
+      if (!current) throw new ProductInputError("Product not found");
+      const ownVariantIds = new Set(current.variants.map((variant) => variant.id));
+      for (const variant of input.variants) {
+        if (variant.id && !ownVariantIds.has(variant.id)) throw new ProductInputError("A variant does not belong to this product");
+      }
+
+      await tx.product.update({
+        where: { id },
+        data: {
+          title: input.title,
+          slug: finalSlug,
+          shortDesc: input.shortDesc,
+          description: input.description,
+          sku: input.sku,
+          barcode: input.barcode,
+          price: input.price,
+          comparePrice: input.comparePrice,
+          cost: input.cost,
+          stock: input.stock,
+          lowStock: input.lowStock,
+          soldCount: input.soldCount,
+          saleEnds: input.saleEnds,
+          preorder: input.preorder,
+          preorderDate: input.preorderDate,
+          soldMode: input.soldMode,
+          colorGroupId: input.colorGroupId,
+          colorName: input.colorName,
+          colorImage: input.colorImage,
+          status: input.status,
+          featured: input.featured,
+          tags: input.tags,
+          sizeChartImage: input.sizeChartImage,
+          badge: input.badge,
+          isNew: input.isNew,
+          isBestSeller: input.isBestSeller,
+          categoryId: input.categoryId,
+        },
+      });
+
+      if (input.stock !== current.stock) {
+        await tx.inventoryMovement.create({ data: { productId: id, delta: input.stock - current.stock, reason: "ADJUST", ref: g.user.email } });
+      }
+
+      const imageIds = new Map(current.images.map((image) => [image.url, image.id]));
+      await tx.productImage.deleteMany({ where: { productId: id, url: { notIn: input.images } } });
+      for (let position = 0; position < input.images.length; position++) {
+        const url = input.images[position];
+        const imageId = imageIds.get(url);
+        if (imageId) await tx.productImage.update({ where: { id: imageId }, data: { position, alt: input.title } });
+        else await tx.productImage.create({ data: { url, position, productId: id, alt: input.title } });
+      }
+
+      const keepIds = input.variants.flatMap((variant) => variant.id ? [variant.id] : []);
+      await tx.productVariant.deleteMany({ where: { productId: id, id: { notIn: keepIds } } });
+      for (const variant of input.variants) {
+        const data = { size: variant.size, color: variant.color, sku: variant.sku, price: variant.price, stock: variant.stock, image: variant.image };
+        if (variant.id) await tx.productVariant.update({ where: { id: variant.id }, data });
+        else await tx.productVariant.create({ data: { ...data, productId: id } });
+      }
+      return current;
+    });
+
+    await syncCollection(id, "new-arrivals", input.isNew);
+    await syncCollection(id, "best-sellers", input.isBestSeller);
+    await logAudit(g.user.email, "PRODUCT_UPDATED", `${input.title} (#${id}) price: ${before.price} → ${input.price}`);
+    return NextResponse.json({ ok: true });
+  } catch (e: any) {
+    if (e instanceof ProductInputError) {
+      const status = e.message === "Product not found" ? 404 : 400;
+      return NextResponse.json({ error: e.message }, { status });
+    }
+    console.error("product update failed", e);
+    return NextResponse.json({ error: "Could not update the product. Please check the fields and try again." }, { status: 500 });
+  }
+}
+
+export async function DELETE(req: Request, props: Ctx) {
   const g = await requirePerm("products", req);
   if ("res" in g) return g.res;
-  const id = Number(params.id);
-  const p = await db.product.findUnique({ where: { id } });
-  if (!p) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  await db.product.delete({ where: { id } });
-  await logAudit(g.user.email, "PRODUCT_DELETED", `${p.title} (#${id})`);
-  return NextResponse.json({ ok: true });
+  const params = await props.params;
+  const id = productId(params.id);
+  if (!id) return NextResponse.json({ error: "Invalid product ID" }, { status: 400 });
+  try {
+    const product = await db.product.findUnique({ where: { id }, select: { id: true, title: true } });
+    if (!product) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    const orderCount = await db.orderItem.count({ where: { productId: id } });
+    if (orderCount > 0) {
+      await db.$transaction([
+        db.collectionProduct.deleteMany({ where: { productId: id } }),
+        db.product.update({ where: { id }, data: { status: "ARCHIVED", featured: false, isNew: false, isBestSeller: false } }),
+      ]);
+      await logAudit(g.user.email, "PRODUCT_ARCHIVED", `${product.title} (#${id}); retained for ${orderCount} order item(s)`);
+      return NextResponse.json({ ok: true, archived: true, message: "Product has order history, so it was archived instead of permanently deleted." });
+    }
+    await db.product.delete({ where: { id } });
+    await logAudit(g.user.email, "PRODUCT_DELETED", `${product.title} (#${id})`);
+    return NextResponse.json({ ok: true, archived: false });
+  } catch (e) {
+    console.error("product delete failed", e);
+    return NextResponse.json({ error: "Could not delete the product." }, { status: 500 });
+  }
 }

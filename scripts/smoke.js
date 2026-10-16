@@ -114,9 +114,11 @@ const hiddenPage = (r) => r.redirected && new URL(r.url).pathname === "/admin/da
     check("admin api blocked without login", r.status === 401);
     cookie = s;
   }
-  // checkout flow (real order)
-  const target = live;
-  const variant = (target.variants || []).find((v) => v.stock > 0) || null;
+  // checkout flow (real order). WELCOME10 has a seeded minimum order, so do
+  // not let catalog ordering make the suite choose a perfectly valid but too-
+  // cheap product and misreport that coupon rule as a checkout regression.
+  const target = plist.find((p) => p.status === "ACTIVE" && p.stock > 0 && Number(p.price) >= 1500) || live;
+  const variant = (target.variants || []).find((v) => v.stock > 0 && (v.price == null || Number(v.price) >= 1500)) || null;
   r = await req("/api/checkout", { method: "POST", body: JSON.stringify({
     name: "Smoke Test Customer", phone: testPhone, address: "House 99, Road 12, Banani, Dhaka",
     area: "INSIDE_DHAKA", paymentMethod: "COD", couponCode: "WELCOME10",

@@ -63,10 +63,22 @@ export default function OrdersClient({ initial }: { initial: O[] }) {
 
   const bulk = async (action: string, value?: string) => {
     if (!sel.size) return;
-    if (action === "delete" && !confirm(`Delete ${sel.size} order(s)? This cannot be undone.`)) return;
+    if (action === "delete" && !confirm(`Delete ${sel.size} order(s)? Delivered/courier-active orders must be returned or cancelled first.`)) return;
     setBusy(true);
-    await afetch("/api/admin/orders/bulk", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ids: Array.from(sel), action, value }) });
-    setSel(new Set()); setBusy(false); router.refresh();
+    try {
+      const response = await afetch("/api/admin/orders/bulk", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ids: Array.from(sel), action, value }) });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        const failures = (result.results || []).filter((item: any) => !item.ok).map((item: any) => `#${item.id}: ${item.error}`).join("\n");
+        alert(failures || result.error || "The bulk action could not be completed.");
+      }
+      setSel(new Set());
+      router.refresh();
+    } catch {
+      alert("Network error. Please try again.");
+    } finally {
+      setBusy(false);
+    }
   };
   const exportCsv = () => { window.location.href = withToken("/api/admin/export?type=orders"); };
 
