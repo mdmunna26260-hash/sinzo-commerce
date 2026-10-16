@@ -10,13 +10,26 @@ export async function validateCoupon(
   subtotal: number,
   phone?: string,
 ) {
-  if (!coupon?.active) throw new CouponValidationError("Invalid coupon code");
+  /* Every "this code exists but is not usable" branch used to carry its own message —
+     "Coupon not active yet", "Coupon expired", "Coupon usage limit reached", "Invalid
+     coupon type". Together they are an oracle: POST /api/coupon with a guessed code and
+     the wording tells you whether that code is real, whether its window has passed and
+     whether its quota is spent, without ever having to redeem it. Shop coupon codes are
+     short, human and seasonal (EID50, NEWYEAR10, RAMADAN20), so guessing is cheap and
+     the whole code table can be mapped by script.
+
+     One message for every unusable code. The cases that only fire for a code that IS
+     live and that this shopper is legitimately trying to use (minimum order, already
+     redeemed on this phone) keep their specific wording — those are not discovery
+     signals, they are the reason the customer's own attempt failed. */
+  const UNUSABLE = "Invalid coupon code";
+  if (!coupon?.active) throw new CouponValidationError(UNUSABLE);
   const now = new Date();
-  if (coupon.startsAt && now < coupon.startsAt) throw new CouponValidationError("Coupon not active yet");
-  if (coupon.endsAt && now > coupon.endsAt) throw new CouponValidationError("Coupon expired");
-  if (coupon.usageLimit != null && coupon.usedCount >= coupon.usageLimit) throw new CouponValidationError("Coupon usage limit reached");
+  if (coupon.startsAt && now < coupon.startsAt) throw new CouponValidationError(UNUSABLE);
+  if (coupon.endsAt && now > coupon.endsAt) throw new CouponValidationError(UNUSABLE);
+  if (coupon.usageLimit != null && coupon.usedCount >= coupon.usageLimit) throw new CouponValidationError(UNUSABLE);
+  if (!["percent", "fixed", "freeship"].includes(coupon.type)) throw new CouponValidationError(UNUSABLE);
   if (coupon.minOrder != null && subtotal < coupon.minOrder) throw new CouponValidationError(`Minimum order ৳${coupon.minOrder} required`);
-  if (!["percent", "fixed", "freeship"].includes(coupon.type)) throw new CouponValidationError("Invalid coupon type");
   if (phone && coupon.firstOrderOnly) {
     const prior = await tx.order.count({ where: { phone, status: { notIn: ["CANCELLED"] } } });
     if (prior) throw new CouponValidationError("Coupon valid on first order only");

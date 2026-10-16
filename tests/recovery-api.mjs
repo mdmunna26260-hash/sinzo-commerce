@@ -6,7 +6,14 @@ import net from 'node:net';
 import { PrismaClient } from '@prisma/client';
 
 const BASE = process.env.BASE_URL || 'http://localhost:3000';
-if (!['localhost', '127.0.0.1'].includes(new URL(BASE).hostname) || !process.env.DATABASE_URL?.startsWith('file:') || process.env.NODE_ENV === 'production' || process.env.AUDIT_ALLOW_MUTATIONS !== '1') throw Error('Isolated local SQLite + AUDIT_ALLOW_MUTATIONS=1 required');
+/* Isolated LOCAL database only — see the longer note in tests/api-regressions.mjs. SQLite always
+   qualifies; PostgreSQL only on loopback, because production runs postgres:16-alpine and a suite
+   that can never touch the real engine cannot predict it. Remote hosts stay rejected. */
+const DB_URL = process.env.DATABASE_URL || '';
+const dbIsLocal = DB_URL.startsWith('file:')
+  || (/^postgres(ql)?:\/\//.test(DB_URL)
+      && ['127.0.0.1', 'localhost', '::1'].includes((() => { try { return new URL(DB_URL).hostname; } catch { return ''; } })()));
+if (!['localhost', '127.0.0.1'].includes(new URL(BASE).hostname) || !dbIsLocal || process.env.NODE_ENV === 'production' || process.env.AUDIT_ALLOW_MUTATIONS !== '1') throw Error('Isolated local database (SQLite or loopback PostgreSQL) + AUDIT_ALLOW_MUTATIONS=1 required');
 if (!process.env.SMOKE_ADMIN_PASSWORD || !process.env.CRON_SECRET) throw Error('Local admin password and CRON_SECRET required');
 const db = new PrismaClient(), tag = 'recovery-' + crypto.randomBytes(5).toString('hex');
 const phones = [], productIds = [], couponIds = [], userIds = [], keys = [], originals = new Map(), sockets = new Set(), mails = [];
@@ -153,7 +160,21 @@ try {
   const order = await db.order.findUnique({ where: { code: purchases[0].body.code } });
   order.items = await db.orderItem.findMany({ where: { orderId: order.id } });
   ok('recovered order has linked inventory lines and source attribution', order.source === 'Recovered' && order.items[0].productId === p.id && order.items[0].variantId === p.variants[0].id);
-  ok('recovered legacy gift-wrap carts are not charged', order.total === 560 && !String(order.notes || '').includes('GIFT WRAP'));
+  /* Derive the expectation from what /api/checkout/recover actually quoted instead of hardcoding
+     a total. The previous literal was 560 = 2 x 250 + 80 - 20, computed from the draft's ORIGINAL
+     qty — but the concurrency check above deliberately advances that same draft (a.row) to
+     revision 4 with qty 4, and the price/area updates make the correct figure
+     4 x 250 + 80 - 20 = 1060. The application was right and the literal was stale.
+
+     Comparing every component against the quote is also a stronger test of the actual property:
+     checkoutTotals() has no gift-wrap term at all, so if the legacy giftWrap flag could add the
+     configured 95 fee, order.total would exceed what the customer was shown. And it cannot go
+     stale again when an earlier check edits the cart. */
+  const quoted = withCoupon.body.totals;
+  ok('recovered legacy gift-wrap carts are not charged',
+    order.subtotal === quoted.subtotal && order.deliveryFee === quoted.deliveryFee
+    && order.discount === quoted.discount && order.total === quoted.total
+    && !String(order.notes || '').includes('GIFT WRAP'));
   ok('coupon consumed only once across checkout retry', (await db.coupon.findUnique({ where: { id: c.id } })).usedCount === 1);
   ok('source draft and any late capture marker close atomically', (await db.abandonedCheckout.findUnique({ where: { id: a.row.id } })).convertedOrderId === order.id);
   const late = await request('/api/checkout/start', { json: { ...a.input, revision: 999 } });

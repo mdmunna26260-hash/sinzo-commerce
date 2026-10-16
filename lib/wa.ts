@@ -1,3 +1,4 @@
+import crypto from "crypto";
 import { getSettings } from "./settings";
 import { db } from "./db";
 
@@ -12,13 +13,61 @@ const FALLBACK = "http://127.0.0.1:3001";
    shop owner configures things — the bridge itself is started with the same value
    (`WA_BRIDGE_KEY=… npm run wa`); both sides falling back to "local-bridge" keeps a local
    machine working with no configuration at all. */
+/* The well-known development default. It is documented in this repo, so on an
+   internet-facing webhook it is not a secret — it is a password printed on the box.
+   See verifyBridgeKey() for why production refuses it outright. */
+export const DEFAULT_BRIDGE_KEY = "local-bridge";
+const IS_PROD = process.env.NODE_ENV === "production";
+
 export async function bridgeKey(): Promise<string> {
   try {
     const s = await getSettings();
     const configured = (s as any).notifications?.waBridgeKey;
     if (configured) return String(configured);
   } catch {}
-  return process.env.WA_BRIDGE_KEY || "local-bridge";
+  return process.env.WA_BRIDGE_KEY || DEFAULT_BRIDGE_KEY;
+}
+
+/* True when the effective key is something the operator actually chose. */
+export async function bridgeKeyIsConfigured(): Promise<boolean> {
+  return (await bridgeKey()) !== DEFAULT_BRIDGE_KEY;
+}
+
+/* Constant-time comparison that tolerates differing lengths. timingSafeEqual throws on a
+   length mismatch, which would itself leak whether the key was even close — so both sides
+   are hashed to a fixed width first. Same shape as lib/recovery-security.ts uses. */
+function safeEqual(a: string, b: string): boolean {
+  const digest = (s: string) =>
+    new TextEncoder().encode(crypto.createHash("sha256").update(String(s || "")).digest("hex"));
+  return crypto.timingSafeEqual(digest(a), digest(b));
+}
+
+/* Single place that decides whether a bridge/worker webhook caller is authentic.
+
+   /api/wa/inbound, /api/wa/device, /api/wa/receipt and /api/wa/tick are all reachable
+   from the public internet. Each of them fell back to "local-bridge" when neither
+   Settings nor WA_BRIDGE_KEY was set, and compared with `!==`, so on any deployment
+   that had not configured the key an anonymous caller could:
+
+     · forge inbound customer messages into the admin inbox;
+     · run the STOP/opt-out branch for arbitrary numbers, unsubscribing the whole
+       customer base from marketing;
+     · flip device state (mark the shop's WhatsApp BANNED) and fire admin alerts;
+     · rewrite delivery receipts;
+     · force-run the outbound broadcast queue via /api/wa/tick.
+
+   Production therefore requires a real key. A weak one is rejected too, so the fix
+   cannot be satisfied by typing "password". */
+export async function verifyBridgeKey(req: Request, header = "x-bridge-key"): Promise<boolean> {
+  const sent = req.headers.get(header) || "";
+  if (!sent || sent.length > 512) return false;
+  const expected = await bridgeKey();
+  if (expected === DEFAULT_BRIDGE_KEY || expected.length < 16) {
+    if (IS_PROD) return false;
+    // Dev/preview keeps working with no configuration at all, as before.
+    return safeEqual(sent, expected);
+  }
+  return safeEqual(sent, expected);
 }
 async function base(): Promise<string> {
   try {
@@ -136,11 +185,17 @@ export async function waWorkerKey(): Promise<string> {
   } catch {}
   return process.env.WA_WORKER_KEY || (await bridgeKey());
 }
-/** True when the request carries the worker key (or the bridge key — same trust level). */
+/* True when the request carries the worker key (or the bridge key — same trust level).
+   Same hardened comparison as the bridge webhooks: constant-time, and a default/weak
+   key is refused in production so /api/wa/tick cannot be driven by an anonymous caller. */
 export async function waWorkerAuthorized(req: Request): Promise<boolean> {
   const sent = req.headers.get("x-wa-worker-key") || "";
-  if (!sent) return false;
+  if (!sent || sent.length > 512) return false;
   const expected = await waWorkerKey();
-  const bridge = await bridgeKey();
-  return sent === expected || sent === bridge;
+  // An unconfigured (or trivially guessable) worker key is not acceptable on a
+  // public endpoint in production — /api/wa/tick drains the outbound broadcast queue.
+  if (IS_PROD && (expected === DEFAULT_BRIDGE_KEY || expected.length < 16)) return false;
+  if (safeEqual(sent, expected)) return true;
+  // The bridge key is accepted at the same trust level, through the same checks.
+  return await verifyBridgeKey(req, "x-wa-worker-key");
 }
