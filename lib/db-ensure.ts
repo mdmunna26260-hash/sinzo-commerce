@@ -8,6 +8,45 @@ import { db } from "./db";
    Runs at most once per server process. */
 let done: Promise<void> | null = null;
 
+/* SQLite has no `ALTER TABLE .. ADD COLUMN IF NOT EXISTS`. The fallback DDL below
+   therefore catches duplicate-column errors, but Prisma still logs every caught
+   error before the promise reaches `.catch()` — one hot reload could print dozens
+   of alarming false failures and make the first request noticeably slower. A
+   schema created by `prisma db push` already contains this complete signature, so
+   skip the legacy safety net altogether in that normal development path. */
+async function sqliteSchemaIsCurrent(): Promise<boolean> {
+  const requiredColumns: Record<string, string[]> = {
+    Order: ["channel", "stockDeducted", "packedAt", "packedBy", "reviewRequestedAt"],
+    OrderItem: ["stockDeductedQty", "variantId", "preorder", "preorderDate"],
+    ProductVariant: ["image"],
+    Subscriber: ["unsubscribed", "unsubscribedAt"],
+    Campaign: ["cursorId"],
+    AbandonedCheckout: ["email", "recoveryEmailedAt", "captureKeyHash", "captureRevision", "recoveryAttemptedAt", "recoveryClaimId", "recoveryError", "convertedOrderId"],
+    Product: ["saleEnds", "colorGroupId", "colorName", "colorImage", "soldCount", "preorder", "preorderDate", "soldMode"],
+    User: ["twoFactorSecret", "twoFactorEnabled", "sessionVersion", "recoveryCodes"],
+    Customer: ["points", "referralCode", "referredBy", "referralRewardedAt", "waOptIn", "waOptInAt"],
+  };
+  const requiredObjects = [
+    "ColorGroup", "PushSubscription", "Payment", "Waitlist", "InboxMessage", "AppLog", "WaDevice", "WaTemplate", "WaMessage", "WaBroadcast", "WaLink", "WaOptOut",
+    "AbandonedCheckout_captureKeyHash_key", "AbandonedCheckout_checkoutStatus_recoveryAttemptedAt_updatedAt_idx", "Product_colorGroupId_idx",
+    "PushSubscription_endpoint_key", "Customer_referralCode_key", "Payment_orderId_idx", "Waitlist_productId_idx", "InboxMessage_waId_createdAt_idx",
+    "AppLog_kind_createdAt_idx", "AppLog_level_createdAt_idx", "WaDevice_sessionId_key", "WaTemplate_key_key", "WaMessage_dedupeKey_key",
+    "WaMessage_status_nextAttemptAt_idx", "WaMessage_toWaId_idx", "WaMessage_orderId_idx", "WaBroadcast_status_scheduledAt_idx", "WaLink_slug_key", "WaOptOut_waId_key",
+  ];
+  try {
+    for (const [table, required] of Object.entries(requiredColumns)) {
+      const rows = await db.$queryRawUnsafe<Array<{ name: string }>>(`PRAGMA table_info("${table}")`);
+      const present = new Set(rows.map((row) => row.name));
+      if (required.some((column) => !present.has(column))) return false;
+    }
+    const objects = await db.$queryRawUnsafe<Array<{ name: string }>>(`SELECT name FROM sqlite_master WHERE type IN ('table','index')`);
+    const present = new Set(objects.map((row) => row.name));
+    return requiredObjects.every((name) => present.has(name));
+  } catch {
+    return false;
+  }
+}
+
 export function ensureExtraTables(): Promise<void> {
   if (!done) {
     done = run().catch((e) => { done = null; throw e; });
@@ -17,6 +56,7 @@ export function ensureExtraTables(): Promise<void> {
 
 async function run(): Promise<void> {
   const isPg = (process.env.DATABASE_URL || "").startsWith("postgres");
+  if (!isPg && await sqliteSchemaIsCurrent()) return;
   // Order.channel (order isolation between VPS and Vercel deployments)
   await db
     .$executeRawUnsafe(isPg

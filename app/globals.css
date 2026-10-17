@@ -1017,6 +1017,22 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 13.5px; }
 .sh-link { font-size: 11.5px; letter-spacing: .18em; text-transform: uppercase; border-bottom: 1px solid var(--text); padding-bottom: 3px; white-space: nowrap; transition: color .2s ease, border-color .2s ease; }
 .sh-link:hover { color: var(--accent); border-color: var(--accent); }
 
+/* Homepage merchandising shelves — real catalogue discounts and live inventory,
+   presented as editorial sections rather than loud promotional blocks. */
+.merch-section { position: relative; }
+.merch-sale { background: rgba(154, 123, 79, .055); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+@supports (background: color-mix(in srgb, white 50%, black)) {
+  .merch-sale { background: color-mix(in srgb, var(--accent) 6%, var(--bg)); }
+}
+.merch-context { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin: -12px 0 28px; padding: 12px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); color: var(--muted); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; }
+.merch-context strong { color: var(--text); font-size: 11px; font-weight: 650; letter-spacing: .14em; white-space: nowrap; }
+.merch-limited .badge { letter-spacing: .1em; }
+@media (max-width: 640px) {
+  .merch-context { align-items: flex-start; flex-direction: column; gap: 5px; margin-bottom: 22px; font-size: 9.5px; }
+  .merch-context strong { font-size: 10px; }
+  .merch-sale .section-head2 { margin-bottom: 24px; }
+}
+
 .pcard-colors { display: inline-flex; gap: 4px; flex: none; }
 .pcard-colors i { width: 9px; height: 9px; border-radius: 99px; border: 1px solid rgba(0,0,0,.18); display: inline-block; }
 

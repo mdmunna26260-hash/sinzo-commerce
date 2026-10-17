@@ -12,6 +12,7 @@ import Carousel from "@/components/home/carousel";
 import SmartImg from "@/components/smart-img";
 import SafeSection from "@/components/safe-section";
 import { makeReviewLoop } from "@/lib/review-marquee";
+import { discountPercent, pickDiscountProducts, pickLimitedProducts } from "@/lib/home-merchandising";
 
 // ISR: Cache page for 60s, then revalidate in background
 // First visitor after expiry: gets cached page (fast), fresh page renders in background
@@ -20,9 +21,10 @@ export const dynamic = "force-dynamic";
 
 const DEFAULT_SECTIONS = [
   { id: "hero", enabled: true }, { id: "values", enabled: true }, { id: "featured", enabled: true },
-  { id: "categories", enabled: true }, { id: "promo", enabled: true }, { id: "bestsellers", enabled: true },
-  { id: "testimonials", enabled: true },
+  { id: "categories", enabled: true }, { id: "discounts", enabled: true }, { id: "promo", enabled: true },
+  { id: "bestsellers", enabled: true }, { id: "limited", enabled: true }, { id: "testimonials", enabled: true },
 ];
+const MERCH_SECTION_IDS = ["discounts", "limited"] as const;
 
 const CAT_IMG: Record<string, string> = { shirts: "shirt", outerwear: "coat", dresses: "dress", bottoms: "trousers", knitwear: "knit", accessories: "bag", "t-shirts": "tee" };
 
@@ -36,6 +38,27 @@ function Head({ no, eyebrow, title, href }: { no: string; eyebrow: string; title
       </div>
       {href && <Link className="sh-link" href={href}>View All <span aria-hidden>→</span></Link>}
     </div>
+  );
+}
+
+function ProductShelf({ products }: { products: any[] }) {
+  if (!products.length) return null;
+  const pages = Array.from({ length: Math.ceil(products.length / 4) }, (_, index) => products.slice(index * 4, index * 4 + 4));
+  return (
+    <>
+      <Carousel className="mobile-only">
+        {pages.map((page, pageIndex) => (
+          <div className="grid grid-4" key={"shelf-" + pageIndex}>
+            {page.map((product: any, index: number) => <ProductCard key={product.id} p={product} rd={(pageIndex * 4 + index) % 4} />)}
+          </div>
+        ))}
+      </Carousel>
+      <div className="desktop-only">
+        <div className="grid grid-4">
+          {products.map((product: any, index: number) => <ProductCard key={product.id} p={product} rd={index % 4} />)}
+        </div>
+      </div>
+    </>
   );
 }
 
@@ -85,52 +108,74 @@ async function HomeContent() {
   const cfg = publicSettings(s);
   const cats = await getCategories();
   const featuredSlug = s.homepage?.featuredCollection || "new-arrivals";
-  // select only what product cards need — full rows (description, tags, sku…) stay on the server
-  const colProductSelect = {
-    product: {
-      select: {
-        id: true, title: true, slug: true, price: true, comparePrice: true, stock: true,
-        badge: true, isNew: true, isBestSeller: true, position: true, status: true, preorder: true,
-        category: { select: { name: true } },
-        images: { select: { url: true }, orderBy: { position: "asc" as const }, take: 6 },
-        variants: { select: { size: true, color: true, stock: true } },
-      },
-    },
+  // Select only what homepage cards and the merchandising rules need — full
+  // descriptions, tags and SKUs stay on the server and out of the page payload.
+  const productCardSelect = {
+    id: true, title: true, slug: true, price: true, comparePrice: true, stock: true, lowStock: true,
+    badge: true, isNew: true, isBestSeller: true, position: true, status: true, preorder: true, saleEnds: true,
+    category: { select: { name: true } },
+    images: { select: { url: true }, orderBy: { position: "asc" as const }, take: 6 },
+    variants: { select: { size: true, color: true, stock: true } },
   } as const;
-  const featuredCol = await db.collection.findUnique({
-    where: { slug: featuredSlug },
-    include: { products: { take: 24, select: colProductSelect } },
-  });
-  const bestSellers = await db.collection.findUnique({
-    where: { slug: "best-sellers" },
-    include: { products: { take: 8, select: colProductSelect } },
-  });
-  // All published reviews, once each; featured first. Never expose pending
-  // reviews or private phone fields, and never cap the animation at four.
-  const reviews = await db.review.findMany({
-    where: { status: "APPROVED" },
-    select: { id: true, name: true, rating: true, text: true, product: { select: { title: true } } },
-    orderBy: [{ featured: "desc" }, { createdAt: "desc" }, { id: "desc" }],
-  });
+  const colProductSelect = { product: { select: productCardSelect } } as const;
+  const [featuredCol, bestSellers, reviews, activeCatalog] = await Promise.all([
+    db.collection.findUnique({
+      where: { slug: featuredSlug },
+      include: { products: { take: 24, select: colProductSelect } },
+    }),
+    db.collection.findUnique({
+      where: { slug: "best-sellers" },
+      include: { products: { take: 8, select: colProductSelect } },
+    }),
+    // All published reviews, once each; featured first. Never expose pending
+    // reviews or private phone fields, and never cap the animation at four.
+    db.review.findMany({
+      where: { status: "APPROVED" },
+      select: { id: true, name: true, rating: true, text: true, product: { select: { title: true } } },
+      orderBy: [{ featured: "desc" }, { createdAt: "desc" }, { id: "desc" }],
+    }),
+    db.product.findMany({
+      where: { status: "ACTIVE" },
+      select: productCardSelect,
+      orderBy: [{ position: "asc" }, { id: "desc" }],
+      take: 80,
+    }),
+  ]);
   const reviewLoop = makeReviewLoop(reviews);
   const hp = s.homepage || {};
-  const sectionCfg: { id: string; enabled: boolean }[] =
-    Array.isArray(s.homeSections) && s.homeSections.length ? s.homeSections : DEFAULT_SECTIONS;
   const bust = (() => { let h = 0; const str = JSON.stringify(hp); for (let i = 0; i < str.length; i++) { h = ((h << 5) - h + str.charCodeAt(i)) | 0; } return Math.abs(h).toString(36); })();
   const vb = (u?: string) => (u ? (u.includes("?") ? u + "&v=" + bust : u + "?v=" + bust) : u);
 
-  const cp = (col: any) =>
-    (col?.products || []).filter((x: any) => x.product.status === "ACTIVE")
-      .sort((a: any, b: any) => (a.product.position || 0) - (b.product.position || 0))
-      .map((x: any) => ({
-        id: x.product.id, title: x.product.title, slug: x.product.slug, price: x.product.price,
-        comparePrice: x.product.comparePrice, image: x.product.images?.[0]?.url,
-        images: (x.product.images || []).map((im: any) => im.url),
-        categoryName: x.product.category?.name, stock: Math.max(x.product.stock, (x.product.variants || []).reduce((s: number, v: any) => s + v.stock, 0)),
-        isNew: x.product.isNew, isBestSeller: x.product.isBestSeller, badge: x.product.badge, preorder: !!x.product.preorder,
-        sizes: Array.from(new Set((x.product.variants || []).filter((v: any) => (x.product.preorder || v.stock > 0) && v.size).map((v: any) => v.size))).sort(),
-        colors: Array.from(new Set((x.product.variants || []).filter((v: any) => (x.product.preorder || v.stock > 0) && v.color).map((v: any) => v.color))),
-      }));
+  const toCards = (products: any[]) => products
+    .filter((product: any) => product.status === "ACTIVE")
+    .sort((a: any, b: any) => (a.position || 0) - (b.position || 0) || a.id - b.id)
+    .map((product: any) => ({
+      id: product.id, title: product.title, slug: product.slug, price: product.price,
+      comparePrice: product.comparePrice, image: product.images?.[0]?.url,
+      images: (product.images || []).map((image: any) => image.url),
+      categoryName: product.category?.name,
+      stock: Math.max(product.stock, (product.variants || []).reduce((sum: number, variant: any) => sum + variant.stock, 0)),
+      lowStock: product.lowStock, position: product.position,
+      isNew: product.isNew, isBestSeller: product.isBestSeller, badge: product.badge, preorder: !!product.preorder,
+      saleEnds: product.saleEnds ? new Date(product.saleEnds).toISOString() : null,
+      sizes: Array.from(new Set((product.variants || []).filter((variant: any) => (product.preorder || variant.stock > 0) && variant.size).map((variant: any) => variant.size))).sort(),
+      colors: Array.from(new Set((product.variants || []).filter((variant: any) => (product.preorder || variant.stock > 0) && variant.color).map((variant: any) => variant.color))),
+    }));
+  const cp = (collection: any) => toCards((collection?.products || []).map((entry: any) => entry.product));
+  const catalogCards = toCards(activeCatalog);
+  const discountProducts = pickDiscountProducts(catalogCards, 8);
+  const limitedProducts = pickLimitedProducts(catalogCards, 8).map((product) => ({ ...product, badge: product.badge || "limited" }));
+  const biggestDiscount = discountProducts.reduce((max, product) => Math.max(max, discountPercent(product)), 0);
+
+  // Existing stores may already have a saved homepage section order from before
+  // these shelves existed. Append only missing new sections so the feature ships
+  // without rearranging the merchant's established layout.
+  const savedSections: { id: string; enabled: boolean }[] =
+    Array.isArray(s.homeSections) && s.homeSections.length ? s.homeSections : DEFAULT_SECTIONS;
+  const sectionCfg = [
+    ...savedSections,
+    ...MERCH_SECTION_IDS.filter((id) => !savedSections.some((section) => section.id === id)).map((id) => ({ id, enabled: true })),
+  ];
 
   const values = ["Cash on Delivery", "Delivery in 24–72h", "7-Day Easy Returns", "100% Authentic"];
 
@@ -214,6 +259,18 @@ async function HomeContent() {
         </div>
       </section>
     ),
+    discounts: discountProducts.length ? (
+      <section className="section merch-section merch-sale" key="discounts">
+        <div className="container">
+          <Head no="03" eyebrow="Selected reductions" title="The Discount Edit" href="/products?onsale=1" />
+          <div className="merch-context" aria-label="Discount collection summary">
+            <span>Live catalogue offers · prices applied automatically</span>
+            <strong>Up to {biggestDiscount}% off</strong>
+          </div>
+          <ProductShelf products={discountProducts} />
+        </div>
+      </section>
+    ) : null,
     promo: hp.promoTitle ? (
       <section className="section container" style={{ paddingTop: 0 }} key="promo">
         <div className="promo-split reveal">
@@ -234,21 +291,23 @@ async function HomeContent() {
     ) : null,
     bestsellers: (
       <section className="section container" style={{ paddingTop: 0 }} key="bestsellers">
-        <Head no="03" eyebrow="Loved by hundreds" title="Best Sellers" href="/collections/best-sellers" />
-        <Carousel className="mobile-only">
-          <div className="grid grid-4">{cp(bestSellers).slice(0, 4).map((p: any, idx) => <ProductCard key={p.id} p={p} rd={idx % 4} />)}</div>
-          <div className="grid grid-4">{cp(bestSellers).slice(4, 8).map((p: any, idx) => <ProductCard key={p.id} p={p} rd={idx % 4} />)}</div>
-        </Carousel>
-        <div className="desktop-only">
-          <div className="grid grid-4">
-            {cp(bestSellers).map((p: any, idx) => <ProductCard key={p.id} p={p} rd={idx % 4} />)}
-          </div>
-        </div>
+        <Head no="04" eyebrow="Loved by hundreds" title="Best Sellers" href="/collections/best-sellers" />
+        <ProductShelf products={cp(bestSellers).slice(0, 8)} />
       </section>
     ),
+    limited: limitedProducts.length ? (
+      <section className="section container merch-section merch-limited" style={{ paddingTop: 0 }} key="limited">
+        <Head no="05" eyebrow="Small quantities" title="Limited Availability" href="/products?avail=1" />
+        <div className="merch-context">
+          <span>Based on current live inventory</span>
+          <strong>Fewest pieces first</strong>
+        </div>
+        <ProductShelf products={limitedProducts} />
+      </section>
+    ) : null,
     testimonials: reviews.length > 0 ? (
       <section className="section container testimonials" id="customer-reviews" style={{ paddingTop: 0 }} key="testimonials">
-        <Head no="04" eyebrow="Reviews" title="What customers say" />
+        <Head no="06" eyebrow="Reviews" title="What customers say" />
         {/* Same seamless, continuous band on phones, tablets and desktop.
             Clone cards are decorative: assistive technology reads each real
             review once. Reduced-motion visitors get a manually scrollable list. */}

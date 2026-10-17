@@ -201,14 +201,22 @@ function TestSmsBtn() {
 
 const SECTION_LABELS: Record<string, string> = {
   hero: "Hero Banner", values: "Value Props (COD / delivery / returns)", featured: "Featured Collection",
-  categories: "Shop by Category", promo: "Promo Banner", bestsellers: "Best Sellers", testimonials: "Reviews",
+  categories: "Shop by Category", discounts: "Discount Products (automatic)", promo: "Promo Banner",
+  bestsellers: "Best Sellers", limited: "Limited Availability (live stock)", testimonials: "Reviews",
 };
+const DEFAULT_HOME_SECTIONS = [
+  { id: "hero", enabled: true }, { id: "values", enabled: true }, { id: "featured", enabled: true },
+  { id: "categories", enabled: true }, { id: "discounts", enabled: true }, { id: "promo", enabled: true },
+  { id: "bestsellers", enabled: true }, { id: "limited", enabled: true }, { id: "testimonials", enabled: true },
+];
 function HomepageLayoutTab({ groups, save, busy, collections = [] }: any) {
-  const [secs, setSecs] = useState<any[]>(groups.homeSections?.length ? groups.homeSections : [
-    { id: "hero", enabled: true }, { id: "values", enabled: true }, { id: "featured", enabled: true },
-    { id: "categories", enabled: true }, { id: "promo", enabled: true }, { id: "bestsellers", enabled: true },
-    { id: "testimonials", enabled: true },
-  ]);
+  const [secs, setSecs] = useState<any[]>(() => {
+    const saved = groups.homeSections?.length ? groups.homeSections : DEFAULT_HOME_SECTIONS;
+    return [
+      ...saved,
+      ...DEFAULT_HOME_SECTIONS.filter((section) => !saved.some((item: any) => item.id === section.id)),
+    ];
+  });
   const [drag, setDrag] = useState<number | null>(null);
   const move = (i: number, j: number) => {
     if (j < 0 || j >= secs.length) return;
