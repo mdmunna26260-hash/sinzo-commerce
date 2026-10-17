@@ -52,7 +52,7 @@ const hiddenPage = (r) => r.redirected && new URL(r.url).pathname === "/admin/da
   if (plist.length === 0) {
     // unauthenticated fallback: public search returns popular products
     const pop = (await req("/api/search?q=")).body?.products || [];
-    plist = pop.map((p) => ({ id: p.id, title: p.title, slug: p.slug, status: "ACTIVE", stock: 1, variants: [] }));
+    plist = pop.map((p) => ({ id: p.id, title: p.title, slug: p.slug, price: p.price, status: "ACTIVE", stock: 1, variants: [] }));
   }
   const live = plist.find((p) => p.status === "ACTIVE" && p.stock > 0) || plist[0];
   const slug = live?.slug || "";
@@ -117,7 +117,15 @@ const hiddenPage = (r) => r.redirected && new URL(r.url).pathname === "/admin/da
   // checkout flow (real order). WELCOME10 has a seeded minimum order, so do
   // not let catalog ordering make the suite choose a perfectly valid but too-
   // cheap product and misreport that coupon rule as a checkout regression.
-  const target = plist.find((p) => p.status === "ACTIVE" && p.stock > 0 && Number(p.price) >= 1500) || live;
+  let target = plist.find((p) => p.status === "ACTIVE" && p.stock > 0 && Number(p.price) >= 1500) || live;
+  // The no-password fallback comes from public search, which intentionally omits
+  // variants. Hydrate the chosen product through the public cart endpoint so the
+  // default `npm test` still exercises a valid size/color checkout instead of
+  // reporting a false product-validation failure.
+  if (target && !(target.variants || []).length) {
+    const variantInfo = await req("/api/cart/variant?productId=" + target.id);
+    target = { ...target, variants: variantInfo.body?.variants || [] };
+  }
   const variant = (target.variants || []).find((v) => v.stock > 0 && (v.price == null || Number(v.price) >= 1500)) || null;
   r = await req("/api/checkout", { method: "POST", body: JSON.stringify({
     name: "Smoke Test Customer", phone: testPhone, address: "House 99, Road 12, Banani, Dhaka",
