@@ -6,25 +6,21 @@ import { getSettings, publicSettings } from "@/lib/settings";
 import { getCategories } from "@/lib/catalog";
 import { Header, Footer, Announcement } from "@/components/chrome";
 import { ProductCard } from "@/components/parts";
-import { imgSrc } from "@/components/img-src";
 import { CartProvider } from "@/components/store";
 import Carousel from "@/components/home/carousel";
+import HeroCarousel from "@/components/home/hero-carousel";
 import SmartImg from "@/components/smart-img";
 import SafeSection from "@/components/safe-section";
+import RecentlyViewedServer from "@/components/recently-viewed-server";
 import { makeReviewLoop } from "@/lib/review-marquee";
 import { discountPercent, pickDiscountProducts, pickLimitedProducts } from "@/lib/home-merchandising";
+import { buildHomeHeroSlides } from "@/lib/home-hero";
+import { mergeHomeSections } from "@/lib/home-sections";
 
 // ISR: Cache page for 60s, then revalidate in background
 // First visitor after expiry: gets cached page (fast), fresh page renders in background
 export const dynamic = "force-dynamic";
 // runtime caching via CDN headers keeps it fast; skip build-time DB (small VPS)
-
-const DEFAULT_SECTIONS = [
-  { id: "hero", enabled: true }, { id: "values", enabled: true }, { id: "featured", enabled: true },
-  { id: "categories", enabled: true }, { id: "discounts", enabled: true }, { id: "promo", enabled: true },
-  { id: "bestsellers", enabled: true }, { id: "limited", enabled: true }, { id: "testimonials", enabled: true },
-];
-const MERCH_SECTION_IDS = ["discounts", "limited"] as const;
 
 const CAT_IMG: Record<string, string> = { shirts: "shirt", outerwear: "coat", dresses: "dress", bottoms: "trousers", knitwear: "knit", accessories: "bag", "t-shirts": "tee" };
 
@@ -162,65 +158,22 @@ async function HomeContent() {
       colors: Array.from(new Set((product.variants || []).filter((variant: any) => (product.preorder || variant.stock > 0) && variant.color).map((variant: any) => variant.color))),
     }));
   const cp = (collection: any) => toCards((collection?.products || []).map((entry: any) => entry.product));
+  const featuredProducts = cp(featuredCol);
   const catalogCards = toCards(activeCatalog);
   const discountProducts = pickDiscountProducts(catalogCards, 8);
   const limitedProducts = pickLimitedProducts(catalogCards, 8).map((product) => ({ ...product, badge: product.badge || "limited" }));
   const biggestDiscount = discountProducts.reduce((max, product) => Math.max(max, discountPercent(product)), 0);
-
-  // Existing stores may already have a saved homepage section order from before
-  // these shelves existed. Append only missing new sections so the feature ships
-  // without rearranging the merchant's established layout.
-  const savedSections: { id: string; enabled: boolean }[] =
-    Array.isArray(s.homeSections) && s.homeSections.length ? s.homeSections : DEFAULT_SECTIONS;
-  const sectionCfg = [
-    ...savedSections,
-    ...MERCH_SECTION_IDS.filter((id) => !savedSections.some((section) => section.id === id)).map((id) => ({ id, enabled: true })),
-  ];
+  const heroSlides = buildHomeHeroSlides(hp, [...featuredProducts, ...catalogCards]).map((slide) => ({
+    ...slide,
+    image: vb(slide.image) || slide.image,
+    mobileImage: vb(slide.mobileImage) || slide.mobileImage,
+  }));
+  const sectionCfg = mergeHomeSections(s.homeSections);
 
   const values = ["Cash on Delivery", "Delivery in 24–72h", "7-Day Easy Returns", "100% Authentic"];
 
   const sections: Record<string, React.ReactNode> = {
-    hero: (
-      <section className="hero" key="hero">
-        {hp.heroImage && (
-          <>
-            {/* LCP element: hand the URL to the preload scanner instead of waiting for the client
-                component to render. Next hoists this <link> out of the body into <head>. */}
-            <link
-              rel="preload"
-              as="image"
-              fetchPriority="high"
-              href={imgSrc(vb(hp.heroImage), 1200)}
-              imageSrcSet={[600, 1000].map((n) => `${imgSrc(vb(hp.heroImage), n)} ${n}w`).join(", ")}
-              imageSizes="100vw"
-            />
-            <div className="hero-media">
-              {/* The <img> keeps its kenburns entrance; this wrapper carries the scroll-driven
-                  parallax, so the two animations never fight over one element. */}
-              <SmartImg className="hero-img" priority src={vb(hp.heroImage)} alt={cfg.store?.name || "Hero"} sizes="100vw" widths={[600, 1000]} />
-            </div>
-          </>
-        )}
-        {hp.heroImage && (
-          <div className="hero-cue" aria-hidden><i /><span>Scroll</span></div>
-        )}
-        <div className="hero-overlay">
-          <div className="hero-content">
-            <div className="eyebrow" style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <i style={{ display: "inline-block", width: 26, height: 1, background: "var(--text)" }} />
-              {cfg.store?.tagline || "New Season"}
-            </div>
-            <h1>{hp.heroTitle}</h1>
-            <p>{hp.heroSubtitle}</p>
-            <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-              {/* the two highest-intent clicks on the site, above the fold: warm them right away */}
-              <Link className="btn" href="/products" prefetch>{hp.heroCta || "Shop Now"}</Link>
-              <Link className="btn btn-ghost" href="/track" prefetch>Track Order</Link>
-            </div>
-          </div>
-        </div>
-      </section>
-    ),
+    hero: heroSlides.length ? <HeroCarousel key="hero" slides={heroSlides} intervalMs={6000} /> : null,
     values: (
       <div className="values" key="values">
         <div className="container values-inner2">
@@ -228,23 +181,26 @@ async function HomeContent() {
         </div>
       </div>
     ),
-    featured: (
-      <section className="section container" key="featured">
-        <Head no="01" eyebrow="Created for you" title={featuredCol?.title || "New Arrivals"} href={"/collections/" + featuredSlug} />
-        <Carousel className="mobile-only">
-          {Array.from({ length: Math.max(1, Math.ceil(cp(featuredCol).length / 4)) }, (_, i) => (
-            <div className="grid grid-4" key={"fp" + i}>{cp(featuredCol).slice(i * 4, i * 4 + 4).map((p: any, idx) => <ProductCard key={p.id} p={p} rd={(i * 4 + idx) % 4} />)}</div>
-          ))}
-        </Carousel>
-        <div className="desktop-only">
-          <div className="grid grid-4">
-            {cp(featuredCol).map((p: any, idx) => <ProductCard key={p.id} p={p} rd={idx % 4} />)}
-          </div>
+    quicklinks: (
+      <nav className="home-shortcuts" aria-label="Shop and homepage shortcuts" key="quicklinks">
+        <div className="container home-shortcuts-track">
+          <span className="home-shortcuts-label">Discover</span>
+          <Link href="#new-arrivals">New in</Link>
+          {discountProducts.length > 0 && <Link href="#offers">Offers</Link>}
+          {limitedProducts.length > 0 && <Link href="#limited-availability">Limited</Link>}
+          {cats.slice(0, 5).map((category) => <Link key={category.id} href={`/products?category=${encodeURIComponent(category.slug)}`}>{category.name}</Link>)}
+          <Link href="/products">Shop all <span aria-hidden="true">→</span></Link>
         </div>
+      </nav>
+    ),
+    featured: (
+      <section className="section container" id="new-arrivals" key="featured">
+        <Head no="01" eyebrow="Created for you" title={featuredCol?.title || "New Arrivals"} href={"/collections/" + featuredSlug} />
+        <ProductShelf products={featuredProducts} />
       </section>
     ),
     categories: (
-      <section className="section container" style={{ paddingTop: 0 }} key="categories">
+      <section className="section container" id="shop-categories" style={{ paddingTop: 0 }} key="categories">
         <Head no="02" eyebrow="Browse" title="Shop by Category" href="/products" />
         {/* SOB category dekhabe: mobile-e swipeable carousel (3 per page), desktop-e full grid */}
         <Carousel className="mobile-only">
@@ -260,7 +216,7 @@ async function HomeContent() {
       </section>
     ),
     discounts: discountProducts.length ? (
-      <section className="section merch-section merch-sale" key="discounts">
+      <section className="section merch-section merch-sale" id="offers" key="discounts">
         <div className="container">
           <Head no="03" eyebrow="Selected reductions" title="The Discount Edit" href="/products?onsale=1" />
           <div className="merch-context" aria-label="Discount collection summary">
@@ -296,7 +252,7 @@ async function HomeContent() {
       </section>
     ),
     limited: limitedProducts.length ? (
-      <section className="section container merch-section merch-limited" style={{ paddingTop: 0 }} key="limited">
+      <section className="section container merch-section merch-limited" id="limited-availability" style={{ paddingTop: 0 }} key="limited">
         <Head no="05" eyebrow="Small quantities" title="Limited Availability" href="/products?avail=1" />
         <div className="merch-context">
           <span>Based on current live inventory</span>
@@ -305,9 +261,10 @@ async function HomeContent() {
         <ProductShelf products={limitedProducts} />
       </section>
     ) : null,
+    recently: <RecentlyViewedServer currentId={0} homepage key="recently" />,
     testimonials: reviews.length > 0 ? (
       <section className="section container testimonials" id="customer-reviews" style={{ paddingTop: 0 }} key="testimonials">
-        <Head no="06" eyebrow="Reviews" title="What customers say" />
+        <Head no="07" eyebrow="Reviews" title="What customers say" />
         {/* Same seamless, continuous band on phones, tablets and desktop.
             Clone cards are decorative: assistive technology reads each real
             review once. Reduced-motion visitors get a manually scrollable list. */}
