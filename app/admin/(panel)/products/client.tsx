@@ -29,7 +29,7 @@ function VariantImgCell({ v, i, setEdit }: { v: any; i: number; setEdit: any }) 
           setUp(true);
           try {
             const fd = new FormData(); fd.append("file", f);
-            const r = await fetch("/api/admin/upload", { method: "POST", body: fd });
+            const r = await afetch("/api/admin/upload", { method: "POST", body: fd });
             const j = await r.json();
             if (j.url) setImg(j.url); else alert(j.error || "Upload failed");
           } catch { alert("Upload failed"); }
@@ -202,31 +202,36 @@ export default function ProductsClient({ initial, categories }: { initial: P[]; 
   });
 
   const save = async () => {
-    if (!edit.title || !edit.price) { alert("Title and price are required"); return; }
+    if (!String(edit.title || "").trim() || edit.price === "" || edit.price == null) { alert("Title and price are required"); return; }
     setBusy(true); setMsg("");
-    const payload = {
-      ...edit,
-      price: Number(edit.price), comparePrice: edit.comparePrice ? Number(edit.comparePrice) : null,
-      cost: edit.cost ? Number(edit.cost) : null, stock: Number(edit.stock || 0), lowStock: Number(edit.lowStock || 5),
-      soldCount: edit.soldCount === "" || edit.soldCount == null ? null : Math.max(0, Number(edit.soldCount)),
-      saleEnds: edit.saleEnds ? new Date(edit.saleEnds).toISOString() : null,
-      preorder: !!edit.preorder,
-      preorderDate: edit.preorderDate ? new Date(edit.preorderDate + "T12:00:00").toISOString() : null,
-      soldMode: edit.soldMode === "random" ? "random" : "fixed",
-      colorGroupId: edit.colorGroupId ? Number(edit.colorGroupId) : null,
-      colorName: edit.colorName ? String(edit.colorName).trim().slice(0, 40) : null,
-      colorImage: edit.colorImage || null,
-      categoryId: edit.categoryId ? Number(edit.categoryId) : null,
-      variants: (edit.variants || []).map((v: any) => ({ ...v, price: v.price ? Number(v.price) : null, stock: Number(v.stock || 0) })),
-    };
-    const r = await fetch(edit.id ? "/api/admin/products/" + edit.id : "/api/admin/products", {
-      method: edit.id ? "PUT" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload),
-    });
-    const j = await r.json();
-    if (r.ok) { setEdit(null); setMsg(edit.id ? "Product updated ✓" : "Product created ✓"); router.refresh(); }
-    else setMsg(j.error || "Save failed");
-    setBusy(false);
-    setTimeout(() => setMsg(""), 2500);
+    try {
+      const payload = {
+        ...edit,
+        price: Number(edit.price), comparePrice: edit.comparePrice === "" || edit.comparePrice == null ? null : Number(edit.comparePrice),
+        cost: edit.cost === "" || edit.cost == null ? null : Number(edit.cost), stock: Number(edit.stock === "" ? 0 : edit.stock), lowStock: Number(edit.lowStock === "" ? 5 : edit.lowStock),
+        soldCount: edit.soldCount === "" || edit.soldCount == null ? null : Number(edit.soldCount),
+        saleEnds: edit.saleEnds ? new Date(edit.saleEnds).toISOString() : null,
+        preorder: !!edit.preorder,
+        preorderDate: edit.preorderDate ? new Date(edit.preorderDate + "T12:00:00").toISOString() : null,
+        soldMode: edit.soldMode === "random" ? "random" : "fixed",
+        colorGroupId: edit.colorGroupId ? Number(edit.colorGroupId) : null,
+        colorName: edit.colorName ? String(edit.colorName).trim().slice(0, 40) : null,
+        colorImage: edit.colorImage || null,
+        categoryId: edit.categoryId ? Number(edit.categoryId) : null,
+        variants: (edit.variants || []).map((v: any) => ({ ...v, price: v.price === "" || v.price == null ? null : Number(v.price), stock: Number(v.stock === "" ? 0 : v.stock) })),
+      };
+      const r = await afetch(edit.id ? "/api/admin/products/" + edit.id : "/api/admin/products", {
+        method: edit.id ? "PUT" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload),
+      });
+      const j = await r.json().catch(() => ({}));
+      if (r.ok) { setEdit(null); setMsg(edit.id ? "Product updated ✓" : "Product created ✓"); router.refresh(); }
+      else setMsg(j.error || "Save failed");
+    } catch {
+      setMsg("Network error — product was not saved");
+    } finally {
+      setBusy(false);
+      setTimeout(() => setMsg(""), 3000);
+    }
   };
 
   const duplicate = async (p: P) => {
@@ -240,10 +245,20 @@ export default function ProductsClient({ initial, categories }: { initial: P[]; 
   };
 
   const del = async (p: P) => {
-    if (!confirm(`Delete "${p.title}" permanently?`)) return;
+    if (!confirm(`Delete "${p.title}"? Products used in orders will be archived to preserve order history.`)) return;
     setBusy(true);
-    await afetch("/api/admin/products/" + p.id, { method: "DELETE" });
-    setBusy(false); router.refresh();
+    try {
+      const response = await afetch("/api/admin/products/" + p.id, { method: "DELETE" });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) setMsg(result.error || "Delete failed");
+      else setMsg(result.archived ? "Product had order history and was archived ✓" : "Product deleted ✓");
+      router.refresh();
+    } catch {
+      setMsg("Network error — product was not deleted");
+    } finally {
+      setBusy(false);
+      setTimeout(() => setMsg(""), 3000);
+    }
   };
   const exportCsv = () => { window.location.href = withToken("/api/admin/export?type=products"); };
 
@@ -316,12 +331,12 @@ export default function ProductsClient({ initial, categories }: { initial: P[]; 
                 </div>
                 <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 4 }}>🔗 yourdomain.com/products/<b>{edit.slug || "…"}{edit.id ? "" : " (notun product save korlei live hobe)"}</b></div>
               </div>
-              <div className="af"><label>Price (৳) *</label><input type="number" value={edit.price} onChange={(e) => setEdit({ ...edit, price: e.target.value })} /></div>
-              <div className="af"><label>Compare-at price (৳)</label><input type="number" value={edit.comparePrice} onChange={(e) => setEdit({ ...edit, comparePrice: e.target.value })} placeholder="Original price for discounts" /></div>
-              <div className="af"><label>Cost per item (৳)</label><input type="number" value={edit.cost} onChange={(e) => setEdit({ ...edit, cost: e.target.value })} placeholder="For profit margin" /></div>
+              <div className="af"><label>Price (৳) *</label><input type="number" min="0" step="0.01" value={edit.price} onChange={(e) => setEdit({ ...edit, price: e.target.value })} /></div>
+              <div className="af"><label>Compare-at price (৳)</label><input type="number" min="0" step="0.01" value={edit.comparePrice} onChange={(e) => setEdit({ ...edit, comparePrice: e.target.value })} placeholder="Original price for discounts" /></div>
+              <div className="af"><label>Cost per item (৳)</label><input type="number" min="0" step="0.01" value={edit.cost} onChange={(e) => setEdit({ ...edit, cost: e.target.value })} placeholder="For profit margin" /></div>
               <div className="af"><label>SKU</label><input value={edit.sku} onChange={(e) => setEdit({ ...edit, sku: e.target.value })} /></div>
-              <div className="af"><label>Stock</label><input type="number" value={edit.stock} onChange={(e) => setEdit({ ...edit, stock: e.target.value })} /></div>
-              <div className="af"><label>Low-stock alert at</label><input type="number" value={edit.lowStock} onChange={(e) => setEdit({ ...edit, lowStock: e.target.value })} /></div>
+              <div className="af"><label>Stock</label><input type="number" min="0" step="1" value={edit.stock} onChange={(e) => setEdit({ ...edit, stock: e.target.value })} /></div>
+              <div className="af"><label>Low-stock alert at</label><input type="number" min="0" step="1" value={edit.lowStock} onChange={(e) => setEdit({ ...edit, lowStock: e.target.value })} /></div>
               <div className="af full"><label>Flash sale countdown (optional)</label>
                 <input type="datetime-local" value={edit.saleEnds || ""} onChange={(e) => setEdit({ ...edit, saleEnds: e.target.value })} />
                 <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 4 }}>
@@ -438,7 +453,7 @@ export default function ProductsClient({ initial, categories }: { initial: P[]; 
                 <button type="button" className="abtn" onClick={() => {
                   const name = prompt("Notun color group er naam din (e.g. Double Vest Khadi Shirt):");
                   if (!name || name.trim().length < 2) return;
-                  fetch("/api/admin/color-groups", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: name.trim() }) })
+                  afetch("/api/admin/color-groups", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: name.trim() }) })
                     .then((r) => r.json())
                     .then((j) => {
                       if (!j.group) { alert(j.error || "Failed"); return; }
@@ -471,7 +486,7 @@ export default function ProductsClient({ initial, categories }: { initial: P[]; 
                           if (!f) return;
                           try {
                             const fd = new FormData(); fd.append("file", f);
-                            const r = await fetch("/api/admin/upload", { method: "POST", body: fd });
+                            const r = await afetch("/api/admin/upload", { method: "POST", body: fd });
                             const j = await r.json();
                             if (j.url) setEdit({ ...edit, colorImage: j.url }); else alert(j.error || "Upload failed");
                           } catch { alert("Upload failed"); }

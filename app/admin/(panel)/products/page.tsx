@@ -26,7 +26,7 @@ export default async function AdminProducts(props: { searchParams: Promise<any> 
     categoryId: p.categoryId, categoryName: p.category?.name, views: p.views,
     image: p.images?.[0]?.url || null,
     images: p.images.sort((a, b) => a.position - b.position).map((i) => i.url),
-    variants: p.variants.map((v) => ({ id: v.id, size: v.size, color: v.color, sku: v.sku, price: v.price, stock: v.stock })),
+    variants: p.variants.map((v) => ({ id: v.id, size: v.size, color: v.color, sku: v.sku, price: v.price, stock: v.stock, image: v.image })),
   }));
   return <ProductsClient initial={data} categories={categories.map((c) => ({ id: c.id, name: c.name }))} />;
 }

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { clean } from "@/lib/search";
+import { sanitizeHtml } from "@/lib/sanitize";
 import { db } from "@/lib/db";
 import { getSettings, publicSettings } from "@/lib/settings";
 import { readPolicy } from "@/lib/policy";
@@ -313,7 +314,14 @@ export default async function PDP(props: { params: Promise<{ slug: string }>; se
             colorName: p.colorName,
             colorImage: p.colorImage,
           }}
-          sizeChartHtml={p.category?.sizeChart || null}
+          /* Sanitised here, on the server, rather than at the render site. The value is a
+             client-component prop, so anything passed through raw would also be embedded in
+             the RSC flight payload the browser downloads. Sanitising before the prop means
+             the unfiltered HTML never leaves the server. Category.sizeChart is editable by
+             any account holding the "categories" permission and was previously injected with
+             dangerouslySetInnerHTML and no filtering at all — stored XSS on every product
+             page in the category. See lib/sanitize.ts. */
+          sizeChartHtml={sanitizeHtml(p.category?.sizeChart, { tableClass: "sizechart-table" })}
           colorFamily={colorFamily}
         />
         {/* Reviews — the first block past the fold on a PDP, and the one surface that had no

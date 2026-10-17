@@ -13,11 +13,25 @@ async function req(path, opts = {}) {
   try { body = await r.json(); } catch {}
   return { status: r.status, body };
 }
-let pass = 0, fail = 0;
+let pass = 0, fail = 0, skipped = 0;
 function check(name, cond, extra) {
   if (cond) { pass++; console.log("  ✓", name); }
   else { fail++; console.log("  ✗", name, extra || ""); }
 }
+/* lib/features.ts hides some admin features at the owner's request (2026-10-08), enforced by
+   middleware.ts: a hidden PAGE 307-redirects to /admin/dashboard, and a hidden API answers
+   404 {"error":"This feature is currently hidden"}. This suite is shared verbatim with
+   sinzo-commerce, where those features are live, so their checks must SKIP here rather than
+   fail. A suite that always prints three failures trains everyone to stop reading it, and then
+   the fourth — a real regression — gets ignored too.
+
+   Detection is behavioural, not a hardcoded list of paths: flip a flag back on in
+   lib/features.ts and the matching check starts asserting again by itself, with nothing to
+   remember to update here. If middleware ever stops hiding something this expects to be hidden,
+   that also surfaces as a normal pass/fail instead of a silent skip. */
+const skip = (name, why) => { skipped++; console.log("  ⊘", name, "— " + why); };
+const HIDDEN_API = "This feature is currently hidden";
+const hiddenPage = (r) => r.redirected && new URL(r.url).pathname === "/admin/dashboard";
 (async () => {
   console.log("Smoke test →", BASE);
   // admin login first (seeded super admin) so tests adapt to whatever products exist.
@@ -38,7 +52,7 @@ function check(name, cond, extra) {
   if (plist.length === 0) {
     // unauthenticated fallback: public search returns popular products
     const pop = (await req("/api/search?q=")).body?.products || [];
-    plist = pop.map((p) => ({ id: p.id, title: p.title, slug: p.slug, status: "ACTIVE", stock: 1, variants: [] }));
+    plist = pop.map((p) => ({ id: p.id, title: p.title, slug: p.slug, price: p.price, status: "ACTIVE", stock: 1, variants: [] }));
   }
   const live = plist.find((p) => p.status === "ACTIVE" && p.stock > 0) || plist[0];
   const slug = live?.slug || "";
@@ -62,11 +76,13 @@ function check(name, cond, extra) {
     ]) {
       const r = await fetch(BASE + path, { headers: { cookie } });
       const html = await r.text();
+      if (hiddenPage(r)) { skip("GET " + path, "hidden by lib/features.ts (redirected to /admin/dashboard)"); continue; }
       check("GET " + path, r.status === 200 && html.includes(heading), "(status=" + r.status + ")");
     }
     // the newsletter audience endpoint must answer with real numbers, not a 500
     const camp = await req("/api/admin/campaigns");
-    check("newsletter audience endpoint", camp.status === 200 && typeof camp.body?.audience === "number", JSON.stringify(camp.body).slice(0, 90));
+    if (camp.status === 404 && camp.body?.error === HIDDEN_API) skip("newsletter audience endpoint", "hidden by lib/features.ts (adminEngagement)");
+    else check("newsletter audience endpoint", camp.status === 200 && typeof camp.body?.audience === "number", JSON.stringify(camp.body).slice(0, 90));
     // a restock without a quantity must be refused (validation, not a silent write)
     const bad = await req("/api/admin/stock", { method: "POST", body: JSON.stringify({ productId: live?.id, qty: 0 }) });
     check("restock rejects a zero quantity", bad.status === 400, "(status=" + bad.status + ")");
@@ -98,9 +114,19 @@ function check(name, cond, extra) {
     check("admin api blocked without login", r.status === 401);
     cookie = s;
   }
-  // checkout flow (real order)
-  const target = live;
-  const variant = (target.variants || []).find((v) => v.stock > 0) || null;
+  // checkout flow (real order). WELCOME10 has a seeded minimum order, so do
+  // not let catalog ordering make the suite choose a perfectly valid but too-
+  // cheap product and misreport that coupon rule as a checkout regression.
+  let target = plist.find((p) => p.status === "ACTIVE" && p.stock > 0 && Number(p.price) >= 1500) || live;
+  // The no-password fallback comes from public search, which intentionally omits
+  // variants. Hydrate the chosen product through the public cart endpoint so the
+  // default `npm test` still exercises a valid size/color checkout instead of
+  // reporting a false product-validation failure.
+  if (target && !(target.variants || []).length) {
+    const variantInfo = await req("/api/cart/variant?productId=" + target.id);
+    target = { ...target, variants: variantInfo.body?.variants || [] };
+  }
+  const variant = (target.variants || []).find((v) => v.stock > 0 && (v.price == null || Number(v.price) >= 1500)) || null;
   r = await req("/api/checkout", { method: "POST", body: JSON.stringify({
     name: "Smoke Test Customer", phone: testPhone, address: "House 99, Road 12, Banani, Dhaka",
     area: "INSIDE_DHAKA", paymentMethod: "COD", couponCode: "WELCOME10",
@@ -255,6 +281,6 @@ function check(name, cond, extra) {
     check("nosniff sent", h.get("x-content-type-options") === "nosniff");
   }
 
-  console.log(`\nResult: ${pass} passed, ${fail} failed`);
+  console.log(`\nResult: ${pass} passed, ${fail} failed` + (skipped ? `, ${skipped} skipped (hidden by lib/features.ts)` : ``));
   process.exit(fail ? 1 : 0);
 })().catch((e) => { console.error(e); process.exit(1); });

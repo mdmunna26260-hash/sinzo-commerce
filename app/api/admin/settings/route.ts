@@ -3,6 +3,7 @@ import { requirePerm } from "@/lib/admin-guard";
 import { getSettings, saveGroup, envFallback } from "@/lib/settings";
 import { logAudit } from "@/lib/auth";
 import { maskAdminSettings, mergeSettingsValue, SETTING_GROUPS } from "@/lib/settings-values";
+import { MAX_HERO_SLIDES, sanitizeHeroSlides } from "@/lib/home-hero";
 export const dynamic = "force-dynamic";
 
 export async function GET(req: Request) {
@@ -29,6 +30,16 @@ export async function PUT(req: Request) {
       return NextResponse.json({ error: `${key} must be a non-negative number` }, { status: 400 });
     }
     value[key] = amount;
+  }
+  if (group === "homepage" && Object.prototype.hasOwnProperty.call(value, "heroSlides")) {
+    if (!Array.isArray(value.heroSlides) || value.heroSlides.length > MAX_HERO_SLIDES) {
+      return NextResponse.json({ error: `Hero carousel supports up to ${MAX_HERO_SLIDES} slides` }, { status: 400 });
+    }
+    const slides = sanitizeHeroSlides(value.heroSlides, true);
+    if (slides.length !== value.heroSlides.length) {
+      return NextResponse.json({ error: "Every hero slide needs a valid desktop image" }, { status: 400 });
+    }
+    value.heroSlides = slides;
   }
   if (group === "marketing") {
     if (value.recoveryAutoEnabled !== undefined && typeof value.recoveryAutoEnabled !== "boolean") return NextResponse.json({ error: "Recovery automation must be a boolean" }, { status: 400 });

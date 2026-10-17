@@ -89,13 +89,24 @@ export async function POST(req: Request) {
         }
       }
       const recovered = body.recoveryToken ? await verifyRecovery(tx, body.recoveryToken) : null;
+      /* Not a copy-paste leftover — do not "tidy" this into one call.
+
+         The first verifyRecovery() reads the row without a lock. Two concurrent
+         checkouts from the same recovery link can both see checkoutStatus=OPEN and both
+         go on to create an order and burn the coupon. lockAbandoned() takes the row lock,
+         and the SECOND verifyRecovery() re-reads under that lock and throws if the status
+         changed in between, rolling the transaction back. The discarded return value is
+         the point: it is an assertion, not a lookup. */
       if (recovered) { await lockAbandoned(tx, recovered.row.id); await verifyRecovery(tx, body.recoveryToken); }
       let discount = 0;
       let freeship = false;
       let appliedCode: string | null = null;
       if (couponCode) {
         if (typeof couponCode !== "string") throw new CouponValidationError("Invalid coupon code");
+        /* Same shape the public /api/coupon preview enforces. An unbounded string here is
+           uppercased, trimmed and used as a unique-index lookup key on every checkout. */
         const code = couponCode.toUpperCase().trim();
+        if (!/^[A-Z0-9][A-Z0-9_-]{1,31}$/.test(code)) throw new CouponValidationError("Invalid coupon code");
         // A zero increment acquires the coupon's write lock, serializing both
         // usageLimit and per-customer/first-order checks across concurrent carts.
         const locked = await tx.coupon.updateMany({ where: { code, active: true }, data: { usedCount: { increment: 0 } } });

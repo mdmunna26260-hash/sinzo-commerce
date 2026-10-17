@@ -4,6 +4,7 @@ import { requirePerm } from "@/lib/admin-guard";
 import { updateOrder, OrderMutationError } from "@/lib/order-mutations";
 import { InventoryConflictError } from "@/lib/deliver-stock";
 import { ensureExtraTables } from "@/lib/db-ensure";
+import { deleteAdminOrder, OrderDeletionError } from "@/lib/order-deletion";
 export const dynamic = "force-dynamic";
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -31,5 +32,19 @@ export async function PUT(req: Request, props: Ctx) {
     if (e instanceof OrderMutationError || e instanceof InventoryConflictError) return NextResponse.json({ error: e.message }, { status: e instanceof OrderMutationError ? e.status : 409 });
     console.error("order update failed", e);
     return NextResponse.json({ error: "Could not update the order. Please try again." }, { status: 500 });
+  }
+}
+
+export async function DELETE(req: Request, props: Ctx) {
+  const g = await requirePerm("orders", req);
+  if ("res" in g) return g.res;
+  const { id } = await props.params;
+  try {
+    const deleted = await deleteAdminOrder(Number(id), g.user.email);
+    return NextResponse.json({ ok: true, deleted });
+  } catch (e) {
+    if (e instanceof OrderDeletionError) return NextResponse.json({ error: e.message }, { status: e.status });
+    console.error("order delete failed", e);
+    return NextResponse.json({ error: "Could not delete the order. Please try again." }, { status: 500 });
   }
 }

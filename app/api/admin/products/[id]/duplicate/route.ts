@@ -1,53 +1,74 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requirePerm } from "@/lib/admin-guard";
-import { slugify } from "@/lib/slug";
 import { logAudit } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 type Ctx = { params: Promise<{ id: string }> };
 
 export async function POST(req: Request, props: Ctx) {
-  const params = await props.params;
   const g = await requirePerm("products", req);
   if ("res" in g) return g.res;
+  const { id: rawId } = await props.params;
+  const id = Number(rawId);
+  if (!Number.isSafeInteger(id) || id <= 0) return NextResponse.json({ error: "Invalid product ID" }, { status: 400 });
+
   try {
     const source = await db.product.findUnique({
-      where: { id: Number(params.id) },
-      include: { images: true, variants: true },
+      where: { id },
+      include: { images: { orderBy: { position: "asc" } }, variants: true },
     });
-    if (!source) return NextResponse.json({ error: "Not found" }, { status: 404 });
-
-    const suffix = " (Copy)";
-    const slug = slugify(source.slug + suffix);
-    const exists = await db.product.findUnique({ where: { slug } });
-    const finalSlug = exists ? slug + "-" + Date.now().toString(36) : slug;
-
-    const copy = await db.product.create({
+    if (!source) return NextResponse.json({ error: "Product not found" }, { status: 404 });
+    const maxPosition = await db.product.aggregate({ _max: { position: true } });
+    const suffix = Date.now().toString(36);
+    const title = `${source.title} Copy`.slice(0, 200);
+    const product = await db.product.create({
       data: {
-        title: source.title + suffix,
-        slug: finalSlug,
+        title,
+        slug: `${source.slug.slice(0, Math.max(1, 114 - suffix.length))}-copy-${suffix}`,
         shortDesc: source.shortDesc,
         description: source.description,
-        sku: source.sku ? source.sku + "-COPY" : null,
+        sku: source.sku ? `${source.sku}-COPY-${suffix.toUpperCase()}`.slice(0, 120) : null,
+        barcode: null,
         price: source.price,
         comparePrice: source.comparePrice,
         cost: source.cost,
-        stock: source.stock,
+        stock: 0,
         lowStock: source.lowStock,
         status: "DRAFT",
         featured: false,
+        tags: source.tags,
+        position: (maxPosition._max.position || 0) + 1,
+        sizeChartImage: source.sizeChartImage,
+        soldCount: null,
+        saleEnds: null,
+        preorder: source.preorder,
+        preorderDate: source.preorderDate,
+        soldMode: source.soldMode,
+        badge: null,
         isNew: false,
         isBestSeller: false,
-        sizeChartImage: source.sizeChartImage,
-        tags: source.tags,
+        colorGroupId: source.colorGroupId,
+        colorName: source.colorName,
+        colorImage: source.colorImage,
         categoryId: source.categoryId,
-        images: { create: source.images.map((img) => ({ url: img.url, alt: img.alt, position: img.position })) },
-        variants: { create: source.variants.map((v) => ({ size: v.size, color: v.color, sku: v.sku ? v.sku + "-COPY" : null, price: v.price, stock: v.stock })) },
+        images: { create: source.images.map((image, position) => ({ url: image.url, alt: title, position })) },
+        variants: { create: source.variants.map((variant) => ({
+          size: variant.size,
+          color: variant.color,
+          sku: variant.sku ? `${variant.sku}-COPY-${suffix.toUpperCase()}`.slice(0, 120) : null,
+          price: variant.price,
+          stock: 0,
+          barcode: null,
+          image: variant.image,
+        })) },
       },
       include: { images: true, variants: true },
     });
-    await logAudit(g.user.email, "PRODUCT_DUPLICATED", `${source.title} → ${copy.title}`);
-    return NextResponse.json({ ok: true, product: copy });
-  } catch (e: any) { return NextResponse.json({ error: e?.message || "Failed" }, { status: 500 }); }
+    await logAudit(g.user.email, "PRODUCT_DUPLICATED", `${source.title} (#${source.id}) → ${product.title} (#${product.id})`);
+    return NextResponse.json({ ok: true, product });
+  } catch (error) {
+    console.error("product duplicate failed", error);
+    return NextResponse.json({ error: "Could not duplicate the product." }, { status: 500 });
+  }
 }

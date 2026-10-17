@@ -2,6 +2,8 @@
 import { afetch, withToken } from "@/lib/afetch";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { mergeHomeSections } from "@/lib/home-sections";
+import { MAX_HERO_SLIDES } from "@/lib/home-hero";
 
 const TABS = ["Store", "Theme", "Homepage Layout", "Shipping", "Policies", "Courier", "Checkout & Fraud", "Notifications", "SEO & Maintenance"];
 const MAP: Record<string, string> = { Store: "store", Theme: "theme", Shipping: "shipping", Courier: "courier", "Checkout & Fraud": "__multi", "SEO & Maintenance": "__multi2" };
@@ -200,15 +202,13 @@ function TestSmsBtn() {
 }
 
 const SECTION_LABELS: Record<string, string> = {
-  hero: "Hero Banner", values: "Value Props (COD / delivery / returns)", featured: "Featured Collection",
-  categories: "Shop by Category", promo: "Promo Banner", bestsellers: "Best Sellers", testimonials: "Reviews",
+  hero: "Hero Carousel", values: "Value Props (COD / delivery / returns)", quicklinks: "Category & Section Quick Links",
+  featured: "Featured Collection", categories: "Shop by Category", discounts: "Discount Products (automatic)",
+  promo: "Promo Banner", bestsellers: "Best Sellers", limited: "Limited Availability (live stock)",
+  recently: "Recently Viewed (personalised)", testimonials: "Reviews",
 };
 function HomepageLayoutTab({ groups, save, busy, collections = [] }: any) {
-  const [secs, setSecs] = useState<any[]>(groups.homeSections?.length ? groups.homeSections : [
-    { id: "hero", enabled: true }, { id: "values", enabled: true }, { id: "featured", enabled: true },
-    { id: "categories", enabled: true }, { id: "promo", enabled: true }, { id: "bestsellers", enabled: true },
-    { id: "testimonials", enabled: true },
-  ]);
+  const [secs, setSecs] = useState<any[]>(() => mergeHomeSections(groups.homeSections));
   const [drag, setDrag] = useState<number | null>(null);
   const move = (i: number, j: number) => {
     if (j < 0 || j >= secs.length) return;
@@ -254,6 +254,83 @@ function HomepageLayoutTab({ groups, save, busy, collections = [] }: any) {
   );
 }
 
+function HeroSlidesEditor({ homepage, onChange, onUpload, busy }: {
+  homepage: any;
+  onChange: (slides: any[]) => void;
+  onUpload: (file: File, index: number, key: "image" | "mobileImage") => void;
+  busy: boolean;
+}) {
+  const slides = Array.isArray(homepage?.heroSlides) ? homepage.heroSlides.slice(0, MAX_HERO_SLIDES) : [];
+  const update = (index: number, patch: Record<string, unknown>) => onChange(slides.map((slide: any, i: number) => i === index ? { ...slide, ...patch } : slide));
+  const move = (index: number, direction: number) => {
+    const target = index + direction;
+    if (target < 0 || target >= slides.length) return;
+    const next = [...slides];
+    [next[index], next[target]] = [next[target], next[index]];
+    onChange(next);
+  };
+  const add = () => {
+    if (slides.length >= MAX_HERO_SLIDES) return;
+    const fromLegacy = slides.length === 0 && homepage?.heroImage;
+    onChange([...slides, {
+      id: `slide-${Date.now()}`,
+      enabled: true,
+      eyebrow: fromLegacy ? (homepage.heroEyebrow || "New season · SINZO") : "",
+      title: fromLegacy ? (homepage.heroTitle || "") : "",
+      subtitle: fromLegacy ? (homepage.heroSubtitle || "") : "",
+      cta: fromLegacy ? (homepage.heroCta || "Shop now") : "Shop now",
+      href: fromLegacy ? (homepage.heroHref || "/products") : "/products",
+      image: fromLegacy ? homepage.heroImage : "",
+      mobileImage: fromLegacy ? (homepage.heroMobileImage || "") : "",
+    }]);
+  };
+  const imageEditor = (slide: any, index: number, key: "image" | "mobileImage", label: string) => (
+    <div className="af full">
+      <label>{label}</label>
+      <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+        {slide[key] && <img src={slide[key]} alt="" style={{ width: key === "mobileImage" ? 48 : 72, height: 62, objectFit: "cover", borderRadius: 4, border: "1px solid #ddd" }} />}
+        <input value={slide[key] || ""} onChange={(event) => update(index, { [key]: event.target.value })} placeholder="/uploads/…" style={{ flex: 1, minWidth: 210 }} />
+        <label className="abtn" style={{ cursor: "pointer" }}>
+          ⬆ Upload
+          <input type="file" accept="image/*" hidden disabled={busy} onChange={(event) => { if (event.target.files?.[0]) onUpload(event.target.files[0], index, key); event.target.value = ""; }} />
+        </label>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="hero-slides-admin">
+      <div className="cfg-note" style={{ marginBottom: 14 }}>
+        Up to {MAX_HERO_SLIDES} slides · 6-second autoplay · swipe, arrows and dots included. Desktop image required; mobile image optional. If this list is empty, the current hero and featured catalogue create an automatic carousel.
+      </div>
+      {slides.map((slide: any, index: number) => (
+        <div className="acard" key={slide.id || index} style={{ marginBottom: 12, boxShadow: "none" }}>
+          <div className="acard-h" style={{ gap: 8 }}>
+            <h3 style={{ fontSize: 14 }}>Slide {index + 1}{slide.title ? ` — ${slide.title}` : ""}</h3>
+            <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
+              <button className="abtn sm" type="button" onClick={() => move(index, -1)} disabled={index === 0}>↑</button>
+              <button className="abtn sm" type="button" onClick={() => move(index, 1)} disabled={index === slides.length - 1}>↓</button>
+              <button className="abtn sm danger" type="button" onClick={() => onChange(slides.filter((_: any, i: number) => i !== index))}>Remove</button>
+            </div>
+          </div>
+          <div className="acard-b form-grid">
+            <div className="af full"><label style={{ display: "flex", gap: 8, alignItems: "center" }}><input type="checkbox" checked={slide.enabled !== false} onChange={(event) => update(index, { enabled: event.target.checked })} /> Show this slide</label></div>
+            <div className="af"><label>Eyebrow</label><input value={slide.eyebrow || ""} maxLength={80} onChange={(event) => update(index, { eyebrow: event.target.value })} placeholder="New season · SINZO" /></div>
+            <div className="af"><label>Button text</label><input value={slide.cta || ""} maxLength={50} onChange={(event) => update(index, { cta: event.target.value })} placeholder="Shop now" /></div>
+            <div className="af full"><label>Headline</label><textarea rows={2} value={slide.title || ""} maxLength={160} onChange={(event) => update(index, { title: event.target.value })} /></div>
+            <div className="af full"><label>Subtitle</label><textarea rows={2} value={slide.subtitle || ""} maxLength={280} onChange={(event) => update(index, { subtitle: event.target.value })} /></div>
+            <div className="af full"><label>Internal button link</label><input value={slide.href || ""} maxLength={500} onChange={(event) => update(index, { href: event.target.value })} placeholder="/products or /collections/new-arrivals" /></div>
+            {imageEditor(slide, index, "image", "Desktop image (required)")}
+            {imageEditor(slide, index, "mobileImage", "Mobile image (optional portrait crop)")}
+          </div>
+        </div>
+      ))}
+      <button className="abtn" type="button" onClick={add} disabled={busy || slides.length >= MAX_HERO_SLIDES}>+ Add hero slide</button>
+      {!slides.length && homepage?.heroImage && <span style={{ marginLeft: 10, color: "var(--muted)", fontSize: 12 }}>First click imports your current hero; add more slides after it.</span>}
+    </div>
+  );
+}
+
 export default function SettingsClient({ groups, user, userCount, hasCourier, collections = [] }: any) {
   const router = useRouter();
   const [tab, setTab] = useState("Store");
@@ -279,6 +356,23 @@ export default function SettingsClient({ groups, user, userCount, hasCourier, co
       setG((x: any) => ({ ...x, [group]: { ...x[group], [key]: j.url } }));
       setMsg("Image uploaded ✓ — ekhon Save chapun");
     } else setMsg(j.error || "Upload failed");
+    setBusy(false);
+    setTimeout(() => setMsg(""), 3500);
+  };
+  const uploadHeroSlideImage = async (file: File, index: number, key: "image" | "mobileImage") => {
+    setBusy(true); setMsg("Uploading hero image…");
+    const fd = new FormData(); fd.append("file", file);
+    const response = await afetch("/api/admin/upload", { method: "POST", body: fd });
+    const result = await response.json().catch(() => ({}));
+    if (response.ok) {
+      setG((current: any) => {
+        const slides = Array.isArray(current.homepage?.heroSlides) ? [...current.homepage.heroSlides] : [];
+        if (!slides[index]) return current;
+        slides[index] = { ...slides[index], [key]: result.url };
+        return { ...current, homepage: { ...current.homepage, heroSlides: slides } };
+      });
+      setMsg("Hero image uploaded ✓ — Save Homepage chapun");
+    } else setMsg(result.error || "Upload failed");
     setBusy(false);
     setTimeout(() => setMsg(""), 3500);
   };
@@ -368,10 +462,7 @@ export default function SettingsClient({ groups, user, userCount, hasCourier, co
             <div className="af"><label>Container width (px)</label><input type="number" value={g.theme?.containerWidth ?? 1280} onChange={(e) => setG({ ...g, theme: { ...g.theme, containerWidth: Number(e.target.value) } })} /></div>
 
             <div className="af full"><label>Announcement bar text</label><input value={g.homepage?.announcement || ""} onChange={(e) => setG({ ...g, homepage: { ...g.homepage, announcement: e.target.value } })} /></div>
-            <div className="af full"><label>Hero headline (supports line breaks)</label><textarea style={{ minHeight: 60 }} value={g.homepage?.heroTitle || ""} onChange={(e) => setG({ ...g, homepage: { ...g.homepage, heroTitle: e.target.value } })} /></div>
-            <div className="af full"><label>Hero subtitle</label><input value={g.homepage?.heroSubtitle || ""} onChange={(e) => setG({ ...g, homepage: { ...g.homepage, heroSubtitle: e.target.value } })} /></div>
-            <F k="heroCta" label="Hero button text" group="homepage" />
-            <ImgField k="heroImage" label="Hero banner image (upload or paste URL)" group="homepage" />
+            <div className="cfg-note full">Hero images, copy and links এখন <b>Homepage Layout → Hero Carousel</b> থেকে manage করুন.</div>
             <F k="promoTitle" label="Promo banner title" group="homepage" />
             <F k="promoText" label="Promo banner text" group="homepage" />
             <ImgField k="promoImage" label="Promo banner image (upload or paste URL)" group="homepage" />
@@ -386,13 +477,14 @@ export default function SettingsClient({ groups, user, userCount, hasCourier, co
         <>
           <HomepageLayoutTab groups={g} save={save} busy={busy} collections={collections} />
           <div className="acard" style={{ marginTop: 16 }}>
-            <div className="acard-h"><h3>Hero Banner</h3></div>
-            <div className="acard-b form-grid">
-              <div className="af full"><label>Hero headline</label><textarea style={{ minHeight: 50 }} value={g.homepage?.heroTitle || ""} onChange={(e) => setG({ ...g, homepage: { ...g.homepage, heroTitle: e.target.value } })} /></div>
-              <div className="af full"><label>Hero subtitle</label><input value={g.homepage?.heroSubtitle || ""} onChange={(e) => setG({ ...g, homepage: { ...g.homepage, heroSubtitle: e.target.value } })} /></div>
-              <F k="heroCta" label="Hero button text" group="homepage" />
-              <ImgField k="heroImage" label="Hero banner image" group="homepage" />
-              <div className="full">{saveBtn("homepage")}</div>
+            <div className="acard-h"><h3>Hero Carousel</h3><div>{saveBtn("homepage")}</div></div>
+            <div className="acard-b">
+              <HeroSlidesEditor
+                homepage={g.homepage || {}}
+                busy={busy}
+                onChange={(heroSlides) => setG({ ...g, homepage: { ...g.homepage, heroSlides } })}
+                onUpload={uploadHeroSlideImage}
+              />
             </div>
           </div>
           <div className="acard" style={{ marginTop: 16 }}>
