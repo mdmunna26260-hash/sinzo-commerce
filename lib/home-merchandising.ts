@@ -31,8 +31,9 @@ export function pickLimitedProducts<T extends HomeMerchProduct>(products: T[], l
     .filter((product) => !product.preorder && Number.isFinite(product.stock) && product.stock > 0)
     .sort((a, b) => a.stock - b.stock || (a.position || 0) - (b.position || 0) || a.id - b.id);
   const genuinelyLimited = available.filter((product) =>
-    product.badge === "limited" || product.stock <= Math.max(15, Number(product.lowStock) || 0));
-  // A new catalogue may not have low-stock rows yet. In that case show only the
-  // four lowest quantities rather than labelling half the store as scarce.
-  return (genuinelyLimited.length ? genuinelyLimited : available.slice(0, 4)).slice(0, Math.max(0, limit));
+    String(product.badge || "").toLowerCase() === "limited"
+    || product.stock <= Math.max(15, Number(product.lowStock) || 0));
+  // Never manufacture urgency. If no live inventory is genuinely low (and no
+  // item is explicitly marked limited), the homepage omits this shelf.
+  return genuinelyLimited.slice(0, Math.max(0, limit));
 }

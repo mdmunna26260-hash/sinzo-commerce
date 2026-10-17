@@ -23,8 +23,7 @@ test('homepage limited shelf uses honest stock quantities instead of fake scarci
   assert.deepEqual(pickLimitedProducts(products).map((x) => x.id), [2, 3, 5]);
 });
 
-test('a fresh catalogue falls back to only its four lowest-stock products', () => {
+test('a catalogue with healthy inventory produces no fabricated limited shelf', () => {
   const products = Array.from({ length: 7 }, (_, index) => p(index + 1, { stock: 40 - index }));
-  assert.deepEqual(pickLimitedProducts(products).map((x) => x.stock), [34, 35, 36, 37]);
-  assert.equal(pickLimitedProducts(products, 2).length, 2);
+  assert.deepEqual(pickLimitedProducts(products), []);
 });
