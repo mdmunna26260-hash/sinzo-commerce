@@ -120,7 +120,14 @@ export default function HeroCarousel({ slides, intervalMs = 6_000 }: { slides: H
                     {slide.subtitle && <p>{slide.subtitle}</p>}
                     <div className="hero-actions">
                       <Link className="btn" href={slide.href} prefetch tabIndex={active ? undefined : -1}>{slide.cta}</Link>
-                      <Link className="btn btn-ghost" href="/track" prefetch tabIndex={active ? undefined : -1}>Track Order</Link>
+                      <Link
+                        className="btn btn-ghost"
+                        href={slideIndex === 0 ? "/track" : "/products"}
+                        prefetch
+                        tabIndex={active ? undefined : -1}
+                      >
+                        {slideIndex === 0 ? "Track Order" : "Shop All Products"}
+                      </Link>
                     </div>
                   </div>
                 </div>
