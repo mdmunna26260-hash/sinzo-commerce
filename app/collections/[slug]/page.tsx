@@ -6,6 +6,7 @@ import { ProductCard } from "@/components/parts";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { clean } from "@/lib/search";
+import AutoScrollControl from "@/components/auto-scroll-control";
 
 export const dynamic = "force-dynamic";
 
@@ -64,7 +65,13 @@ export default async function CollectionPage(props: { params: Promise<{ slug: st
       <div className="container" style={{ padding: "38px 24px 100px" }}>
         <div className="eyebrow">Collection</div>
         <h1 style={{ fontSize: "clamp(28px,3.4vw,40px)", margin: "8px 0 6px" }}>{col.title}</h1>
-        {col.subtitle && <p style={{ color: "var(--muted)", marginBottom: 30 }}>{col.subtitle}</p>}
+        {col.subtitle && <p style={{ color: "var(--muted)", marginBottom: 22 }}>{col.subtitle}</p>}
+        {items.length > 0 && (
+          <div className="collection-browse-toolbar">
+            <span>{items.length} {items.length === 1 ? "Product" : "Products"}</span>
+            <AutoScrollControl />
+          </div>
+        )}
         {items.length === 0 ? (
           /* /collections/sale used to render the headline "Up to 30% off selected styles"
              over an empty grid (and it is in the sitemap, so customers landed there from Google) */
