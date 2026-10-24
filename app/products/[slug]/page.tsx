@@ -16,7 +16,13 @@ import ProductPageReviewForm from "./review-form";
 import RecentlyViewedServer from "@/components/recently-viewed-server";
 import Link from "next/link";
 
-export const dynamic = "force-dynamic";
+/* ISR-on-demand (see the collections page): cached page, 60s background refresh, no
+   build-time DB dependency. */
+export const revalidate = 60;
+export const dynamicParams = true;
+export function generateStaticParams() {
+  return [];
+}
 // runtime caching via CDN keeps fast; skip build-time prerender (small VPS RAM)
 
 export async function generateMetadata(props: { params: Promise<{ slug: string }> }): Promise<Metadata> {

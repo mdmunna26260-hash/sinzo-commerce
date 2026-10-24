@@ -17,10 +17,11 @@ import { discountPercent, pickDiscountProducts, pickLimitedProducts } from "@/li
 import { buildHomeHeroSlides } from "@/lib/home-hero";
 import { mergeHomeSections } from "@/lib/home-sections";
 
-// ISR: Cache page for 60s, then revalidate in background
-// First visitor after expiry: gets cached page (fast), fresh page renders in background
-export const dynamic = "force-dynamic";
-// runtime caching via CDN headers keeps it fast; skip build-time DB (small VPS)
+/* ISR: the page is cached and re-rendered in the background, so a visitor never waits for
+   the database. 60s keeps stock badges and the featured collection current; cart and
+   checkout re-check price and stock against the DB, so this cannot cause an oversell.
+   force-dynamic used to make every single page view pay 3-4 Postgres round-trips. */
+export const revalidate = 60;
 
 const CAT_IMG: Record<string, string> = { shirts: "shirt", outerwear: "coat", dresses: "dress", bottoms: "trousers", knitwear: "knit", accessories: "bag", "t-shirts": "tee" };
 

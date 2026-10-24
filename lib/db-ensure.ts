@@ -6,7 +6,17 @@ import { db } from "./db";
    These CREATE TABLE IF NOT EXISTS statements are idempotent and match the
    Prisma schema exactly, so push notifications work immediately after deploy.
    Runs at most once per server process. */
-let done: Promise<void> | null = null;
+/* Cold-start cost: these ~40 idempotent ALTER/CREATE statements are serial DB round-trips.
+   On a small VPS every container start (and every deploy) paid for all of them before the
+   first page could render. In production the schema is expected to be migrated
+   (`npm run db:push:prod` / `schema:sync`), so the DDL is skipped: SCHEMA_READY=1 is the
+   default. Set SCHEMA_READY=0 to bring the old self-healing behaviour back. */
+const SKIP_DDL = process.env.NODE_ENV === "production" && process.env.SCHEMA_READY !== "0";
+
+/* The guard lives on globalThis as well, so a dev hot-reload (or a second module
+   instance) cannot start the block a second time. */
+const g = globalThis as unknown as { __szEnsure?: Promise<void> };
+let done: Promise<void> | null = g.__szEnsure ?? null;
 
 /* SQLite has no `ALTER TABLE .. ADD COLUMN IF NOT EXISTS`. The fallback DDL below
    therefore catches duplicate-column errors, but Prisma still logs every caught
@@ -48,8 +58,10 @@ async function sqliteSchemaIsCurrent(): Promise<boolean> {
 }
 
 export function ensureExtraTables(): Promise<void> {
+  if (SKIP_DDL) return Promise.resolve();
   if (!done) {
-    done = run().catch((e) => { done = null; throw e; });
+    done = run().catch((e) => { done = null; g.__szEnsure = null; throw e; });
+    g.__szEnsure = done;
   }
   return done;
 }

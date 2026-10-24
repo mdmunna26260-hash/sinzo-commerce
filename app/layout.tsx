@@ -92,13 +92,17 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     },
     ],
   } : null;
-  // Maintenance mode: block storefront for non-admins (admins keep full access)
-  let adminBypass = false;
-  try {
-    const { getSessionUser } = await import("@/lib/auth");
-    adminBypass = !!(await getSessionUser());
-  } catch {}
-  if (cfg?.maintenance?.enabled && !adminBypass) {
+  /* Maintenance mode: block the storefront for non-admins (admins keep full access).
+     The session cookie is only read when maintenance is actually ON. Reading cookies() on
+     every render opts the whole storefront out of static generation — every page would be
+     re-rendered per visitor, 3-4 DB round-trips each. */
+  if (cfg?.maintenance?.enabled) {
+    let adminBypass = false;
+    try {
+      const { getSessionUser } = await import("@/lib/auth");
+      adminBypass = !!(await getSessionUser());
+    } catch {}
+    if (!adminBypass) {
     const store = cfg.store || {};
     return (
       <html lang="en" suppressHydrationWarning>
@@ -117,7 +121,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           </div>
         </body>
       </html>
-    );
+      );
+    }
   }
   /* Every value below is interpolated into a <style> element on EVERY page of the site.
      They all originate in Admin → Settings, so a value is not trusted just because an

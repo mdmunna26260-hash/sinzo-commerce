@@ -108,8 +108,13 @@ const nextConfig = {
         : { source: "/_next/static/:path*", headers: [
             { key: "Cache-Control", value: "no-store, must-revalidate" },
           ]},
-      /* Private / mutating surfaces: never cached anywhere. */
-      { source: "/((?!_next/static|api/media|uploads).*)", headers: [
+      /* Private / mutating surfaces: never cached anywhere.
+         Cache-Control is a LIST, not a single value: every matching rule appends its own
+         header and the browser obeys the most restrictive one. So this catch-all used to
+         shadow the PUBLIC_HTML rules further down and "/" answered "private, no-store"
+         even though its own rule said public. Scoping it is what lets the storefront be
+         cached at all. */
+      { source: "/((?!_next/static|api/media|uploads|products|collections|$).*)", headers: [
         { key: "Cache-Control", value: "private, no-store, must-revalidate" },
       ]},
       { source: "/cart", headers: [{ key: "Cache-Control", value: "private, no-store, must-revalidate" }] },

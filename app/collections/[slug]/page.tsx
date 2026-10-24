@@ -8,7 +8,14 @@ import { notFound } from "next/navigation";
 import { clean } from "@/lib/search";
 import AutoScrollControl from "@/components/auto-scroll-control";
 
-export const dynamic = "force-dynamic";
+/* ISR-on-demand: first hit renders and caches, later hits come from cache, background
+   refresh every 60s. No build-time DB dependency (an empty generateStaticParams turns a
+   dynamic segment into on-demand ISR without prerendering anything). */
+export const revalidate = 60;
+export const dynamicParams = true;
+export function generateStaticParams() {
+  return [];
+}
 
 export async function generateMetadata(props: { params: Promise<{ slug: string }> }) {
   const params = await props.params;
