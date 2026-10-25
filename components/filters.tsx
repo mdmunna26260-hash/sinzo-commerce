@@ -4,8 +4,10 @@ import { useRouter, useSearchParams } from "next/navigation";
 
 /* Mobile filter drawer + desktop sidebar — one component, spec-exact.
    Sizes come from the DB (real variant sizes), never hardcoded. */
-export default function Filters({ cats, sizes = [], mobileOpen, onClose }: {
+export default function Filters({ cats, sizes = [], mobileOpen, onClose, variant = "side" }: {
   cats: { name: string; slug: string }[]; sizes?: string[]; mobileOpen?: boolean; onClose?: () => void;
+  /* Rendered twice (sidebar + drawer); duplicate DOM ids broke aria-labelledby. */
+  variant?: "side" | "drawer";
 }) {
   const sp = useSearchParams();
   const router = useRouter();
@@ -27,10 +29,10 @@ export default function Filters({ cats, sizes = [], mobileOpen, onClose }: {
 
   const activeCount = ["category", "min", "max", "size", "avail", "onsale"].filter((k) => get(k)).length;
 
-  const body = (
+  const body = (variant: "side" | "drawer") => (
     <>
-      <h3 id="flt-cat">Categories</h3>
-      <div role="radiogroup" aria-labelledby="flt-cat">
+      <h3 id={`flt-cat-${variant}`}>Categories</h3>
+      <div role="radiogroup" aria-labelledby={`flt-cat-${variant}`}>
       <label><input type="radio" name="fcat" checked={!get("category")} onChange={() => push({ category: undefined })} />All</label>
       {cats.map((c) => (
         <label key={c.slug}>
@@ -68,7 +70,7 @@ export default function Filters({ cats, sizes = [], mobileOpen, onClose }: {
   return (
     <>
       {/* ---------- DESKTOP: compact sticky sidebar ---------- */}
-      <aside className="filters side">{body}</aside>
+      <aside className="filters side">{body("side")}</aside>
 
       {/* ---------- MOBILE: full-screen drawer ---------- */}
       <div className={"fdrawer-bg" + (mobileOpen ? " open" : "")} onClick={onClose}>
@@ -79,7 +81,7 @@ export default function Filters({ cats, sizes = [], mobileOpen, onClose }: {
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M18 6 6 18M6 6l12 12"/></svg>
             </button>
           </div>
-          <div className="fdrawer-body">{body}</div>
+          <div className="fdrawer-body">{body("drawer")}</div>
           <div className="fdrawer-foot">
             <button
               className="abtn"
