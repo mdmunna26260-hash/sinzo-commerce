@@ -181,6 +181,12 @@ export default async function RootLayout({ children }: { children: React.ReactNo
              sitelinks search box, and brand queries show a bare listing). */
           <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(orgLd).replace(/</g, "\\u003c") }} />
         ) : null}
+        {/* No-JS fallback: the pixel is loaded by JS, so a visitor with JavaScript
+            disabled (or a crawler that runs none) was never counted at all. Meta's own
+            snippet ships the same noscript image. */}
+        {String(cfg?.integrations?.metaPixelId || "").trim() ? (
+          <noscript dangerouslySetInnerHTML={{ __html: `<img height="1" width="1" style="display:none" alt="" src="https://www.facebook.com/tr?id=${encodeURIComponent(String(cfg.integrations.metaPixelId).trim())}&ev=PageView&noscript=1" />` }} />
+        ) : null}
       </head>
       <body>
         <script dangerouslySetInnerHTML={{ __html: `(function(){

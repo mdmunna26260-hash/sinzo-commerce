@@ -69,6 +69,41 @@ export function captureAttribution(): any {
     return JSON.parse(sessionStorage.getItem("sz_attr") || "{}");
   } catch { return {}; }
 }
+/* Load fbevents.js and init the pixel WITHOUT firing an event.
+   The pixel used to be initialised inside trackEvent() only, so a visitor who never
+   added to cart / searched / checked out never loaded it at all. */
+export function ensurePixel(): boolean {
+  if (typeof window === "undefined") return false;
+  const pixel = getCfg()?.integrations?.metaPixelId;
+  if (!pixel) return false;
+  try {
+    const w = window as any;
+    w.fbq = w.fbq || function (...a: any[]) { (w.fbq.queue = w.fbq.queue || []).push(a); };
+    /* The DOM element — not a mutable flag — is what makes this idempotent. Two effects
+       can call ensurePixel() in the same tick (the global pageview tracker plus that
+       page's own tracker on /checkout) and `w.fbq.loaded` was still false for both, so
+       the pixel got two init() calls and every event was counted twice. */
+    if (!document.getElementById("meta-pixel")) {
+      const s = document.createElement("script"); s.id = "meta-pixel"; s.async = true; s.src = "https://connect.facebook.net/en_US/fbevents.js";
+      document.head.appendChild(s);
+      const cachedPhone = getTrackingPhone();
+      // advanced matching: known customer → richer event match quality
+      if (cachedPhone) w.fbq("init", pixel, { ph: cachedPhone, external_id: cachedPhone, country: "bd" });
+      else w.fbq("init", pixel);
+      w.fbq.loaded = true;
+    }
+    return true;
+  } catch { return false; }
+}
+
+/* Standard PageView, fired once per client-side route change by components/pageview.tsx.
+   Goes to the browser pixel AND (via /api/track/event) to the shop's own analytics. */
+export function trackPageView(path?: string, extra?: Record<string, any>): string {
+  try { ensurePixel(); } catch {}
+  const p = path || (typeof location !== "undefined" ? location.pathname + location.search : undefined);
+  return trackEvent("PageView", { ...(p ? { path: p } : {}), ...(extra || {}) });
+}
+
 export function trackEvent(name: string, data?: Record<string, any>, opts?: { eventId?: string }): string {
   const eventId = opts?.eventId || genEventId();
   const cfg = getCfg();
@@ -77,21 +112,9 @@ export function trackEvent(name: string, data?: Record<string, any>, opts?: { ev
   const value = data?.value;
   const currency = data?.currency || "BDT";
   try {
-    // Meta Pixel (browser)
+    // Meta Pixel (browser) — ensurePixel() loads + inits only once per page
     const w = window as any;
-    if (pixel) {
-      w.fbq = w.fbq || function (...a: any[]) { (w.fbq.queue = w.fbq.queue || []).push(a); };
-      if (!w.fbq.loaded) {
-        if (!document.getElementById("meta-pixel")) {
-          const s = document.createElement("script"); s.id = "meta-pixel"; s.async = true; s.src = "https://connect.facebook.net/en_US/fbevents.js";
-          document.head.appendChild(s);
-        }
-        const cachedPhone = getTrackingPhone();
-        // advanced matching: known customer → richer event match quality
-        if (cachedPhone) w.fbq("init", pixel, { ph: cachedPhone, external_id: cachedPhone, country: "bd" });
-        else w.fbq("init", pixel);
-        w.fbq.loaded = true;
-      }
+    if (pixel && ensurePixel()) {
       const std = ["PageView", "ViewContent", "Search", "AddToCart", "InitiateCheckout", "AddPaymentInfo", "Purchase", "Lead", "CompleteRegistration"];
       const metaName = std.includes(name) ? name : "Custom" + name.replace(/\s/g, "");
       w.fbq("track", metaName, data || {}, { eventID: eventId });

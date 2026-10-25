@@ -2,7 +2,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCart, trackEvent, toast, captureAttribution, newEventId, setTrackingPhone } from "@/components/store";
+import { useCart, trackEvent, trackPageView, toast, captureAttribution, newEventId, setTrackingPhone } from "@/components/store";
 import { normalizeBDPhone, isValidBDPhone } from "@/lib/phone";
 import { imgSrc, imgSrcSet } from "@/components/parts";
 import { checkoutTotals, couponDiscount, nonNegativeAmount } from "@/lib/checkout-pricing";
@@ -47,6 +47,24 @@ export default function CheckoutPage() {
   const { deliveryFee: ship, total } = checkoutTotals({
     subtotal, discount, area: form.area, shipping: shipCfg, freeship: applied?.freeship,
   });
+
+  /* InitiateCheckout was never sent before: Meta only saw AddToCart and then
+     AddPaymentInfo, so the funnel read Add to cart -> Purchase with nothing in between.
+     Declared here with the other hooks ON PURPOSE — this page has early returns
+     (loading / empty cart) below, and a hook placed after one of them changes the hook
+     count between renders (React error #310, blank page). The effect guards itself. */
+  const beginCheckoutSent = useRef(false);
+  useEffect(() => {
+    if (beginCheckoutSent.current || !ready || !lines.length || !total) return;
+    beginCheckoutSent.current = true;
+    trackPageView("/checkout");
+    trackEvent("InitiateCheckout", {
+      value: total, currency: "BDT", num_items: lines.reduce((a, l) => a + l.qty, 0),
+      content_type: "product",
+      content_ids: lines.map((l) => String(l.productId)),
+      contents: lines.map((l) => ({ id: String(l.productId), quantity: l.qty, item_price: l.price })),
+    });
+  }, [ready, lines, total]);
 
   useLayoutEffect(() => {
     const readLink = () => {

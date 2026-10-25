@@ -1,6 +1,7 @@
 "use client";
 import { useEffect } from "react";
 import { usePathname } from "next/navigation";
+import { trackPageView } from "@/components/store";
 
 /* Lightweight session + pageview tracking (feeds the Analytics funnel honestly).
    sid lives in sessionStorage when available, in-memory fallback otherwise. */
@@ -23,10 +24,15 @@ export default function PageViewTracker() {
       if (Date.now() - last < 30 * 60 * 1000) return; // dedup per path per session
       sessionStorage.setItem(key, String(Date.now()));
     } catch {}
-    fetch("/api/track/event", {
-      method: "POST", headers: { "Content-Type": "application/json" }, keepalive: true,
-      body: JSON.stringify({ name: "PageView", data: { sid: getSid(), path } }),
-    }).catch(() => {});
+    /* Previously this only POSTed to /api/track/event, which does not forward PageView to
+       Meta — so the pixel never received a pageview at all. Same dedup still applies. */
+    /* One dispatch for both destinations: trackPageView sends the standard PageView to the
+       pixel and POSTs /api/track/event with the sid/path the funnel dashboard reads.
+       This used to be a separate trackEvent() AND a raw fetch → every pageview was
+       written to the tracking table twice. /checkout has its own tracker, so skip it
+       here to keep the count honest. */
+    if (path.startsWith("/checkout")) return;
+    trackPageView(path, { sid: getSid() });
   }, [path]);
   return null;
 }
