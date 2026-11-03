@@ -28,6 +28,10 @@ export function generateStaticParams() {
 // runtime caching via CDN keeps fast; skip build-time prerender (small VPS RAM)
 
 export async function generateMetadata(props: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+  // NOTE: a throw inside generateMetadata takes the WHOLE page down with a 500 on
+  // serverless (Vercel) — never let SEO metadata kill a product page. Fall back to a
+  // bare title instead.
+  try {
   const params = await props.params;
   const p = await db.product.findUnique({ where: { slug: params.slug }, include: { images: { orderBy: { position: "asc" }, take: 1 }, category: { select: { name: true } } } });
   if (!p) return { title: "Product not found" };
@@ -53,6 +57,9 @@ export async function generateMetadata(props: { params: Promise<{ slug: string }
     },
     twitter: { card: "summary_large_image", title, description: desc, ...(share ? { image: share.startsWith("http") ? share : base + share } : {}) },
   };
+  } catch {
+    return { title: "Product" };
+  }
 }
 
 export default async function PDP(props: { params: Promise<{ slug: string }>; searchParams?: Promise<any> }) {
