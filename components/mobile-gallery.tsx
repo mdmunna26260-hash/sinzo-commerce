@@ -107,12 +107,10 @@ export default function MobileGallery({ images, title, active, onIndexChange, on
   const onTouchEnd = () => {
     const d = drag.current;
     setDragging(false);
-    // a tap (no axis lock / no real movement) opens the original full-size image
-    if (onOpenOriginal && (!d.locked || Math.abs(d.dx) < 10)) {
-      drag.current = { startX: 0, startY: 0, dx: 0, locked: false, t0: 0 };
-      onOpenOriginal(active);
-      return;
-    }
+    /* tap on the photo does NOTHING now — the full-size view opens ONLY from the
+       .mgal-expand button (top-right corner). A tap used to open the original, which
+       made every accidental tap jump into the lightbox. */
+    drag.current = { startX: 0, startY: 0, dx: 0, locked: false, t0: 0 };
     if (d.locked === "x" && d.dx) {
       const dt = Math.max(1, Date.now() - d.t0);
       const velocity = d.dx / dt; // px/ms
