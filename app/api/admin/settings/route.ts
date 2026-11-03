@@ -3,7 +3,7 @@ import { requirePerm } from "@/lib/admin-guard";
 import { getSettings, saveGroup, envFallback } from "@/lib/settings";
 import { logAudit } from "@/lib/auth";
 import { maskAdminSettings, mergeSettingsValue, SETTING_GROUPS } from "@/lib/settings-values";
-import { MAX_HERO_SLIDES, sanitizeHeroSlides } from "@/lib/home-hero";
+import { MAX_HERO_SLIDES, sanitizeHeroSlides, sanitizeHeroProductIds } from "@/lib/home-hero";
 export const dynamic = "force-dynamic";
 
 export async function GET(req: Request) {
@@ -40,6 +40,15 @@ export async function PUT(req: Request) {
       return NextResponse.json({ error: "Every hero slide needs a valid desktop image" }, { status: 400 });
     }
     value.heroSlides = slides;
+  }
+  if (group === "homepage" && Object.prototype.hasOwnProperty.call(value, "heroProductIds")) {
+    if (!Array.isArray(value.heroProductIds)) return NextResponse.json({ error: "heroProductIds must be an array of product ids" }, { status: 400 });
+    value.heroProductIds = sanitizeHeroProductIds(value.heroProductIds);
+  }
+  if (group === "homepage" && value.heroBottomAnnouncement !== undefined) {
+    if (value.heroBottomAnnouncement !== "" && (typeof value.heroBottomAnnouncement !== "string" || value.heroBottomAnnouncement.length > 300 || /[\r\n]/.test(value.heroBottomAnnouncement))) {
+      return NextResponse.json({ error: "Hero bottom announcement must be a single line of max 300 characters" }, { status: 400 });
+    }
   }
   if (group === "marketing") {
     if (value.recoveryAutoEnabled !== undefined && typeof value.recoveryAutoEnabled !== "boolean") return NextResponse.json({ error: "Recovery automation must be a boolean" }, { status: 400 });

@@ -1,13 +1,22 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { buildCategoryTree, flattenCategoryTree, MAX_CATEGORY_DEPTH } from "@/lib/category-tree";
 
 export default function CatalogClient({ categories, collections, products }: any) {
   const router = useRouter();
   const [msg, setMsg] = useState("");
-  const [newCat, setNewCat] = useState({ name: "", description: "", image: "" });
+  const [newCat, setNewCat] = useState({ name: "", description: "", image: "", parentId: "" });
   const [editCatId, setEditCatId] = useState<number | null>(null);
   const [editCatImg, setEditCatImg] = useState("");
+  // inline edit (rename / move parent) state
+  const [editing, setEditing] = useState<{ id: number; name: string; parentId: string } | null>(null);
+
+  // 3-level tree: main → sub → child (tree-ordered, parents first)
+  const tree = buildCategoryTree(categories);
+  const flatCats: any[] = flattenCategoryTree(categories);
+  // a category can be a parent only if it is level 1 or 2 (a child cannot have children)
+  const parentOptions = flatCats.filter((c) => c.level < MAX_CATEGORY_DEPTH);
 
   const uploadCatImg = async (file: File, catId?: number) => {
     const fd = new FormData(); fd.append("file", file);
@@ -86,21 +95,44 @@ export default function CatalogClient({ categories, collections, products }: any
           <table className="tbl">
             <thead><tr><th>Name</th><th>Slug</th><th>Products</th><th></th></tr></thead>
             <tbody>
-              {categories.map((c: any) => (
+              {flatCats.map((c) => (
                 <tr key={c.id}>
                   <td>
                     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                       {c.image
                         ? <img src={c.image.startsWith("/api/media") ? c.image + "/w80" : c.image} width={30} height={30} alt="" style={{ borderRadius: 4, objectFit: "cover", background: "#eee" }} />
                         : <div style={{ width: 30, height: 30, borderRadius: 4, background: "#f0eeea", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13 }}>🖼</div>}
-                      <b>{c.name}</b>
+                      <span style={{ paddingLeft: (c.level - 1) * 16 }}>
+                        {c.level > 1 && <span style={{ color: "var(--muted)" }}>↳ </span>}
+                        <b>{c.name}</b>{" "}
+                        <span className={"pill " + (c.level === 1 ? "PENDING" : c.level === 2 ? "SHIPPED" : "DELIVERED")} style={{ fontSize: 10 }}>
+                          {c.level === 1 ? "MAIN" : c.level === 2 ? "SUB" : "CHILD"}
+                        </span>
+                      </span>
                     </div>
+                    {editing?.id === c.id && (
+                      <div style={{ display: "flex", gap: 6, marginTop: 8, flexWrap: "wrap" }}>
+                        <input value={editing.name} onChange={(e) => setEditing({ ...editing, name: e.target.value })} style={{ flex: 1, minWidth: 120, border: "1px solid #d0d5dd", padding: "6px 9px", borderRadius: 5, fontSize: 13 }} />
+                        <select value={editing.parentId} onChange={(e) => setEditing({ ...editing, parentId: e.target.value })} style={{ border: "1px solid #d0d5dd", borderRadius: 5, fontSize: 13, padding: "6px" }}>
+                          <option value="">— Main category —</option>
+                          {parentOptions.filter((p) => p.id !== c.id).map((p) => (
+                            <option key={p.id} value={p.id}>{"↳ ".repeat(p.level - 1) + p.path}</option>
+                          ))}
+                        </select>
+                        <button className="abtn primary sm" onClick={async () => {
+                          await api("/api/admin/categories/" + c.id, "PUT", { name: editing.name, parentId: editing.parentId ? Number(editing.parentId) : null });
+                          setEditing(null);
+                        }}>Save</button>
+                        <button className="abtn sm" onClick={() => setEditing(null)}>✕</button>
+                      </div>
+                    )}
                   </td>
                   <td style={{ fontSize: 12, color: "var(--muted)" }}>/{c.slug}</td>
                   <td>{c.productCount}</td>
                   <td style={{ whiteSpace: "nowrap" }}>
+                    <button className="abtn sm" title="Rename / move (edit parent)" onClick={() => setEditing({ id: c.id, name: c.name, parentId: c.parentId ? String(c.parentId) : "" })}>✏️</button>{" "}
                     <button className="abtn sm" title="Upload category image" onClick={() => { setEditCatId(editCatId === c.id ? null : c.id); setEditCatImg(""); }}>🖼</button>{" "}
-                    <button className="abtn sm danger" onClick={() => confirm("Delete " + c.name + "?") && api("/api/admin/categories/" + c.id, "DELETE")}>✕</button>
+                    <button className="abtn sm danger" onClick={() => confirm("Delete " + c.name + "? (sub-categories become main, products keep but lose link)") && api("/api/admin/categories/" + c.id, "DELETE")}>✕</button>
                   </td>
                 </tr>
               ))}
@@ -127,9 +159,18 @@ export default function CatalogClient({ categories, collections, products }: any
                 </div>
               </div>
             )}
-            <div style={{ display: "flex", gap: 8 }}>
-              <input placeholder="New category name" value={newCat.name} onChange={(e) => setNewCat({ ...newCat, name: e.target.value })} style={{ flex: 1, border: "1px solid #d0d5dd", padding: "9px 12px", borderRadius: 5 }} />
-              <button className="abtn primary" onClick={async () => { if (newCat.name) { await api("/api/admin/categories", "POST", { ...newCat, image: newCat.image || undefined }); setNewCat({ name: "", description: "", image: "" }); } }}>Add</button>
+            <div style={{ display: "grid", gap: 8 }}>
+              <div style={{ display: "flex", gap: 8 }}>
+                <input placeholder="New category name" value={newCat.name} onChange={(e) => setNewCat({ ...newCat, name: e.target.value })} style={{ flex: 1, border: "1px solid #d0d5dd", padding: "9px 12px", borderRadius: 5 }} />
+                <button className="abtn primary" onClick={async () => { if (newCat.name) { await api("/api/admin/categories", "POST", { name: newCat.name, description: newCat.description, image: newCat.image || undefined, parentId: newCat.parentId ? Number(newCat.parentId) : null }); setNewCat({ name: "", description: "", image: "", parentId: "" }); } }}>Add</button>
+              </div>
+              <select value={newCat.parentId} onChange={(e) => setNewCat({ ...newCat, parentId: e.target.value })} style={{ border: "1px solid #d0d5dd", padding: "8px 10px", borderRadius: 5, fontSize: 13 }}>
+                <option value="">— Main category (top level) —</option>
+                {parentOptions.map((p) => (
+                  <option key={p.id} value={p.id}>{"↳ ".repeat(p.level - 1) + p.path + (p.level === 1 ? "  (→ sub category)" : "  (→ child category)")}</option>
+                ))}
+              </select>
+              <div style={{ fontSize: 12, color: "var(--muted)" }}>3 levels: Main → Sub → Child. Pick a main/sub above to create a sub/child category.</div>
             </div>
           </div>
         </div>

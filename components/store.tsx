@@ -1,6 +1,7 @@
 "use client";
 import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
 import { safeTrackingUrl } from "@/lib/recovery-client";
+import { imgSrc } from "@/components/img-src";
 
 /* ============ Client-side tracking service (Meta Pixel + GA4 + GTM + server CAPI) ============ */
 export function getCfg(): any {
@@ -228,4 +229,30 @@ export function toast(msg: string) {
      tai toast hatath uye jeto (CSS e @starting-style + `.out` dekhun). */
   setTimeout(() => t.classList.add("out"), 2150);
   setTimeout(() => t.remove(), 2600);
+}
+
+/* Rich "added to cart" confirmation — shows WHICH item (thumb + title) and WHICH
+   size/colour/qty was picked, plus a View cart link. Same enter/exit as .toast. */
+export function cartToast(item: { title: string; image?: string; size?: string; color?: string; qty: number }) {
+  const t = document.createElement("div");
+  t.className = "toast toast-cart";
+  const src = item.image ? (imgSrc(item.image, 200) || item.image) : "";
+  const meta = [item.size ? `Size ${item.size}` : "", item.color || "", `Qty ${item.qty}`].filter(Boolean).join(" · ");
+  t.innerHTML = `
+    ${src ? `<img class="toast-cart-img" alt="" />` : `<span class="toast-cart-img toast-cart-noimg" aria-hidden="true">S</span>`}
+    <span class="toast-cart-body">
+      <b>Added to cart ✓</b>
+      <span class="toast-cart-title"></span>
+      <span class="toast-cart-meta"></span>
+    </span>
+    <a class="toast-cart-link" href="/cart">View cart</a>`;
+  /* user/admin-controlled strings (title, size, colour, image URL) go in via textContent/
+     setAttribute — never interpolated into innerHTML, so no markup injection is possible */
+  const img = t.querySelector<HTMLImageElement>(".toast-cart-img");
+  if (img && src) img.src = src;
+  t.querySelector(".toast-cart-title")!.textContent = item.title;
+  t.querySelector(".toast-cart-meta")!.textContent = meta;
+  document.body.appendChild(t);
+  setTimeout(() => t.classList.add("out"), 2600);
+  setTimeout(() => t.remove(), 3100);
 }

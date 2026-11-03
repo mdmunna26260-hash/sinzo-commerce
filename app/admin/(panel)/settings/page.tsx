@@ -18,7 +18,8 @@ export default async function SettingsPage(props: { searchParams: Promise<any> }
   const hasCourier = !!(raw.courier?.apiKey && raw.courier?.secretKey);
   const userCount = await db.user.count();
   const collections = await db.collection.findMany({ select: { title: true, slug: true }, orderBy: { id: "asc" } });
-  return <SettingsClient user={user} userCount={userCount} hasCourier={hasCourier} collections={collections} groups={{
+  const products = await db.product.findMany({ where: { status: "ACTIVE" }, select: { id: true, title: true }, orderBy: [{ position: "asc" }, { id: "desc" }] });
+  return <SettingsClient user={user} userCount={userCount} hasCourier={hasCourier} collections={collections} products={products} groups={{
     store: s.store, theme: s.theme, shipping: s.shipping, homepage: s.homepage,
     checkout: s.checkout, fraud: s.fraud, seo: s.seo, maintenance: s.maintenance, courier: courierCfg,
     notifications: notificationsCfg, integrations: s.integrations, homeSections: s.homeSections,

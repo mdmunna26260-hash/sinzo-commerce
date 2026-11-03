@@ -1,11 +1,13 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { clean } from "@/lib/search";
+import { seoKeywords } from "@/lib/seo";
 import { sanitizeHtml } from "@/lib/sanitize";
 import { db } from "@/lib/db";
 import { getSettings, publicSettings } from "@/lib/settings";
 import { readPolicy } from "@/lib/policy";
 import { getCategories } from "@/lib/catalog";
+import { navCats } from "@/lib/category-tree";
 import { Header, Footer, Announcement } from "@/components/chrome";
 import { ProductCard } from "@/components/parts";
 
@@ -27,7 +29,7 @@ export function generateStaticParams() {
 
 export async function generateMetadata(props: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const params = await props.params;
-  const p = await db.product.findUnique({ where: { slug: params.slug }, include: { images: { orderBy: { position: "asc" }, take: 1 } } });
+  const p = await db.product.findUnique({ where: { slug: params.slug }, include: { images: { orderBy: { position: "asc" }, take: 1 }, category: { select: { name: true } } } });
   if (!p) return { title: "Product not found" };
   const base = (process.env.NEXT_PUBLIC_SITE_URL || "https://sinzooffcial.com").replace(/\/$/, "");
   const url = `${base}/products/${p.slug}`;
@@ -289,7 +291,7 @@ export default async function PDP(props: { params: Promise<{ slug: string }>; se
         />
       )}
       <Announcement text={s.homepage?.announcement} />
-      <Header storeName={cfg.store?.name || "Store"} categories={cats.map((c) => ({ name: c.name, slug: c.slug }))} />
+      <Header storeName={cfg.store?.name || "Store"} categories={navCats(cats)} />
       <div className="container">
         <div style={{ padding: "22px 0 0", fontSize: 12.5, color: "var(--muted)" }}>
           <Link href="/">Home</Link> / <Link href="/products">Shop</Link> {(p as any).category && String((p as any).category.name || "").trim().toLowerCase() !== String(p.title || "").trim().toLowerCase() && <>/ <Link href={"/products?category=" + (p as any).category.slug}>{(p as any).category.name}</Link></>} / <span style={{ color: "var(--text)" }}>{p.title}</span>
@@ -396,7 +398,7 @@ export default async function PDP(props: { params: Promise<{ slug: string }>; se
       </div>
       <RecentlyViewedServer currentId={p.id} />
 
-      <Footer cfg={{ ...cfg, _nav: { categories: cats.map((c) => ({ name: c.name, slug: c.slug })) } }} />
+      <Footer cfg={{ ...cfg, _nav: { categories: navCats(cats) } }} />
     </>
   );
 }

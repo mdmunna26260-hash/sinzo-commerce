@@ -8,13 +8,13 @@ import { waLink, telLink } from "@/lib/phone";
 
 export type HeaderCfg = { storeName: string; announcement?: string; categories: { name: string; slug: string }[] };
 
-export function Announcement({ text }: { text?: string }) {
+export function Announcement({ text, className = "" }: { text?: string; className?: string }) {
   if (!text) return null;
   // 4 copies are needed for the CSS marquee loop, but a screen reader reads all four
   // (and Google indexes them 4×). The track is decorative; one accessible copy is enough.
   const item = <span className="announce-item">{text}<i className="announce-dot" aria-hidden>◆</i></span>;
   return (
-    <div className="announce" role="marquee" aria-hidden="true">
+    <div className={"announce" + (className ? " " + className : "")} role="marquee" aria-hidden="true">
       <div className="announce-track">
         {item}{item}{item}{item}
       </div>

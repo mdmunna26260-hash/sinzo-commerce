@@ -207,7 +207,52 @@ const SECTION_LABELS: Record<string, string> = {
   promo: "Promo Banner", bestsellers: "Best Sellers", limited: "Limited Availability (live stock)",
   recently: "Recently Viewed (personalised)", testimonials: "Reviews",
 };
-function HomepageLayoutTab({ groups, save, busy, collections = [] }: any) {
+/* Product slides for the hero carousel when no manual slide is saved:
+   admin picks products here (order = slide order); storefront builds one hero
+   slide per picked product ("View piece" → that product's page). */
+function HeroProductsPicker({ homepage, products, onChange }: { homepage: any; products: { id: number; title: string }[]; onChange: (ids: number[]) => void }) {
+  const [q, setQ] = useState("");
+  const ids: number[] = Array.isArray(homepage?.heroProductIds) ? homepage.heroProductIds.map(Number).filter((n) => Number.isInteger(n) && n > 0) : [];
+  const byId = new Map(products.map((p) => [p.id, p]));
+  const picked = ids.map((id) => byId.get(id)).filter(Boolean) as { id: number; title: string }[];
+  const filtered = products.filter((p) => !q || p.title.toLowerCase().includes(q.toLowerCase()));
+  const toggle = (id: number) => onChange(ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id]);
+  return (
+    <div style={{ marginTop: 18, borderTop: "1px solid #e4e7ec", paddingTop: 14 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+        <b style={{ fontSize: 13.5 }}>Hero product slides</b>
+        <input placeholder="🔍 Search products…" value={q} onChange={(e) => setQ(e.target.value)} style={{ border: "1px solid #d0d5dd", padding: "7px 10px", borderRadius: 5, fontSize: 13, width: 200 }} />
+      </div>
+      <div style={{ fontSize: 12, color: "var(--muted)", margin: "6px 0 10px" }}>
+        Pick products to feature as hero slides (click order = slide order, max 4 slides shown). Used only when no custom hero slide is saved above. Every slide shows the same buttons: <b>Shop All Products</b> + <b>View piece</b>.
+      </div>
+      {picked.length > 0 && (
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 10 }}>
+          {picked.map((p, i) => (
+            <button key={p.id} className="abtn sm" title="Click to remove" onClick={() => onChange(ids.filter((x) => x !== p.id))}>
+              {i + 1}. {p.title} ✕
+            </button>
+          ))}
+        </div>
+      )}
+      <div style={{ maxHeight: 260, overflowY: "auto", border: "1px solid #e8e6e1", borderRadius: 6 }}>
+        {filtered.map((p) => {
+          const on = ids.includes(p.id);
+          return (
+            <label key={p.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderBottom: "1px solid #f0f2f5", cursor: "pointer", background: on ? "#f6f9f4" : "#fff" }}>
+              <input type="checkbox" checked={on} onChange={() => toggle(p.id)} style={{ width: 16, height: 16 }} />
+              <span style={{ fontSize: 13.5 }}>{p.title}</span>
+              {on && <span className="pill DELIVERED" style={{ marginLeft: "auto" }}>#{ids.indexOf(p.id) + 1}</span>}
+            </label>
+          );
+        })}
+        {filtered.length === 0 && <div style={{ padding: 14, color: "var(--muted)", fontSize: 13 }}>No product matches “{q}”.</div>}
+      </div>
+    </div>
+  );
+}
+
+function HomepageLayoutTab({ groups, save, busy, collections = [], products = [] }: any) {
   const [secs, setSecs] = useState<any[]>(() => mergeHomeSections(groups.homeSections));
   const [drag, setDrag] = useState<number | null>(null);
   const move = (i: number, j: number) => {
@@ -331,7 +376,7 @@ function HeroSlidesEditor({ homepage, onChange, onUpload, busy }: {
   );
 }
 
-export default function SettingsClient({ groups, user, userCount, hasCourier, collections = [] }: any) {
+export default function SettingsClient({ groups, user, userCount, hasCourier, collections = [], products = [] }: any) {
   const router = useRouter();
   const [tab, setTab] = useState("Store");
   const [g, setG] = useState<any>(groups);
@@ -462,6 +507,7 @@ export default function SettingsClient({ groups, user, userCount, hasCourier, co
             <div className="af"><label>Container width (px)</label><input type="number" value={g.theme?.containerWidth ?? 1280} onChange={(e) => setG({ ...g, theme: { ...g.theme, containerWidth: Number(e.target.value) } })} /></div>
 
             <div className="af full"><label>Announcement bar text</label><input value={g.homepage?.announcement || ""} onChange={(e) => setG({ ...g, homepage: { ...g.homepage, announcement: e.target.value } })} /></div>
+            <div className="af full"><label>2nd announcement bar — bottom of hero section</label><input value={g.homepage?.heroBottomAnnouncement || ""} onChange={(e) => setG({ ...g, homepage: { ...g.homepage, heroBottomAnnouncement: e.target.value } })} placeholder="e.g. FREE DELIVERY OVER ৳5,000" /><div style={{ fontSize: 12, color: "var(--muted)", marginTop: 4 }}>Hero section er sheshe dekha jabe. Empty rakhle bar ta hide thake.</div></div>
             <div className="cfg-note full">Hero images, copy and links এখন <b>Homepage Layout → Hero Carousel</b> থেকে manage করুন.</div>
             <F k="promoTitle" label="Promo banner title" group="homepage" />
             <F k="promoText" label="Promo banner text" group="homepage" />
@@ -475,7 +521,7 @@ export default function SettingsClient({ groups, user, userCount, hasCourier, co
 
       {tab === "Homepage Layout" && (
         <>
-          <HomepageLayoutTab groups={g} save={save} busy={busy} collections={collections} />
+          <HomepageLayoutTab groups={g} save={save} busy={busy} collections={collections} products={products} />
           <div className="acard" style={{ marginTop: 16 }}>
             <div className="acard-h"><h3>Hero Carousel</h3><div>{saveBtn("homepage")}</div></div>
             <div className="acard-b">
@@ -484,6 +530,11 @@ export default function SettingsClient({ groups, user, userCount, hasCourier, co
                 busy={busy}
                 onChange={(heroSlides) => setG({ ...g, homepage: { ...g.homepage, heroSlides } })}
                 onUpload={uploadHeroSlideImage}
+              />
+              <HeroProductsPicker
+                homepage={g.homepage || {}}
+                products={products}
+                onChange={(heroProductIds) => setG({ ...g, homepage: { ...g.homepage, heroProductIds } })}
               />
             </div>
           </div>

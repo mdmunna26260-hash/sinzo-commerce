@@ -38,12 +38,18 @@ model Setting {
 }
 
 model Category {
-  id          Int       @id @default(autoincrement())
+  id          Int        @id @default(autoincrement())
   name        String
-  slug        String    @unique
+  slug        String     @unique
   description String?
-  sizeChart   String?   // HTML table for size guide
+  sizeChart   String?    // HTML table for size guide
   image       String?
+  // 3-level tree: main category (parentId = null) → sub category → child category.
+  // Deleting a parent re-homes its children as main categories (SetNull), products
+  // lose their category link rather than being deleted.
+  parentId    Int?
+  parent      Category?  @relation("CategoryTree", fields: [parentId], references: [id], onDelete: SetNull)
+  children    Category[] @relation("CategoryTree")
   products    Product[]
 }
 

@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { getSettings, publicSettings } from "@/lib/settings";
 import { getCategories } from "@/lib/catalog";
+import { navCats } from "@/lib/category-tree";
 import { getSessionUser } from "@/lib/auth";
 import { Header, Footer } from "@/components/chrome";
 import { imgSrc, imgSrcSet } from "@/components/img-src";
@@ -88,7 +89,7 @@ export default async function BlogPostPage(props: Props) {
 
   return (
     <>
-      <Header storeName={store.name || "Store"} categories={cats.map((c) => ({ name: c.name, slug: c.slug }))} />
+      <Header storeName={store.name || "Store"} categories={navCats(cats)} />
       {articleLd && <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(articleLd).replace(/</g, "\\u003c") }} />}
       <main className="container blog-wrap">
         <nav className="blog-crumbs">
@@ -150,7 +151,7 @@ export default async function BlogPostPage(props: Props) {
           </section>
         )}
       </main>
-      <Footer cfg={{ ...cfg, _nav: { categories: cats.map((c) => ({ name: c.name, slug: c.slug })) } }} />
+      <Footer cfg={{ ...cfg, _nav: { categories: navCats(cats) } }} />
     </>
   );
 }

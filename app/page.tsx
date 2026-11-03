@@ -4,6 +4,7 @@ import type { CSSProperties } from "react";
 import { db } from "@/lib/db";
 import { getSettings, publicSettings } from "@/lib/settings";
 import { getCategories } from "@/lib/catalog";
+import { navCats } from "@/lib/category-tree";
 import { Header, Footer, Announcement } from "@/components/chrome";
 import { ProductCard } from "@/components/parts";
 import { CartProvider } from "@/components/store";
@@ -171,31 +172,17 @@ async function HomeContent() {
   }));
   const sectionCfg = mergeHomeSections(s.homeSections);
 
-  const values = ["Cash on Delivery", "Delivery in 24–72h", "7-Day Easy Returns", "100% Authentic"];
 
   const sections: Record<string, React.ReactNode> = {
-    hero: heroSlides.length ? <HeroCarousel key="hero" slides={heroSlides} intervalMs={6000} /> : null,
-    values: (
-      <div className="values" key="values">
-        <div className="container values-inner2">
-          {values.map((v, i) => <span key={v} className="reveal" style={{ "--rd": i } as CSSProperties}>{v}</span>)}
-        </div>
-      </div>
-    ),
-    quicklinks: (
-      <nav className="home-shortcuts" aria-label="Shop and homepage shortcuts" key="quicklinks">
-        <div className="container home-shortcuts-track">
-          <span className="home-shortcuts-label">Discover</span>
-          <Link href="#new-arrivals">New in</Link>
-          {discountProducts.length > 0 && <Link href="#offers">Offers</Link>}
-          {limitedProducts.length > 0 && <Link href="#limited-availability">Limited</Link>}
-          {cats.slice(0, 5).map((category) => <Link key={category.id} href={`/products?category=${encodeURIComponent(category.slug)}`}>{category.name}</Link>)}
-          <Link href="/products">Shop all <span aria-hidden="true">→</span></Link>
-        </div>
-      </nav>
-    ),
+    hero: heroSlides.length ? (
+      <>
+        <HeroCarousel key="hero" slides={heroSlides} intervalMs={6000} />
+        {/* 2nd announcement bar at the END of the hero — text from Settings → Homepage */}
+        <Announcement text={hp.heroBottomAnnouncement} className="announce-hero-bottom" />
+      </>
+    ) : null,
     featured: (
-      <section className="section container" id="new-arrivals" key="featured">
+      <section className="section container section-tight-top" id="new-arrivals" key="featured">
         <Head no="01" eyebrow="Created for you" title={featuredCol?.title || "New Arrivals"} href={"/collections/" + featuredSlug} />
         <ProductShelf products={featuredProducts} />
       </section>
@@ -281,13 +268,13 @@ async function HomeContent() {
   return (
     <CartProvider>
       <Announcement text={hp.announcement} />
-      <Header storeName={cfg.store?.name || "Store"} categories={cats.map((c) => ({ name: c.name, slug: c.slug }))} />
+      <Header storeName={cfg.store?.name || "Store"} categories={navCats(cats)} />
 
       {sectionCfg.filter((x) => x.enabled).map((x) => (
         <Fragment key={x.id}>{sections[x.id] ? <SafeSection id={x.id}>{sections[x.id]}</SafeSection> : null}</Fragment>
       ))}
 
-      <Footer cfg={{ ...cfg, _nav: { categories: cats.map((c) => ({ name: c.name, slug: c.slug })) } }} />
+      <Footer cfg={{ ...cfg, _nav: { categories: navCats(cats) } }} />
     </CartProvider>
   );
 }

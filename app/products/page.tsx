@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 import { getSettings, publicSettings } from "@/lib/settings";
 import { getCategories } from "@/lib/catalog";
+import { navCats } from "@/lib/category-tree";
 import { productSearchWhere, resolveCategorySlug, clean } from "@/lib/search";
 import { Header, Footer, Announcement } from "@/components/chrome";
 import { ProductCard } from "@/components/parts";
@@ -9,12 +10,17 @@ import { Suspense } from "react";
 import ShopLayout from "./shop-layout";
 import InfiniteGrid from "./infinite-grid";
 import Link from "next/link";
+import { seoKeywords } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
 
 type SP = { q?: string; category?: string; min?: string; max?: string; size?: string; color?: string; avail?: string; sort?: string; onsale?: string };
 
-export const metadata = { title: "Shop All" };
+export const metadata = {
+  title: "Shop All",
+  description: "Shop pants, baggy trousers, wide leg pants, jackets, coats, shirts, dresses and more at SINZO — cash on delivery all over Bangladesh.",
+  keywords: seoKeywords(["shop all", "all products", "pant", "baggy", "jacket"]),
+};
 
 export default async function ProductsPage(props: { searchParams: Promise<SP> }) {
   const searchParams = await props.searchParams;
@@ -52,7 +58,7 @@ export default async function ProductsPage(props: { searchParams: Promise<SP> })
   return (
     <>
       <Announcement text={s.homepage?.announcement} />
-      <Header storeName={cfg.store?.name || "Store"} categories={cats.map((c) => ({ name: c.name, slug: c.slug }))} />
+      <Header storeName={cfg.store?.name || "Store"} categories={navCats(cats)} />
       <div className="container shop-wrap">
         <div className="eyebrow">{activeCat ? "Category" : sp.q ? "Search" : "Shop"}</div>
         <h1 className="shop-title">
@@ -73,7 +79,7 @@ export default async function ProductsPage(props: { searchParams: Promise<SP> })
           <Results sp={{ ...sp, category: resolvedCat || undefined }} unknownCategory={catUnknown} cats={cats} sizes={allSizes} />
         </Suspense>
       </div>
-      <Footer cfg={{ ...cfg, _nav: { categories: cats.map((c) => ({ name: c.name, slug: c.slug })) } }} />
+      <Footer cfg={{ ...cfg, _nav: { categories: navCats(cats) } }} />
     </>
   );
 }
@@ -157,7 +163,7 @@ async function Results({ sp, cats, sizes, unknownCategory }: { sp: SP; cats: { i
   };
 
   return (
-    <ShopLayout count={totalMatching} cats={cats.map((c) => ({ name: c.name, slug: c.slug }))} sizes={sizes}>
+    <ShopLayout count={totalMatching} cats={navCats(cats)} sizes={sizes}>
       {activeChips.length > 0 && (
         <div className="chips">
           {activeChips.map((c) => (

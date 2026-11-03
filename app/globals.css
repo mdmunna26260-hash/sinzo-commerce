@@ -122,12 +122,17 @@ h1, h2, h3, .serif { font-family: var(--font-head); font-weight: 500; letter-spa
 /* ---------- Hero ---------- */
 .hero { position: relative; overflow: hidden; }
 .hero-img { width: 100%; height: 72vh; min-height: 440px; max-height: 700px; object-fit: cover; }
-.hero-overlay { position: absolute; inset: 0; background: linear-gradient(90deg, rgba(250,249,247,.88) 0%, rgba(250,249,247,.55) 40%, transparent 70%); display: flex; align-items: center; }
+.hero-overlay { position: absolute; inset: 0; background: linear-gradient(90deg, rgba(250,249,247,.80) 0%, rgba(250,249,247,.48) 42%, rgba(250,249,247,.12) 62%, transparent 80%); display: flex; align-items: center; }
 .hero-content { max-width: 520px; padding: 0 48px; }
 .hero-content h1 { font-size: clamp(38px, 5.4vw, 68px); line-height: 1.02; margin: 14px 0 18px; white-space: pre-line; color: var(--text); font-weight: 500; }
 .hero-content p { color: var(--muted); font-size: 16px; margin-bottom: 28px; max-width: 420px; line-height: 1.65; font-weight: 450; }
 :root[data-theme="dark"] .hero-content p { color: #c9c3b7; }
-:root[data-theme="dark"] .hero-overlay { background: linear-gradient(90deg, rgba(19,18,16,.90) 0%, rgba(19,18,16,.65) 40%, rgba(19,18,16,.2) 75%); }
+/* dark scrim: two layers — the left plate keeps the headline legible, and a second fade
+   anchored at the BOTTOM (starts lower, dissolves upward) so the photo breathes at the top
+   and the black melts gradually instead of ending in a visible edge */
+:root[data-theme="dark"] .hero-overlay { background:
+  linear-gradient(0deg, rgba(19,18,16,.38) 0%, rgba(19,18,16,.16) 26%, transparent 50%),
+  linear-gradient(90deg, rgba(19,18,16,.88) 0%, rgba(19,18,16,.70) 26%, rgba(19,18,16,.48) 46%, rgba(19,18,16,.26) 64%, rgba(19,18,16,.08) 80%, transparent 90%); }
 :root[data-theme="dark"] .hero-content h1 { color: #fdfaf3; }
 
 /* ---------- Sections ---------- */
@@ -221,8 +226,6 @@ button.image-progress-segment:focus-visible::after {
 .promo img { width: 100%; height: 420px; object-fit: cover; }
 
 /* value props */
-.values { border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
-.values-inner { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; padding: 34px 0; }
 .value { text-align: center; font-size: 12px; letter-spacing: .1em; color: var(--muted); text-transform: uppercase; display: flex; flex-direction: column; gap: 8px; align-items: center; }
 .value svg { color: var(--accent); }
 
@@ -262,30 +265,6 @@ button.image-progress-segment:focus-visible::after {
 .st-btn { display: inline-flex; align-items: center; gap: 7px; background: none; border: 1px solid var(--line); padding: 9px 16px; font-size: 12px; letter-spacing: .08em; border-radius: var(--radius); color: var(--text); min-height: 38px; }
 .st-btn:hover { border-color: var(--text); }
 .st-right { display: flex; align-items: center; justify-content: flex-end; gap: 8px; min-width: 0; }
-.auto-scroll-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  min-height: 38px;
-  padding: 8px 13px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  background: transparent;
-  color: var(--text);
-  font: inherit;
-  font-size: 11px;
-  letter-spacing: .09em;
-  text-transform: uppercase;
-  white-space: nowrap;
-  cursor: pointer;
-  transition: background .2s ease, color .2s ease, border-color .2s ease;
-}
-.auto-scroll-btn:hover { border-color: var(--text); }
-.auto-scroll-btn.is-active { border-color: var(--text); background: var(--text); color: var(--bg); }
-.auto-scroll-btn:disabled { cursor: not-allowed; opacity: .45; }
-.auto-scroll-icon { display: inline-flex; width: 15px; height: 15px; align-items: center; justify-content: center; font-size: 12px; line-height: 1; }
-.auto-scroll-short { display: none; }
 .collection-browse-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 20px 0 26px; padding: 12px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
 .collection-browse-toolbar > span { color: var(--muted); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; }
 .sort-select { border: 1px solid var(--line); background: transparent; border-radius: var(--radius); padding: 9px 12px; font-size: 12px; letter-spacing: .08em; color: var(--text); min-height: 38px; cursor: pointer; max-width: 52%; appearance: none; -webkit-appearance: none; background-image: linear-gradient(45deg, transparent 50%, var(--text) 50%), linear-gradient(135deg, var(--text) 50%, transparent 50%); background-position: calc(100% - 14px) calc(50% + 1px), calc(100% - 9px) calc(50% + 1px); background-size: 5px 5px, 5px 5px; background-repeat: no-repeat; padding-right: 30px; }
@@ -298,9 +277,6 @@ button.image-progress-segment:focus-visible::after {
 }
 @media (max-width: 420px) {
   .st-right { width: 100%; padding-top: 2px; }
-  .shop-toolbar .auto-scroll-wide { display: none; }
-  .shop-toolbar .auto-scroll-short { display: inline; }
-  .shop-toolbar .auto-scroll-btn { margin-right: auto; }
 }
 
 /* filter chips */
@@ -353,9 +329,24 @@ button.image-progress-segment:focus-visible::after {
 .empty h3 { font-size: 22px; color: var(--text); margin-bottom: 8px; }
 
 /* ---------- PDP ---------- */
-.pdp { display: grid; grid-template-columns: 1.1fr 1fr; gap: 56px; align-items: start; padding: 44px 0 72px; }
-.pdp-gallery { display: grid; grid-template-columns: 72px 1fr; gap: 12px; position: sticky; top: 90px; align-items: start; }
-.thumbs { display: flex; flex-direction: column; gap: 10px; grid-column: 1; grid-row: 1; }
+/* minmax(0,…) + min-width:0 on children: without these the grid tracks refuse to shrink
+   below their content's min-content width (qty stepper + wide CTA), the whole .pdp grid
+   overflows the container at ~900–1100px and the Buy/Add buttons render cut off. */
+.pdp { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 56px; align-items: start; padding: 44px 0 72px; }
+.pdp-gallery, .pdp-info { min-width: 0; }
+.pdp-gallery { display: grid; grid-template-columns: 72px minmax(0, 1fr); gap: 12px; position: sticky; top: 90px; align-items: start; }
+.pdp-main-img, .thumbs { min-width: 0; }
+/* mid widths: keep two columns but tighten the gutter so nothing overflows */
+@media (min-width: 900px) and (max-width: 1150px) {
+  .pdp { gap: 28px; padding: 32px 0 56px; }
+  .pdp-gallery { grid-template-columns: 60px minmax(0, 1fr); gap: 10px; }
+  .pdp-actions .btn { font-size: 15px; padding: 0 20px; min-height: 54px; }
+}
+/* Vertical thumb rail: with 10+ images it must scroll/swipe inside the viewport
+   (never overflow invisibly) — max-height capped to the sticky gallery viewport. */
+.thumbs { display: flex; flex-direction: column; gap: 10px; grid-column: 1; grid-row: 1; max-height: calc(100vh - 130px); overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; -webkit-overflow-scrolling: touch; scroll-snap-type: y proximity; padding-right: 2px; }
+.thumbs::-webkit-scrollbar { display: none; }
+.thumbs button { scroll-snap-align: start; }
 .thumbs button { padding: 0; border: 1px solid var(--line); background: none; cursor: pointer; border-radius: var(--radius); overflow: hidden; opacity: .55; transition: opacity .2s ease, border-color .2s ease; }
 .thumbs button.active { opacity: 1; border-color: var(--text); }
 .thumbs img { width: 100%; aspect-ratio: 3/4; object-fit: cover; display: block; }
@@ -367,6 +358,14 @@ button.image-progress-segment:focus-visible::after {
 .gal-count { position: absolute; bottom: 12px; left: 12px; background: rgba(255,255,255,.92); font-size: 11px; letter-spacing: .12em; padding: 4px 12px; border-radius: 99px; z-index: 3; color: var(--text); }
 .gal-zoom { position: absolute; top: 12px; right: 12px; width: 40px; height: 40px; border-radius: 99px; background: rgba(255,255,255,.94); border: 1px solid var(--line); color: var(--text); display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 3; transition: background .2s ease, transform .2s ease; }
 @media (hover: hover) { .gal-zoom:hover { background: #fff; transform: scale(1.06); } }
+/* dark mode: these pills are white with color:var(--text) — and --text turns near-white in dark,
+   so the icon vanished on a white disc. Flip the pill dark with a light icon instead. */
+:root[data-theme="dark"] .gal-zoom,
+:root[data-theme="dark"] .mgal-expand { background: rgba(19,18,16,.82); border-color: rgba(248,245,239,.22); color: #f8f5ef; }
+@media (hover: hover) { :root[data-theme="dark"] .gal-zoom:hover { background: rgba(19,18,16,.95); transform: scale(1.06); } }
+:root[data-theme="dark"] .mgal-expand:active { background: rgba(19,18,16,.95); }
+:root[data-theme="dark"] .gal-count,
+:root[data-theme="dark"] .mgal-count { background: rgba(19,18,16,.82); color: #f8f5ef; }
 
 /* lightbox */
 .lightbox { position: fixed; inset: 0; background: rgba(250,249,247,.98); z-index: 120; display: flex; align-items: center; justify-content: center; animation: lbfade .2s ease; }
@@ -383,8 +382,9 @@ button.image-progress-segment:focus-visible::after {
 .lb-nav.next { right: 18px; }
 @media (max-width: 900px) {
   .pdp-gallery { display: flex; flex-direction: column; }
-  .thumbs { flex-direction: row; overflow-x: auto; padding-bottom: 4px; }
-  .thumbs button { flex: 0 0 60px; }
+  .thumbs { flex-direction: row; overflow-x: auto; padding-bottom: 4px; max-height: none; scrollbar-width: none; -webkit-overflow-scrolling: touch; scroll-snap-type: x proximity; }
+  .thumbs::-webkit-scrollbar { display: none; }
+  .thumbs button { flex: 0 0 60px; scroll-snap-align: start; }
 }
 .pdp-info h1 { font-size: clamp(26px, 3vw, 36px); margin: 10px 0 6px; }
 .pdp-price { font-size: 22px; display: flex; gap: 14px; align-items: baseline; margin: 14px 0; }
@@ -393,7 +393,7 @@ button.image-progress-segment:focus-visible::after {
 .pdp-desc { color: var(--muted); font-size: 14.5px; margin: 14px 0 22px; }
 .opt-label { font-size: 11px; letter-spacing: .18em; text-transform: uppercase; color: var(--muted); margin: 20px 0 10px; }
 .sizes { display: flex; gap: 10px; flex-wrap: wrap; }
-.size-btn { min-width: 52px; padding: 11px 14px; border: 1px solid var(--line); background: #fff; font-size: 13px; color: var(--text); font-weight: 550; border-radius: var(--radius); transition: border-color .18s ease, background .18s ease, color .18s ease, transform .12s ease; }
+.size-btn { min-width: 52px; padding: 11px 18px; border: 1px solid var(--line); background: #fff; font-size: 13px; color: var(--text); font-weight: 550; border-radius: 999px; transition: border-color .18s ease, background .18s ease, color .18s ease, transform .12s ease; }
 .size-btn.active { border-color: var(--text); background: var(--text); color: var(--bg); }
 .size-btn:disabled { opacity: .28; cursor: not-allowed; text-decoration: line-through; }
 .size-btn:not(:disabled):hover { border-color: var(--text); }
@@ -408,7 +408,7 @@ button.image-progress-segment:focus-visible::after {
 .pdp-meta { border-top: 1px solid var(--line); margin-top: 24px; padding-top: 20px; display: grid; gap: 10px; font-size: 13px; color: var(--muted); }
 .pdp-meta div { display: flex; gap: 10px; align-items: center; }
 .pdp-meta svg { color: var(--accent); flex: none; }
-.sizechart-link { background: none; border: 1px solid var(--text); border-radius: var(--radius); font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--text); padding: 8px 16px; margin-left: 6px; cursor: pointer; transition: background .2s ease, color .2s ease; }
+.sizechart-link { background: none; border: 1px solid var(--text); border-radius: 999px; font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--text); padding: 8px 18px; margin-left: 6px; cursor: pointer; transition: background .2s ease, color .2s ease; }
 .sizechart-link:hover { background: var(--text); color: var(--bg); }
 .modal-bg { position: fixed; inset: 0; background: rgba(20,20,20,.5); z-index: 90; display: flex; align-items: center; justify-content: center; padding: 20px; }
 .modal { background: #fff; max-width: 560px; width: 100%; border-radius: var(--radius); padding: 34px; max-height: 84vh; overflow: auto; position: relative; }
@@ -481,6 +481,9 @@ button.image-progress-segment:focus-visible::after {
 /* ---------- Checkout ---------- */
 .checkout-page { padding: 28px 24px 80px; }
 .checkout-h1 { font-size: clamp(26px, 3.4vw, 38px); margin: 10px 0 24px; font-weight: 600; letter-spacing: -.015em; }
+.checkout-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.checkout-home-btn { min-height: 40px; padding: 0 18px; font-size: 13px; border-radius: 999px; border: 1px solid var(--line); background: transparent; color: var(--text); text-decoration: none; white-space: nowrap; }
+.checkout-home-btn:hover { border-color: var(--text); }
 .checkout-layout { display: grid; grid-template-columns: 1.4fr 1fr; gap: 36px; align-items: start; padding: 10px 0 40px; }
 .field { margin-bottom: 16px; }
 .field label { display: block; font-size: 11px; letter-spacing: .16em; text-transform: uppercase; color: var(--muted); margin-bottom: 7px; }
@@ -791,9 +794,8 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 13.5px; }
   .pdp-gallery { position: static; }
   .cart-layout, .checkout-layout { grid-template-columns: 1fr; }
   .hero-img { height: 64vh; }
-  .hero-overlay { background: linear-gradient(180deg, transparent 30%, rgba(250,249,247,.92) 78%); align-items: flex-end; }
+  .hero-overlay { background: linear-gradient(180deg, transparent 34%, rgba(250,249,247,.84) 80%); align-items: flex-end; }
   .hero-content { padding: 0 24px 40px; max-width: 100%; }
-  .values-inner { grid-template-columns: 1fr 1fr; }
 }
 @media (max-width: 640px) {
   .shop-grid { gap: 18px 10px; }
@@ -856,7 +858,7 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 13.5px; }
 
 /* ---------- Mobile performance & pixel-perfect pass ---------- */
 /* render only what's on screen (below-fold sections skip layout cost) */
-.section, .values, .promo { content-visibility: auto; contain-intrinsic-size: auto 480px; }
+.section, .promo { content-visibility: auto; contain-intrinsic-size: auto 480px; }
 
 /* vertical scroll stays smooth while horizontal swipe changes gallery images */
 .pdp-main-img { touch-action: pan-y; }
@@ -1033,6 +1035,13 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 13.5px; }
 .announce-track { display: inline-flex; animation: szmarquee 30s linear infinite; will-change: transform; }
 .announce-item { display: inline-flex; align-items: center; padding: 5px 0; }
 .announce-dot { font-size: 7px; margin: 0 26px; opacity: .55; font-style: normal; }
+/* second announcement bar, pinned to the END of the hero section.
+   STATIC by request — no marquee animation, single centred copy. */
+.announce-hero-bottom { border-top: 1px solid rgba(255,255,255,.14); }
+.announce-hero-bottom .announce-track { animation: none; }
+.announce-hero-bottom .announce-item:nth-child(n+2) { display: none; }
+/* first homepage section after the hero sits closer to the bar (no big blank gap) */
+.section.section-tight-top { padding-top: 30px; }
 @keyframes szmarquee { to { transform: translateX(-50%); } }
 @media (prefers-reduced-motion: reduce) { .announce-track { animation: none; } }
 
@@ -1042,10 +1051,6 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 13.5px; }
 .btn-ghost:hover { background: var(--text); color: var(--bg); }
 
 /* values: text-only strip */
-.values-inner2 { display: flex; justify-content: center; flex-wrap: wrap; row-gap: 10px; padding: 22px 0; }
-.values-inner2 span { font-size: 10.5px; letter-spacing: .22em; text-transform: uppercase; color: var(--muted); padding: 0 26px; position: relative; }
-.values-inner2 span + span::before { content: ""; position: absolute; left: 0; top: 50%; transform: translateY(-50%); width: 1px; height: 11px; background: var(--line); }
-@media (max-width: 640px) { .values-inner2 { justify-content: flex-start; gap: 8px 0; } .values-inner2 span { padding: 0 14px; font-size: 9.5px; } }
 
 /* section head v2 */
 .section-head2 { display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; margin-bottom: 30px; }
@@ -1395,6 +1400,15 @@ a, button, [role="button"], label, summary, input, select, textarea,
 }
 .mgal-slide { overflow: hidden; }
 .mgal-img { object-fit: cover; } /* fills edge-to-edge — no blank bars top/bottom */
+/* "view original image" — opens the full-size photo (same as PC lightbox) */
+.mgal-expand {
+  position: absolute; top: 10px; right: 10px; z-index: 3;
+  width: 38px; height: 38px; border-radius: 99px;
+  background: rgba(255,255,255,.94); border: 1px solid var(--line); color: var(--text);
+  display: flex; align-items: center; justify-content: center; cursor: pointer;
+  transition: background .2s ease, transform .2s ease;
+}
+.mgal-expand:active { transform: scale(.92); background: #fff; }
 .mgal-track {
   display: flex;
   height: 100%;
@@ -1419,8 +1433,10 @@ a, button, [role="button"], label, summary, input, select, textarea,
   transition: opacity .25s ease;
   background: transparent;
 }
+/* without this the "loaded" class had no effect → opacity stayed 0 and the PDP
+   mobile gallery rendered a blank frame forever (the actual bug) */
 .mgal-img.loaded { opacity: 1; }
-@media (prefers-reduced-motion: reduce) { .mgal-img { transition: none; } }
+.mgal-imedia (prefers-reduced-motion: reduce) { .mgal-img { transition: none; } }
 
 /* counter — matches existing .gal-count style */
 .mgal-count {
@@ -1696,7 +1712,7 @@ body { padding-bottom: env(safe-area-inset-bottom, 0px); }
   .footer { padding: 48px 0 24px; }
 
   /* hero: slight overlay lift */
-  .hero-overlay { background: linear-gradient(90deg, rgba(250,249,247,.90) 0%, rgba(250,249,247,.50) 40%, transparent 70%); }
+  .hero-overlay { background: linear-gradient(90deg, rgba(250,249,247,.82) 0%, rgba(250,249,247,.48) 42%, rgba(250,249,247,.12) 62%, transparent 80%); }
 }
 
 /* ---------- MOBILE POLISH ---------- */
@@ -2324,11 +2340,10 @@ h1, h2, h3 { text-wrap: balance; }
 .admin-side .theme-switch.on { background: #c2a06b; }
 .admin-topbar .theme-toggle { color: var(--ad-text); }
 
-/* Hero is a LIGHT image in both themes — keep light-theme colors inside it
-   (heading + ghost CTA were inverting to light-on-light in dark mode). */
-:root[data-theme="dark"] .hero,
-:root[data-theme="dark"] .hero-content { --text: #141414; --muted: #5c5852; --bg: #faf9f7; color: #141414; }
-:root[data-theme="dark"] .hero h1 { color: #141414; }
+/* Hero in dark mode uses the DARK scrim + light text (see the hero block above:
+   :root[data-theme="dark"] .hero-overlay / .hero-content h1 / p). The old rules here
+   forced #141414 text in dark mode — invisible on the dark scrim on desktop. Removed. */
+:root[data-theme="dark"] .hero-count { color: #f8f5ef; }
 
 /* Smooth theme switch: class is added for ~450ms on toggle (theme-toggle.tsx).
    Scoped to the transition window so hover/reveal animations stay normal. */
@@ -2343,6 +2358,31 @@ html.theme-transition *::after {
   html.theme-transition *,
   html.theme-transition *::before,
   html.theme-transition *::after { transition: none !important; }
+}
+
+/* ---------- View Transitions: circular theme reveal from the click point ----------
+   theme-toggle.tsx runs the data-theme flip inside document.startViewTransition and
+   stores the click point in --vt-x/--vt-y. The OLD snapshot stays put; the NEW theme
+   is clipped to a circle at the click point that grows to cover the viewport —
+   dark mode "spreads" out of the button, light mode collapses back the same way. */
+::view-transition-old(root) {
+  animation: none;
+  z-index: 1;
+}
+::view-transition-new(root) {
+  animation: none;
+  z-index: 2147483646;
+  clip-path: circle(0px at var(--vt-x, 50%) var(--vt-y, 50%));
+  animation: vt-circle-in .6s var(--ease, ease) forwards;
+}
+@keyframes vt-circle-in {
+  /* --vt-r is computed in JS as the exact distance from the click point to the
+     farthest viewport corner (+24px margin) — the circle always ends up covering
+     the ENTIRE visible page, starting from the toggle button itself */
+  to { clip-path: circle(var(--vt-r, 150%) at var(--vt-x, 50%) var(--vt-y, 50%)); }
+}
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(root), ::view-transition-new(root) { animation: none !important; clip-path: none !important; }
 }
 
 /* Active size selection in dark: the glass rule above makes it near-black
@@ -2645,7 +2685,9 @@ html.theme-transition *::after {
   /* the headline sits at ~35% of the hero height while the paper scrim used to reach .92 opacity only
      at 78% → eyebrow + first line were text on a bare photo (muted #5c5852 over a beige coat).
      Bring the plate up so the copy always lands on paper, and keep the bottom fully solid. */
-  .hero-overlay { background: linear-gradient(rgba(250, 249, 247, 0) 12%, rgba(250, 249, 247, .86) 34%, rgba(250, 249, 247, .96) 62%, var(--bg) 100%) !important; }
+  .hero-overlay { background: linear-gradient(rgba(250, 249, 247, 0) 10%, rgba(250, 249, 247, .72) 32%, rgba(250, 249, 247, .92) 60%, var(--bg) 100%) !important; }
+  /* dark mode: same plate, but charcoal — light hero text must not sit on the paper scrim */
+  :root[data-theme="dark"] .hero-overlay { background: linear-gradient(rgba(19, 18, 16, 0) 8%, rgba(19, 18, 16, .45) 24%, rgba(19, 18, 16, .80) 40%, rgba(19, 18, 16, .95) 68%, #131210 100%) !important; }
 }
 /* ---------- 11. PDP buy row (reference shot: qty stepper + outlined "Add to cart" on one line, solid
    "Buy it now" pill full width underneath). Kept at the very END of the sheet on purpose: .pdp-actions .btn
@@ -2655,10 +2697,11 @@ html.theme-transition *::after {
    1.6px measured back as 1px. The stepper is deliberately the quiet element: grey outline, grey − / + and
    grey dividers, ink number — in the reference only the button labels and the pill outline are black. ---------- */
 .pdp-actions { display: grid; gap: 16px; margin: 26px 0 10px; }
-.pdp-buy-row { display: flex; gap: 14px; align-items: stretch; }
+.pdp-buy-row { display: flex; gap: 14px; align-items: stretch; flex-wrap: wrap; }
+.pdp-buy-row .qty { flex: none; }
 .pdp-actions .btn { border: 2px solid var(--text); border-radius: 999px; text-transform: none;
-  letter-spacing: .01em; font-size: 17px; font-weight: 500; min-height: 60px; padding: 0 28px; width: auto; }
-.pdp-actions .pdp-add { flex: 1 1 auto; background: transparent; color: var(--text); }
+  letter-spacing: .01em; font-size: 17px; font-weight: 500; min-height: 60px; padding: 0 28px; width: auto; min-width: 0; }
+.pdp-actions .pdp-add { flex: 1 1 200px; background: transparent; color: var(--text); }
 @media (hover: hover) { .pdp-actions .pdp-add:hover { background: var(--text); color: var(--bg); opacity: 1; } }
 .pdp-actions .pdp-buy { width: 100%; }
 /* min-height on the pill itself (not a fixed child height) so stepper and buttons land on the same box
@@ -3089,6 +3132,26 @@ html.theme-transition *::after {
   .toast { animation: fadeup .25s ease; }
   .toast.out { opacity: 0; }
 }
+
+/* ---------- H2. "Added to cart" rich toast — item thumb + title + size/qty + View cart ----------
+   Base .toast is a dark pill (bg:var(--text)); the cart card swaps that: page-colored card,
+   so it reads correctly in BOTH themes via the CSS vars. Same slide-up enter/exit. */
+.toast-cart {
+  display: flex; align-items: center; gap: 12px;
+  background: var(--bg); color: var(--text);
+  border: 1px solid var(--line); border-radius: 16px;
+  padding: 10px 14px; max-width: min(92vw, 400px);
+  box-shadow: 0 14px 40px rgba(0,0,0,.22);
+  font-size: 13px; letter-spacing: 0; text-align: left;
+}
+.toast-cart-img { width: 46px; height: 60px; object-fit: cover; border-radius: 10px; flex: none; background: var(--card); }
+.toast-cart-noimg { display: flex; align-items: center; justify-content: center; color: var(--muted); font-weight: 600; }
+.toast-cart-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.toast-cart-body b { font-size: 13px; }
+.toast-cart-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 200px; }
+.toast-cart-meta { color: var(--muted); font-size: 12px; }
+.toast-cart-link { flex: none; margin-left: 4px; font-size: 11.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--text); border: 1px solid var(--line); border-radius: 99px; padding: 8px 14px; text-decoration: none; transition: background .2s ease, color .2s ease; }
+.toast-cart-link:hover { background: var(--text); color: var(--bg); }
 
 /* ---------- I. Reduced motion: notun sob kichu off ---------- */
 @media (prefers-reduced-motion: reduce) {
@@ -3941,6 +4004,8 @@ body:has(.admin-body) .scroll-progress { display: none !important; }
   color: #141414;
   backdrop-filter: blur(10px);
 }
+/* arrows removed from the hero — dots only, so the glass pill hugs just the dots */
+.hero-controls-dots-only { padding: 9px 14px; }
 .hero-arrow { width: 34px; height: 30px; border: 0; background: transparent; color: inherit; font: 300 23px/1 var(--font-body); cursor: pointer; }
 .hero-dots { display: flex; gap: 5px; align-items: center; }
 .hero-dots button { width: 20px; height: 2px; padding: 0; border: 0; background: rgba(20,20,20,.25); transition: width .25s ease, background .25s ease; cursor: pointer; }
@@ -3960,21 +4025,6 @@ body:has(.admin-body) .scroll-progress { display: none !important; }
 .hero-count b { font-size: 12px; font-weight: 650; }
 .hero-count span { width: 32px; height: 1px; background: currentColor; opacity: .45; }
 
-.home-shortcuts { border-bottom: 1px solid var(--line); background: var(--bg); }
-.home-shortcuts-track {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  overflow-x: auto;
-  padding-top: 12px;
-  padding-bottom: 12px;
-  scrollbar-width: none;
-  white-space: nowrap;
-}
-.home-shortcuts-track::-webkit-scrollbar { display: none; }
-.home-shortcuts-label { margin-right: 8px; color: var(--muted); font-size: 9px; letter-spacing: .22em; text-transform: uppercase; }
-.home-shortcuts a { padding: 8px 13px; border: 1px solid var(--line); border-radius: 99px; color: var(--text); font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; transition: border-color .2s ease, background .2s ease; }
-.home-shortcuts a:hover { border-color: var(--text); background: var(--card); }
 .home-recently .recent-strip { gap: 16px; padding-bottom: 8px; }
 .home-recently .recent-card { flex-basis: 170px; }
 .home-recently .recent-card img { width: 170px; height: 226px; }
@@ -3984,7 +4034,7 @@ body:has(.admin-body) .scroll-progress { display: none !important; }
   .hero-carousel .hero-media picture { height: min(670px, calc(100svh - 124px)); min-height: 500px; }
   .hero-carousel .hero-overlay {
     align-items: flex-end;
-    background: linear-gradient(rgba(250,249,247,0) 15%, rgba(250,249,247,.86) 47%, rgba(250,249,247,.98) 72%, var(--bg) 100%) !important;
+    background: linear-gradient(rgba(250,249,247,0) 16%, rgba(250,249,247,.72) 48%, rgba(250,249,247,.95) 74%, var(--bg) 100%) !important;
   }
   .hero-carousel .hero-content { max-width: 100%; padding: 0 20px 76px; }
   .hero-carousel .hero-content h1 { font-size: clamp(31px, 10vw, 43px); }
@@ -3996,10 +4046,7 @@ body:has(.admin-body) .scroll-progress { display: none !important; }
   .hero-dots button { width: 13px; }
   .hero-dots button.is-active { width: 26px; }
   .hero-count { display: none; }
-  .home-shortcuts-track { padding-inline: 16px; }
-  .home-shortcuts-label { display: none; }
-  .home-shortcuts a { padding: 7px 11px; font-size: 9.5px; }
-  .home-recently .recent-card { flex-basis: 142px; }
+        .home-recently .recent-card { flex-basis: 142px; }
   .home-recently .recent-card img { width: 142px; height: 189px; }
 }
 

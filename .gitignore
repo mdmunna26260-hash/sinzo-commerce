@@ -46,3 +46,6 @@ scripts/_sandbox/
 # WhatsApp broadcast uploads (runtime, machine-local)
 public/uploads/wa/
 .next-prod
+
+# sandbox-only helpers (local PG bootstrap etc.) — never commit
+sandbox/

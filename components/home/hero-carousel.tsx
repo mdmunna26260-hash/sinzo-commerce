@@ -119,17 +119,10 @@ export default function HeroCarousel({ slides, intervalMs = 6_000 }: { slides: H
                     <h1>{slide.title}</h1>
                     {slide.subtitle && <p>{slide.subtitle}</p>}
                     <div className="hero-actions">
-                      {slideIndex === 0 ? (
-                        <>
-                          <Link className="btn" href={slide.href} prefetch tabIndex={active ? undefined : -1}>{slide.cta}</Link>
-                          <Link className="btn btn-ghost" href="/track" prefetch tabIndex={active ? undefined : -1}>Track Order</Link>
-                        </>
-                      ) : (
-                        <>
-                          <Link className="btn" href="/products" prefetch tabIndex={active ? undefined : -1}>Shop All Products</Link>
-                          <Link className="btn btn-ghost" href={slide.href} prefetch tabIndex={active ? undefined : -1}>{slide.cta}</Link>
-                        </>
-                      )}
+                      {/* every slide shows the same two actions: Shop All Products
+                          + View piece (this slide's own target) */}
+                      <Link className="btn" href="/products" prefetch tabIndex={active ? undefined : -1}>Shop All Products</Link>
+                      <Link className="btn btn-ghost" href={slide.href || "/products"} prefetch tabIndex={active ? undefined : -1}>View piece</Link>
                     </div>
                   </div>
                 </div>
@@ -139,25 +132,9 @@ export default function HeroCarousel({ slides, intervalMs = 6_000 }: { slides: H
         })}
       </div>
 
-      {slides.length > 1 && (
-        <div className="hero-controls" aria-label="Hero slide controls">
-          <button type="button" className="hero-arrow" aria-label="Previous slide" onClick={() => { pauseAfterInteraction(); goTo((index - 1 + slides.length) % slides.length); }}>‹</button>
-          <div className="hero-dots" role="tablist" aria-label="Choose hero slide">
-            {slides.map((slide, slideIndex) => (
-              <button
-                type="button"
-                role="tab"
-                aria-selected={slideIndex === index}
-                aria-label={`Show slide ${slideIndex + 1}: ${slide.title}`}
-                key={slide.id}
-                className={slideIndex === index ? "is-active" : ""}
-                onClick={() => { pauseAfterInteraction(); goTo(slideIndex); }}
-              />
-            ))}
-          </div>
-          <button type="button" className="hero-arrow" aria-label="Next slide" onClick={() => { pauseAfterInteraction(); goTo((index + 1) % slides.length); }}>›</button>
-        </div>
-      )}
+      {/* no arrows, no dots — the hero is a pure swipe rail: horizontal swipe/drag
+          (touch or touchpad) turns slides via native scroll-snap; the count stays as
+          the only position indicator */}
       {slides.length > 1 && <div className="hero-count" aria-hidden="true"><b>{String(index + 1).padStart(2, "0")}</b><span />{String(slides.length).padStart(2, "0")}</div>}
     </section>
   );

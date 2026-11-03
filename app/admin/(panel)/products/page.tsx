@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { flattenCategoryTree } from "@/lib/category-tree";
 import { requireAdmin } from "@/lib/auth";
 import ProductsClient from "./client";
 
@@ -28,5 +29,5 @@ export default async function AdminProducts(props: { searchParams: Promise<any> 
     images: p.images.sort((a, b) => a.position - b.position).map((i) => i.url),
     variants: p.variants.map((v) => ({ id: v.id, size: v.size, color: v.color, sku: v.sku, price: v.price, stock: v.stock, image: v.image })),
   }));
-  return <ProductsClient initial={data} categories={categories.map((c) => ({ id: c.id, name: c.name }))} />;
+  return <ProductsClient initial={data} categories={flattenCategoryTree(categories).map((c) => ({ id: c.id, name: c.path }))} />;
 }

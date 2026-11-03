@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 import { getSettings, publicSettings } from "@/lib/settings";
 import { getCategories } from "@/lib/catalog";
+import { navCats } from "@/lib/category-tree";
 import { getCustomerSessionFromRequest } from "@/lib/customer-auth";
 import { Header, Footer, Announcement } from "@/components/chrome";
 import { redirect } from "next/navigation";
@@ -31,7 +32,7 @@ export default async function AccountPage(props: { searchParams: Promise<{ ct?: 
   return (
     <>
       <Announcement text={s.homepage?.announcement} />
-      <Header storeName={cfg.store?.name || "Store"} categories={cats.map((c) => ({ name: c.name, slug: c.slug }))} />
+      <Header storeName={cfg.store?.name || "Store"} categories={navCats(cats)} />
       <AccountClient
         customer={{ name: customer.name, phone: customer.phone, email: customer.email, address: customer.address, area: customer.area }}
         rewards={rewards}
@@ -42,7 +43,7 @@ export default async function AccountPage(props: { searchParams: Promise<{ ct?: 
           items: o.items.map((i) => ({ title: i.title, qty: i.qty, image: i.image, variant: i.variant })),
         }))}
       />
-      <Footer cfg={{ ...cfg, _nav: { categories: cats.map((c) => ({ name: c.name, slug: c.slug })) } }} />
+      <Footer cfg={{ ...cfg, _nav: { categories: navCats(cats) } }} />
     </>
   );
 }
