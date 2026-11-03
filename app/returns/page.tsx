@@ -1,6 +1,7 @@
 import { Header, Footer } from "@/components/chrome";
 import { getSettings, publicSettings } from "@/lib/settings";
 import { getCategories } from "@/lib/catalog";
+import { navCats } from "@/lib/category-tree";
 import { readPolicy } from "@/lib/policy";
 import { waLink, telLink } from "@/lib/phone";
 import Link from "next/link";
@@ -75,7 +76,7 @@ export default async function ReturnsPage() {
 
   return (
     <>
-      <Header storeName={store.name || "Store"} categories={cats.map((c) => ({ name: c.name, slug: c.slug }))} />
+      <Header storeName={store.name || "Store"} categories={navCats(cats)} />
       <div className="container">
         <div className="policy-head">
           <div className="eyebrow">Help · Policies</div>
@@ -255,7 +256,7 @@ export default async function ReturnsPage() {
           </div>
         </div>
       </div>
-      <Footer cfg={{ ...cfg, _nav: { categories: cats.map((c) => ({ name: c.name, slug: c.slug })) } }} />
+      <Footer cfg={{ ...cfg, _nav: { categories: navCats(cats) } }} />
     </>
   );
 }

@@ -67,9 +67,42 @@ export function sanitizeHeroSlides(value: unknown, includeDisabled = true): Home
   });
 }
 
+/* Sanitize the admin-picked hero product ids (Settings → Homepage Layout):
+   positive integers, de-duplicated, capped so the homepage payload stays small. */
+export function sanitizeHeroProductIds(value: unknown): number[] {
+  if (!Array.isArray(value)) return [];
+  const seen = new Set<number>();
+  const out: number[] = [];
+  for (const raw of value.slice(0, 8)) {
+    const n = Number(raw);
+    if (!Number.isInteger(n) || n <= 0 || seen.has(n)) continue;
+    seen.add(n);
+    out.push(n);
+  }
+  return out;
+}
+
+function catalogSlide(product: HeroProduct, image: string): HomeHeroSlide {
+  return {
+    id: `catalog-${product.id}`,
+    eyebrow: shortText(product.categoryName, 80) || "Featured selection",
+    title: shortText(product.title, 160),
+    subtitle: "A considered piece from our current collection.",
+    cta: "View piece",
+    href: `/products/${encodeURIComponent(product.slug)}`,
+    image,
+    mobileImage: "",
+    enabled: true,
+  };
+}
+
 /* Hybrid mode: saved carousel slides win. Until the merchant creates those,
-   preserve the legacy hero as slide one and complete the carousel from the live
-   featured catalogue. No invented campaigns, prices or urgency are introduced. */
+   preserve the legacy hero as slide one and complete the carousel with product
+   slides — the products are the ones picked in Settings (heroProductIds), in that
+   order, falling back to the featured catalogue. If NOTHING is configured at all
+   (no slides, no legacy hero image, no product images), still render one default
+   hero so the homepage always has its Shop All Products / View piece buttons.
+   No invented campaigns, prices or urgency are introduced. */
 export function buildHomeHeroSlides(homepage: Record<string, unknown> | null | undefined, products: HeroProduct[]): HomeHeroSlide[] {
   const manual = sanitizeHeroSlides(homepage?.heroSlides, false);
   if (manual.length) return manual;
@@ -91,23 +124,33 @@ export function buildHomeHeroSlides(homepage: Record<string, unknown> | null | u
   }
 
   const usedImages = new Set(slides.map((slide) => slide.image));
-  for (const product of products) {
+  const byId = new Map(products.map((p) => [p.id, p]));
+  const picked = sanitizeHeroProductIds(homepage?.heroProductIds);
+  const ordered = picked.length
+    ? picked.map((id) => byId.get(id)).filter((p): p is HeroProduct => !!p)
+    : products;
+  for (const product of ordered) {
     const image = safeImage(product.image);
     if (!image || usedImages.has(image)) continue;
-    slides.push({
-      id: `catalog-${product.id}`,
-      eyebrow: shortText(product.categoryName, 80) || "Featured selection",
-      title: shortText(product.title, 160),
-      subtitle: "A considered piece from our current collection.",
-      cta: "View piece",
-      href: `/products/${encodeURIComponent(product.slug)}`,
-      image,
-      mobileImage: "",
-      enabled: true,
-    });
+    slides.push(catalogSlide(product, image));
     usedImages.add(image);
     if (slides.length >= 4) break;
   }
 
-  return slides.slice(0, MAX_HERO_SLIDES);
+  const result = slides.slice(0, MAX_HERO_SLIDES);
+  if (result.length) return result;
+
+  // nothing configured anywhere → one default hero slide so the homepage always
+  // shows the standard Shop All Products / View piece actions
+  return [{
+    id: "default-hero",
+    eyebrow: "New season · SINZO",
+    title: "Wear the Quiet Luxury",
+    subtitle: "Premium essentials tailored for modern Bangladesh. Thoughtful fabrics, honest pricing, delivered to your door.",
+    cta: "View piece",
+    href: "/products",
+    image: "/uploads/seed/hero.jpg",
+    mobileImage: "",
+    enabled: true,
+  }];
 }

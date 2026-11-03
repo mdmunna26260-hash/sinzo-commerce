@@ -40,8 +40,8 @@ test('new homepage sections are inserted in their intended positions without rea
   const old = ['hero', 'values', 'featured', 'categories', 'promo', 'bestsellers', 'testimonials']
     .map((id) => ({ id, enabled: true }));
   const ids = mergeHomeSections(old).map((section) => section.id);
-  assert.ok(ids.indexOf('quicklinks') > ids.indexOf('values'));
-  assert.ok(ids.indexOf('quicklinks') < ids.indexOf('featured'));
+  // quicklinks was removed from the homepage — it must NOT be re-inserted into saved configs
+  assert.ok(!ids.includes('quicklinks'));
   assert.ok(ids.indexOf('discounts') > ids.indexOf('categories'));
   assert.ok(ids.indexOf('limited') > ids.indexOf('bestsellers'));
   assert.ok(ids.indexOf('recently') > ids.indexOf('limited'));

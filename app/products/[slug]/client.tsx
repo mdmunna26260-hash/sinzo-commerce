@@ -3,7 +3,7 @@ import PdpWaitlist from "@/components/pdp-waitlist";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCart, trackEvent, toast } from "@/components/store";
+import { useCart, trackEvent, toast, cartToast } from "@/components/store";
 import { imgSrc, imgSrcSet, PDP_WIDTHS, PDP_SIZES, PDP_SRC_WIDTH, THUMB_WIDTHS } from "@/components/parts";
 import { warmImage, warmWhenIdle } from "@/components/img-warm";
 import { trackRecentlyViewed } from "@/components/recently-viewed";
@@ -69,6 +69,7 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
 
   // ---------- gallery state ----------
   const [img, setImg] = useState(0);
+  const thumbsRef = useRef<HTMLDivElement>(null);
   const [lightbox, setLightbox] = useState(false);
   const [lbIdx, setLbIdx] = useState(0);
   const [lbZoom, setLbZoom] = useState(false);
@@ -158,6 +159,14 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
     warmImage(product.images[n]?.url);
     setImg(n);
   };
+  // keep the active thumbnail inside the scrollable rail (10+ images → rail scrolls)
+  useEffect(() => {
+    const rail = thumbsRef.current;
+    const el = rail?.children[img] as HTMLElement | undefined;
+    if (!rail || !el) return;
+    if (rail.scrollHeight <= rail.clientHeight + 4) return; // nothing to scroll
+    rail.scrollTo({ top: el.offsetTop - rail.clientHeight / 2 + el.clientHeight / 2, behavior: "smooth" });
+  }, [img]);
   const next = () => goTo(img + 1);
   const prev = () => goTo(img - 1);
 
@@ -282,7 +291,7 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
     if (adding || buying) return; // no duplicate adds
     setAdding(true);
     add(line(), qty);
-    toast("Added to cart ✓");
+    cartToast({ title: product.title, image: product.images[0]?.url, size: size || undefined, color: color || undefined, qty });
     setTimeout(() => setAdding(false), 450); // brief confirmation state
   };
   // Mobile swipe gallery — enabled on ALL deployments (Vercel + VPS), 2026-09-10
@@ -303,7 +312,8 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
         <div className="pdp-gallery">
           {/* MOBILE: swipeable gallery — all deployments (Vercel + VPS) */}
           <div className="pdp-gallery-mobile mobile-only">
-            <MobileGallery images={product.images} title={product.title} active={img} onIndexChange={setImg} />
+            <MobileGallery images={product.images} title={product.title} active={img} onIndexChange={setImg}
+              onOpenOriginal={(i) => { setLbIdx(i); setLbZoom(false); setLightbox(true); }} />
             {avail <= 0 && !preorder && <div className="soldout-overlay"><span>Sold Out</span></div>}
           </div>
 
@@ -358,7 +368,7 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
           )}
 
           {N > 1 && (
-            <div className="thumbs">
+            <div className="thumbs" ref={thumbsRef}>
               {product.images.map((im, i) => (
                 <button key={i} className={i === img ? "active" : ""} onClick={() => goTo(i)} aria-label={"Image " + (i + 1)}>
                   <img src={imgSrc(im.url, 200) || im.url} srcSet={imgSrcSet(im.url, THUMB_WIDTHS)} sizes="72px"

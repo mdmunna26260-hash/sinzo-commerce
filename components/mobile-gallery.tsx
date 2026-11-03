@@ -15,8 +15,9 @@ type Img = { url: string; alt: string };
    - Skeleton + subtle fade-in per image; neighbours preloaded
    - Vertical page scroll stays natural (axis lock) */
 
-export default function MobileGallery({ images, title, active, onIndexChange }: {
+export default function MobileGallery({ images, title, active, onIndexChange, onOpenOriginal }: {
   images: Img[]; title: string; active: number; onIndexChange: (i: number) => void;
+  onOpenOriginal?: (i: number) => void; // mobile "view original image" (PC-style full size)
 }) {
   const N = images.length;
   const trackRef = useRef<HTMLDivElement>(null);
@@ -106,6 +107,12 @@ export default function MobileGallery({ images, title, active, onIndexChange }: 
   const onTouchEnd = () => {
     const d = drag.current;
     setDragging(false);
+    // a tap (no axis lock / no real movement) opens the original full-size image
+    if (onOpenOriginal && (!d.locked || Math.abs(d.dx) < 10)) {
+      drag.current = { startX: 0, startY: 0, dx: 0, locked: false, t0: 0 };
+      onOpenOriginal(active);
+      return;
+    }
     if (d.locked === "x" && d.dx) {
       const dt = Math.max(1, Date.now() - d.t0);
       const velocity = d.dx / dt; // px/ms
@@ -161,12 +168,27 @@ export default function MobileGallery({ images, title, active, onIndexChange }: 
                 draggable={false}
                 loading={i === 0 ? "eager" : "lazy"}
                 decoding={i === active ? "sync" : "async"}
-                onLoad={() => setLoaded((l) => ({ ...l, [i]: true }))}
+                onLoad={() => setLoaded((l) => (l[i] ? l : { ...l, [i]: true }))}
+                /* cached images can be complete before React attaches onLoad → still mark
+                   loaded, and never leave a blank frame on a failed request */
+                ref={(el) => { if (el && el.complete && el.naturalWidth > 0) setLoaded((l) => (l[i] ? l : { ...l, [i]: true })); }}
+                onError={() => setLoaded((l) => (l[i] ? l : { ...l, [i]: true }))}
                 className={"mgal-img" + (loaded[i] ? " loaded" : "")}
               />}
             </div>
           ))}
         </div>
+        {/* "View original image" — same full-size photo the PC gallery/lightbox shows */}
+        {onOpenOriginal && (
+          <button
+            className="mgal-expand"
+            aria-label="View original image (full size)"
+            title="View original image"
+            onClick={() => onOpenOriginal(active)}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
+          </button>
+        )}
       </div>
 
       {/* Thin segmented progress bar BELOW the image: one segment per photo, with the active

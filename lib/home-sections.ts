@@ -2,8 +2,6 @@ export type HomeSectionConfig = { id: string; enabled: boolean };
 
 export const DEFAULT_HOME_SECTIONS: HomeSectionConfig[] = [
   { id: "hero", enabled: true },
-  { id: "values", enabled: true },
-  { id: "quicklinks", enabled: true },
   { id: "featured", enabled: true },
   { id: "categories", enabled: true },
   { id: "discounts", enabled: true },

@@ -1,12 +1,13 @@
 import { db } from "@/lib/db";
+import { seoKeywords } from "@/lib/seo";
 import { getSettings, publicSettings } from "@/lib/settings";
 import { getCategories } from "@/lib/catalog";
+import { navCats } from "@/lib/category-tree";
 import { Header, Footer, Announcement } from "@/components/chrome";
 import { ProductCard } from "@/components/parts";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { clean } from "@/lib/search";
-import AutoScrollControl from "@/components/auto-scroll-control";
 
 /* ISR-on-demand: first hit renders and caches, later hits come from cache, background
    refresh every 60s. No build-time DB dependency (an empty generateStaticParams turns a
@@ -25,6 +26,7 @@ export async function generateMetadata(props: { params: Promise<{ slug: string }
   return {
     title: t,
     description: clean(col.subtitle) || `${t} by ${"SINZO"} — cash on delivery all over Bangladesh.`,
+    keywords: seoKeywords([t, params.slug]),
     alternates: { canonical: `/collections/${params.slug}` },
     openGraph: { type: "website", title: t, description: clean(col.subtitle) || "" },
   };
@@ -68,7 +70,7 @@ export default async function CollectionPage(props: { params: Promise<{ slug: st
   return (
     <>
       <Announcement text={s.homepage?.announcement} />
-      <Header storeName={cfg.store?.name || "Store"} categories={cats.map((c) => ({ name: c.name, slug: c.slug }))} />
+      <Header storeName={cfg.store?.name || "Store"} categories={navCats(cats)} />
       <div className="container" style={{ padding: "38px 24px 100px" }}>
         <div className="eyebrow">Collection</div>
         <h1 style={{ fontSize: "clamp(28px,3.4vw,40px)", margin: "8px 0 6px" }}>{col.title}</h1>
@@ -76,7 +78,6 @@ export default async function CollectionPage(props: { params: Promise<{ slug: st
         {items.length > 0 && (
           <div className="collection-browse-toolbar">
             <span>{items.length} {items.length === 1 ? "Product" : "Products"}</span>
-            <AutoScrollControl />
           </div>
         )}
         {items.length === 0 ? (
@@ -93,7 +94,7 @@ export default async function CollectionPage(props: { params: Promise<{ slug: st
           </div>
         )}
       </div>
-      <Footer cfg={{ ...cfg, _nav: { categories: cats.map((c) => ({ name: c.name, slug: c.slug })) } }} />
+      <Footer cfg={{ ...cfg, _nav: { categories: navCats(cats) } }} />
     </>
   );
 }

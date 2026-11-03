@@ -13,6 +13,8 @@
  * require every term (AND) — matching each term against title/tags/sku/desc/category.
  */
 
+import { expandTerms, isBrandTerm } from "./seo";
+
 /** True when the connected datasource supports `mode: "insensitive"`. */
 export function supportsInsensitive(): boolean {
   const url = process.env.DATABASE_URL || "";
@@ -46,11 +48,17 @@ export function productSearchWhere(raw: string, fields: SearchableField[] = DEFA
   const ts = terms(raw);
   if (!ts.length) return null;
   const or = (t: string) => {
+    /* SEO synonyms (lib/seo.ts): "pant" also matches "trousers", "baggy" matches
+       "wide leg", "shinzo" matches "sinzo" — so generic words and misspellings
+       still surface our products in on-site search. */
+    const variants = expandTerms(t);
     const clauses: Record<string, unknown>[] = [];
-    for (const f of fields) {
-      if (f === "categoryName") clauses.push({ category: { is: { name: ci(t) } } });
-      else if (f === "orderCode") clauses.push({ code: ci(t) });
-      else clauses.push({ [f]: ci(t) });
+    for (const v of variants) {
+      for (const f of fields) {
+        if (f === "categoryName") clauses.push({ category: { is: { name: ci(v) } } });
+        else if (f === "orderCode") clauses.push({ code: ci(v) });
+        else clauses.push({ [f]: ci(v) });
+      }
     }
     return { OR: clauses };
   };

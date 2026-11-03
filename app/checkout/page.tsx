@@ -281,7 +281,10 @@ export default function CheckoutPage() {
   return (
     <div className="container checkout-page checkout-minimal">
       {recoveryBanner}
-      <h1 className="checkout-h1">Checkout</h1>
+      <div className="checkout-head">
+        <h1 className="checkout-h1">Checkout</h1>
+        <Link className="btn checkout-home-btn" href="/" aria-label="Back to home">← Home</Link>
+      </div>
       <div className="checkout-layout checkout-minimal-layout">
         <section className="checkout-minimal-form" aria-label="Delivery details">
           <div className="checkout-minimal-fields">

@@ -24,13 +24,37 @@ function isDarkNow(): boolean {
   return window.matchMedia("(prefers-color-scheme: dark)").matches;
 }
 
-export function setThemeMode(mode: "light" | "dark" | "system") {
+export function setThemeMode(mode: "light" | "dark" | "system", x?: number, y?: number) {
   try {
     localStorage.setItem(KEY, mode);
   } catch {}
   const dark = mode === "dark" || (mode === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
-  startThemeTransition();
-  document.documentElement.setAttribute("data-theme", dark ? "dark" : "light");
+  applyThemeAttribute(dark, x, y);
+}
+
+/* Flips data-theme. When the browser supports the View Transitions API (and the user
+   has not asked for reduced motion) the flip runs inside startViewTransition and the
+   NEW theme spreads out as a circle from the click point (--vt-x/--vt-y, see the
+   ::view-transition rules in globals.css). Otherwise fall back to the soft cross-fade. */
+function applyThemeAttribute(dark: boolean, x?: number, y?: number) {
+  const root = document.documentElement;
+  const set = () => root.setAttribute("data-theme", dark ? "dark" : "light");
+  const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const startVT = (document as unknown as { startViewTransition?: (cb: () => void) => unknown }).startViewTransition;
+  if (!reduced && typeof startVT === "function") {
+    const cx = x ?? window.innerWidth / 2;
+    const cy = y ?? window.innerHeight / 2;
+    /* exact radius that reaches the farthest viewport corner from the click point (+margin),
+       so the circle ALWAYS covers the whole visible page no matter where the toggle was hit */
+    const r = Math.hypot(Math.max(cx, window.innerWidth - cx), Math.max(cy, window.innerHeight - cy)) + 24;
+    root.style.setProperty("--vt-x", cx + "px");
+    root.style.setProperty("--vt-y", cy + "px");
+    root.style.setProperty("--vt-r", r + "px");
+    startVT.call(document, set);
+  } else {
+    startThemeTransition();
+    set();
+  }
 }
 
 /* Soft cross-fade while the theme flips: enable color transitions for a short
@@ -68,8 +92,8 @@ function useTheme() {
       window.removeEventListener("storage", sync);
     };
   }, []);
-  const pick = useCallback((m: "light" | "dark" | "system") => {
-    setThemeMode(m);
+  const pick = useCallback((m: "light" | "dark" | "system", x?: number, y?: number) => {
+    setThemeMode(m, x, y);
     setModeState(m);
     setDark(isDarkNow());
   }, []);
@@ -128,7 +152,7 @@ export function AppearancePicker() {
   return (
     <div className="theme-picker">
       {OPTS.map((o) => (
-        <button key={o.v} className={"theme-pick" + (mode === o.v ? " on" : "")} onClick={() => pick(o.v)}>
+        <button key={o.v} className={"theme-pick" + (mode === o.v ? " on" : "")} onClick={(e) => pick(o.v, e.clientX, e.clientY)}>
           <span className={"theme-dot" + (mode === o.v ? " on" : "")} />
           <span>
             <b>{o.label}</b>

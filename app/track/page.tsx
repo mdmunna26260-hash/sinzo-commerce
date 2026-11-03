@@ -1,6 +1,7 @@
 import { Header, Footer } from "@/components/chrome";
 import { getSettings, publicSettings } from "@/lib/settings";
 import { getCategories } from "@/lib/catalog";
+import { navCats } from "@/lib/category-tree";
 import { db } from "@/lib/db";
 import TrackClient from "./client";
 
@@ -13,9 +14,9 @@ export default async function TrackPage() {
   const cats = await getCategories();
   return (
     <>
-      <Header storeName={cfg.store?.name || "Store"} categories={cats.map((c) => ({ name: c.name, slug: c.slug }))} />
+      <Header storeName={cfg.store?.name || "Store"} categories={navCats(cats)} />
       <TrackClient />
-      <Footer cfg={{ ...cfg, _nav: { categories: cats.map((c) => ({ name: c.name, slug: c.slug })) } }} />
+      <Footer cfg={{ ...cfg, _nav: { categories: navCats(cats) } }} />
     </>
   );
 }

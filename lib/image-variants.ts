@@ -10,16 +10,18 @@ export function isVariantWidth(w: number): boolean {
   return VARIANT_WIDTHS.includes(w);
 }
 
-/* Quality ladder tuned for byte weight rather than maximum fidelity: the 1000/1200 variants are what
-   phones pull for the hero and the promo block (a 275KB w1200 was measured on / at 390px). At q70-76
-   garment photos look the same and land 25-30% smaller. effort 5 only costs time at upload/build. */
+/* Quality ladder balanced for a ~50-60 product catalog: thumbnails stay lean (they are tiny on
+   screen and there are many of them per page), while the rungs a desktop actually displays
+   (w800-w1200 PDP/hero) get high quality so images stay sharp on PC. effort 6 squeezes ~5-10%
+   more bytes out at the SAME visual quality — it only costs CPU at upload time. */
 export function variantQuality(width: number): number {
-  if (width <= 200) return 70;
-  if (width <= 300) return 72;
+  if (width <= 200) return 68;
+  if (width <= 300) return 70;
+  if (width <= 400) return 73;
   if (width <= 600) return 76;
-  if (width <= 800) return 72;
-  return 68;   // 1000/1200 are the heavy rungs — a garment photo at q68 is ~35% smaller and, at the
-               // size they are shown (a phone hero / desktop hero), indistinguishable side by side
+  if (width <= 800) return 79;
+  if (width <= 1000) return 82;  // desktop PDP main image lands here — keep it sharp
+  return 84;                      // w1200 — og/social + very wide screens
 }
 
 /* Render ONE width from any source buffer. withoutEnlargement keeps a 800px upload from being
@@ -27,7 +29,7 @@ export function variantQuality(width: number): number {
 export async function renderVariant(input: Buffer, width: number): Promise<Buffer> {
   return sharp(input)
     .resize({ width, withoutEnlargement: true })
-    .webp({ quality: variantQuality(width), effort: 5 })
+    .webp({ quality: variantQuality(width), effort: 6 })
     .toBuffer();
 }
 
@@ -48,6 +50,6 @@ export async function generateVariants(input: Buffer): Promise<VariantSet> {
      only wastes a row, so it is dropped from the index (the route falls through to the original). */
   const variants: Record<string, Buffer> = {};
   VARIANT_WIDTHS.forEach((w, i) => { if (w <= width) variants["w" + w] = rendered[i]; });
-  const original = await sharp(input).resize({ width: 2400, withoutEnlargement: true }).webp({ quality: 88 }).toBuffer();
+  const original = await sharp(input).resize({ width: 2400, withoutEnlargement: true }).webp({ quality: 90, effort: 6 }).toBuffer();
   return { blur, variants, original, ext: "webp", mime: "image/webp", width, height };
 }

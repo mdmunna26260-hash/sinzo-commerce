@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { useCart, toast } from "./store";
+import { useCart, toast, cartToast } from "./store";
 import { sortSizes } from "@/lib/sizes";
 
 /* Quick add to cart, straight from a product card.
@@ -82,7 +82,7 @@ export default function QuickAdd({ p }: { p: QaProduct }) {
     }
     setBusy(true);
     add(lineFor(v), qty);
-    toast("Added to cart ✓");
+    cartToast({ title: p.title, image: p.image, size: v?.size || undefined, color: v?.color || undefined, qty });
     if (close) setOpen(false);
     setTimeout(() => setBusy(false), 380);
   };
