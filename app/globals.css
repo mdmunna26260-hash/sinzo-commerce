@@ -4030,13 +4030,15 @@ body:has(.admin-body) .scroll-progress { display: none !important; }
 .home-recently .recent-card img { width: 170px; height: 226px; }
 
 @media (max-width: 700px) {
+  /* shorter hero on phones: was min(670px, 100svh-124px) with min-height 500px → tall blank
+     band under the photo on tall screens. Now capped lower so content sits closer. */
   .hero-carousel .hero-media,
-  .hero-carousel .hero-media picture { height: min(670px, calc(100svh - 124px)); min-height: 500px; }
+  .hero-carousel .hero-media picture { height: min(520px, calc(100svh - 210px)); min-height: 400px; }
   .hero-carousel .hero-overlay {
     align-items: flex-end;
-    background: linear-gradient(rgba(250,249,247,0) 16%, rgba(250,249,247,.72) 48%, rgba(250,249,247,.95) 74%, var(--bg) 100%) !important;
+    background: linear-gradient(rgba(250,249,247,0) 20%, rgba(250,249,247,.72) 50%, rgba(250,249,247,.95) 78%, var(--bg) 100%) !important;
   }
-  .hero-carousel .hero-content { max-width: 100%; padding: 0 20px 76px; }
+  .hero-carousel .hero-content { max-width: 100%; padding: 0 20px 44px; }
   .hero-carousel .hero-content h1 { font-size: clamp(31px, 10vw, 43px); }
   .hero-carousel .hero-content p { max-width: 94%; margin-bottom: 20px; }
   .hero-actions { gap: 8px; }
