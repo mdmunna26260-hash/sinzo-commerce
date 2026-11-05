@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getSettings } from "@/lib/settings";
-import { normalizeGiftRule, giftEntitlement } from "@/lib/gift";
+import { normalizeGiftRule } from "@/lib/gift";
 
 export const dynamic = "force-dynamic";
 
@@ -34,9 +34,4 @@ export async function GET() {
   } catch {
     return NextResponse.json({ enabled: false, tiers: [], pool: [], excludeProductIds: [] }, { headers: { "Cache-Control": "private, no-store" } });
   }
-}
-
-/* Helper for the client: how many free gifts does this subtotal unlock. */
-export function giftQtyFor(subtotal: number, tiers: unknown) {
-  return giftEntitlement(subtotal, { enabled: true, tiers });
 }

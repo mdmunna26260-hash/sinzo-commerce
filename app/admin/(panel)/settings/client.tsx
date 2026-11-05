@@ -507,6 +507,12 @@ export default function SettingsClient({ groups, user, userCount, hasCourier, co
             <div className="af"><label>Container width (px)</label><input type="number" value={g.theme?.containerWidth ?? 1280} onChange={(e) => setG({ ...g, theme: { ...g.theme, containerWidth: Number(e.target.value) } })} /></div>
 
             <div className="af full"><label>Announcement bar text</label><input value={g.homepage?.announcement || ""} onChange={(e) => setG({ ...g, homepage: { ...g.homepage, announcement: e.target.value } })} /></div>
+            <div className="af full"><label>Hero overlay fade (white/black gradient over banner image)</label>
+              <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: 13 }}>
+                <input type="checkbox" checked={g.homepage?.heroOverlay !== false} onChange={(e) => setG({ ...g, homepage: { ...g.homepage, heroOverlay: e.target.checked } })} />
+                Fade overlay ON (unchecked = image pura clear dekha jabe, shudhu text thakbe)
+              </label>
+            </div>
             <div className="af full"><label>2nd announcement bar — bottom of hero section</label><input value={g.homepage?.heroBottomAnnouncement || ""} onChange={(e) => setG({ ...g, homepage: { ...g.homepage, heroBottomAnnouncement: e.target.value } })} placeholder="e.g. FREE DELIVERY OVER ৳5,000" /><div style={{ fontSize: 12, color: "var(--muted)", marginTop: 4 }}>Hero section er sheshe dekha jabe. Empty rakhle bar ta hide thake.</div></div>
             <div className="cfg-note full">Hero images, copy and links এখন <b>Homepage Layout → Hero Carousel</b> থেকে manage করুন.</div>
             <F k="promoTitle" label="Promo banner title" group="homepage" />

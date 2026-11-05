@@ -256,6 +256,21 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
     const next = comboTiers[0];
     return { done: false, text: `Ar ${next.qty - qty} ta kinle ৳${next.save.toLocaleString("en-IN")} save hobe` };
   })();
+  // free-gift progress: cart er eligible subtotal + ei product er price vs lowest tier
+  const { lines } = useCart();
+  const [giftRule, setGiftRule] = useState<any>(null);
+  useEffect(() => { fetch("/api/gift-rule").then((r) => r.json()).then(setGiftRule).catch(() => {}); }, []);
+  const giftProgress = (() => {
+    if (!giftRule?.enabled || !giftRule.tiers?.length) return null;
+    const excl = new Set<number>(giftRule.excludeProductIds || []);
+    if (excl.has(product.id)) return null;
+    const cartEligible = lines.reduce((s: number, l: any) => s + (l.freeGift || excl.has(l.productId) ? 0 : (l.qty || 1) * l.price), 0);
+    const withThis = cartEligible + price * qty;
+    const tier = giftRule.tiers[0];
+    const pct = Math.min(100, Math.round((withThis / tier.amount) * 100));
+    const remaining = Math.max(0, Math.ceil(tier.amount - withThis));
+    return { pct, remaining, amount: tier.amount, unlocked: withThis >= tier.amount, freeQty: tier.freeQty };
+  })();
   const preDateStr = preorderDate ? new Date(preorderDate).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : "soon";
 
   useEffect(() => {
@@ -420,6 +435,14 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
                   {t.save > 0 && <em>save ৳{t.save.toLocaleString("en-IN")}</em>}
                 </span>
               ))}
+            </div>
+          )}
+          {giftProgress && (
+            <div className="gift-progress">
+              {giftProgress.unlocked
+                ? <span>🎁 FREE gift unlocked! Cart e choose korun.</span>
+                : <span>🎁 <b>৳{giftProgress.remaining.toLocaleString("en-IN")}</b> more lagbe {giftProgress.freeQty} ta FREE gift er jonno (৳{giftProgress.amount.toLocaleString("en-IN")}+ order)</span>}
+              <div className="freebar"><i style={{ width: giftProgress.pct + "%" }} /></div>
             </div>
           )}
           {/* LiveWatching OFF per user request (component dormant in components/live-watching.tsx) */}
