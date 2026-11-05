@@ -74,6 +74,15 @@ test('buildCheckoutItems: server applies combo only to comboEligible products + 
   const bundles = [{ id: 1, price: 2500, active: true, productIds: [1, 2] }]; // 1 unit of 1+2 = 2700 → save 200
   const r = buildCheckoutItems(lines, products, { bundles });
   // tee: tier3 ≈2300; pant 1800; cap NOT eligible → 2x500=1000; bundle (base 2700−2500) −200
-  assert.ok(Math.abs(r.subtotal - 4900) < 1, "subtotal ~4900, got " + r.subtotal);
+  assert.equal(r.subtotal, 4900); // exact — no rounding drift
   assert.ok(Math.abs(r.comboSavings - 600) < 1, "comboSavings ~600, got " + r.comboSavings);
+});
+
+test('buildCheckoutItems: no rounding drift on tier subtotal (3x900 → exactly 2300)', () => {
+  const products = [{ id: 1, title: 'Tee', price: 900, stock: 99, comboEligible: true, comboOffers: '[{"qty":2,"total":1600},{"qty":3,"total":2300}]', variants: [], images: [] }];
+  const r = buildCheckoutItems([{ productId: 1, variantId: null, qty: 3 }], products, {});
+  assert.equal(r.subtotal, 2300);
+  assert.equal(r.comboSavings, 400);
+  // displayed line prices still sum to the group total (±0.02 rounding on per-unit display)
+  assert.ok(Math.abs(r.items.reduce((s, i) => s + i.price * i.qty, 0) - 2300) < 0.05);
 });

@@ -4065,3 +4065,5 @@ body:has(.admin-body) .scroll-progress { display: none !important; }
   border-radius: 999px; padding: 5px 12px; font-size: 12.5px; font-weight: 600;
 }
 .combo-chip em { font-style: normal; opacity: .85; font-weight: 500; }
+.combo-hint { width: 100%; font-size: 12.5px; color: var(--ok); font-weight: 600; }
+.combo-hint.done { opacity: .8; }

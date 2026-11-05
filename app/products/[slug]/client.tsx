@@ -248,6 +248,14 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
   const comboTiers = (product.comboEligible ? normalizeComboOffers(product.comboOffers) : []).map((t) => ({
     ...t, save: Math.round((t.qty * product.price - t.total) * 100) / 100,
   })).filter((t) => t.save > 0);
+  // live hint: selected qty vs next reachable tier — "ar 1 ta kinle ৳200 save"
+  const comboHint = (() => {
+    if (!comboTiers.length) return null;
+    const active = comboTiers.find((t) => qty >= t.qty);
+    if (active) return { done: true, text: `${qty} ta kinle ৳${active.save.toLocaleString("en-IN")} save hocche` };
+    const next = comboTiers[0];
+    return { done: false, text: `Ar ${next.qty - qty} ta kinle ৳${next.save.toLocaleString("en-IN")} save hobe` };
+  })();
   const preDateStr = preorderDate ? new Date(preorderDate).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : "soon";
 
   useEffect(() => {
@@ -405,6 +413,7 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
           {/* Quantity combo offers: "2 ta ৳1,600 (save ৳200)" — tiers from product.comboOffers */}
           {comboTiers.length > 0 && (
             <div className="combo-offers" role="list">
+              {comboHint && <span className={"combo-hint" + (comboHint.done ? " done" : "")}>{comboHint.text}</span>}
               {comboTiers.map((t) => (
                 <span key={t.qty} className="combo-chip" role="listitem">
                   {t.qty} ta ৳{t.total.toLocaleString("en-IN")}
