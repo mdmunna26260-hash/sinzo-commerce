@@ -6,12 +6,13 @@ import { useCart, trackEvent, trackPageView, toast, captureAttribution, newEvent
 import { normalizeBDPhone, isValidBDPhone } from "@/lib/phone";
 import { imgSrc, imgSrcSet } from "@/components/parts";
 import { checkoutTotals, couponDiscount, nonNegativeAmount } from "@/lib/checkout-pricing";
+import { bestBundleSavings } from "@/lib/combo";
 import { getCaptureKey, nextCaptureRevision, clearCaptureKey, captureSignature, PENDING_RECOVERY_KEY } from "@/lib/recovery-client";
 
 declare global { interface Window { __SZ_SHIPPING?: any; __SZ_CHECKOUT?: any } }
 
 export default function CheckoutPage() {
-  const { lines, subtotal, clear, ready, setQty, remove, replace } = useCart();
+  const { lines, subtotal, comboSavings, effectiveSubtotal, clear, ready, setQty, remove, replace } = useCart();
   const router = useRouter();
   const cfg = useMemo(() => {
     try { return JSON.parse(document.getElementById("sz-cfg")?.textContent || "{}"); } catch { return {}; }
@@ -43,9 +44,13 @@ export default function CheckoutPage() {
   const [cbusy, setCBusy] = useState(false);
   const [payment, setPayment] = useState("COD");
 
-  const discount = couponDiscount(subtotal, applied);
+  const [bundles, setBundles] = useState<any[]>([]);
+  useEffect(() => { fetch("/api/combo-bundles").then((r) => r.json()).then((d) => setBundles(d.bundles || [])).catch(() => {}); }, []);
+  const bundleSavings = bestBundleSavings(lines, bundles);
+  const netSubtotal = effectiveSubtotal - bundleSavings; // combo tiers + bundle already applied
+  const discount = couponDiscount(netSubtotal, applied);
   const { deliveryFee: ship, total } = checkoutTotals({
-    subtotal, discount, area: form.area, shipping: shipCfg, freeship: applied?.freeship,
+    subtotal: netSubtotal, discount, area: form.area, shipping: shipCfg, freeship: applied?.freeship,
   });
 
   /* InitiateCheckout was never sent before: Meta only saw AddToCart and then
@@ -225,7 +230,7 @@ export default function CheckoutPage() {
     if (!coupon.trim() || cbusy || busy) return;
     setCBusy(true);
     try {
-      const r = await fetch("/api/coupon", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code: coupon.trim(), subtotal, phone: normalizeBDPhone(form.phone) || undefined }) });
+      const r = await fetch("/api/coupon", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code: coupon.trim(), subtotal: effectiveSubtotal, phone: normalizeBDPhone(form.phone) || undefined }) });
       const j = await r.json();
       if (r.ok && j.valid) { setApplied(j); toast(`Coupon ${j.code} applied ✓`); } else { setApplied(null); toast(j.error || "Invalid coupon"); }
     } catch { toast("Network error"); }
@@ -438,6 +443,8 @@ export default function CheckoutPage() {
 
           <div className="checkout-totals">
             <div className="sum-row"><span>Subtotal</span><span>৳{subtotal.toLocaleString("en-IN")}</span></div>
+            {comboSavings > 0 && <div className="sum-row checkout-discount"><span>Combo offer</span><span>−৳{comboSavings.toLocaleString("en-IN")}</span></div>}
+            {bundleSavings > 0 && <div className="sum-row checkout-discount"><span>Bundle offer</span><span>−৳{bundleSavings.toLocaleString("en-IN")}</span></div>}
             {discount > 0 && <div className="sum-row checkout-discount"><span>Discount ({applied.code})</span><span>−৳{discount.toLocaleString("en-IN")}</span></div>}
             <div className="sum-row"><span>Delivery</span><span>{ship === 0 ? "Free" : "৳" + ship.toLocaleString("en-IN")}</span></div>
             <div className="sum-row total"><span>Total</span><span>৳{total.toLocaleString("en-IN")}</span></div>

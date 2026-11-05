@@ -8,6 +8,7 @@ import { imgSrc, imgSrcSet, PDP_WIDTHS, PDP_SIZES, PDP_SRC_WIDTH, THUMB_WIDTHS }
 import { warmImage, warmWhenIdle } from "@/components/img-warm";
 import { trackRecentlyViewed } from "@/components/recently-viewed";
 import MobileGallery from "@/components/mobile-gallery";
+import { normalizeComboOffers } from "@/lib/combo";
 import SegmentedProgress from "@/components/segmented-progress";
 import { notifyHeroMounted } from "@/components/view-transition";
 // LiveWatching import removed — live views OFF per user request
@@ -20,6 +21,7 @@ type P = {
   shortDesc?: string | null; description?: string | null; sku?: string | null;
   stock: number; lowStock: number; images: { url: string; alt: string }[];
   variants: V[]; categoryName?: string; categorySlug?: string; colorName?: string | null; colorImage?: string | null;
+  comboOffers?: string | null; comboEligible?: boolean;
 };
 
 
@@ -242,6 +244,10 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
   const avail = activeVariant ? Math.min(activeVariant.stock, product.stock) : product.variants.length ? 0 : product.stock;
   const price = activeVariant?.price ?? product.price;
   const off = product.comparePrice && product.comparePrice > price ? Math.round((1 - price / product.comparePrice) * 100) : 0;
+  // quantity combo tiers ("2 ta 1600, 3 ta 2300") shown as chips under the price
+  const comboTiers = (product.comboEligible ? normalizeComboOffers(product.comboOffers) : []).map((t) => ({
+    ...t, save: Math.round((t.qty * product.price - t.total) * 100) / 100,
+  })).filter((t) => t.save > 0);
   const preDateStr = preorderDate ? new Date(preorderDate).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : "soon";
 
   useEffect(() => {
@@ -285,7 +291,7 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
   const line = () => ({
     productId: product.id, variantId: activeVariant?.id, slug: product.slug, title: product.title,
     image: product.images[0]?.url, price, qty, size: size || undefined, color: color || undefined, stock: avail || 99,
-    preorder: !!preorder,
+    preorder: !!preorder, comboOffers: product.comboOffers ?? null,
   });
   const addLine = () => {
     if (adding || buying) return; // no duplicate adds
@@ -396,6 +402,17 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
             <b>৳{price.toLocaleString("en-IN")}</b>
             {product.comparePrice && product.comparePrice > price && (<><s>৳{product.comparePrice.toLocaleString("en-IN")}</s><span className="off">{off}% OFF</span></>)}
           </div>
+          {/* Quantity combo offers: "2 ta ৳1,600 (save ৳200)" — tiers from product.comboOffers */}
+          {comboTiers.length > 0 && (
+            <div className="combo-offers" role="list">
+              {comboTiers.map((t) => (
+                <span key={t.qty} className="combo-chip" role="listitem">
+                  {t.qty} ta ৳{t.total.toLocaleString("en-IN")}
+                  {t.save > 0 && <em>save ৳{t.save.toLocaleString("en-IN")}</em>}
+                </span>
+              ))}
+            </div>
+          )}
           {/* LiveWatching OFF per user request (component dormant in components/live-watching.tsx) */}
           <SoldCount productId={product.id} soldCount={soldCount} soldMode={soldMode} />
           {product.shortDesc && <p className="pdp-desc">{product.shortDesc}</p>}

@@ -100,6 +100,8 @@ model Product {
   sizeChartImage String?         // per-product size chart image (media URL)
   soldCount      Int?            // optional override: show "Sold: N" on the PDP when set
   saleEnds       DateTime?       // flash sale countdown: when set + comparePrice > price → countdown shows
+  comboOffers    String?         // JSON string of quantity combo tiers: [{"qty":2,"total":1600},{"qty":3,"total":2300}] — total price for that many items (String because dev schema is SQLite)
+  comboEligible  Boolean         @default(false) // "combo department" member: combo offers/bundles apply ONLY to these products
   // ── kept in sync with schema.prod.prisma: these were missing here, so `npm run dev`
   //    (SQLite) crashed every page that selects preorder/preorderDate/soldMode ──
   preorder       Boolean          @default(false) // pre-order: order accepted before stock is available
@@ -112,6 +114,7 @@ model Product {
   colorName    String?           // this product's color label (e.g. Black) for the selector
   colorImage   String?           // circular swatch thumbnail in the color selector
   colorGroup   ColorGroup?       @relation(fields: [colorGroupId], references: [id], onDelete: SetNull)
+  bundleItems  ComboBundleItem[]
   createdAt   DateTime           @default(now())
   updatedAt   DateTime           @updatedAt
 
@@ -216,6 +219,7 @@ model Order {
   notes         String?
   subtotal      Float
   discount      Float       @default(0)
+  comboDiscount Float       @default(0) // quantity-combo savings (comboOffers) already netted out of subtotal
   deliveryFee   Float       @default(0)
   total         Float
   couponCode    String?
@@ -563,4 +567,23 @@ model WaOptOut {
   reason    String?
   source    String? // INBOUND | MANUAL | CSV
   createdAt DateTime @default(now())
+}
+
+model ComboBundle {
+  id        Int               @id @default(autoincrement())
+  title     String
+  price     Float             // fixed price for ONE unit of every product in the bundle
+  active    Boolean           @default(true)
+  position  Int               @default(0)
+  items     ComboBundleItem[]
+}
+
+model ComboBundleItem {
+  id        Int         @id @default(autoincrement())
+  bundleId  Int
+  bundle    ComboBundle @relation(fields: [bundleId], references: [id], onDelete: Cascade)
+  productId Int
+  product   Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([bundleId, productId])
 }

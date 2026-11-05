@@ -21,6 +21,7 @@ const NAV: { group: string; gicon: string; items: { href: string; label: string;
     { href: "/admin/catalog", label: "Categories & Collections", icon: "M4 6h16M4 12h16M4 18h10" },
     { href: "/admin/customers", label: "Customers", icon: "M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zm14 10v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" },
     { href: "/admin/coupons", label: "Coupons", icon: "M20 12v6a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v2m-5 0 2 2-2 2h-4" },
+    { href: "/admin/combo-bundles", label: "Combo Bundles", icon: "M21 8l-9-5-9 5 9 5 9-5zM3 8v8l9 5 9-5V8" },
   ]},
   { group: "Engagement", gicon: "M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01z", items: [
     { href: "/admin/reviews", label: "Reviews", icon: "M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01z" },
