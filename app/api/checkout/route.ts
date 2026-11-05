@@ -59,7 +59,7 @@ export async function POST(req: Request) {
       include: { variants: true, images: { orderBy: { position: "asc" } } },
     });
     const bundles = await db.comboBundle.findMany({ where: { active: true }, include: { items: { select: { productId: true } } } });
-    const { items: orderItems, subtotal, comboSavings } = buildCheckoutItems(lines, products, { bundles: bundles.map((b) => ({ id: b.id, price: b.price, active: b.active, productIds: b.items.map((i) => i.productId) })), deptTiers: s.combo?.enabled === false ? [] : s.combo?.deptTiers });
+    const { items: orderItems, subtotal, comboSavings, giftSavings } = buildCheckoutItems(lines, products, { bundles: bundles.map((b) => ({ id: b.id, price: b.price, active: b.active, productIds: b.items.map((i) => i.productId) })), deptTiers: s.combo?.enabled === false ? [] : s.combo?.deptTiers, gift: s.gift });
     const risk = await assessRisk({ phone: cleanPhone, address, ip }, s.fraud);
     if (risk.level === "CRITICAL") return NextResponse.json({ error: "We're unable to accept this order. Please contact support." }, { status: 403 });
 
@@ -129,7 +129,7 @@ export async function POST(req: Request) {
         data: {
           code: "TEMP-" + crypto.randomUUID(), name, phone: cleanPhone, email: email || null,
           address, area, notes: notes || null,
-          subtotal, discount, deliveryFee, total, couponCode: appliedCode,
+          subtotal, discount, comboDiscount: comboSavings, giftDiscount: giftSavings || 0, deliveryFee, total, couponCode: appliedCode,
           paymentMethod, paymentStatus: "PENDING", status: risk.level === "HIGH" ? "ON_HOLD" : "PENDING",
           riskLevel: risk.level, riskFlags: risk.flags.join(", ") || null,
           source: recovered ? "Recovered" : detectSource(attribution), attribution: Object.keys(attribution).length ? JSON.stringify(attribution) : null,

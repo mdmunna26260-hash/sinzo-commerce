@@ -50,6 +50,14 @@ export async function PUT(req: Request) {
       return NextResponse.json({ error: "Hero bottom announcement must be a single line of max 300 characters" }, { status: 400 });
     }
   }
+  if (group === "gift") {
+    const { normalizeGiftRule } = await import("@/lib/gift");
+    value.enabled = value.enabled === undefined ? true : value.enabled === true;
+    value.tiers = normalizeGiftRule(value).tiers;
+    for (const k of ["productIds", "excludeProductIds"]) {
+      if (value[k] !== undefined && !Array.isArray(value[k])) return NextResponse.json({ error: `${k} must be a list` }, { status: 400 });
+    }
+  }
   if (group === "combo") {
     if (value.deptTiers !== undefined) {
       if (!Array.isArray(value.deptTiers)) return NextResponse.json({ error: "deptTiers must be a list" }, { status: 400 });

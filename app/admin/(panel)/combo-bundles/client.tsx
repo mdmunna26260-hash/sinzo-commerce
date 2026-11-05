@@ -4,17 +4,39 @@ import { afetch } from "@/lib/afetch";
 
 type Bundle = { id: number; title: string; price: number; active: boolean; items: { product: { id: number; title: string; price: number } }[] };
 
-export default function ComboBundlesClient({ initialBundles, eligibleProducts }: { initialBundles: Bundle[]; eligibleProducts: { id: number; title: string; price: number }[] }) {
+export default function ComboBundlesClient({ initialBundles, eligibleProducts, allProducts }: { initialBundles: Bundle[]; eligibleProducts: { id: number; title: string; price: number }[]; allProducts?: { id: number; title: string; price: number }[] }) {
   const [bundles, setBundles] = useState<Bundle[]>(initialBundles);
   const [deptEnabled, setDeptEnabled] = useState(true);
   const [deptTiers, setDeptTiers] = useState<{ qty: string; discount: string }[]>([]);
+  const [giftEnabled, setGiftEnabled] = useState(true);
+  const [giftTiers, setGiftTiers] = useState<{ amount: string; freeQty: string }[]>([]);
+  const [giftPool, setGiftPool] = useState<number[]>([]);
+  const [giftExclude, setGiftExclude] = useState<number[]>([]);
   useEffect(() => {
     afetch("/api/admin/settings", { method: "GET" }).then((r) => r.json()).then((d) => {
       const c = d?.settings?.combo || {};
       setDeptEnabled(c.enabled !== false);
       setDeptTiers((c.deptTiers || []).map((t: any) => ({ qty: String(t.qty), discount: String(t.discount) })));
+      const g = d?.settings?.gift || {};
+      setGiftEnabled(g.enabled !== false);
+      setGiftTiers((g.tiers || []).map((t: any) => ({ amount: String(t.amount), freeQty: String(t.freeQty) })));
+      setGiftPool(g.productIds || []);
+      setGiftExclude(g.excludeProductIds || []);
     }).catch(() => {});
   }, []);
+  const saveGift = async () => {
+    setBusy(true); setMsg("");
+    const r = await afetch("/api/admin/settings", {
+      method: "PUT", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ group: "gift", value: {
+        enabled: giftEnabled,
+        tiers: giftTiers.filter((t) => t.amount && t.freeQty).map((t) => ({ amount: Number(t.amount), freeQty: Number(t.freeQty) })),
+        productIds: giftPool, excludeProductIds: giftExclude,
+      } }),
+    });
+    setMsg(r.ok ? "Free gift rule saved ✔" : ((await r.json().catch(() => ({}))) as any).error || "Save failed");
+    setBusy(false);
+  };
   const saveDept = async () => {
     setBusy(true); setMsg("");
     const r = await afetch("/api/admin/settings", {
@@ -89,6 +111,50 @@ export default function ComboBundlesClient({ initialBundles, eligibleProducts }:
           <button className="btn" onClick={saveDept} disabled={busy}>Save department rule</button>
           {msg && <span style={{ marginLeft: 10, fontSize: 13 }}>{msg}</span>}
         </div>
+      </div>
+
+      <div className="card" style={{ padding: 16, marginBottom: 22 }}>
+        <h3 style={{ margin: "0 0 6px" }}>Free gift rule</h3>
+        <p style={{ color: "var(--muted)", fontSize: 13, marginBottom: 10 }}>
+          Order amount (discount er age, excluded product baad) threshold cross korle customer free gift nite parbe.
+          E.g. 2500+ → 1 ta free, 5000+ → 2 ta free.
+        </p>
+        <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, marginBottom: 10, cursor: "pointer" }}>
+          <input type="checkbox" checked={giftEnabled} onChange={(e) => setGiftEnabled(e.target.checked)} /> Rule on
+        </label>
+        {giftEnabled && (<>
+          <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 6 }}>Thresholds</div>
+          {giftTiers.map((t, i) => (
+            <div key={i} style={{ display: "flex", gap: 8, marginBottom: 6, alignItems: "center" }}>
+              <input type="number" min="1" step="1" placeholder="Order ≥ ৳ (e.g. 2500)" value={t.amount} style={{ width: 170 }}
+                onChange={(e) => { const c = [...giftTiers]; c[i] = { ...c[i], amount: e.target.value }; setGiftTiers(c); }} />
+              <input type="number" min="1" max="10" step="1" placeholder="Free items (e.g. 1)" value={t.freeQty} style={{ width: 150 }}
+                onChange={(e) => { const c = [...giftTiers]; c[i] = { ...c[i], freeQty: e.target.value }; setGiftTiers(c); }} />
+              <button type="button" className="abtn" onClick={() => setGiftTiers((c) => c.filter((_, j) => j !== i))}>✕</button>
+            </div>
+          ))}
+          <button type="button" className="abtn" style={{ marginBottom: 12 }} onClick={() => setGiftTiers((c) => [...c, { amount: "", freeQty: "" }])}>+ Add threshold</button>
+          <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 6 }}>Free gift pool (choose products)</div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 12, maxHeight: 160, overflow: "auto" }}>
+            {(allProducts || []).map((p) => (
+              <button key={p.id} type="button" className="abtn" style={{ opacity: giftPool.includes(p.id) ? 1 : 0.55, fontWeight: giftPool.includes(p.id) ? 700 : 400, fontSize: 12 }}
+                onClick={() => setGiftPool((s) => s.includes(p.id) ? s.filter((x) => x !== p.id) : [...s, p.id])}>
+                {p.title} (৳{p.price})
+              </button>
+            ))}
+          </div>
+          <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 6 }}>Excluded from threshold (optional)</div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 12, maxHeight: 120, overflow: "auto" }}>
+            {(allProducts || []).map((p) => (
+              <button key={p.id} type="button" className="abtn" style={{ opacity: giftExclude.includes(p.id) ? 1 : 0.4, fontSize: 12 }}
+                onClick={() => setGiftExclude((s) => s.includes(p.id) ? s.filter((x) => x !== p.id) : [...s, p.id])}>
+                {p.title}
+              </button>
+            ))}
+          </div>
+        </>)}
+        <button className="btn" onClick={saveGift} disabled={busy}>Save free gift rule</button>
+        {msg && <span style={{ marginLeft: 10, fontSize: 13 }}>{msg}</span>}
       </div>
 
       <div className="card" style={{ padding: 16, marginBottom: 22 }}>

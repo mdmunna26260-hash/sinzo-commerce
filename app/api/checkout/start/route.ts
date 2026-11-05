@@ -27,7 +27,7 @@ export async function POST(req: Request) {
     // current DB prices still have to be real; orders always check stock.
     const bundles = await db.comboBundle.findMany({ where: { active: true }, include: { items: { select: { productId: true } } } });
     const settings = await getSettings(true);
-    const quote = buildCheckoutItems(lines, products, { checkStock: false, bundles: bundles.map((b) => ({ id: b.id, price: b.price, active: b.active, productIds: b.items.map((i) => i.productId) })), deptTiers: settings.combo?.enabled === false ? [] : settings.combo?.deptTiers });
+    const quote = buildCheckoutItems(lines, products, { checkStock: false, bundles: bundles.map((b) => ({ id: b.id, price: b.price, active: b.active, productIds: b.items.map((i) => i.productId) })), deptTiers: settings.combo?.enabled === false ? [] : settings.combo?.deptTiers, gift: settings.gift });
     let applied = null;
     if (metadata.couponCode) {
       try { applied = await validateCoupon(db, await db.coupon.findUnique({ where: { code: metadata.couponCode } }), quote.subtotal, contact.phone); }

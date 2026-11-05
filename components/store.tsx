@@ -149,7 +149,7 @@ export function trackEvent(name: string, data?: Record<string, any>, opts?: { ev
 }
 
 /* ============ Cart (localStorage, guest-friendly) ============ */
-export type CartLine = { key: string; productId: number; variantId?: number; slug: string; title: string; image?: string; price: number; qty: number; size?: string; color?: string; stock: number; sizes?: string[]; preorder?: boolean; comboOffers?: unknown; comboEligible?: boolean };
+export type CartLine = { key: string; productId: number; variantId?: number; slug: string; title: string; image?: string; price: number; qty: number; size?: string; color?: string; stock: number; sizes?: string[]; preorder?: boolean; comboOffers?: unknown; comboEligible?: boolean; freeGift?: boolean };
 const CART_KEY = "sz_cart_v1";
 
 /* Memory-first cart store: module-level state survives client-side navigation

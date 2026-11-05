@@ -116,3 +116,38 @@ test('buildCheckoutItems: department rule counts only comboEligible units', () =
   r = buildCheckoutItems([{ productId: 1, variantId: null, qty: 2 }, { productId: 2, variantId: null, qty: 1 }], products, { deptTiers: tiers });
   assert.equal(r.subtotal, 2300 - 400); assert.equal(r.comboSavings, 400);
 });
+
+/* ── free gift rule ── */
+const { normalizeGiftRule, giftEntitlement } = loader()('lib/gift.ts');
+
+test('gift rule: tiers, entitlement, pool validation', () => {
+  const rule = normalizeGiftRule({ enabled: true, tiers: [{ amount: 2500, freeQty: 1 }, { amount: 5000, freeQty: 2 }], productIds: [7, 8], excludeProductIds: [9] });
+  assert.equal(giftEntitlement(2499, rule), 0);
+  assert.equal(giftEntitlement(2500, rule), 1);
+  assert.equal(giftEntitlement(4999, rule), 1);
+  assert.equal(giftEntitlement(5000, rule), 2);
+  assert.deepEqual(rule.productIds, [7, 8]);
+});
+
+test('buildCheckoutItems: free gift line priced 0, validated against threshold, excluded products dont count', () => {
+  const products = [
+    { id: 1, title: 'Shirt', price: 2600, stock: 99, comboEligible: false, comboOffers: null, variants: [{ id: 11, size: 'M', stock: 5, price: null }], images: [] },
+    { id: 7, title: 'Free Tee', price: 500, stock: 99, comboEligible: false, comboOffers: null, variants: [{ id: 71, size: 'L', stock: 9, price: null }], images: [] },
+    { id: 9, title: 'Excluded', price: 9999, stock: 99, comboEligible: false, comboOffers: null, variants: [], images: [] },
+  ];
+  const gift = { enabled: true, tiers: [{ amount: 2500, freeQty: 1 }], productIds: [7], excludeProductIds: [9] };
+  // 2600 shirt + 9999 excluded → eligible 2600 ≥ 2500 → 1 free allowed
+  let r = buildCheckoutItems([
+    { productId: 1, variantId: 11, qty: 1 },
+    { productId: 9, variantId: null, qty: 1 },
+    { productId: 7, variantId: 71, qty: 1, freeGift: true },
+  ], products, { gift });
+  assert.equal(r.giftSavings, 500);
+  assert.equal(r.subtotal, 2600 + 9999); // gift charged 0
+  const giftItem = r.items.find((i) => i.productId === 7);
+  assert.equal(giftItem.price, 0);
+  // below threshold → reject
+  assert.throws(() => buildCheckoutItems([{ productId: 7, variantId: 71, qty: 1, freeGift: true }], products, { gift }), /no longer available/);
+  // gift not in pool → reject
+  assert.throws(() => buildCheckoutItems([{ productId: 1, variantId: 11, qty: 1 }, { productId: 9, variantId: null, qty: 1 }, { productId: 1, variantId: 11, qty: 1, freeGift: true }], products, { gift }), /not in the offer pool/);
+});

@@ -8,14 +8,18 @@ import { bestBundleSavings } from "@/lib/combo";
 
 /* Cart — original clean layout + "Continue Shopping" button on top. */
 export default function CartPage() {
-  const { lines, subtotal, comboSavings, effectiveSubtotal, setQty, updateLine, remove, ready } = useCart();
+  const { lines, subtotal, comboSavings, effectiveSubtotal, setQty, updateLine, remove, add, ready } = useCart();
   const [coupon, setCoupon] = useState("");
   const [applied, setApplied] = useState<any>(null);
   const [busy, setBusy] = useState(false);
   const [sizing, setSizing] = useState<string | null>(null);
   const [cfg, setCfg] = useState({ freeT: 0, inside: 80, outside: 140 });
   const [bundles, setBundles] = useState<any[]>([]);
+  const [giftRule, setGiftRule] = useState<any>(null);
+  const [giftOpen, setGiftOpen] = useState(false);
+  const [giftPick, setGiftPick] = useState<Record<number, number>>({}); // productId → variantId
   useEffect(() => { fetch("/api/combo-bundles").then((r) => r.json()).then((d) => setBundles(d.bundles || [])).catch(() => {}); }, []);
+  useEffect(() => { fetch("/api/gift-rule").then((r) => r.json()).then((d) => setGiftRule(d)).catch(() => {}); }, []);
 
   useEffect(() => {
     try {
@@ -29,6 +33,13 @@ export default function CartPage() {
   }, []);
 
   const bundleSavings = bestBundleSavings(lines, bundles);
+  // free-gift entitlement: RAW subtotal of non-gift, non-excluded lines vs tiers
+  const giftExcl = new Set<number>(giftRule?.excludeProductIds || []);
+  const giftEligibleSubtotal = lines.reduce((s, l) => s + (l.freeGift || giftExcl.has(l.productId) ? 0 : l.qty * l.price), 0);
+  const giftUsed = lines.filter((l) => l.freeGift).reduce((s, l) => s + l.qty, 0);
+  let giftEntitled = 0;
+  if (giftRule?.enabled) for (const t of giftRule.tiers || []) if (giftEligibleSubtotal >= t.amount) giftEntitled = Math.max(giftEntitled, t.freeQty);
+  const giftRemaining = Math.max(0, giftEntitled - giftUsed);
   const netSubtotal = effectiveSubtotal - bundleSavings; // combo tiers + bundle already applied
   const discount = couponDiscount(netSubtotal, applied);
   const effectiveTotal = netSubtotal - discount; // free shipping applies to discounted total
@@ -38,6 +49,11 @@ export default function CartPage() {
     shipping: { insideDhaka: cfg.inside, outsideDhaka: cfg.outside, freeShippingThreshold: FREE_T },
   });
   const itemCount = lines.reduce((s, l) => s + (l.qty || 1), 0);
+  const chooseGift = (p: any, variantId: number) => {
+    const v = p.variants.find((x: any) => x.id === variantId) || p.variants[0];
+    add({ productId: p.id, variantId: v?.id, slug: p.slug, title: p.title + " (FREE GIFT)", image: p.image || undefined, price: 0, qty: 1, size: v?.size || undefined, color: v?.color || undefined, stock: 99, freeGift: true } as any);
+    setGiftOpen(false); toast("Free gift added 🎁");
+  };
 
   const bump = (l: any, q: number) => {
     if (q < 1) { remove(l.key); toast("Item removed from cart"); return; }
@@ -164,6 +180,12 @@ export default function CartPage() {
         </div>
         <aside className="summary">
           <h3>Order Summary</h3>
+          {giftRule?.enabled && giftEntitled > 0 && (
+            <div className="freeship-note" style={{ marginBottom: 10 }}>
+              🎁 {giftRemaining > 0 ? <>Apni <b>{giftRemaining} ta FREE gift</b> pepette paren — <button className="abtn" style={{ padding: "2px 10px" }} onClick={() => setGiftOpen(true)}>Choose gift</button></>
+                : <>Free gift already in cart ✔</>}
+            </div>
+          )}
           {FREE_T > 0 && <>
             <div className="freeship-note">
               {ship > 0 && remaining > 0 ? <>Add <b>৳{remaining.toLocaleString("en-IN")}</b> more for free delivery</> : <>🎉 You&apos;ve unlocked <b>free delivery</b></>}
@@ -183,6 +205,25 @@ export default function CartPage() {
             </button>
           </div>
           <Link className="btn" style={{ width: "100%" }} href="/checkout">Proceed to Checkout</Link>
+          {giftOpen && (
+            <div className="modal-bg" onClick={() => setGiftOpen(false)}>
+              <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 560, maxHeight: "80vh", overflow: "auto" }}>
+                <h3 style={{ marginTop: 0 }}>🎁 Choose your free gift ({giftRemaining} left)</h3>
+                {(giftRule.pool || []).map((p: any) => (
+                  <div key={p.id} style={{ display: "flex", gap: 10, alignItems: "center", border: "1px solid var(--line)", borderRadius: 10, padding: 8, marginBottom: 8 }}>
+                    {p.image && <img src={p.image} alt="" style={{ width: 48, height: 60, objectFit: "cover", borderRadius: 6 }} />}
+                    <div style={{ flex: 1 }}><b>{p.title}</b><div style={{ fontSize: 12, color: "var(--muted)" }}>worth ৳{p.price} — FREE</div></div>
+                    <select value={giftPick[p.id] || ""} onChange={(e) => setGiftPick({ ...giftPick, [p.id]: Number(e.target.value) })} style={{ maxWidth: 110 }}>
+                      <option value="">Size…</option>
+                      {(p.variants || []).map((v: any) => <option key={v.id} value={v.id}>{[v.size, v.color].filter(Boolean).join(" · ") || "One size"}</option>)}
+                    </select>
+                    <button className="abtn" disabled={!giftPick[p.id]} onClick={() => chooseGift(p, giftPick[p.id])}>Add free</button>
+                  </div>
+                ))}
+                <button className="btn btn-outline" onClick={() => setGiftOpen(false)}>Close</button>
+              </div>
+            </div>
+          )}
           <div className="trust">
             <span>🔒 Secure checkout</span><span>💵 Cash on Delivery</span><span>↩ 7-day returns</span>
           </div>
