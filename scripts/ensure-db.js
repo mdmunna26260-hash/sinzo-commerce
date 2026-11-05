@@ -70,6 +70,22 @@ async function main() {
     await db.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS "InboxMessage" ("id" SERIAL PRIMARY KEY, "waId" TEXT NOT NULL, "name" TEXT, "direction" TEXT NOT NULL, "body" TEXT NOT NULL, "orderId" INTEGER, "status" TEXT NOT NULL DEFAULT 'ok', "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP)`).catch(() => {});
     await db.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS "AppLog" ("id" SERIAL PRIMARY KEY, "level" TEXT NOT NULL DEFAULT 'INFO', "kind" TEXT NOT NULL, "message" TEXT NOT NULL, "meta" TEXT, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP)`).catch(() => {});
     await db.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "AppLog_kind_createdAt_idx" ON "AppLog"("kind","createdAt")`).catch(() => {});
+    // Category tree (PR #12 / 1a4cd22 added Category.parentId to the schema). Without this column
+    // every query that touches Category fails (home, /products, nav…) → storefront error page.
+    await db.$executeRawUnsafe(`ALTER TABLE "Category" ADD COLUMN IF NOT EXISTS "parentId" INTEGER`).catch(e => console.log(`  col Category.parentId: ${e.message?.slice(0,80)}`));
+    await db.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "Category_parentId_idx" ON "Category"("parentId")`).catch(() => {});
+    await db.$executeRawUnsafe(`DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'Category_parentId_fkey') THEN ALTER TABLE "Category" ADD CONSTRAINT "Category_parentId_fkey" FOREIGN KEY ("parentId") REFERENCES "Category"("id") ON DELETE SET NULL ON UPDATE CASCADE; END IF; END $$`).catch(() => {});
+    // Combo offers (PR #15): quantity tiers on Product, cross-product bundles, per-order combo savings.
+    // The PDP selects comboOffers/comboEligible and checkout reads ComboBundle, so a DB without
+    // these breaks product pages AND order placement. Matches prisma/schema.prod.prisma.
+    await db.$executeRawUnsafe(`ALTER TABLE "Product" ADD COLUMN IF NOT EXISTS "comboOffers" TEXT`).catch(e => console.log(`  col Product.comboOffers: ${e.message?.slice(0,80)}`));
+    await db.$executeRawUnsafe(`ALTER TABLE "Product" ADD COLUMN IF NOT EXISTS "comboEligible" BOOLEAN NOT NULL DEFAULT false`).catch(e => console.log(`  col Product.comboEligible: ${e.message?.slice(0,80)}`));
+    await db.$executeRawUnsafe(`ALTER TABLE "Order" ADD COLUMN IF NOT EXISTS "comboDiscount" DOUBLE PRECISION NOT NULL DEFAULT 0`).catch(e => console.log(`  col Order.comboDiscount: ${e.message?.slice(0,80)}`));
+    await db.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS "ComboBundle" ("id" SERIAL NOT NULL, "title" TEXT NOT NULL, "price" DOUBLE PRECISION NOT NULL, "active" BOOLEAN NOT NULL DEFAULT true, "position" INTEGER NOT NULL DEFAULT 0, CONSTRAINT "ComboBundle_pkey" PRIMARY KEY ("id"))`).catch(e => console.log(`  table ComboBundle: ${e.message?.slice(0,80)}`));
+    await db.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS "ComboBundleItem" ("id" SERIAL NOT NULL, "bundleId" INTEGER NOT NULL, "productId" INTEGER NOT NULL, CONSTRAINT "ComboBundleItem_pkey" PRIMARY KEY ("id"))`).catch(e => console.log(`  table ComboBundleItem: ${e.message?.slice(0,80)}`));
+    await db.$executeRawUnsafe(`CREATE UNIQUE INDEX IF NOT EXISTS "ComboBundleItem_bundleId_productId_key" ON "ComboBundleItem"("bundleId", "productId")`).catch(() => {});
+    await db.$executeRawUnsafe(`DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'ComboBundleItem_bundleId_fkey') THEN ALTER TABLE "ComboBundleItem" ADD CONSTRAINT "ComboBundleItem_bundleId_fkey" FOREIGN KEY ("bundleId") REFERENCES "ComboBundle"("id") ON DELETE CASCADE ON UPDATE CASCADE; END IF; END $$`).catch(() => {});
+    await db.$executeRawUnsafe(`DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'ComboBundleItem_productId_fkey') THEN ALTER TABLE "ComboBundleItem" ADD CONSTRAINT "ComboBundleItem_productId_fkey" FOREIGN KEY ("productId") REFERENCES "Product"("id") ON DELETE CASCADE ON UPDATE CASCADE; END IF; END $$`).catch(() => {});
     console.log("ensure-db: all DDL done ✓");
   } finally {
     await db.$disconnect();

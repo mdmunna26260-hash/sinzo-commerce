@@ -10,7 +10,10 @@ import { clean } from "@/lib/search";
 
 /* Combo department: every ACTIVE product flagged comboEligible (admin product form →
    "Combo offer" checkbox). Hero CTA / nav can link here (/combo). */
-export const revalidate = 60;
+/* Rendered per request (like /products): a build-time prerender needs the database — the Docker/
+   GHCR build has no DATABASE_URL and a not-yet-migrated DB has no comboEligible column — and with
+   `revalidate` the first failing render would be exported as the page. */
+export const dynamic = "force-dynamic";
 
 export async function generateMetadata() {
   return {
@@ -22,7 +25,7 @@ export async function generateMetadata() {
   };
 }
 
-export default async function ComboPage() {
+async function ComboContent() {
   const { ensureExtraTables } = await import("@/lib/db-ensure");
   await ensureExtraTables().catch(() => {});
   const [products, s, cats] = await Promise.all([
@@ -79,4 +82,13 @@ export default async function ComboPage() {
       <Footer cfg={{ ...cfg, _nav: { categories: navCats(cats) } }} />
     </>
   );
+}
+
+export default async function ComboPage() {
+  try {
+    return await ComboContent();
+  } catch (e: any) {
+    console.error("ComboPage render error:", e?.message);
+    return <div className="container" style={{ padding: "80px 24px", textAlign: "center" }}><h1 className="brand-wm">SINZO</h1><p style={{ color: "var(--muted)" }}>Page load korte halka somossa hocche — refresh korun.</p></div>;
+  }
 }
