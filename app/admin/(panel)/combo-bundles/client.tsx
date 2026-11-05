@@ -1,11 +1,29 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { afetch } from "@/lib/afetch";
 
 type Bundle = { id: number; title: string; price: number; active: boolean; items: { product: { id: number; title: string; price: number } }[] };
 
 export default function ComboBundlesClient({ initialBundles, eligibleProducts }: { initialBundles: Bundle[]; eligibleProducts: { id: number; title: string; price: number }[] }) {
   const [bundles, setBundles] = useState<Bundle[]>(initialBundles);
+  const [deptEnabled, setDeptEnabled] = useState(true);
+  const [deptTiers, setDeptTiers] = useState<{ qty: string; discount: string }[]>([]);
+  useEffect(() => {
+    afetch("/api/admin/settings", { method: "GET" }).then((r) => r.json()).then((d) => {
+      const c = d?.settings?.combo || {};
+      setDeptEnabled(c.enabled !== false);
+      setDeptTiers((c.deptTiers || []).map((t: any) => ({ qty: String(t.qty), discount: String(t.discount) })));
+    }).catch(() => {});
+  }, []);
+  const saveDept = async () => {
+    setBusy(true); setMsg("");
+    const r = await afetch("/api/admin/settings", {
+      method: "PUT", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ group: "combo", value: { enabled: deptEnabled, deptTiers: deptTiers.filter((t) => t.qty && t.discount).map((t) => ({ qty: Number(t.qty), discount: Number(t.discount) })) } }),
+    });
+    setMsg(r.ok ? "Department rule saved ✔" : ((await r.json().catch(() => ({}))) as any).error || "Save failed");
+    setBusy(false);
+  };
   const [title, setTitle] = useState("");
   const [price, setPrice] = useState("");
   const [picked, setPicked] = useState<number[]>([]);
@@ -47,6 +65,31 @@ export default function ComboBundlesClient({ initialBundles, eligibleProducts }:
         price = bundle price. Extra quantity base price e. Shudhu <b>combo department</b> er products (product edit e
         "Combo offer" checkbox) ekhane add kora jay.
       </p>
+
+      <div className="card" style={{ padding: 16, marginBottom: 22 }}>
+        <h3 style={{ margin: "0 0 6px" }}>Department combo rule (combo section)</h3>
+        <p style={{ color: "var(--muted)", fontSize: 13, marginBottom: 10 }}>
+          Combo department er product theke cart e mot {"{qty}"} ta item nile {"{discount}"} taka discount.
+          1 ta item e kono discount nei. Ei amount gula apni set korben.
+        </p>
+        <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, marginBottom: 10, cursor: "pointer" }}>
+          <input type="checkbox" checked={deptEnabled} onChange={(e) => setDeptEnabled(e.target.checked)} /> Rule on
+        </label>
+        {deptEnabled && deptTiers.map((t, i) => (
+          <div key={i} style={{ display: "flex", gap: 8, marginBottom: 6, alignItems: "center" }}>
+            <input type="number" min="2" max="99" step="1" placeholder="Items (e.g. 2)" value={t.qty} style={{ width: 120 }}
+              onChange={(e) => { const c = [...deptTiers]; c[i] = { ...c[i], qty: e.target.value }; setDeptTiers(c); }} />
+            <input type="number" min="0" step="1" placeholder="Discount ৳ (e.g. 200)" value={t.discount} style={{ width: 170 }}
+              onChange={(e) => { const c = [...deptTiers]; c[i] = { ...c[i], discount: e.target.value }; setDeptTiers(c); }} />
+            <button type="button" className="abtn" onClick={() => setDeptTiers((c) => c.filter((_, j) => j !== i))}>✕</button>
+          </div>
+        ))}
+        {deptEnabled && <button type="button" className="abtn" style={{ marginBottom: 10 }} onClick={() => setDeptTiers((c) => [...c, { qty: "", discount: "" }])}>+ Add rule</button>}
+        <div>
+          <button className="btn" onClick={saveDept} disabled={busy}>Save department rule</button>
+          {msg && <span style={{ marginLeft: 10, fontSize: 13 }}>{msg}</span>}
+        </div>
+      </div>
 
       <div className="card" style={{ padding: 16, marginBottom: 22 }}>
         <h3 style={{ margin: "0 0 10px" }}>New bundle</h3>

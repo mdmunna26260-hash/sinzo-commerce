@@ -86,3 +86,33 @@ test('buildCheckoutItems: no rounding drift on tier subtotal (3x900 → exactly 
   // displayed line prices still sum to the group total (±0.02 rounding on per-unit display)
   assert.ok(Math.abs(r.items.reduce((s, i) => s + i.price * i.qty, 0) - 2300) < 0.05);
 });
+
+/* ── department-level combo rule ── */
+const { normalizeDeptTiers, deptDiscount } = loader()('lib/combo.ts');
+
+test('dept rule: 1 item no discount, 2 items = set amount, 3 items = bigger amount', () => {
+  const tiers = [{ qty: 2, discount: 200 }, { qty: 3, discount: 400 }];
+  assert.equal(deptDiscount(1, tiers), 0);
+  assert.equal(deptDiscount(2, tiers), 200);
+  assert.equal(deptDiscount(3, tiers), 400);
+  assert.equal(deptDiscount(7, tiers), 400); // best reachable tier only
+  assert.deepEqual(normalizeDeptTiers([{ qty: 3, discount: 400 }, { qty: 2, discount: 200 }, { qty: 1, discount: 50 }]), tiers);
+});
+
+test('buildCheckoutItems: department rule counts only comboEligible units', () => {
+  const products = [
+    { id: 1, title: 'A', price: 900, stock: 99, comboEligible: true, comboOffers: null, variants: [], images: [] },
+    { id: 2, title: 'B', price: 500, stock: 99, comboEligible: true, comboOffers: null, variants: [], images: [] },
+    { id: 3, title: 'C', price: 300, stock: 99, comboEligible: false, comboOffers: null, variants: [], images: [] },
+  ];
+  const tiers = [{ qty: 2, discount: 200 }, { qty: 3, discount: 400 }];
+  // 1 eligible + 1 non-eligible = only 1 combo unit → no discount
+  let r = buildCheckoutItems([{ productId: 1, variantId: null, qty: 1 }, { productId: 3, variantId: null, qty: 1 }], products, { deptTiers: tiers });
+  assert.equal(r.subtotal, 1200); assert.equal(r.comboSavings, 0);
+  // 2 eligible units (different products) → 200 off
+  r = buildCheckoutItems([{ productId: 1, variantId: null, qty: 1 }, { productId: 2, variantId: null, qty: 1 }], products, { deptTiers: tiers });
+  assert.equal(r.subtotal, 1400 - 200); assert.equal(r.comboSavings, 200);
+  // 3 eligible units → 400 off
+  r = buildCheckoutItems([{ productId: 1, variantId: null, qty: 2 }, { productId: 2, variantId: null, qty: 1 }], products, { deptTiers: tiers });
+  assert.equal(r.subtotal, 2300 - 400); assert.equal(r.comboSavings, 400);
+});

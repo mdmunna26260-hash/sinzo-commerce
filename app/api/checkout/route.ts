@@ -59,7 +59,7 @@ export async function POST(req: Request) {
       include: { variants: true, images: { orderBy: { position: "asc" } } },
     });
     const bundles = await db.comboBundle.findMany({ where: { active: true }, include: { items: { select: { productId: true } } } });
-    const { items: orderItems, subtotal, comboSavings } = buildCheckoutItems(lines, products, { bundles: bundles.map((b) => ({ id: b.id, price: b.price, active: b.active, productIds: b.items.map((i) => i.productId) })) });
+    const { items: orderItems, subtotal, comboSavings } = buildCheckoutItems(lines, products, { bundles: bundles.map((b) => ({ id: b.id, price: b.price, active: b.active, productIds: b.items.map((i) => i.productId) })), deptTiers: s.combo?.enabled === false ? [] : s.combo?.deptTiers });
     const risk = await assessRisk({ phone: cleanPhone, address, ip }, s.fraud);
     if (risk.level === "CRITICAL") return NextResponse.json({ error: "We're unable to accept this order. Please contact support." }, { status: 403 });
 

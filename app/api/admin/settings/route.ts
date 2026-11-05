@@ -50,6 +50,14 @@ export async function PUT(req: Request) {
       return NextResponse.json({ error: "Hero bottom announcement must be a single line of max 300 characters" }, { status: 400 });
     }
   }
+  if (group === "combo") {
+    if (value.deptTiers !== undefined) {
+      if (!Array.isArray(value.deptTiers)) return NextResponse.json({ error: "deptTiers must be a list" }, { status: 400 });
+      const { normalizeDeptTiers } = await import("@/lib/combo");
+      value.deptTiers = normalizeDeptTiers(value.deptTiers);
+    }
+    if (value.enabled !== undefined && typeof value.enabled !== "boolean") return NextResponse.json({ error: "enabled must be a boolean" }, { status: 400 });
+  }
   if (group === "marketing") {
     if (value.recoveryAutoEnabled !== undefined && typeof value.recoveryAutoEnabled !== "boolean") return NextResponse.json({ error: "Recovery automation must be a boolean" }, { status: 400 });
     if (value.recoveryCoupon !== undefined && (typeof value.recoveryCoupon !== "string" || value.recoveryCoupon.length > 64 || /[\r\n]/.test(value.recoveryCoupon))) return NextResponse.json({ error: "Invalid recovery coupon" }, { status: 400 });

@@ -1,5 +1,5 @@
 import { roundMoney } from "./checkout-pricing";
-import { comboQuote, normalizeComboOffers, bestBundleSavings, normalizeBundles } from "./combo";
+import { comboQuote, normalizeComboOffers, bestBundleSavings, normalizeBundles, deptDiscount } from "./combo";
 
 export class CheckoutValidationError extends Error {}
 export type CheckoutLine = { productId: number; variantId: number | null; qty: number };
@@ -36,7 +36,7 @@ export function parseCheckoutLines(raw: unknown): CheckoutLine[] {
   return [...lines.values()];
 }
 
-export function buildCheckoutItems(lines: CheckoutLine[], products: Product[], options: { checkStock?: boolean; bundles?: unknown } = {}) {
+export function buildCheckoutItems(lines: CheckoutLine[], products: Product[], options: { checkStock?: boolean; bundles?: unknown; deptTiers?: unknown } = {}) {
   const productQuantities = new Map<number, number>();
   // quantity combo ("2 ta 1600"): all lines of one product combine toward one tier,
   // priced against the product base price; the effective per-unit price is spread
@@ -124,5 +124,12 @@ export function buildCheckoutItems(lines: CheckoutLine[], products: Product[], o
     bundleSavings = bestBundleSavings(baseLines, eligibleBundles);
     subtotal = roundMoney(subtotal - bundleSavings);
   }
-  return { items, subtotal, comboSavings: roundMoney(Math.max(0, comboSavings + bundleSavings)) };
+  // department-level rule: total units of combo-eligible products → tiered discount
+  let deptSavings = 0;
+  const deptUnits = items.reduce((s, i) => s + (products.find((p) => p.id === i.productId)?.comboEligible ? i.qty : 0), 0);
+  if (deptUnits > 0) {
+    deptSavings = deptDiscount(deptUnits, options.deptTiers);
+    subtotal = roundMoney(subtotal - deptSavings);
+  }
+  return { items, subtotal, comboSavings: roundMoney(Math.max(0, comboSavings + bundleSavings + deptSavings)) };
 }

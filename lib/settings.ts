@@ -39,6 +39,7 @@ export function publicSettings(s: SettingsMap) {
       estimateInside: s.shipping?.estimateInside, estimateOutside: s.shipping?.estimateOutside,
     },
     homepage: s.homepage, checkout, seo: s.seo,
+    combo: s.combo ? { enabled: s.combo.enabled !== false, deptTiers: s.combo.deptTiers || [] } : { enabled: true, deptTiers: [] },
     integrations: {
       metaPixelId: s.integrations?.metaPixelId || process.env.META_PIXEL_ID || "",
       ga4Id: s.integrations?.ga4Id || process.env.GA4_MEASUREMENT_ID || "",

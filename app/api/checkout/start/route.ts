@@ -26,8 +26,8 @@ export async function POST(req: Request) {
     // A draft may contain wanted stock that has since sold out. Its IDs and
     // current DB prices still have to be real; orders always check stock.
     const bundles = await db.comboBundle.findMany({ where: { active: true }, include: { items: { select: { productId: true } } } });
-    const quote = buildCheckoutItems(lines, products, { checkStock: false, bundles: bundles.map((b) => ({ id: b.id, price: b.price, active: b.active, productIds: b.items.map((i) => i.productId) })) });
     const settings = await getSettings(true);
+    const quote = buildCheckoutItems(lines, products, { checkStock: false, bundles: bundles.map((b) => ({ id: b.id, price: b.price, active: b.active, productIds: b.items.map((i) => i.productId) })), deptTiers: settings.combo?.enabled === false ? [] : settings.combo?.deptTiers });
     let applied = null;
     if (metadata.couponCode) {
       try { applied = await validateCoupon(db, await db.coupon.findUnique({ where: { code: metadata.couponCode } }), quote.subtotal, contact.phone); }
