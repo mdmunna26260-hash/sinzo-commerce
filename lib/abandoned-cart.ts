@@ -53,7 +53,8 @@ export async function quoteSavedCart(tx: Prisma.TransactionClient | any, row: Ab
   const saved = readSavedCart(row.cartJson);
   const contact = validateRecoveryContact(row);
   const products = await cartProducts(tx, saved.items);
-  const { items, subtotal } = buildCheckoutItems(saved.items, products);
+  const bundles = await tx.comboBundle.findMany({ where: { active: true }, include: { items: { select: { productId: true } } } });
+  const { items, subtotal } = buildCheckoutItems(saved.items, products, { bundles: bundles.map((b: any) => ({ id: b.id, price: b.price, active: b.active, productIds: b.items.map((i: any) => i.productId) })) });
   const code = couponOverride || saved.couponCode;
   let applied = null;
   if (code) {

@@ -3,7 +3,23 @@ const MAX_MONEY = 1_000_000_000;
 const PRODUCT_STATUSES = new Set(["ACTIVE", "DRAFT", "ARCHIVED"]);
 const SOLD_MODES = new Set(["fixed", "random"]);
 
+import { normalizeComboOffers, serializeComboOffers } from "./combo";
+
 export class ProductInputError extends Error {}
+
+/* comboOffers arrives as an array of {qty,total} rows from the admin form (or a JSON
+   string); normalize to a clean JSON string, null when empty. */
+function comboOffersValue(value: unknown): string | null {
+  if (value == null || value === "") return null;
+  const arr = typeof value === "string" ? (() => { try { return JSON.parse(value); } catch { return null; } })() : value;
+  if (!Array.isArray(arr)) throw new ProductInputError("Combo offers must be a list");
+  const clean = normalizeComboOffers(arr);
+  if (clean.length && arr.length !== clean.length) {
+    // some rows were invalid — reject rather than silently drop admin input
+    throw new ProductInputError("Combo offers: qty must be a whole number 2–99 and total a non-negative price");
+  }
+  return serializeComboOffers(clean);
+}
 
 function objectBody(value: unknown): Record<string, any> {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new ProductInputError("Invalid product payload");
@@ -120,6 +136,8 @@ export function parseProductInput(value: unknown) {
     preorder: body.preorder === true,
     preorderDate: dateValue(body.preorderDate, "pre-order date"),
     soldMode,
+    comboEligible: body.comboEligible === true,
+    comboOffers: comboOffersValue(body.comboOffers),
     colorGroupId: optionalId(body.colorGroupId, "color group"),
     colorName: text(body.colorName, "Color name", 40),
     colorImage: mediaUrl(body.colorImage, "Color image"),

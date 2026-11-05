@@ -71,6 +71,8 @@ export async function PUT(req: Request, props: Ctx) {
           lowStock: input.lowStock,
           soldCount: input.soldCount,
           saleEnds: input.saleEnds,
+          comboEligible: input.comboEligible,
+          comboOffers: input.comboOffers,
           preorder: input.preorder,
           preorderDate: input.preorderDate,
           soldMode: input.soldMode,

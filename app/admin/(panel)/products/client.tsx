@@ -40,7 +40,7 @@ function VariantImgCell({ v, i, setEdit }: { v: any; i: number; setEdit: any }) 
   );
 }
 
-const EMPTY: any = { title: "", slug: "", shortDesc: "", description: "", sku: "", price: "", comparePrice: "", cost: "", stock: "0", lowStock: "5", soldCount: "", saleEnds: "", status: "ACTIVE", featured: false, isNew: false, isBestSeller: false, badge: '', sizeChartImage: "", tags: "", categoryId: "", images: [], variants: [], colorGroupId: "", colorName: "", colorImage: "", preorder: false, preorderDate: "", soldMode: "fixed" };
+const EMPTY: any = { title: "", slug: "", shortDesc: "", description: "", sku: "", price: "", comparePrice: "", cost: "", stock: "0", lowStock: "5", soldCount: "", saleEnds: "", status: "ACTIVE", featured: false, isNew: false, isBestSeller: false, badge: '', sizeChartImage: "", tags: "", categoryId: "", images: [], variants: [], colorGroupId: "", colorName: "", colorImage: "", preorder: false, preorderDate: "", soldMode: "fixed", comboEligible: false, comboTiers: [] as { qty: string; total: string }[] };
 function DescriptionEditor({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   const ref = useRef<HTMLTextAreaElement>(null);
   const wrap = (before: string, after: string) => {
@@ -143,6 +143,8 @@ export default function ProductsClient({ initial, categories }: { initial: P[]; 
     saleEnds: p.saleEnds ? new Date(p.saleEnds).toISOString().slice(0, 16) : "",
     preorder: !!p.preorder, preorderDate: p.preorderDate ? new Date(p.preorderDate).toISOString().slice(0, 10) : "",
     soldMode: p.soldMode || "fixed",
+    comboEligible: !!p.comboEligible,
+    comboTiers: (() => { try { const t = JSON.parse(p.comboOffers || "[]"); return Array.isArray(t) ? t.map((x: any) => ({ qty: String(x.qty), total: String(x.total) })) : []; } catch { return []; } })(),
     colorGroupId: p.colorGroupId != null ? String(p.colorGroupId) : "",
     colorName: p.colorName || "",
     // auto: color thumbnail defaults to the product's main image (admin can replace/remove)
@@ -214,6 +216,8 @@ export default function ProductsClient({ initial, categories }: { initial: P[]; 
         preorder: !!edit.preorder,
         preorderDate: edit.preorderDate ? new Date(edit.preorderDate + "T12:00:00").toISOString() : null,
         soldMode: edit.soldMode === "random" ? "random" : "fixed",
+        comboEligible: !!edit.comboEligible,
+        comboOffers: (edit.comboTiers || []).filter((t: any) => t.qty && t.total).map((t: any) => ({ qty: Number(t.qty), total: Number(t.total) })),
         colorGroupId: edit.colorGroupId ? Number(edit.colorGroupId) : null,
         colorName: edit.colorName ? String(edit.colorName).trim().slice(0, 40) : null,
         colorImage: edit.colorImage || null,
@@ -342,6 +346,29 @@ export default function ProductsClient({ initial, categories }: { initial: P[]; 
                 <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 4 }}>
                   Compare-at price beshi hole countdown dekhabe (PDP + card e "Sale ends in 2h 34m"). Time hole automatic off.
                 </div>
+              </div>
+              <div className="af full"><label>Combo offer (combo department)</label>
+                <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: 13, marginBottom: 8 }}>
+                  <input type="checkbox" checked={!!edit.comboEligible} onChange={(e) => setEdit({ ...edit, comboEligible: e.target.checked })} />
+                  Ei product ta combo department e — shudhu er upor e combo offer kaj korbe
+                </label>
+                {edit.comboEligible && (
+                  <div>
+                    {(edit.comboTiers || []).map((t: any, i: number) => (
+                      <div key={i} style={{ display: "flex", gap: 8, marginBottom: 6, alignItems: "center" }}>
+                        <input type="number" min="2" max="99" step="1" placeholder="Qty (e.g. 2)" value={t.qty} style={{ width: 110 }}
+                          onChange={(e) => { const c = [...edit.comboTiers]; c[i] = { ...c[i], qty: e.target.value }; setEdit({ ...edit, comboTiers: c }); }} />
+                        <input type="number" min="0" step="0.01" placeholder="Total price (e.g. 1600)" value={t.total} style={{ width: 170 }}
+                          onChange={(e) => { const c = [...edit.comboTiers]; c[i] = { ...c[i], total: e.target.value }; setEdit({ ...edit, comboTiers: c }); }} />
+                        <button type="button" className="abtn" onClick={() => setEdit({ ...edit, comboTiers: edit.comboTiers.filter((_: any, j: number) => j !== i) })}>✕</button>
+                      </div>
+                    ))}
+                    <button type="button" className="abtn" onClick={() => setEdit({ ...edit, comboTiers: [...(edit.comboTiers || []), { qty: "", total: "" }] })}>+ Add tier</button>
+                    <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 4 }}>
+                      Udahoron: price 900 hole — 2 ta = 1600 (save 200), 3 ta = 2300 (save 400). 1 ta te kono discount nei.
+                    </div>
+                  </div>
+                )}
               </div>
               <div className="af full"><label>Sold count (product page e "Sold: N" dekhabe)</label>
                 <div style={{ display: "flex", gap: 18, marginBottom: 8, fontSize: 13 }}>

@@ -56,6 +56,8 @@ export async function POST(req: Request) {
         lowStock: input.lowStock,
         soldCount: input.soldCount,
         saleEnds: input.saleEnds,
+        comboEligible: input.comboEligible,
+        comboOffers: input.comboOffers,
         preorder: input.preorder,
         preorderDate: input.preorderDate,
         soldMode: input.soldMode,

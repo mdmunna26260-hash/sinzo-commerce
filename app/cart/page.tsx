@@ -4,15 +4,18 @@ import { useEffect, useState } from "react";
 import { useCart, toast } from "@/components/store";
 import { imgSrc, imgSrcSet } from "@/components/parts";
 import { checkoutTotals, couponDiscount, nonNegativeAmount } from "@/lib/checkout-pricing";
+import { bestBundleSavings } from "@/lib/combo";
 
 /* Cart — original clean layout + "Continue Shopping" button on top. */
 export default function CartPage() {
-  const { lines, subtotal, setQty, updateLine, remove, ready } = useCart();
+  const { lines, subtotal, comboSavings, effectiveSubtotal, setQty, updateLine, remove, ready } = useCart();
   const [coupon, setCoupon] = useState("");
   const [applied, setApplied] = useState<any>(null);
   const [busy, setBusy] = useState(false);
   const [sizing, setSizing] = useState<string | null>(null);
   const [cfg, setCfg] = useState({ freeT: 0, inside: 80, outside: 140 });
+  const [bundles, setBundles] = useState<any[]>([]);
+  useEffect(() => { fetch("/api/combo-bundles").then((r) => r.json()).then((d) => setBundles(d.bundles || [])).catch(() => {}); }, []);
 
   useEffect(() => {
     try {
@@ -25,11 +28,13 @@ export default function CartPage() {
     } catch {}
   }, []);
 
-  const discount = couponDiscount(subtotal, applied);
-  const effectiveTotal = subtotal - discount; // free shipping applies to discounted total
+  const bundleSavings = bestBundleSavings(lines, bundles);
+  const netSubtotal = effectiveSubtotal - bundleSavings; // combo tiers + bundle already applied
+  const discount = couponDiscount(netSubtotal, applied);
+  const effectiveTotal = netSubtotal - discount; // free shipping applies to discounted total
   const FREE_T = cfg.freeT;
   const { deliveryFee: ship, total } = checkoutTotals({
-    subtotal, discount, area: "INSIDE_DHAKA", freeship: applied?.freeship,
+    subtotal: netSubtotal, discount, area: "INSIDE_DHAKA", freeship: applied?.freeship,
     shipping: { insideDhaka: cfg.inside, outsideDhaka: cfg.outside, freeShippingThreshold: FREE_T },
   });
   const itemCount = lines.reduce((s, l) => s + (l.qty || 1), 0);
@@ -69,7 +74,7 @@ export default function CartPage() {
     if (!coupon.trim() || busy) return;
     setBusy(true);
     try {
-      const r = await fetch("/api/coupon", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code: coupon.trim(), subtotal }) });
+      const r = await fetch("/api/coupon", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code: coupon.trim(), subtotal: effectiveSubtotal }) });
       const j = await r.json();
       if (r.ok && j.valid) { setApplied(j); toast(`Coupon ${j.code} applied ✓`); }
       else { setApplied(null); toast(j.error || "Invalid coupon"); }
@@ -166,6 +171,8 @@ export default function CartPage() {
             <div className="freebar"><i style={{ width: (ship === 0 ? 100 : Math.min(100, (effectiveTotal / FREE_T) * 100)) + "%" }} /></div>
           </>}
           <div className="sum-row"><span>Subtotal ({itemCount} items)</span><span>৳{subtotal.toLocaleString("en-IN")}</span></div>
+          {comboSavings > 0 && <div className="sum-row" style={{ color: "var(--ok)" }}><span>Combo offer</span><span>−৳{comboSavings.toLocaleString("en-IN")}</span></div>}
+          {bundleSavings > 0 && <div className="sum-row" style={{ color: "var(--ok)" }}><span>Bundle offer</span><span>−৳{bundleSavings.toLocaleString("en-IN")}</span></div>}
           {discount > 0 && <div className="sum-row" style={{ color: "var(--ok)" }}><span>Discount ({applied.code})</span><span>−৳{discount.toLocaleString("en-IN")}</span></div>}
           <div className="sum-row"><span>Delivery (est.)</span><span>{(applied?.freeship || ship === 0) ? "Free" : "৳" + ship}</span></div>
           <div className="sum-row total"><span>Total</span><span>৳{total.toLocaleString("en-IN")}</span></div>

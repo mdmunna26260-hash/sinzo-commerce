@@ -2,6 +2,7 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
 import { safeTrackingUrl } from "@/lib/recovery-client";
 import { imgSrc } from "@/components/img-src";
+import { cartComboQuote } from "@/lib/combo";
 
 /* ============ Client-side tracking service (Meta Pixel + GA4 + GTM + server CAPI) ============ */
 export function getCfg(): any {
@@ -148,7 +149,7 @@ export function trackEvent(name: string, data?: Record<string, any>, opts?: { ev
 }
 
 /* ============ Cart (localStorage, guest-friendly) ============ */
-export type CartLine = { key: string; productId: number; variantId?: number; slug: string; title: string; image?: string; price: number; qty: number; size?: string; color?: string; stock: number; sizes?: string[]; preorder?: boolean };
+export type CartLine = { key: string; productId: number; variantId?: number; slug: string; title: string; image?: string; price: number; qty: number; size?: string; color?: string; stock: number; sizes?: string[]; preorder?: boolean; comboOffers?: unknown };
 const CART_KEY = "sz_cart_v1";
 
 /* Memory-first cart store: module-level state survives client-side navigation
@@ -169,8 +170,8 @@ function saveCart(c: CartLine[]) {
   try { localStorage.setItem(CART_KEY, JSON.stringify(c)); } catch {}
 }
 
-type CartCtx = { lines: CartLine[]; count: number; subtotal: number; ready: boolean; add: (l: Omit<CartLine, "key">, qty?: number) => void; setQty: (key: string, qty: number) => void; updateLine: (key: string, patch: Partial<CartLine>) => void; remove: (key: string) => void; clear: () => void; replace: (lines: CartLine[]) => void; };
-const EMPTY_CTX: CartCtx = { lines: [], count: 0, subtotal: 0, ready: false, add: () => {}, setQty: () => {}, updateLine: () => {}, remove: () => {}, clear: () => {}, replace: () => {} };
+type CartCtx = { lines: CartLine[]; count: number; subtotal: number; comboSavings: number; effectiveSubtotal: number; ready: boolean; add: (l: Omit<CartLine, "key">, qty?: number) => void; setQty: (key: string, qty: number) => void; updateLine: (key: string, patch: Partial<CartLine>) => void; remove: (key: string) => void; clear: () => void; replace: (lines: CartLine[]) => void; };
+const EMPTY_CTX: CartCtx = { lines: [], count: 0, subtotal: 0, comboSavings: 0, effectiveSubtotal: 0, ready: false, add: () => {}, setQty: () => {}, updateLine: () => {}, remove: () => {}, clear: () => {}, replace: () => {} };
 const Ctx = createContext<CartCtx>(EMPTY_CTX);
 export function useCart() { return useContext(Ctx); }
 
@@ -217,7 +218,9 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const replace = (items: CartLine[]) => commit(items.map(l => ({ ...l, key: `${l.productId}:${l.variantId || 0}` })));
   const count = lines.reduce((s, l) => s + l.qty, 0);
   const subtotal = lines.reduce((s, l) => s + l.qty * l.price, 0);
-  return <Ctx.Provider value={{ lines, count, subtotal, ready, add, setQty, updateLine, remove, clear, replace }}>{children}</Ctx.Provider>;
+  const { subtotal: effSub, savings: comboSavings } = cartComboQuote(lines);
+  const effectiveSubtotal = lines.length ? effSub : 0;
+  return <Ctx.Provider value={{ lines, count, subtotal, comboSavings, effectiveSubtotal, ready, add, setQty, updateLine, remove, clear, replace }}>{children}</Ctx.Provider>;
 }
 
 /* ============ Toast ============ */

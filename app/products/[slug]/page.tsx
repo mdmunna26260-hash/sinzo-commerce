@@ -328,6 +328,8 @@ export default async function PDP(props: { params: Promise<{ slug: string }>; se
             categorySlug: p.category?.slug,
             colorName: p.colorName,
             colorImage: p.colorImage,
+            comboOffers: p.comboOffers,
+            comboEligible: p.comboEligible,
           }}
           /* Sanitised here, on the server, rather than at the render site. The value is a
              client-component prop, so anything passed through raw would also be embedded in

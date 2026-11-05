@@ -1,4 +1,5 @@
 import { roundMoney } from "./checkout-pricing";
+import { comboQuote, normalizeComboOffers, bestBundleSavings, normalizeBundles } from "./combo";
 
 export class CheckoutValidationError extends Error {}
 export type CheckoutLine = { productId: number; variantId: number | null; qty: number };
@@ -6,6 +7,8 @@ type Product = {
   id: number; title: string; price: number; stock: number; preorder?: boolean; preorderDate?: Date | string | null;
   variants: { id: number; size?: string | null; color?: string | null; price?: number | null; stock: number }[];
   images?: { url: string; position?: number }[];
+  comboOffers?: unknown; // JSON string column — parsed by normalizeComboOffers
+  comboEligible?: boolean; // "combo department" flag — offers apply only to these products
 };
 
 const integerInput = (value: unknown): boolean => typeof value === "number" || (typeof value === "string" && /^\d+$/.test(value));
@@ -33,9 +36,26 @@ export function parseCheckoutLines(raw: unknown): CheckoutLine[] {
   return [...lines.values()];
 }
 
-export function buildCheckoutItems(lines: CheckoutLine[], products: Product[], options: { checkStock?: boolean } = {}) {
+export function buildCheckoutItems(lines: CheckoutLine[], products: Product[], options: { checkStock?: boolean; bundles?: unknown } = {}) {
   const productQuantities = new Map<number, number>();
+  // quantity combo ("2 ta 1600"): all lines of one product combine toward one tier,
+  // priced against the product base price; the effective per-unit price is spread
+  // evenly across that product's lines so order rows stay consistent.
+  // Tiers apply ONLY to products flagged comboEligible ("combo department").
+  const comboUnit = new Map<number, number>(); // productId → effective unit price after combo
+  const seen = new Set<number>();
+  for (const line of lines) {
+    const product = products.find((p) => p.id === line.productId);
+    if (!product) throw new CheckoutValidationError("A product in your cart is no longer available");
+    if (seen.has(product.id)) continue;
+    seen.add(product.id);
+    const totalQty = lines.filter((l) => l.productId === product.id).reduce((s, l) => s + l.qty, 0);
+    const offers = product.comboEligible ? normalizeComboOffers(product.comboOffers) : [];
+    const quote = comboQuote(product.price, totalQty, offers);
+    comboUnit.set(product.id, totalQty > 0 ? quote.subtotal / totalQty : product.price);
+  }
   let subtotal = 0;
+  let comboSavings = 0;
   const items = lines.map((line) => {
     const product = products.find((p) => p.id === line.productId);
     if (!product) throw new CheckoutValidationError("A product in your cart is no longer available");
@@ -47,8 +67,13 @@ export function buildCheckoutItems(lines: CheckoutLine[], products: Product[], o
     if (options.checkStock !== false && !product.preorder && (qtyForProduct > product.stock || (variant && line.qty > variant.stock))) {
       throw new CheckoutValidationError(`Not enough stock for ${product.title}. Please update your cart.`);
     }
-    const price = variant?.price ?? product.price;
-    if (!Number.isFinite(price) || price < 0) throw new CheckoutValidationError(`${product.title} is currently unavailable`);
+    const basePrice = variant?.price ?? product.price;
+    if (!Number.isFinite(basePrice) || basePrice < 0) throw new CheckoutValidationError(`${product.title} is currently unavailable`);
+    // combo tiers are defined on the product base price; a variant priced differently
+    // still gets the same proportional per-unit rate within its product group.
+    const effUnit = comboUnit.get(product.id) ?? basePrice;
+    const price = basePrice <= 0 ? 0 : roundMoney(product.price > 0 ? effUnit * (basePrice / product.price) : effUnit);
+    comboSavings = roundMoney(comboSavings + (basePrice - price) * line.qty);
     subtotal = roundMoney(subtotal + price * line.qty);
     if (!Number.isFinite(subtotal) || subtotal > 1_000_000_000) throw new CheckoutValidationError("Order amount exceeds the allowed limit");
     const image = [...(product.images || [])].sort((a, b) => (a.position || 0) - (b.position || 0))[0]?.url || null;
@@ -59,5 +84,22 @@ export function buildCheckoutItems(lines: CheckoutLine[], products: Product[], o
       preorderDate: product.preorderDate ? new Date(product.preorderDate) : null,
     };
   });
-  return { items, subtotal };
+  // cross-product bundle: if every product of an active bundle has >=1 in the cart,
+  // ONE unit of each is priced at the bundle total instead of base. Only bundles whose
+  // products are ALL comboEligible qualify; only the single best bundle applies.
+  const eligibleBundles = normalizeBundles(options.bundles).filter((b) =>
+    b.productIds.every((id) => products.find((p) => p.id === id)?.comboEligible));
+  let bundleSavings = 0;
+  if (eligibleBundles.length) {
+    // bundle compared against BASE product prices (not tier-adjusted) so the two
+    // discounts stack cleanly instead of double-counting the reduced unit price.
+    const baseLines = [...new Set(items.map((i) => i.productId))].map((id) => {
+      const p = products.find((pp) => pp.id === id)!;
+      const qty = items.filter((i) => i.productId === id).reduce((s, i) => s + i.qty, 0);
+      return { productId: id, price: p.price, qty };
+    });
+    bundleSavings = bestBundleSavings(baseLines, eligibleBundles);
+    subtotal = roundMoney(subtotal - bundleSavings);
+  }
+  return { items, subtotal, comboSavings: roundMoney(Math.max(0, comboSavings + bundleSavings)) };
 }
