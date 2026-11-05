@@ -13,8 +13,18 @@ function resolveSecret(): string {
   if (!IS_PROD) return DEV_SECRET;
   const runtime = globalThis as typeof globalThis & { __sinzoSessionSecret?: string };
   if (!runtime.__sinzoSessionSecret) {
-    runtime.__sinzoSessionSecret = crypto.randomBytes(32).toString("hex");
-    console.error("[auth] SESSION_SECRET is missing or a placeholder. Using a random per-process key; configure SESSION_SECRET before deployment.");
+    /* Serverless hosts (Vercel) run many instances side by side. A random per-process key
+       means a cookie signed by one instance is rejected by the next: /api/admin/login says ok,
+       /api/admin/whoami answers 200 or 401 depending on which instance picks the request up,
+       and /admin/dashboard bounces straight back to /admin/login (seen live on 2026-11-05).
+       Derive a stable emergency key from DATABASE_URL instead — identical on every instance,
+       unknown to anyone without the connection string. Still configure SESSION_SECRET: that
+       also keeps sessions valid across a database credential rotation. */
+    const dbUrl = process.env.DATABASE_URL || "";
+    runtime.__sinzoSessionSecret = dbUrl
+      ? crypto.createHmac("sha256", "sinzo-session-fallback-v1").update(dbUrl).digest("hex")
+      : crypto.randomBytes(32).toString("hex");
+    console.error(`[auth] SESSION_SECRET is missing or a placeholder. Using ${dbUrl ? "a key derived from DATABASE_URL (stable across instances)" : "a random per-process key"}; configure SESSION_SECRET before deployment.`);
   }
   return runtime.__sinzoSessionSecret;
 }
