@@ -365,6 +365,8 @@ function HeroSlidesEditor({ homepage, onChange, onUpload, busy }: {
             <div className="af full"><label>Headline</label><textarea rows={2} value={slide.title || ""} maxLength={160} onChange={(event) => update(index, { title: event.target.value })} /></div>
             <div className="af full"><label>Subtitle</label><textarea rows={2} value={slide.subtitle || ""} maxLength={280} onChange={(event) => update(index, { subtitle: event.target.value })} /></div>
             <div className="af full"><label>Internal button link</label><input value={slide.href || ""} maxLength={500} onChange={(event) => update(index, { href: event.target.value })} placeholder="/products or /collections/new-arrivals" /></div>
+            <div className="af"><label>2nd button text</label><input value={slide.cta2 || ""} maxLength={50} onChange={(event) => update(index, { cta2: event.target.value })} placeholder="View piece" /></div>
+            <div className="af"><label>2nd button link</label><input value={slide.href2 || ""} maxLength={500} onChange={(event) => update(index, { href2: event.target.value })} placeholder="same as button link" /></div>
             {imageEditor(slide, index, "image", "Desktop image (required)")}
             {imageEditor(slide, index, "mobileImage", "Mobile image (optional portrait crop)")}
           </div>

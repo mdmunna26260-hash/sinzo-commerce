@@ -9,6 +9,8 @@ export type HomeHeroSlide = {
   subtitle: string;
   cta: string;
   href: string;
+  cta2?: string;   // 2nd hero button label (default "View piece")
+  href2?: string;  // 2nd hero button link (default = href)
   image: string;
   mobileImage: string;
   enabled: boolean;
@@ -60,6 +62,8 @@ export function sanitizeHeroSlides(value: unknown, includeDisabled = true): Home
       subtitle: shortText(slide.subtitle, 280),
       cta: shortText(slide.cta, 50) || "Shop now",
       href: safeHref(slide.href),
+      cta2: shortText(slide.cta2, 50) || undefined,
+      href2: safeHref(slide.href2 || slide.href),
       image,
       mobileImage: safeImage(slide.mobileImage),
       enabled,
