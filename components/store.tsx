@@ -64,6 +64,11 @@ export function captureAttribution(): any {
       if (p.get(k)) attr[k] = p.get(k);
     }
     if (document.referrer) attr.referrer = document.referrer;
+    // Meta click/cookie IDs — needed server-side for CAPI attribution (webhook has no cookies)
+    const ck = (n: string) => { const m = document.cookie.match(new RegExp("(?:^|; )" + n + "=([^;]*)")); return m ? decodeURIComponent(m[1]) : undefined; };
+    const fbp = ck("_fbp"), fbc = ck("_fbc") || ck("sz_fbc");
+    if (fbp) attr.fbp = fbp;
+    if (fbc) attr.fbc = fbc;
     if (Object.keys(attr).length) {
       sessionStorage.setItem("sz_attr", JSON.stringify(attr));
       return attr;
