@@ -122,7 +122,7 @@ export default function HeroCarousel({ slides, intervalMs = 6_000, overlay = tru
                       {/* every slide shows the same two actions: Shop All Products
                           + View piece (this slide's own target) */}
                       <Link className="btn" href="/products" prefetch tabIndex={active ? undefined : -1}>Shop All Products</Link>
-                      <Link className="btn btn-ghost" href={slide.href || "/products"} prefetch tabIndex={active ? undefined : -1}>View piece</Link>
+                      <Link className="btn btn-ghost" href={slide.href2 || slide.href || "/products"} prefetch tabIndex={active ? undefined : -1}>{slide.cta2 || "View piece"}</Link>
                     </div>
                   </div>
                 </div>
