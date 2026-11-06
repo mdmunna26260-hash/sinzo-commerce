@@ -12,7 +12,7 @@ import { getCaptureKey, nextCaptureRevision, clearCaptureKey, captureSignature, 
 declare global { interface Window { __SZ_SHIPPING?: any; __SZ_CHECKOUT?: any } }
 
 export default function CheckoutPage() {
-  const { lines, subtotal, comboSavings, effectiveSubtotal, clear, ready, setQty, remove, replace } = useCart();
+  const { lines, subtotal, comboSavings, effectiveSubtotal, clear, ready, setQty, remove, replace, add } = useCart();
   const router = useRouter();
   const cfg = useMemo(() => {
     try { return JSON.parse(document.getElementById("sz-cfg")?.textContent || "{}"); } catch { return {}; }
@@ -38,6 +38,9 @@ export default function CheckoutPage() {
 
   const [form, setForm] = useState({ name: "", phone: "", email: "", address: "", area: "INSIDE_DHAKA", notes: "" });
   const [coupon, setCoupon] = useState("");
+  const [giftRule, setGiftRule] = useState<any>(null);
+  const [giftOpen, setGiftOpen] = useState(false);
+  const [giftPick, setGiftPick] = useState<Record<number, number>>({});
   const [applied, setApplied] = useState<any>(null);
   const [errors, setErrors] = useState<any>({});
   const [busy, setBusy] = useState(false);
@@ -45,8 +48,21 @@ export default function CheckoutPage() {
   const [payment, setPayment] = useState("COD");
 
   const [bundles, setBundles] = useState<any[]>([]);
+  useEffect(() => { fetch("/api/gift-rule").then((r) => r.json()).then(setGiftRule).catch(() => {}); }, []);
   useEffect(() => { fetch("/api/combo-bundles").then((r) => r.json()).then((d) => setBundles(d.bundles || [])).catch(() => {}); }, []);
   const bundleSavings = bestBundleSavings(lines, bundles);
+  // free-gift entitlement: RAW subtotal of non-gift, non-excluded lines vs tiers
+  const giftExcl = new Set<number>(giftRule?.excludeProductIds || []);
+  const giftEligibleSubtotal = lines.reduce((s, l) => s + (l.freeGift || giftExcl.has(l.productId) ? 0 : (l.qty || 1) * l.price), 0);
+  const giftUsed = lines.filter((l) => l.freeGift).reduce((s, l) => s + l.qty, 0);
+  let giftEntitled = 0;
+  if (giftRule?.enabled) for (const t of giftRule.tiers || []) if (giftEligibleSubtotal >= t.amount) giftEntitled = Math.max(giftEntitled, t.freeQty);
+  const giftRemaining = Math.max(0, giftEntitled - giftUsed);
+  const chooseGift = (p: any, variantId: number) => {
+    const v = p.variants.find((x: any) => x.id === variantId) || p.variants[0];
+    add({ productId: p.id, variantId: v?.id, slug: p.slug, title: p.title + " (FREE GIFT)", image: p.image || undefined, price: 0, qty: 1, size: v?.size || undefined, color: v?.color || undefined, stock: 99, freeGift: true } as any);
+    setGiftOpen(false); toast("Free gift added 🎁");
+  };
   const netSubtotal = effectiveSubtotal - bundleSavings; // combo tiers + bundle already applied
   const discount = couponDiscount(netSubtotal, applied);
   const { deliveryFee: ship, total } = checkoutTotals({
@@ -425,13 +441,13 @@ export default function CheckoutPage() {
                   decoding="async"
                 />
                 <div className="checkout-order-copy">
-                  <div className="checkout-order-name">{l.title}{l.preorder && <span className="po-tag">Pre-order</span>}</div>
+                  <div className="checkout-order-name">{l.title}{l.freeGift && <span style={{ color: "var(--ok)", fontSize: 11, fontWeight: 700 }}> FREE</span>}{l.preorder && <span className="po-tag">Pre-order</span>}</div>
                   <div className="checkout-order-variant">{[l.size, l.color].filter(Boolean).join(" · ")}</div>
                   <div className="checkout-order-actions">
                     <div className="mini-qty" aria-label={`Quantity: ${l.qty}`}>
-                      <button type="button" onClick={() => setQty(l.key, l.qty - 1)} aria-label={`Decrease ${l.title} quantity`}>−</button>
+                      <button type="button" onClick={() => setQty(l.key, l.qty - 1)} aria-label={`Decrease ${l.title}{l.freeGift && <span style={{ color: "var(--ok)", fontSize: 11, fontWeight: 700 }}> FREE</span>} quantity`}>−</button>
                       <span>{l.qty}</span>
-                      <button type="button" onClick={() => setQty(l.key, l.qty + 1)} aria-label={`Increase ${l.title} quantity`}>+</button>
+                      <button type="button" onClick={() => setQty(l.key, l.qty + 1)} aria-label={`Increase ${l.title}{l.freeGift && <span style={{ color: "var(--ok)", fontSize: 11, fontWeight: 700 }}> FREE</span>} quantity`}>+</button>
                     </div>
                     <button type="button" className="checkout-item-remove" onClick={() => remove(l.key)}>Remove</button>
                   </div>
@@ -442,6 +458,12 @@ export default function CheckoutPage() {
           </div>
 
           <div className="checkout-totals">
+            {giftRule?.enabled && giftEntitled > 0 && (
+              <div className="sum-row" style={{ color: "var(--ok)" }}>
+                <span>🎁 {giftRemaining > 0 ? `${giftRemaining} ta FREE gift available` : "Free gift in cart ✔"}</span>
+                {giftRemaining > 0 && <button type="button" className="abtn" style={{ padding: "2px 10px" }} onClick={() => setGiftOpen(true)}>Choose gift</button>}
+              </div>
+            )}
             <div className="sum-row"><span>Subtotal</span><span>৳{subtotal.toLocaleString("en-IN")}</span></div>
             {comboSavings > 0 && <div className="sum-row checkout-discount"><span>Combo offer</span><span>−৳{comboSavings.toLocaleString("en-IN")}</span></div>}
             {bundleSavings > 0 && <div className="sum-row checkout-discount"><span>Bundle offer</span><span>−৳{bundleSavings.toLocaleString("en-IN")}</span></div>}
@@ -449,6 +471,25 @@ export default function CheckoutPage() {
             <div className="sum-row"><span>Delivery</span><span>{ship === 0 ? "Free" : "৳" + ship.toLocaleString("en-IN")}</span></div>
             <div className="sum-row total"><span>Total</span><span>৳{total.toLocaleString("en-IN")}</span></div>
           </div>
+          {giftOpen && (
+            <div className="modal-bg" onClick={() => setGiftOpen(false)}>
+              <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 560, maxHeight: "80vh", overflow: "auto" }}>
+                <h3 style={{ marginTop: 0 }}>🎁 Choose your free gift ({giftRemaining} left)</h3>
+                {(giftRule.pool || []).map((p: any) => (
+                  <div key={p.id} style={{ display: "flex", gap: 10, alignItems: "center", border: "1px solid var(--line)", borderRadius: 10, padding: 8, marginBottom: 8 }}>
+                    {p.image && <img src={p.image} alt="" style={{ width: 48, height: 60, objectFit: "cover", borderRadius: 6 }} />}
+                    <div style={{ flex: 1 }}><b>{p.title}</b><div style={{ fontSize: 12, color: "var(--muted)" }}>worth ৳{p.price} — FREE</div></div>
+                    <select value={giftPick[p.id] || ""} onChange={(e) => setGiftPick({ ...giftPick, [p.id]: Number(e.target.value) })} style={{ maxWidth: 110 }}>
+                      <option value="">Size…</option>
+                      {(p.variants || []).map((v: any) => <option key={v.id} value={v.id}>{[v.size, v.color].filter(Boolean).join(" · ") || "One size"}</option>)}
+                    </select>
+                    <button className="abtn" disabled={!giftPick[p.id]} onClick={() => chooseGift(p, giftPick[p.id])}>Add free</button>
+                  </div>
+                ))}
+                <button className="btn btn-outline" onClick={() => setGiftOpen(false)}>Close</button>
+              </div>
+            </div>
+          )}
 
           <div className="coupon-row">
             <input placeholder="Coupon code" value={coupon} onChange={(e) => setCoupon(e.target.value.toUpperCase())} disabled={busy} aria-label="Coupon code" />
