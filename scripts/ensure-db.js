@@ -86,6 +86,10 @@ async function main() {
     await db.$executeRawUnsafe(`CREATE UNIQUE INDEX IF NOT EXISTS "ComboBundleItem_bundleId_productId_key" ON "ComboBundleItem"("bundleId", "productId")`).catch(() => {});
     await db.$executeRawUnsafe(`DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'ComboBundleItem_bundleId_fkey') THEN ALTER TABLE "ComboBundleItem" ADD CONSTRAINT "ComboBundleItem_bundleId_fkey" FOREIGN KEY ("bundleId") REFERENCES "ComboBundle"("id") ON DELETE CASCADE ON UPDATE CASCADE; END IF; END $$`).catch(() => {});
     await db.$executeRawUnsafe(`DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'ComboBundleItem_productId_fkey') THEN ALTER TABLE "ComboBundleItem" ADD CONSTRAINT "ComboBundleItem_productId_fkey" FOREIGN KEY ("productId") REFERENCES "Product"("id") ON DELETE CASCADE ON UPDATE CASCADE; END IF; END $$`).catch(() => {});
+    // Free-gift rule + Meta CAPI idempotency (PR #17): Order.giftDiscount / Order.capiPurchaseSentAt.
+    // Admin dashboard/orders read full Order rows, so a DB without these columns breaks them.
+    await db.$executeRawUnsafe(`ALTER TABLE "Order" ADD COLUMN IF NOT EXISTS "giftDiscount" DOUBLE PRECISION NOT NULL DEFAULT 0`).catch(e => console.log(`  col Order.giftDiscount: ${e.message?.slice(0,80)}`));
+    await db.$executeRawUnsafe(`ALTER TABLE "Order" ADD COLUMN IF NOT EXISTS "capiPurchaseSentAt" TIMESTAMP(3)`).catch(e => console.log(`  col Order.capiPurchaseSentAt: ${e.message?.slice(0,80)}`));
     console.log("ensure-db: all DDL done ✓");
   } finally {
     await db.$disconnect();
