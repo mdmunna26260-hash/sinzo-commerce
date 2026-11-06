@@ -264,7 +264,9 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
     if (!giftRule?.enabled || !giftRule.tiers?.length) return null;
     const excl = new Set<number>(giftRule.excludeProductIds || []);
     if (excl.has(product.id)) return null;
-    const cartEligible = lines.reduce((s: number, l: any) => s + (l.freeGift || excl.has(l.productId) ? 0 : (l.qty || 1) * l.price), 0);
+    // count the current product ONCE: drop its own cart lines first, then add price×qty
+    // (before, a product already in the cart was counted twice → wrong "unlocked")
+    const cartEligible = lines.reduce((s: number, l: any) => s + (l.freeGift || l.productId === product.id || excl.has(l.productId) ? 0 : (l.qty || 1) * l.price), 0);
     const withThis = cartEligible + price * qty;
     const tier = giftRule.tiers[0];
     const pct = Math.min(100, Math.round((withThis / tier.amount) * 100));
