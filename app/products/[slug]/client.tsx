@@ -264,14 +264,14 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
     if (!giftRule?.enabled || !giftRule.tiers?.length) return null;
     const excl = new Set<number>(giftRule.excludeProductIds || []);
     if (excl.has(product.id)) return null;
-    // count the current product ONCE: drop its own cart lines first, then add price×qty
-    // (before, a product already in the cart was counted twice → wrong "unlocked")
-    const cartEligible = lines.reduce((s: number, l: any) => s + (l.freeGift || l.productId === product.id || excl.has(l.productId) ? 0 : (l.qty || 1) * l.price), 0);
-    const withThis = cartEligible + price * qty;
+    // cart-ONLY subtotal — identical to cart/checkout/server, so the PDP bar can never
+    // disagree with the cart banner. (Adding the viewed product's price made it show
+    // "unlocked" while the cart itself was below the threshold.)
+    const cartEligible = lines.reduce((s: number, l: any) => s + (l.freeGift || excl.has(l.productId) ? 0 : (l.qty || 1) * l.price), 0);
     const tier = giftRule.tiers[0];
-    const pct = Math.min(100, Math.round((withThis / tier.amount) * 100));
-    const remaining = Math.max(0, Math.ceil(tier.amount - withThis));
-    return { pct, remaining, amount: tier.amount, unlocked: withThis >= tier.amount, freeQty: tier.freeQty };
+    const pct = Math.min(100, Math.round((cartEligible / tier.amount) * 100));
+    const remaining = Math.max(0, Math.ceil(tier.amount - cartEligible));
+    return { pct, remaining, amount: tier.amount, unlocked: cartEligible >= tier.amount, freeQty: tier.freeQty };
   })();
   const preDateStr = preorderDate ? new Date(preorderDate).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : "soon";
 
