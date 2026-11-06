@@ -64,6 +64,11 @@ export function captureAttribution(): any {
       if (p.get(k)) attr[k] = p.get(k);
     }
     if (document.referrer) attr.referrer = document.referrer;
+    // Meta click/cookie IDs — needed server-side for CAPI attribution (webhook has no cookies)
+    const ck = (n: string) => { const m = document.cookie.match(new RegExp("(?:^|; )" + n + "=([^;]*)")); return m ? decodeURIComponent(m[1]) : undefined; };
+    const fbp = ck("_fbp"), fbc = ck("_fbc") || ck("sz_fbc");
+    if (fbp) attr.fbp = fbp;
+    if (fbc) attr.fbc = fbc;
     if (Object.keys(attr).length) {
       sessionStorage.setItem("sz_attr", JSON.stringify(attr));
       return attr;
@@ -149,7 +154,7 @@ export function trackEvent(name: string, data?: Record<string, any>, opts?: { ev
 }
 
 /* ============ Cart (localStorage, guest-friendly) ============ */
-export type CartLine = { key: string; productId: number; variantId?: number; slug: string; title: string; image?: string; price: number; qty: number; size?: string; color?: string; stock: number; sizes?: string[]; preorder?: boolean; comboOffers?: unknown };
+export type CartLine = { key: string; productId: number; variantId?: number; slug: string; title: string; image?: string; price: number; qty: number; size?: string; color?: string; stock: number; sizes?: string[]; preorder?: boolean; comboOffers?: unknown; comboEligible?: boolean; freeGift?: boolean };
 const CART_KEY = "sz_cart_v1";
 
 /* Memory-first cart store: module-level state survives client-side navigation
@@ -218,7 +223,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const replace = (items: CartLine[]) => commit(items.map(l => ({ ...l, key: `${l.productId}:${l.variantId || 0}` })));
   const count = lines.reduce((s, l) => s + l.qty, 0);
   const subtotal = lines.reduce((s, l) => s + l.qty * l.price, 0);
-  const { subtotal: effSub, savings: comboSavings } = cartComboQuote(lines);
+  const { subtotal: effSub, savings: comboSavings } = cartComboQuote(lines, undefined, getCfg()?.combo?.deptTiers);
   const effectiveSubtotal = lines.length ? effSub : 0;
   return <Ctx.Provider value={{ lines, count, subtotal, comboSavings, effectiveSubtotal, ready, add, setQty, updateLine, remove, clear, replace }}>{children}</Ctx.Provider>;
 }

@@ -37,5 +37,5 @@ export function maskAdminSettings(settings: Record<string, any>): Record<string,
 
 export const SETTING_GROUPS = new Set([
   "store", "theme", "shipping", "homepage", "homeSections", "checkout", "fraud", "seo", "maintenance",
-  "courier", "integrations", "notifications", "policies", "marketing", "loyalty", "reviews", "whatsapp", "links",
+  "courier", "integrations", "notifications", "policies", "marketing", "loyalty", "reviews", "whatsapp", "links", "combo", "gift",
 ]);

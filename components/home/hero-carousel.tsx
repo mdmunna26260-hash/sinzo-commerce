@@ -16,7 +16,7 @@ function mobileSrcSet(src: string): string | undefined {
   return candidates.length > 1 ? candidates.map(({ width, url }) => `${url} ${width}w`).join(", ") : src;
 }
 
-export default function HeroCarousel({ slides, intervalMs = 6_000 }: { slides: HomeHeroSlide[]; intervalMs?: number }) {
+export default function HeroCarousel({ slides, intervalMs = 6_000, overlay = true }: { slides: HomeHeroSlide[]; intervalMs?: number; overlay?: boolean }) {
   const [index, setIndex] = useState(0);
   const [hovered, setHovered] = useState(false);
   const [focused, setFocused] = useState(false);
@@ -112,7 +112,7 @@ export default function HeroCarousel({ slides, intervalMs = 6_000 }: { slides: H
                   />
                 </picture>
               </div>
-              <div className="hero-overlay">
+              <div className={"hero-overlay" + (overlay ? "" : " no-fade")}>
                 <div className="container" style={{ width: "100%" }}>
                   <div className="hero-content">
                     {slide.eyebrow && <div className="eyebrow">{slide.eyebrow}</div>}

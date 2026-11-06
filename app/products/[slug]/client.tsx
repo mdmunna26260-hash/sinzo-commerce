@@ -248,6 +248,29 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
   const comboTiers = (product.comboEligible ? normalizeComboOffers(product.comboOffers) : []).map((t) => ({
     ...t, save: Math.round((t.qty * product.price - t.total) * 100) / 100,
   })).filter((t) => t.save > 0);
+  // live hint: selected qty vs next reachable tier — "ar 1 ta kinle ৳200 save"
+  const comboHint = (() => {
+    if (!comboTiers.length) return null;
+    const active = comboTiers.find((t) => qty >= t.qty);
+    if (active) return { done: true, text: `${qty} ta kinle ৳${active.save.toLocaleString("en-IN")} save hocche` };
+    const next = comboTiers[0];
+    return { done: false, text: `Ar ${next.qty - qty} ta kinle ৳${next.save.toLocaleString("en-IN")} save hobe` };
+  })();
+  // free-gift progress: cart er eligible subtotal + ei product er price vs lowest tier
+  const { lines } = useCart();
+  const [giftRule, setGiftRule] = useState<any>(null);
+  useEffect(() => { fetch("/api/gift-rule").then((r) => r.json()).then(setGiftRule).catch(() => {}); }, []);
+  const giftProgress = (() => {
+    if (!giftRule?.enabled || !giftRule.tiers?.length) return null;
+    const excl = new Set<number>(giftRule.excludeProductIds || []);
+    if (excl.has(product.id)) return null;
+    const cartEligible = lines.reduce((s: number, l: any) => s + (l.freeGift || excl.has(l.productId) ? 0 : (l.qty || 1) * l.price), 0);
+    const withThis = cartEligible + price * qty;
+    const tier = giftRule.tiers[0];
+    const pct = Math.min(100, Math.round((withThis / tier.amount) * 100));
+    const remaining = Math.max(0, Math.ceil(tier.amount - withThis));
+    return { pct, remaining, amount: tier.amount, unlocked: withThis >= tier.amount, freeQty: tier.freeQty };
+  })();
   const preDateStr = preorderDate ? new Date(preorderDate).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : "soon";
 
   useEffect(() => {
@@ -291,7 +314,7 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
   const line = () => ({
     productId: product.id, variantId: activeVariant?.id, slug: product.slug, title: product.title,
     image: product.images[0]?.url, price, qty, size: size || undefined, color: color || undefined, stock: avail || 99,
-    preorder: !!preorder, comboOffers: product.comboOffers ?? null,
+    preorder: !!preorder, comboOffers: product.comboOffers ?? null, comboEligible: !!product.comboEligible,
   });
   const addLine = () => {
     if (adding || buying) return; // no duplicate adds
@@ -405,12 +428,21 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
           {/* Quantity combo offers: "2 ta ৳1,600 (save ৳200)" — tiers from product.comboOffers */}
           {comboTiers.length > 0 && (
             <div className="combo-offers" role="list">
+              {comboHint && <span className={"combo-hint" + (comboHint.done ? " done" : "")}>{comboHint.text}</span>}
               {comboTiers.map((t) => (
                 <span key={t.qty} className="combo-chip" role="listitem">
                   {t.qty} ta ৳{t.total.toLocaleString("en-IN")}
                   {t.save > 0 && <em>save ৳{t.save.toLocaleString("en-IN")}</em>}
                 </span>
               ))}
+            </div>
+          )}
+          {giftProgress && (
+            <div className="gift-progress">
+              {giftProgress.unlocked
+                ? <span>🎁 FREE gift unlocked! Cart e choose korun.</span>
+                : <span>🎁 <b>৳{giftProgress.remaining.toLocaleString("en-IN")}</b> more lagbe {giftProgress.freeQty} ta FREE gift er jonno (৳{giftProgress.amount.toLocaleString("en-IN")}+ order)</span>}
+              <div className="freebar"><i style={{ width: giftProgress.pct + "%" }} /></div>
             </div>
           )}
           {/* LiveWatching OFF per user request (component dormant in components/live-watching.tsx) */}

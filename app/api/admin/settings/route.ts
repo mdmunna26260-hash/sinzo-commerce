@@ -45,10 +45,29 @@ export async function PUT(req: Request) {
     if (!Array.isArray(value.heroProductIds)) return NextResponse.json({ error: "heroProductIds must be an array of product ids" }, { status: 400 });
     value.heroProductIds = sanitizeHeroProductIds(value.heroProductIds);
   }
+  if (group === "homepage" && value.heroOverlay !== undefined && typeof value.heroOverlay !== "boolean") {
+    return NextResponse.json({ error: "heroOverlay must be a boolean" }, { status: 400 });
+  }
   if (group === "homepage" && value.heroBottomAnnouncement !== undefined) {
     if (value.heroBottomAnnouncement !== "" && (typeof value.heroBottomAnnouncement !== "string" || value.heroBottomAnnouncement.length > 300 || /[\r\n]/.test(value.heroBottomAnnouncement))) {
       return NextResponse.json({ error: "Hero bottom announcement must be a single line of max 300 characters" }, { status: 400 });
     }
+  }
+  if (group === "gift") {
+    const { normalizeGiftRule } = await import("@/lib/gift");
+    value.enabled = value.enabled === undefined ? true : value.enabled === true;
+    value.tiers = normalizeGiftRule(value).tiers;
+    for (const k of ["productIds", "excludeProductIds"]) {
+      if (value[k] !== undefined && !Array.isArray(value[k])) return NextResponse.json({ error: `${k} must be a list` }, { status: 400 });
+    }
+  }
+  if (group === "combo") {
+    if (value.deptTiers !== undefined) {
+      if (!Array.isArray(value.deptTiers)) return NextResponse.json({ error: "deptTiers must be a list" }, { status: 400 });
+      const { normalizeDeptTiers } = await import("@/lib/combo");
+      value.deptTiers = normalizeDeptTiers(value.deptTiers);
+    }
+    if (value.enabled !== undefined && typeof value.enabled !== "boolean") return NextResponse.json({ error: "enabled must be a boolean" }, { status: 400 });
   }
   if (group === "marketing") {
     if (value.recoveryAutoEnabled !== undefined && typeof value.recoveryAutoEnabled !== "boolean") return NextResponse.json({ error: "Recovery automation must be a boolean" }, { status: 400 });

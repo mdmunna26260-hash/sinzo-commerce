@@ -64,7 +64,7 @@ export function comboQuote(unitPrice: number, qty: number, offers: unknown): Com
 
 /* Cart-level quote: lines of the same product combine toward one combo (sizes/colors
    don't break the combo — "3 ta item" means 3 units of that product). */
-export function cartComboQuote(lines: { productId: number; price: number; qty: number; comboOffers?: unknown }[], bundles?: unknown): { subtotal: number; savings: number } {
+export function cartComboQuote(lines: { productId: number; price: number; qty: number; comboOffers?: unknown; comboEligible?: boolean }[], bundles?: unknown, deptTiers?: unknown): { subtotal: number; savings: number } {
   const groups = new Map<number, { qty: number; base: number; offers: unknown; unit: number }>();
   for (const l of lines) {
     const g = groups.get(l.productId) || { qty: 0, base: 0, offers: l.comboOffers, unit: l.price };
@@ -83,7 +83,12 @@ export function cartComboQuote(lines: { productId: number; price: number; qty: n
   // ONE unit of each is priced at the bundle total instead of base. Only the single
   // best (max-saving) bundle applies, so overlapping bundles never double-dip.
   const b = bestBundleSavings(lines, bundles);
-  return { subtotal: round2(subtotal - b), savings: round2(savings + b) };
+  subtotal = round2(subtotal - b);
+  savings = round2(savings + b);
+  // department rule: count units of combo-eligible lines only
+  const deptUnits = lines.reduce((s, l) => s + (l.comboEligible ? (l.qty || 1) : 0), 0);
+  const d = deptDiscount(deptUnits, deptTiers);
+  return { subtotal: round2(subtotal - d), savings: round2(savings + d) };
 }
 
 export type ComboBundleLike = { id?: number; price: number; active?: boolean; products?: unknown; productIds?: unknown };
@@ -118,6 +123,35 @@ export function bestBundleSavings(lines: { productId: number; price: number; qty
     const base = b.productIds.reduce((s, id) => s + (unit.get(id) || 0), 0);
     const save = round2(base - b.price);
     if (save > best) best = save;
+  }
+  return best;
+}
+
+/* ── Department-level combo rule ────────────────────────────────
+   Settings key "combo": { enabled, deptTiers: [{qty, discount}] }.
+   Rule: total UNITS of combo-department (comboEligible) products in the cart —
+   1 unit = no discount, 2 units = discount of tier qty2, 3 units = tier qty3, etc.
+   Best (max) reachable tier wins; amounts are DISCOUNTS (not totals), admin-set. */
+export type DeptTier = { qty: number; discount: number };
+
+export function normalizeDeptTiers(raw: unknown): DeptTier[] {
+  if (!Array.isArray(raw)) return [];
+  const seen = new Map<number, number>();
+  for (const item of raw.slice(0, 40)) {
+    if (!item || typeof item !== "object") continue;
+    const qty = Number((item as any).qty);
+    const discount = Number((item as any).discount);
+    if (!Number.isSafeInteger(qty) || qty < 2 || qty > 99) continue;
+    if (!Number.isFinite(discount) || discount < 0 || discount > 1_000_000_000) continue;
+    if (!seen.has(qty)) seen.set(qty, round2(discount));
+  }
+  return [...seen.entries()].map(([qty, discount]) => ({ qty, discount })).sort((a, b) => a.qty - b.qty).slice(0, 10);
+}
+
+export function deptDiscount(totalComboUnits: number, tiers: unknown): number {
+  let best = 0;
+  for (const t of normalizeDeptTiers(tiers)) {
+    if (t.qty <= totalComboUnits && t.discount > best) best = t.discount;
   }
   return best;
 }

@@ -74,6 +74,80 @@ test('buildCheckoutItems: server applies combo only to comboEligible products + 
   const bundles = [{ id: 1, price: 2500, active: true, productIds: [1, 2] }]; // 1 unit of 1+2 = 2700 → save 200
   const r = buildCheckoutItems(lines, products, { bundles });
   // tee: tier3 ≈2300; pant 1800; cap NOT eligible → 2x500=1000; bundle (base 2700−2500) −200
-  assert.ok(Math.abs(r.subtotal - 4900) < 1, "subtotal ~4900, got " + r.subtotal);
+  assert.equal(r.subtotal, 4900); // exact — no rounding drift
   assert.ok(Math.abs(r.comboSavings - 600) < 1, "comboSavings ~600, got " + r.comboSavings);
+});
+
+test('buildCheckoutItems: no rounding drift on tier subtotal (3x900 → exactly 2300)', () => {
+  const products = [{ id: 1, title: 'Tee', price: 900, stock: 99, comboEligible: true, comboOffers: '[{"qty":2,"total":1600},{"qty":3,"total":2300}]', variants: [], images: [] }];
+  const r = buildCheckoutItems([{ productId: 1, variantId: null, qty: 3 }], products, {});
+  assert.equal(r.subtotal, 2300);
+  assert.equal(r.comboSavings, 400);
+  // displayed line prices still sum to the group total (±0.02 rounding on per-unit display)
+  assert.ok(Math.abs(r.items.reduce((s, i) => s + i.price * i.qty, 0) - 2300) < 0.05);
+});
+
+/* ── department-level combo rule ── */
+const { normalizeDeptTiers, deptDiscount } = loader()('lib/combo.ts');
+
+test('dept rule: 1 item no discount, 2 items = set amount, 3 items = bigger amount', () => {
+  const tiers = [{ qty: 2, discount: 200 }, { qty: 3, discount: 400 }];
+  assert.equal(deptDiscount(1, tiers), 0);
+  assert.equal(deptDiscount(2, tiers), 200);
+  assert.equal(deptDiscount(3, tiers), 400);
+  assert.equal(deptDiscount(7, tiers), 400); // best reachable tier only
+  assert.deepEqual(normalizeDeptTiers([{ qty: 3, discount: 400 }, { qty: 2, discount: 200 }, { qty: 1, discount: 50 }]), tiers);
+});
+
+test('buildCheckoutItems: department rule counts only comboEligible units', () => {
+  const products = [
+    { id: 1, title: 'A', price: 900, stock: 99, comboEligible: true, comboOffers: null, variants: [], images: [] },
+    { id: 2, title: 'B', price: 500, stock: 99, comboEligible: true, comboOffers: null, variants: [], images: [] },
+    { id: 3, title: 'C', price: 300, stock: 99, comboEligible: false, comboOffers: null, variants: [], images: [] },
+  ];
+  const tiers = [{ qty: 2, discount: 200 }, { qty: 3, discount: 400 }];
+  // 1 eligible + 1 non-eligible = only 1 combo unit → no discount
+  let r = buildCheckoutItems([{ productId: 1, variantId: null, qty: 1 }, { productId: 3, variantId: null, qty: 1 }], products, { deptTiers: tiers });
+  assert.equal(r.subtotal, 1200); assert.equal(r.comboSavings, 0);
+  // 2 eligible units (different products) → 200 off
+  r = buildCheckoutItems([{ productId: 1, variantId: null, qty: 1 }, { productId: 2, variantId: null, qty: 1 }], products, { deptTiers: tiers });
+  assert.equal(r.subtotal, 1400 - 200); assert.equal(r.comboSavings, 200);
+  // 3 eligible units → 400 off
+  r = buildCheckoutItems([{ productId: 1, variantId: null, qty: 2 }, { productId: 2, variantId: null, qty: 1 }], products, { deptTiers: tiers });
+  assert.equal(r.subtotal, 2300 - 400); assert.equal(r.comboSavings, 400);
+});
+
+/* ── free gift rule ── */
+const { normalizeGiftRule, giftEntitlement } = loader()('lib/gift.ts');
+
+test('gift rule: tiers, entitlement, pool validation', () => {
+  const rule = normalizeGiftRule({ enabled: true, tiers: [{ amount: 2500, freeQty: 1 }, { amount: 5000, freeQty: 2 }], productIds: [7, 8], excludeProductIds: [9] });
+  assert.equal(giftEntitlement(2499, rule), 0);
+  assert.equal(giftEntitlement(2500, rule), 1);
+  assert.equal(giftEntitlement(4999, rule), 1);
+  assert.equal(giftEntitlement(5000, rule), 2);
+  assert.deepEqual(rule.productIds, [7, 8]);
+});
+
+test('buildCheckoutItems: free gift line priced 0, validated against threshold, excluded products dont count', () => {
+  const products = [
+    { id: 1, title: 'Shirt', price: 2600, stock: 99, comboEligible: false, comboOffers: null, variants: [{ id: 11, size: 'M', stock: 5, price: null }], images: [] },
+    { id: 7, title: 'Free Tee', price: 500, stock: 99, comboEligible: false, comboOffers: null, variants: [{ id: 71, size: 'L', stock: 9, price: null }], images: [] },
+    { id: 9, title: 'Excluded', price: 9999, stock: 99, comboEligible: false, comboOffers: null, variants: [], images: [] },
+  ];
+  const gift = { enabled: true, tiers: [{ amount: 2500, freeQty: 1 }], productIds: [7], excludeProductIds: [9] };
+  // 2600 shirt + 9999 excluded → eligible 2600 ≥ 2500 → 1 free allowed
+  let r = buildCheckoutItems([
+    { productId: 1, variantId: 11, qty: 1 },
+    { productId: 9, variantId: null, qty: 1 },
+    { productId: 7, variantId: 71, qty: 1, freeGift: true },
+  ], products, { gift });
+  assert.equal(r.giftSavings, 500);
+  assert.equal(r.subtotal, 2600 + 9999); // gift charged 0
+  const giftItem = r.items.find((i) => i.productId === 7);
+  assert.equal(giftItem.price, 0);
+  // below threshold → reject
+  assert.throws(() => buildCheckoutItems([{ productId: 7, variantId: 71, qty: 1, freeGift: true }], products, { gift }), /no longer available/);
+  // gift not in pool → reject
+  assert.throws(() => buildCheckoutItems([{ productId: 1, variantId: 11, qty: 1 }, { productId: 9, variantId: null, qty: 1 }, { productId: 1, variantId: 11, qty: 1, freeGift: true }], products, { gift }), /not in the offer pool/);
 });

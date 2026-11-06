@@ -176,7 +176,7 @@ async function HomeContent() {
   const sections: Record<string, React.ReactNode> = {
     hero: heroSlides.length ? (
       <>
-        <HeroCarousel key="hero" slides={heroSlides} intervalMs={6000} />
+        <HeroCarousel key="hero" slides={heroSlides} intervalMs={2000} overlay={hp.heroOverlay !== false} />
         {/* 2nd announcement bar at the END of the hero — text from Settings → Homepage */}
         <Announcement text={hp.heroBottomAnnouncement} className="announce-hero-bottom" />
       </>

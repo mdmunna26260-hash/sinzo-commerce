@@ -59,7 +59,7 @@ export async function POST(req: Request) {
       include: { variants: true, images: { orderBy: { position: "asc" } } },
     });
     const bundles = await db.comboBundle.findMany({ where: { active: true }, include: { items: { select: { productId: true } } } });
-    const { items: orderItems, subtotal, comboSavings } = buildCheckoutItems(lines, products, { bundles: bundles.map((b) => ({ id: b.id, price: b.price, active: b.active, productIds: b.items.map((i) => i.productId) })) });
+    const { items: orderItems, subtotal, comboSavings, giftSavings } = buildCheckoutItems(lines, products, { bundles: bundles.map((b) => ({ id: b.id, price: b.price, active: b.active, productIds: b.items.map((i) => i.productId) })), deptTiers: s.combo?.enabled === false ? [] : s.combo?.deptTiers, gift: s.gift });
     const risk = await assessRisk({ phone: cleanPhone, address, ip }, s.fraud);
     if (risk.level === "CRITICAL") return NextResponse.json({ error: "We're unable to accept this order. Please contact support." }, { status: 403 });
 
@@ -129,7 +129,7 @@ export async function POST(req: Request) {
         data: {
           code: "TEMP-" + crypto.randomUUID(), name, phone: cleanPhone, email: email || null,
           address, area, notes: notes || null,
-          subtotal, discount, deliveryFee, total, couponCode: appliedCode,
+          subtotal, discount, comboDiscount: comboSavings, giftDiscount: giftSavings || 0, deliveryFee, total, couponCode: appliedCode, capiPurchaseSentAt: new Date(),
           paymentMethod, paymentStatus: "PENDING", status: risk.level === "HIGH" ? "ON_HOLD" : "PENDING",
           riskLevel: risk.level, riskFlags: risk.flags.join(", ") || null,
           source: recovered ? "Recovered" : detectSource(attribution), attribution: Object.keys(attribution).length ? JSON.stringify(attribution) : null,
@@ -148,13 +148,27 @@ export async function POST(req: Request) {
     if (result.reused) return NextResponse.json({ ok: true, code, total, risk: order.riskLevel, reused: true });
 
     // --- server-side Purchase via Meta CAPI (dedup with browser pixel by event_id) ---
-    sendCapi({
-      eventName: "Purchase",
-      eventId: purchaseEventId || `srv_purchase_${order.id}`,
-      eventSourceUrl: req.headers.get("referer") || undefined,
-      userData: { phone: cleanPhone, email: email || undefined, name: String(name || ""), clientIp: ip, userAgent: req.headers.get("user-agent") || undefined, externalId: cleanPhone },
-      customData: { currency: "BDT", value: total, content_type: "product", num_items: orderItems.reduce((a, i) => a + i.qty, 0), contents: orderItems.map((i) => ({ id: String(i.productId), quantity: i.qty, item_price: i.price })) },
-    }).catch(() => {});
+    // idempotency: the flag is set in the same transaction that created the order;
+    // duplicate POSTs return early via `reused`, and any later retry sees the flag.
+    if (!order.capiPurchaseSentAt) {
+      await db.order.update({ where: { id: order.id }, data: { capiPurchaseSentAt: new Date() } }).catch(() => {});
+      sendCapi({
+        eventName: "Purchase",
+        eventId: purchaseEventId || `srv_purchase_${order.id}`, // SAME id the thank-you pixel uses
+        eventSourceUrl: req.headers.get("referer") || undefined,
+        userData: {
+          phone: cleanPhone, email: email || undefined, name: String(name || ""),
+          clientIp: ip, userAgent: req.headers.get("user-agent") || undefined, externalId: cleanPhone,
+          fbp: attribution.fbp || undefined, fbc: attribution.fbc || undefined, // from checkout-page cookies
+        },
+        customData: {
+          currency: "BDT", value: total, order_id: code, content_type: "product",
+          num_items: orderItems.reduce((a, i) => a + i.qty, 0),
+          content_ids: orderItems.map((i) => String(i.productId)),
+          contents: orderItems.map((i) => ({ id: String(i.productId), quantity: i.qty, item_price: i.price })),
+        },
+      }).catch(() => {});
+    }
 
     // customer order-confirmation WhatsApp — written to the outbox here, sent by the worker
     // (lib/wa-queue → scripts/wa-worker.js, respecting caps/quiet hours/pacing). A blocked

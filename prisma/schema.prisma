@@ -220,6 +220,8 @@ model Order {
   subtotal      Float
   discount      Float       @default(0)
   comboDiscount Float       @default(0) // quantity-combo savings (comboOffers) already netted out of subtotal
+  giftDiscount  Float       @default(0) // free-gift value: original price of the free item(s), charged as 0
+  capiPurchaseSentAt DateTime?   // Meta CAPI Purchase already sent (idempotency — webhook retries must not resend)
   deliveryFee   Float       @default(0)
   total         Float
   couponCode    String?
