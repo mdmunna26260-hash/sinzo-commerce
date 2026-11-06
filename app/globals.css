@@ -2591,6 +2591,16 @@ html.theme-transition *::after {
   .mini-qty span { min-width: 22px; font-size: 12.5px; }
   .pay-opt { padding: 8px 10px; }
   .trust { gap: 10px; font-size: 10.5px; }
+  /* Place order button: sticky bottom bar on mobile so it is always tappable,
+     even mid-scroll — with safe-area padding for iPhone home indicator */
+  .checkout-submit.btn {
+    position: sticky;
+    bottom: calc(10px + env(safe-area-inset-bottom));
+    width: 100%;
+    z-index: 40;
+    box-shadow: 0 10px 26px rgba(0,0,0,.22);
+  }
+  .checkout-page { padding-bottom: 96px; }
 }
 
 /* Tablet breakpoint: tighten checkout gap */
