@@ -456,7 +456,7 @@ export default function OrderDetailClient({ initial, nav }: { initial: Order; na
                   <div style={{ fontWeight: 600 }}>{o.name}</div>
                   <div style={{ color: "var(--muted)", fontSize: 13.5, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
                     {o.phone}
-                    <button className="abtn sm" title="Copy phone" onClick={() => copy("Phone", o.phone)}>📋</button>
+                    <a className="abtn sm" title="Call customer" href={"tel:" + o.phone}>📞</a>
                     {o.email ? <span>{o.email}</span> : null}
                   </div>
                   <div style={{ color: "var(--muted)", fontSize: 13.5, marginTop: 6 }}>{o.address}</div>
@@ -466,7 +466,7 @@ export default function OrderDetailClient({ initial, nav }: { initial: Order; na
                     {o.ip ? <> · IP: {o.ip}</> : null}
                   </div>
                   <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
-                    <button className="abtn sm" disabled={busy} onClick={() => copy("Phone", o.phone)}>📋 Copy phone</button>
+                    <a className="abtn sm" style={{ fontWeight: 600 }} href={"tel:" + o.phone}>📞 Call</a>
                     <a className="abtn sm" style={{ color: "var(--ok)", borderColor: "#c4dfd0", fontWeight: 600 }}
                       href={"https://wa.me/" + (() => { let d = o.phone.replace(/[^0-9]/g, ""); if (d.startsWith("0")) d = "88" + d; else if (!d.startsWith("880")) d = "880" + d; return d; })()}
                       target="_blank" rel="noreferrer">💬 WhatsApp customer</a>
@@ -491,42 +491,36 @@ export default function OrderDetailClient({ initial, nav }: { initial: Order; na
                   {STATUSES.map((s) => <option key={s}>{s}</option>)}
                 </select>
               </div>
+              {!o.courierConsignmentId && (
+                <button className="abtn primary sm" style={{ marginBottom: 12 }} onClick={sendCourier} disabled={busy}>🚚 Send to Steadfast</button>
+              )}
               <div className="af" style={{ marginBottom: 12 }}>
                 <label>Payment Status</label>
-                <select value={o.paymentStatus} onChange={(e) => put({ paymentStatus: e.target.value }, "Payment → " + e.target.value)} disabled={busy}>
-                  <option>PENDING</option><option>PAID</option><option>FAILED</option><option>REFUNDED</option>
-                </select>
+                <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                  <select value={o.paymentStatus} onChange={(e) => put({ paymentStatus: e.target.value }, "Payment → " + e.target.value)} disabled={busy} style={{ flex: 1, minWidth: 130 }}>
+                    <option>PENDING</option><option>PAID</option><option>FAILED</option><option>REFUNDED</option>
+                  </select>
+                  {o.paymentStatus !== "PENDING" && (
+                    <button className="abtn sm" disabled={busy} onClick={() => put({ paymentStatus: "PENDING" }, "Payment → PENDING")}>↩ Back to Pending</button>
+                  )}
+                </div>
               </div>
               <div className="af">
                 <label>Admin Note</label>
                 <textarea value={note} onChange={(e) => setNote(e.target.value)} placeholder="Internal notes…" style={{ minHeight: 70 }} />
-                <button className="abtn sm" style={{ marginTop: 8, alignSelf: "flex-start" }} onClick={() => put({ adminNote: note }, "Note saved ✓")} disabled={busy}>Save note</button>
+                <div style={{ display: "flex", gap: 8, marginTop: 8, alignItems: "center", justifyContent: "space-between", flexWrap: "wrap" }}>
+                  <button className="abtn sm" onClick={() => put({ adminNote: note }, "Note saved ✓")} disabled={busy}>Save note</button>
+                  <span style={{ fontSize: 11.5, color: "var(--muted)", display: "inline-flex", alignItems: "center", gap: 5 }} title="Steadfast consignment">
+                    {o.courierConsignmentId
+                      ? <>🚚 <b>{o.courierConsignmentId}</b> <span className="pill SHIPPED">{o.courierStatus || "in review"}</span></>
+                      : <>🚚 not sent</>}
+                  </span>
+                </div>
               </div>
             </div>
           </div>
 
           <PaymentsCard orderId={o.id} total={o.total} />
-
-          <div className="acard">
-            <div className="acard-h"><h3>Courier</h3></div>
-            <div className="acard-b" style={{ fontSize: 13.5 }}>
-              {o.courierName ? (
-                <>
-                  <div><b>{o.courierName}</b></div>
-                  <div style={{ color: "var(--muted)", marginTop: 4, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-                    Consignment: {o.courierConsignmentId}
-                    <button className="abtn sm" title="Copy consignment ID" onClick={() => copy("Consignment ID", o.courierConsignmentId)}>📋</button>
-                  </div>
-                  <div style={{ marginTop: 4 }}>Status: <span className="pill SHIPPED">{o.courierStatus || "unknown"}</span></div>
-                </>
-              ) : (
-                <div style={{ color: "var(--muted)" }}>Not sent to any courier yet.</div>
-              )}
-              <div style={{ marginTop: 12, fontSize: 12, color: "var(--muted)", display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-                Tracking: {o.code} · {o.phone}
-              </div>
-            </div>
-          </div>
         </div>
       </div>
 
