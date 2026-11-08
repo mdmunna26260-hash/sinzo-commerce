@@ -31,7 +31,7 @@ export default function Filters({ cats, sizes = [], mobileOpen, onClose, variant
 
   const body = (variant: "side" | "drawer") => (
     <>
-      <h3 id={`flt-cat-${variant}`}>Categories</h3>
+      <h2 className="flt-h" id={`flt-cat-${variant}`}>Categories</h2>
       <div role="radiogroup" aria-labelledby={`flt-cat-${variant}`}>
       <label><input type="radio" name="fcat" checked={!get("category")} onChange={() => push({ category: undefined })} />All</label>
       {cats.map((c) => (
@@ -41,7 +41,7 @@ export default function Filters({ cats, sizes = [], mobileOpen, onClose, variant
         </label>
       ))}
       </div>
-      <h3>Price (৳)</h3>
+      <h2 className="flt-h">Price (৳)</h2>
       <form className="price-row" onSubmit={(e) => {
         e.preventDefault();
         push({ min: min || undefined, max: max || undefined });
@@ -52,7 +52,7 @@ export default function Filters({ cats, sizes = [], mobileOpen, onClose, variant
       </form>
       {sizes.length > 0 && (
         <>
-          <h3>Size</h3>
+          <h2 className="flt-h">Size</h2>
           {sizes.map((sz) => (
             <label key={sz}>
               <input type="checkbox" checked={get("size") === sz} onChange={() => push({ size: get("size") === sz ? undefined : sz })} />
@@ -61,7 +61,7 @@ export default function Filters({ cats, sizes = [], mobileOpen, onClose, variant
           ))}
         </>
       )}
-      <h3>Availability</h3>
+      <h2 className="flt-h">Availability</h2>
       <label><input type="checkbox" checked={get("avail") === "1"} onChange={() => push({ avail: get("avail") === "1" ? undefined : "1" })} />In stock only</label>
       <label><input type="checkbox" checked={get("onsale") === "1"} onChange={() => push({ onsale: get("onsale") === "1" ? undefined : "1" })} />On sale</label>
     </>

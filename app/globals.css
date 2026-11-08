@@ -4125,3 +4125,6 @@ body:has(.admin-body) .scroll-progress { display: none !important; }
 .tab-strip .abtn:active { transform: scale(.96); }
 :root[data-theme="dark"] .kpi:hover { box-shadow: 0 8px 24px rgba(0,0,0,.45); }
 :root[data-theme="dark"] .acard:hover { box-shadow: 0 6px 18px rgba(0,0,0,.4); }
+
+/* filter group headings (h2 for correct heading order; styled like the old h3) */
+.flt-h { font-size: 12px; font-weight: 650; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); margin: 16px 0 8px; }
