@@ -255,7 +255,8 @@ button.image-progress-segment:focus-visible::after {
 .footer-bottom { border-top: 1px solid var(--line); padding-top: 22px; display: flex; justify-content: space-between; gap: 16px; font-size: 12px; color: var(--muted); flex-wrap: wrap; }
 
 /* ---------- Product listing ---------- */
-.shop-wrap { padding: 30px 24px 80px; }
+.shop-wrap { padding: 30px 24px 80px; text-align: center; }
+.shop-wrap .cat-pills { text-align: left; }
 .shop-title { font-size: clamp(26px, 3.2vw, 38px); margin: 6px 0 18px; }
 
 /* toolbar */
@@ -1020,7 +1021,7 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 13.5px; }
 }
 
 /* ---------- products page: quick category pills + sidebar polish ---------- */
-.cat-pills { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; padding: 2px 0 4px; margin-bottom: 14px; }
+.cat-pills { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; padding: 2px 0 4px; margin-bottom: 14px; justify-content: safe center; }
 .cat-pills::-webkit-scrollbar { display: none; }
 .cat-pill { flex: 0 0 auto; border: 1px solid var(--line); background: #fff; border-radius: 99px; padding: 8px 18px; font-size: 12.5px; letter-spacing: .06em; color: var(--text); white-space: nowrap; }
 .cat-pill.active { background: var(--text); color: var(--bg); border-color: var(--text); }
