@@ -151,7 +151,7 @@ export default function OrdersClient({ initial, initialTab = "ALL" }: { initial:
       </div>
       <div className="stat-strip admin-filters">
         <input className="asearch" placeholder="Search code / phone / name / consignment…" value={q} onChange={(e) => setQ(e.target.value)} />
-        <span style={{ display: "inline-flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+        <span className="tab-strip" style={{ display: "inline-flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
           {TABS.map(([key, label]) => {
             const n = key === "ALL" ? initial.length : initial.filter((o) => key === "PREORDER" ? (o.items || []).some((i) => i.preorder) : TAB_GROUPS[key].includes(o.status)).length;
             const active = tab === key;

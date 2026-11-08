@@ -4087,8 +4087,16 @@ body:has(.admin-body) .scroll-progress { display: none !important; }
   .hide-m { display: none !important; }
   .tbl th, .tbl td { padding: 8px 8px !important; font-size: 12.5px; }
   .admin-filters { flex-direction: column; align-items: stretch; }
-  .admin-filters .asearch, .admin-filters .abtn, .admin-filters select { width: 100%; box-sizing: border-box; }
+  .admin-filters > .asearch, .admin-filters > .abtn, .admin-filters > select { width: 100%; box-sizing: border-box; }
   .admin-top { flex-direction: column; align-items: stretch !important; gap: 10px; }
   .admin-actions { flex-wrap: wrap; }
   .admin-actions .abtn { flex: 1 1 auto; }
+}
+
+/* status tab strip: mini pills (desktop + mobile) */
+.tab-strip .abtn { padding: 6px 11px; font-size: 12px; border-radius: 99px; }
+.tab-strip .abtn.primary { font-weight: 700; }
+@media (max-width: 760px) {
+  .admin-filters .tab-strip { width: 100%; flex-wrap: nowrap; overflow-x: auto; padding-bottom: 4px; }
+  .admin-filters .tab-strip .abtn { width: auto !important; flex: 0 0 auto; white-space: nowrap; }
 }
