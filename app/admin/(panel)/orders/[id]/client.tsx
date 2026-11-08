@@ -456,8 +456,6 @@ export default function OrderDetailClient({ initial, nav }: { initial: Order; na
                   <div style={{ fontWeight: 600 }}>{o.name}</div>
                   <div style={{ color: "var(--muted)", fontSize: 13.5, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
                     {o.phone}
-                    <a className="abtn sm" title="Call customer" href={"tel:" + o.phone}>📞</a>
-                    <button className="abtn sm" title="Copy phone" onClick={() => copy("Phone", o.phone)}>📋</button>
                     {o.email ? <span>{o.email}</span> : null}
                   </div>
                   <div style={{ color: "var(--muted)", fontSize: 13.5, marginTop: 6 }}>{o.address}</div>
