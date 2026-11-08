@@ -17,7 +17,7 @@ const TAB_GROUPS: Record<string, string[]> = {
   ACTIVE: ["PROCESSING", "PACKED", "SHIPPED"], ON_HOLD: ["ON_HOLD"],
   DELIVERED: ["DELIVERED"], CLOSED: ["CANCELLED", "RETURNED"],
 };
-const TABS: [string, string][] = [["ALL", "All"], ["PENDING", "Pending"], ["CONFIRMED", "Confirmed"], ["ACTIVE", "Active"], ["ON_HOLD", "On Hold"], ["DELIVERED", "Delivered"], ["CLOSED", "Cancelled/Returned"]];
+const TABS: [string, string][] = [["ALL", "All"], ["PENDING", "Pending"], ["CONFIRMED", "Confirmed"], ["ACTIVE", "Active"], ["ON_HOLD", "On Hold"], ["PREORDER", "Pre-order"], ["DELIVERED", "Delivered"], ["CLOSED", "Cancelled/Returned"]];
 
 export default function OrdersClient({ initial, initialTab = "ALL" }: { initial: O[]; initialTab?: string }) {
   const router = useRouter();
@@ -29,8 +29,8 @@ export default function OrdersClient({ initial, initialTab = "ALL" }: { initial:
   const [busy, setBusy] = useState(false);
 
   const list = useMemo(() => initial.filter((o) => {
-    const g = TAB_GROUPS[tab] || [];
-    if (g.length && !g.includes(o.status)) return false;
+    if (tab === "PREORDER") { if (!(o.items || []).some((i) => i.preorder)) return false; }
+    else { const g = TAB_GROUPS[tab] || []; if (g.length && !g.includes(o.status)) return false; }
     if (payment && o.paymentStatus !== payment) return false;
     if (q && ![o.code, o.name, o.phone, o.courierConsignmentId || ""].join(" ").toLowerCase().includes(q.toLowerCase())) return false;
     if (dateFilter) {
@@ -153,7 +153,7 @@ export default function OrdersClient({ initial, initialTab = "ALL" }: { initial:
         <input className="asearch" placeholder="Search code / phone / name / consignment…" value={q} onChange={(e) => setQ(e.target.value)} />
         <span style={{ display: "inline-flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
           {TABS.map(([key, label]) => {
-            const n = key === "ALL" ? initial.length : initial.filter((o) => TAB_GROUPS[key].includes(o.status)).length;
+            const n = key === "ALL" ? initial.length : initial.filter((o) => key === "PREORDER" ? (o.items || []).some((i) => i.preorder) : TAB_GROUPS[key].includes(o.status)).length;
             const active = tab === key;
             return <button key={key} className={"abtn" + (active ? " primary" : "")} style={active ? { fontWeight: 700 } : undefined} onClick={() => setTab(key)}>{label} <span style={{ opacity: 0.65 }}>({n})</span></button>;
           })}
