@@ -166,7 +166,8 @@ function FraudCheck({ orderId, phone }: { orderId: number; phone: string }) {
   );
 }
 
-export default function OrderDetailClient({ initial }: { initial: Order }) {
+type Nav = { prev: { id: number; code: string; status: string } | null; next: { id: number; code: string; status: string } | null };
+export default function OrderDetailClient({ initial, nav }: { initial: Order; nav?: Nav }) {
   const router = useRouter();
   const [o, setO] = useState(initial);
   const [busy, setBusy] = useState(false);
@@ -337,7 +338,9 @@ export default function OrderDetailClient({ initial }: { initial: Order }) {
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           <button className="abtn" onClick={downloadOrder}>⭳ Download</button>
           <ThermalLink orderId={o.id} token={(() => { try { return new URLSearchParams(location.search).get("t") || localStorage.getItem("sz_admin_token") || ""; } catch { return ""; } })()} />
-          <Link className="abtn" href={withToken("/admin/dashboard")}>← Back to Dashboard</Link>
+          {nav?.prev && <Link className="abtn" href={withToken("/admin/orders/" + nav.prev.id)} title={"Newer: " + nav.prev.code + " (" + nav.prev.status + ")"}>← {nav.prev.code}</Link>}
+          {nav?.next && <Link className="abtn" href={withToken("/admin/orders/" + nav.next.id)} title={"Older: " + nav.next.code + " (" + nav.next.status + ")"}>{nav.next.code} →</Link>}
+          <Link className="abtn" href={withToken("/admin/orders?tab=PENDING")}>← Back to Pending Orders</Link>
           <Link className="abtn" href={withToken("/admin/orders/" + o.id + "/invoice")} target="_blank">🖨 Invoice</Link>
           {!o.courierConsignmentId
             ? <button className="abtn primary" onClick={sendCourier} disabled={busy}>🚚 Send to Steadfast</button>

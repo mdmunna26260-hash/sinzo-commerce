@@ -19,10 +19,10 @@ const TAB_GROUPS: Record<string, string[]> = {
 };
 const TABS: [string, string][] = [["ALL", "All"], ["PENDING", "Pending"], ["CONFIRMED", "Confirmed"], ["ACTIVE", "Active"], ["ON_HOLD", "On Hold"], ["DELIVERED", "Delivered"], ["CLOSED", "Cancelled/Returned"]];
 
-export default function OrdersClient({ initial }: { initial: O[] }) {
+export default function OrdersClient({ initial, initialTab = "ALL" }: { initial: O[]; initialTab?: string }) {
   const router = useRouter();
   const [q, setQ] = useState("");
-  const [tab, setTab] = useState("ALL");
+  const [tab, setTab] = useState(TAB_GROUPS[initialTab] ? initialTab : "ALL");
   const [payment, setPayment] = useState("");
   const [dateFilter, setDateFilter] = useState("");
   const [sel, setSel] = useState<Set<number>>(new Set());
