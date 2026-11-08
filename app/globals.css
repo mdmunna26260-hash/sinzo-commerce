@@ -1021,7 +1021,7 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 13.5px; }
 }
 
 /* ---------- products page: quick category pills + sidebar polish ---------- */
-.cat-pills { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; padding: 2px 0 4px; margin-bottom: 14px; justify-content: safe center; }
+.cat-pills { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; padding: 2px 0 4px; margin: 22px 0 16px; justify-content: safe center; }
 .cat-pills::-webkit-scrollbar { display: none; }
 .cat-pill { flex: 0 0 auto; border: 1px solid var(--line); background: #fff; border-radius: 99px; padding: 8px 18px; font-size: 12.5px; letter-spacing: .06em; color: var(--text); white-space: nowrap; }
 .cat-pill.active { background: var(--text); color: var(--bg); border-color: var(--text); }
