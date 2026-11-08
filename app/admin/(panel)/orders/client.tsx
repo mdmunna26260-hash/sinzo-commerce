@@ -12,18 +12,25 @@ type O = {
   courierStatus?: string | null; createdAt: string; items: { title: string; qty: number; variant?: string | null; preorder?: boolean }[];
 };
 const STATUSES = ["PENDING", "CONFIRMED", "PROCESSING", "PACKED", "SHIPPED", "DELIVERED", "CANCELLED", "RETURNED", "ON_HOLD"];
+const TAB_GROUPS: Record<string, string[]> = {
+  ALL: [], PENDING: ["PENDING"], CONFIRMED: ["CONFIRMED"],
+  ACTIVE: ["PROCESSING", "PACKED", "SHIPPED"], ON_HOLD: ["ON_HOLD"],
+  DELIVERED: ["DELIVERED"], CLOSED: ["CANCELLED", "RETURNED"],
+};
+const TABS: [string, string][] = [["ALL", "All"], ["PENDING", "Pending"], ["CONFIRMED", "Confirmed"], ["ACTIVE", "Active"], ["ON_HOLD", "On Hold"], ["DELIVERED", "Delivered"], ["CLOSED", "Cancelled/Returned"]];
 
 export default function OrdersClient({ initial }: { initial: O[] }) {
   const router = useRouter();
   const [q, setQ] = useState("");
-  const [status, setStatus] = useState("");
+  const [tab, setTab] = useState("ALL");
   const [payment, setPayment] = useState("");
   const [dateFilter, setDateFilter] = useState("");
   const [sel, setSel] = useState<Set<number>>(new Set());
   const [busy, setBusy] = useState(false);
 
   const list = useMemo(() => initial.filter((o) => {
-    if (status && o.status !== status) return false;
+    const g = TAB_GROUPS[tab] || [];
+    if (g.length && !g.includes(o.status)) return false;
     if (payment && o.paymentStatus !== payment) return false;
     if (q && ![o.code, o.name, o.phone, o.courierConsignmentId || ""].join(" ").toLowerCase().includes(q.toLowerCase())) return false;
     if (dateFilter) {
@@ -41,7 +48,7 @@ export default function OrdersClient({ initial }: { initial: O[] }) {
       }
     }
     return true;
-  }), [initial, q, status, payment, dateFilter]);
+  }), [initial, q, tab, payment, dateFilter]);
 
   const openOrder = (id: number) => router.push(withToken("/admin/orders/" + id));
 
@@ -144,9 +151,13 @@ export default function OrdersClient({ initial }: { initial: O[] }) {
       </div>
       <div className="stat-strip admin-filters">
         <input className="asearch" placeholder="Search code / phone / name / consignment…" value={q} onChange={(e) => setQ(e.target.value)} />
-        <select className="abtn" value={status} onChange={(e) => setStatus(e.target.value)}>
-          <option value="">All statuses</option>{STATUSES.map((s) => <option key={s}>{s}</option>)}
-        </select>
+        <span style={{ display: "inline-flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+          {TABS.map(([key, label]) => {
+            const n = key === "ALL" ? initial.length : initial.filter((o) => TAB_GROUPS[key].includes(o.status)).length;
+            const active = tab === key;
+            return <button key={key} className={"abtn" + (active ? " primary" : "")} style={active ? { fontWeight: 700 } : undefined} onClick={() => setTab(key)}>{label} <span style={{ opacity: 0.65 }}>({n})</span></button>;
+          })}
+        </span>
         <select className="abtn" value={payment} onChange={(e) => setPayment(e.target.value)}>
           <option value="">All payments</option>
           <option value="PENDING">Unpaid</option><option value="PAID">Paid</option>
