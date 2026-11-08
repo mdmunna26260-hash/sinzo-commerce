@@ -693,8 +693,8 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 13.5px; }
 .admin-body .pill.ON_HOLD, .admin-body .pill.DRAFT { background: var(--ad-line-soft); color: var(--ad-sub); }
 .abtn { border: 1px solid #d0d5dd; background: var(--ad-card, #fff); color: inherit; padding: 9px 16px; font-size: 13px; font-weight: 550; border-radius: 8px; box-shadow: 0 1px 2px rgba(16,24,40,.04); display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
 .abtn:hover { border-color: #98a2b3; background: var(--ad-line-soft); }
-.abtn.primary { background: var(--ad-accent, var(--text)); color: #fff; border-color: var(--ad-accent, var(--text)); }
-.abtn.primary:hover { background: var(--ad-accent-2, var(--text)); border-color: var(--ad-accent-2, var(--text)); }
+.abtn.primary { background: var(--ad-accent, var(--text)); color: var(--bg); border-color: var(--ad-accent, var(--text)); }
+.abtn.primary:hover { background: var(--ad-accent-2, var(--text)); border-color: var(--ad-accent-2, var(--text)); color: var(--bg); }
 .abtn.danger { color: var(--ad-red); border-color: #f3c1bd; background: var(--ad-card); }
 .abtn.danger:hover { background: var(--ad-red); color: #fff; border-color: var(--ad-red); }
 .abtn.sm { padding: 6px 10px; font-size: 12px; border-radius: 7px; }
@@ -4081,3 +4081,14 @@ body:has(.admin-body) .scroll-progress { display: none !important; }
 .hero-overlay.no-fade { background: none !important; }
 .gift-progress { margin: 10px 0 2px; font-size: 12.5px; color: var(--ok); font-weight: 600; }
 .gift-progress .freebar { margin-top: 5px; }
+
+/* ---------- admin mobile ---------- */
+@media (max-width: 760px) {
+  .hide-m { display: none !important; }
+  .tbl th, .tbl td { padding: 8px 8px !important; font-size: 12.5px; }
+  .admin-filters { flex-direction: column; align-items: stretch; }
+  .admin-filters .asearch, .admin-filters .abtn, .admin-filters select { width: 100%; box-sizing: border-box; }
+  .admin-top { flex-direction: column; align-items: stretch !important; gap: 10px; }
+  .admin-actions { flex-wrap: wrap; }
+  .admin-actions .abtn { flex: 1 1 auto; }
+}

@@ -176,7 +176,7 @@ export default function OrdersClient({ initial, initialTab = "ALL" }: { initial:
             <thead>
               <tr>
                 <th><input type="checkbox" checked={allSel} onChange={() => setSel(allSel ? new Set() : new Set(Array.from(list, (o) => o.id)))} /></th>
-                <th>Order</th><th>Customer</th><th>Items</th><th>Total</th><th>Payment</th><th>Status</th><th>Courier</th><th>Risk</th><th>Source</th><th>Date</th><th></th>
+                <th>Order</th><th>Customer</th><th>Items</th><th>Total</th><th>Payment</th><th>Status</th><th className="hide-m">Courier</th><th className="hide-m">Risk</th><th className="hide-m">Source</th><th>Date</th><th></th>
               </tr>
             </thead>
             <tbody>
@@ -196,9 +196,9 @@ export default function OrdersClient({ initial, initialTab = "ALL" }: { initial:
                   <td><b>৳{Math.round(o.total).toLocaleString("en-IN")}</b></td>
                   <td><span className={"pill " + o.paymentStatus}>{o.paymentMethod === "COD" ? "COD" : "ONLINE"} · {o.paymentStatus}</span></td>
                   <td><span className={"pill " + o.status}>{o.status}</span></td>
-                  <td style={{ fontSize: 12 }} onClick={(e) => e.stopPropagation()}>{o.courierName ? <>{o.courierName}<br /><span style={{ color: "var(--muted)" }}>{o.courierStatus || o.courierConsignmentId}</span></> : <span style={{ color: "var(--muted)" }}>—</span>}</td>
-                  <td><span className={"risk-badge risk-" + o.riskLevel}>{o.riskLevel}</span></td>
-                  <td style={{ fontSize: 12 }}>{o.source || "Direct"}</td>
+                  <td className="hide-m" style={{ fontSize: 12 }} onClick={(e) => e.stopPropagation()}>{o.courierName ? <>{o.courierName}<br /><span style={{ color: "var(--muted)" }}>{o.courierStatus || o.courierConsignmentId}</span></> : <span style={{ color: "var(--muted)" }}>—</span>}</td>
+                  <td className="hide-m"><span className={"risk-badge risk-" + o.riskLevel}>{o.riskLevel}</span></td>
+                  <td className="hide-m" style={{ fontSize: 12 }}>{o.source || "Direct"}</td>
                   <td style={{ fontSize: 12 }}><FmtDate iso={o.createdAt} /></td>
                   <td><Link className="abtn sm" href={withToken("/admin/orders/" + o.id)}>Open</Link></td>
                 </tr>
