@@ -193,8 +193,12 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             pixel was absent until JS ran and missed early events. The loader script gets
             id="meta-pixel" so the client-side ensurePixel() sees it and never double-inits.
             pixelId above is digits-only validated → safe to interpolate into the snippet. */}
+        {/* fbevents.js (~277 KiB incl. config) is loaded AFTER window load so it never
+            competes with LCP/main thread (PSI: long tasks + unused JS). The fbq queue stub
+            is created immediately so early events queue up and flush on load; the deferred
+            injector is guarded by the meta-pixel id so client ensurePixel() can't double-load. */}
         {pixelId ? (
-          <script id="meta-pixel-base" dangerouslySetInnerHTML={{ __html: `!function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.id='meta-pixel';t.async=!0;t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,document,'script','https://connect.facebook.net/en_US/fbevents.js');fbq('init','${pixelId}');` }} />
+          <script id="meta-pixel-base" dangerouslySetInnerHTML={{ __html: `!function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];var load=function(){if(b.getElementById('meta-pixel'))return;t=b.createElement(e);t.id='meta-pixel';t.async=!0;t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)};if(b.readyState==='complete'){setTimeout(load,1200)}else{f.addEventListener('load',function(){setTimeout(load,1200)})}}(window,document,'script','https://connect.facebook.net/en_US/fbevents.js');fbq('init','${pixelId}');` }} />
         ) : null}
         {/* No-JS fallback: the pixel is loaded by JS, so a visitor with JavaScript
             disabled (or a crawler that runs none) was never counted at all. Meta's own

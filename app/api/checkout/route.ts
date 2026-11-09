@@ -196,6 +196,9 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: e.message }, { status: e instanceof RecoveryError ? e.status : 400 });
     }
     console.error("checkout error", e);
-    return NextResponse.json({ error: "Something went wrong placing your order. Please try again." }, { status: 500 });
+    // Preview deployments (Vercel preview / VPS test) show the real cause so it can be debugged;
+    // production keeps the generic message so internals never leak to customers.
+    const debug = process.env.VERCEL_ENV && process.env.VERCEL_ENV !== "production" ? String(e?.message || e).slice(0, 200) : "";
+    return NextResponse.json({ error: "Something went wrong placing your order. Please try again." + (debug ? ` [debug: ${debug}]` : "") }, { status: 500 });
   }
 }

@@ -60,10 +60,16 @@ export default async function ProductsPage(props: { searchParams: Promise<SP> })
       <Announcement text={s.homepage?.announcement} />
       <Header storeName={cfg.store?.name || "Store"} categories={navCats(cats)} />
       <div className="container shop-wrap">
-        <div className="eyebrow">{activeCat ? "Category" : sp.q ? "Search" : "Shop"}</div>
-        <h1 className="shop-title">
-          {activeCat ? clean(activeCat.name) : catUnknown ? "No such category" : sp.q ? `Results for “${clean(sp.q)}”` : "All Products"}
-        </h1>
+        {/* default "All Products" view: no title (was just blank space above the pills) —
+            title only shows for a category, search results, or an unknown category */}
+        {activeCat || catUnknown || sp.q ? (
+          <>
+            <div className="eyebrow">{activeCat ? "Category" : sp.q ? "Search" : "Shop"}</div>
+            <h1 className="shop-title">
+              {activeCat ? clean(activeCat.name) : catUnknown ? "No such category" : `Results for “${clean(sp.q)}”`}
+            </h1>
+          </>
+        ) : null}
 
         {/* quick category pills — always visible, never re-loads */}
         <div className="cat-pills">

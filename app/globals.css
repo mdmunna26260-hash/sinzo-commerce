@@ -256,6 +256,7 @@ button.image-progress-segment:focus-visible::after {
 
 /* ---------- Product listing ---------- */
 .shop-wrap { padding: 30px 24px 80px; }
+.shop-wrap .eyebrow, .shop-wrap .shop-title { text-align: center; }
 .shop-title { font-size: clamp(26px, 3.2vw, 38px); margin: 6px 0 18px; }
 
 /* toolbar */
@@ -694,7 +695,10 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 13.5px; }
 .abtn { border: 1px solid #d0d5dd; background: var(--ad-card, #fff); color: inherit; padding: 9px 16px; font-size: 13px; font-weight: 550; border-radius: 8px; box-shadow: 0 1px 2px rgba(16,24,40,.04); display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
 .abtn:hover { border-color: #98a2b3; background: var(--ad-line-soft); }
 .abtn.primary { background: var(--ad-accent, var(--text)); color: #fff; border-color: var(--ad-accent, var(--text)); }
-.abtn.primary:hover { background: var(--ad-accent-2, var(--text)); border-color: var(--ad-accent-2, var(--text)); }
+/* dark theme: --text/--ad-accent turn light, so the label must flip dark — explicit, not var-chained */
+:root[data-theme="dark"] .abtn.primary { color: #131210; }
+.abtn.primary:hover { background: var(--ad-accent-2, var(--text)); border-color: var(--ad-accent-2, var(--text)); color: #fff; }
+:root[data-theme="dark"] .abtn.primary:hover { color: #131210; }
 .abtn.danger { color: var(--ad-red); border-color: #f3c1bd; background: var(--ad-card); }
 .abtn.danger:hover { background: var(--ad-red); color: #fff; border-color: var(--ad-red); }
 .abtn.sm { padding: 6px 10px; font-size: 12px; border-radius: 7px; }
@@ -1017,7 +1021,7 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 13.5px; }
 }
 
 /* ---------- products page: quick category pills + sidebar polish ---------- */
-.cat-pills { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; padding: 2px 0 4px; margin-bottom: 14px; }
+.cat-pills { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; padding: 2px 0 4px; margin: 15px 0 15px; justify-content: safe center; }
 .cat-pills::-webkit-scrollbar { display: none; }
 .cat-pill { flex: 0 0 auto; border: 1px solid var(--line); background: #fff; border-radius: 99px; padding: 8px 18px; font-size: 12.5px; letter-spacing: .06em; color: var(--text); white-space: nowrap; }
 .cat-pill.active { background: var(--text); color: var(--bg); border-color: var(--text); }
@@ -1122,7 +1126,7 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 13.5px; }
 .inf-spinner { width: 26px; height: 26px; border: 2px solid var(--line); border-top-color: var(--text); border-radius: 99px; animation: szspin .8s linear infinite; }
 @keyframes szspin { to { transform: rotate(360deg); } }
 .inf-end { text-align: center; color: var(--muted); font-size: 12px; letter-spacing: .12em; padding: 30px 0 6px; text-transform: uppercase; }
-.pcard-sizes { font-size: 12px; color: var(--muted); margin-top: 2px; letter-spacing: .02em; }
+.pcard-sizes { font-size: 12px; color: var(--muted); margin-top: 0px; letter-spacing: .02em; }
 
 /* (colored badge variants retired — unified .badge chip above) */
 
@@ -4081,3 +4085,47 @@ body:has(.admin-body) .scroll-progress { display: none !important; }
 .hero-overlay.no-fade { background: none !important; }
 .gift-progress { margin: 10px 0 2px; font-size: 12.5px; color: var(--ok); font-weight: 600; }
 .gift-progress .freebar { margin-top: 5px; }
+
+/* ---------- admin mobile ---------- */
+@media (max-width: 760px) {
+  .hide-m { display: none !important; }
+  .tbl th, .tbl td { padding: 8px 8px !important; font-size: 12.5px; }
+  .admin-filters { flex-direction: column; align-items: stretch; }
+  .admin-filters > .asearch, .admin-filters > .abtn, .admin-filters > select { width: 100%; box-sizing: border-box; }
+  .admin-top { flex-direction: column; align-items: stretch !important; gap: 10px; }
+  .admin-actions { flex-wrap: wrap; }
+  .admin-actions .abtn { flex: 1 1 auto; }
+}
+
+/* status tab strip: mini pills (desktop + mobile) */
+.tab-strip .abtn { padding: 6px 11px; font-size: 12px; border-radius: 99px; }
+.tab-strip .abtn.primary { font-weight: 700; }
+@media (max-width: 760px) {
+  .admin-filters .tab-strip { width: 100%; flex-wrap: nowrap; overflow-x: auto; padding-bottom: 4px; }
+  .admin-filters .tab-strip .abtn { width: auto !important; flex: 0 0 auto; white-space: nowrap; }
+}
+
+/* ---------- admin polish ---------- */
+.kpi { transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease; position: relative; overflow: hidden; }
+.kpi::before { content: ""; position: absolute; inset: 0 auto 0 0; width: 3px; background: var(--ad-accent); opacity: 0; transition: opacity .18s ease; }
+.kpi:hover { transform: translateY(-2px); border-color: var(--ad-accent-line); box-shadow: 0 8px 24px rgba(16,24,40,.10); }
+.kpi:hover::before { opacity: 1; }
+.kpi .k-ic { box-shadow: inset 0 0 0 1px rgba(255,255,255,.25); font-size: 15px; }
+.kpi .k-val { font-size: 28px; }
+.acard { transition: box-shadow .18s ease, border-color .18s ease; }
+.acard:hover { border-color: var(--ad-line); box-shadow: 0 6px 18px rgba(16,24,40,.07); }
+.admin-top h1 { position: relative; padding-bottom: 6px; }
+.admin-top h1::after { content: ""; position: absolute; left: 0; bottom: 0; width: 42px; height: 3px; border-radius: 3px; background: var(--ad-accent); }
+.abtn { transition: background .15s ease, border-color .15s ease, transform .1s ease, color .15s ease; }
+.abtn:active { transform: scale(.97); }
+.admin-side a, .admin-side .grp { transition: background .15s ease, color .15s ease; border-radius: 8px; }
+.admin-side a:hover { background: var(--ad-accent-soft); color: var(--ad-accent); }
+.tbl tbody tr { transition: background .12s ease; }
+.tab-strip .abtn { transition: background .15s ease, color .15s ease, border-color .15s ease, transform .1s ease; }
+.tab-strip .abtn:hover { border-color: var(--ad-accent-line); color: var(--ad-accent); }
+.tab-strip .abtn:active { transform: scale(.96); }
+:root[data-theme="dark"] .kpi:hover { box-shadow: 0 8px 24px rgba(0,0,0,.45); }
+:root[data-theme="dark"] .acard:hover { box-shadow: 0 6px 18px rgba(0,0,0,.4); }
+
+/* filter group headings (h2 for correct heading order; styled like the old h3) */
+.flt-h { font-size: 12px; font-weight: 650; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); margin: 16px 0 8px; }

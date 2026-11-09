@@ -16,6 +16,7 @@ import RecentlyViewedServer from "@/components/recently-viewed-server";
 import { makeReviewLoop } from "@/lib/review-marquee";
 import { discountPercent, pickDiscountProducts, pickLimitedProducts } from "@/lib/home-merchandising";
 import { buildHomeHeroSlides } from "@/lib/home-hero";
+import { imgSrc } from "@/components/img-src";
 import { mergeHomeSections } from "@/lib/home-sections";
 
 /* ISR: the page is cached and re-rendered in the background, so a visitor never waits for
@@ -176,6 +177,9 @@ async function HomeContent() {
   const sections: Record<string, React.ReactNode> = {
     hero: heroSlides.length ? (
       <>
+        {/* Preload the LCP hero image so the browser fetches it at high priority before
+            React hydrates (PSI: LCP was 5.0s because the image was discovered late). */}
+        <link rel="preload" as="image" href={imgSrc(heroSlides[0].image, 1600)} imageSrcSet={[600, 1000, 1600].map((w) => imgSrc(heroSlides[0].image, w) + " " + w + "w").join(", ")} imageSizes="100vw" fetchPriority="high" />
         <HeroCarousel key="hero" slides={heroSlides} intervalMs={2000} overlay={hp.heroOverlay !== false} />
         {/* 2nd announcement bar at the END of the hero — text from Settings → Homepage */}
         <Announcement text={hp.heroBottomAnnouncement} className="announce-hero-bottom" />

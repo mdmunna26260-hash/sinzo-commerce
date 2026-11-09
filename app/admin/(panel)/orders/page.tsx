@@ -16,5 +16,6 @@ export default async function OrdersPage(props: { searchParams: Promise<any> }) 
     courierConsignmentId: o.courierConsignmentId, courierStatus: o.courierStatus,
     createdAt: o.createdAt.toISOString(), items: o.items.map((i) => ({ title: i.title, qty: i.qty, variant: i.variant, preorder: !!i.preorder })),
   }));
-  return <OrdersClient initial={data} />;
+  const tab = typeof searchParams?.tab === "string" && /^[A-Z_]+$/.test(searchParams.tab) ? searchParams.tab : "ALL";
+  return <OrdersClient initial={data} initialTab={tab} />;
 }
