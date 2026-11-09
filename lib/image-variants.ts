@@ -15,13 +15,16 @@ export function isVariantWidth(w: number): boolean {
    (w800-w1200 PDP/hero) get high quality so images stay sharp on PC. effort 6 squeezes ~5-10%
    more bytes out at the SAME visual quality — it only costs CPU at upload time. */
 export function variantQuality(width: number): number {
-  if (width <= 200) return 68;
-  if (width <= 300) return 70;
-  if (width <= 400) return 73;
-  if (width <= 600) return 76;
-  if (width <= 800) return 79;
-  if (width <= 1000) return 82;  // desktop PDP main image lands here — keep it sharp
-  return 84;                      // w1200 — og/social + very wide screens
+  /* Raised vs the old ladder (68→75 … 84→90): WebP at these levels is still ~30-50% smaller
+     than JPEG at equal sharpness, so cards stay fast while mobile (DPR 2-3 picks w400-w600)
+     and desktop PDP (w1000) no longer look soft. effort 6 keeps bytes down at same quality. */
+  if (width <= 200) return 75;
+  if (width <= 300) return 78;
+  if (width <= 400) return 80;
+  if (width <= 600) return 83;
+  if (width <= 800) return 86;
+  if (width <= 1000) return 88;  // desktop PDP main image lands here — keep it sharp
+  return 90;                      // w1200 — og/social + very wide screens
 }
 
 /* Render ONE width from any source buffer. withoutEnlargement keeps a 800px upload from being
