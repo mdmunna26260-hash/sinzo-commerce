@@ -8,6 +8,7 @@ import { CartProvider } from "@/components/store";
 import PushRegister from "@/components/push-register";
 import PushNudge from "@/components/push-nudge";
 import { getSettings, publicSettings } from "@/lib/settings";
+import { variantKey } from "@/lib/variant-key";
 import { clean } from "@/lib/search";
 import { safeCssValue, safeCssFontStack, safeCssInteger, safeGoogleTagId, safeNumericId, safeAspectRatio } from "@/lib/sanitize";
 import { seoKeywords } from "@/lib/seo";
@@ -23,7 +24,7 @@ export const viewport: Viewport = {
 /* Share images: use the 1200px variant instead of the full-res original */
 const ogImage = (u?: string) => {
   const m = /^\/api\/media\/([a-z0-9]+)$/i.exec(u || "");
-  return m ? `/api/media/${m[1]}/w1200` : u;
+  return m ? `/api/media/${m[1]}/${variantKey(1200)}` : u;
 };
 
 export async function generateMetadata(): Promise<Metadata> {

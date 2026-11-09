@@ -5,6 +5,8 @@ import sharp from "sharp";
    so a surface may ask for a size that no upload ever produced (older media rows have no index
    at all — 500+ of them in production — and used to fall back to the full-size original). */
 export const VARIANT_WIDTHS = [200, 300, 400, 600, 800, 1000, 1200];
+import { variantKey } from "./variant-key";
+export { QUALITY_VERSION, variantKey, VARIANT_RE } from "./variant-key";
 
 export function isVariantWidth(w: number): boolean {
   return VARIANT_WIDTHS.includes(w);
@@ -15,13 +17,16 @@ export function isVariantWidth(w: number): boolean {
    (w800-w1200 PDP/hero) get high quality so images stay sharp on PC. effort 6 squeezes ~5-10%
    more bytes out at the SAME visual quality — it only costs CPU at upload time. */
 export function variantQuality(width: number): number {
-  if (width <= 200) return 68;
-  if (width <= 300) return 70;
-  if (width <= 400) return 73;
-  if (width <= 600) return 76;
-  if (width <= 800) return 79;
-  if (width <= 1000) return 82;  // desktop PDP main image lands here — keep it sharp
-  return 84;                      // w1200 — og/social + very wide screens
+  /* Raised vs the old ladder (68→75 … 84→90): WebP at these levels is still ~30-50% smaller
+     than JPEG at equal sharpness, so cards stay fast while mobile (DPR 2-3 picks w400-w600)
+     and desktop PDP (w1000) no longer look soft. effort 6 keeps bytes down at same quality. */
+  if (width <= 200) return 75;
+  if (width <= 300) return 78;
+  if (width <= 400) return 80;
+  if (width <= 600) return 83;
+  if (width <= 800) return 86;
+  if (width <= 1000) return 88;  // desktop PDP main image lands here — keep it sharp
+  return 90;                      // w1200 — og/social + very wide screens
 }
 
 /* Render ONE width from any source buffer. withoutEnlargement keeps a 800px upload from being
@@ -49,7 +54,7 @@ export async function generateVariants(input: Buffer): Promise<VariantSet> {
   /* A width that rendered to the same pixel size as the source is the source — storing it twice
      only wastes a row, so it is dropped from the index (the route falls through to the original). */
   const variants: Record<string, Buffer> = {};
-  VARIANT_WIDTHS.forEach((w, i) => { if (w <= width) variants["w" + w] = rendered[i]; });
+  VARIANT_WIDTHS.forEach((w, i) => { if (w <= width) variants[variantKey(w)] = rendered[i]; });
   const original = await sharp(input).resize({ width: 2400, withoutEnlargement: true }).webp({ quality: 90, effort: 6 }).toBuffer();
   return { blur, variants, original, ext: "webp", mime: "image/webp", width, height };
 }

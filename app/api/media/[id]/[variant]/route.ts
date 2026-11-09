@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { renderVariant, isVariantWidth } from "@/lib/image-variants";
+import { variantKey, VARIANT_RE, QUALITY_VERSION } from "@/lib/variant-key";
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 type Ctx = { params: Promise<{ id: string; variant: string }> };
@@ -22,9 +23,9 @@ async function buildAndStore(id: string, width: number, index: Record<string, { 
   if (!orig?.data) return null;
   const bytes = await renderVariant(Buffer.from(orig.data), width);
   const row = await db.media.create({ data: {
-    filename: `w${width}.webp`, mime: "image/webp", size: bytes.length, data: bytes,
+    filename: `${variantKey(width)}.webp`, mime: "image/webp", size: bytes.length, data: bytes,
   }});
-  const next = { ...index, ["w" + width]: { id: row.id, size: row.size } };
+  const next = { ...index, [variantKey(width)]: { id: row.id, size: row.size } };
   // last write wins; a racing request only wastes one blob, it never breaks the index
   await db.media.update({ where: { id }, data: { variantsJson: JSON.stringify(next) } }).catch(() => {});
   return bytes;
@@ -52,8 +53,10 @@ export async function GET(_: Request, props: Ctx) {
   }
 
   /* Miss → build it once (allowed widths only), then it is cached forever like any other variant. */
-  const width = Number((/^w(\d+)$/.exec(params.variant) || [])[1] || 0);
-  if (width && isVariantWidth(width)) {
+  const vm = VARIANT_RE.exec(params.variant);
+  const width = vm ? Number(vm[1]) : 0;
+  // only the current quality version is buildable — old-version URLs fall through to the original
+  if (width && Number(vm![2]) === QUALITY_VERSION && isVariantWidth(width)) {
     try {
       const built = await buildAndStore(params.id, width, index);
       if (built) {

@@ -108,7 +108,7 @@ export default function HeroCarousel({ slides, intervalMs = 6_000, overlay = tru
                     className="hero-img"
                     priority={slideIndex === 0}
                     sizes="100vw"
-                    widths={[600, 1000, 1600]}
+                    widths={[600, 1000, 1200]}
                   />
                 </picture>
               </div>
