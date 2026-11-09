@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { productSearchWhere, terms } from "@/lib/search";
 import { rateLimit } from "@/lib/auth";
 import { getClientIp } from "@/lib/ua";
+import { variantKey } from "@/lib/variant-key";
 
 export const dynamic = "force-dynamic";
 // thumbs render at ~40px — the 300px variant is plenty (saves ~90% of image bytes)
@@ -10,7 +11,7 @@ const small = (url: string | null) => {
   if (!url) return null;
   if (url.includes("/uploads/seed/")) return url.replace(/\.jpg$/, "-300.webp");
   const m = url.match(/^\/api\/media\/([a-z0-9]+)$/i);
-  return m ? `/api/media/${m[1]}/w300` : url;
+  return m ? `/api/media/${m[1]}/${variantKey(300)}` : url;
 };
 const pick = (p: any) => ({ id: p.id, title: p.title, slug: p.slug, image: small(p.images?.[0]?.url || null), price: p.price });
 

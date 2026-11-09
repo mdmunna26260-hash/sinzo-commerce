@@ -5,6 +5,8 @@ import sharp from "sharp";
    so a surface may ask for a size that no upload ever produced (older media rows have no index
    at all — 500+ of them in production — and used to fall back to the full-size original). */
 export const VARIANT_WIDTHS = [200, 300, 400, 600, 800, 1000, 1200];
+import { variantKey } from "./variant-key";
+export { QUALITY_VERSION, variantKey, VARIANT_RE } from "./variant-key";
 
 export function isVariantWidth(w: number): boolean {
   return VARIANT_WIDTHS.includes(w);
@@ -52,7 +54,7 @@ export async function generateVariants(input: Buffer): Promise<VariantSet> {
   /* A width that rendered to the same pixel size as the source is the source — storing it twice
      only wastes a row, so it is dropped from the index (the route falls through to the original). */
   const variants: Record<string, Buffer> = {};
-  VARIANT_WIDTHS.forEach((w, i) => { if (w <= width) variants["w" + w] = rendered[i]; });
+  VARIANT_WIDTHS.forEach((w, i) => { if (w <= width) variants[variantKey(w)] = rendered[i]; });
   const original = await sharp(input).resize({ width: 2400, withoutEnlargement: true }).webp({ quality: 90, effort: 6 }).toBuffer();
   return { blur, variants, original, ext: "webp", mime: "image/webp", width, height };
 }

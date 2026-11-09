@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requirePerm } from "@/lib/admin-guard";
 import { db } from "@/lib/db";
 import { generateVariants, VARIANT_WIDTHS } from "@/lib/image-variants";
+import { variantKey } from "@/lib/variant-key";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
@@ -33,7 +34,7 @@ export async function POST(req: Request) {
     where: { id: { in: refIds }, mime: { startsWith: "image/" } },
     select: { id: true, variantsJson: true },
   });
-  const NEED = VARIANT_WIDTHS.map((w) => "w" + w);
+  const NEED = VARIANT_WIDTHS.map((w) => variantKey(w));
   /* force=1 re-encodes media that already has a complete variant set. Needed whenever the encoder
      settings in lib/image-variants.ts change (quality ladder, effort): the URLs are cached for a
      year, so re-encoding only ever *shrinks* the same picture and the index swap is what republishes
