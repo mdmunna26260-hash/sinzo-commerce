@@ -14,6 +14,23 @@ import { seoKeywords } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
 
+/* unstable_cache wrappers (60s TTL, same as the homepage ISR): the shop page is dynamic because
+   it reads searchParams, so we cache the DB round-trips keyed by the full filter signature instead. */
+import { unstable_cache } from "next/cache";
+const cachedCount = (key: string, where: any) =>
+  unstable_cache(() => db.product.count({ where }), ["shop-count", key], { revalidate: 60, tags: ["products"] })();
+const cachedProducts = (key: string, where: any, orderBy: any) =>
+  unstable_cache(() => db.product.findMany({
+    where, orderBy,
+    select: {
+      id: true, title: true, slug: true, price: true, comparePrice: true, stock: true,
+      badge: true, isNew: true, isBestSeller: true, saleEnds: true, preorder: true,
+      category: { select: { name: true } },
+      images: { select: { url: true }, orderBy: { position: "asc" }, take: 6 },
+      variants: { select: { id: true, size: true, color: true, stock: true, price: true }, orderBy: { id: "asc" } },
+    },
+  }), ["shop-products", key], { revalidate: 60, tags: ["products"] })();
+
 type SP = { q?: string; category?: string; min?: string; max?: string; size?: string; color?: string; avail?: string; sort?: string; onsale?: string };
 
 export const metadata = {
@@ -131,19 +148,13 @@ async function Results({ sp, cats, sizes, unknownCategory }: { sp: SP; cats: { i
     sp.sort === "oldest" ? { createdAt: "asc" } :
     [{ position: "asc" }, { id: "desc" }]; // default = admin drag&drop order
 
-  const totalMatching = await db.product.count({ where });
+  // 60s server cache keyed by the exact filter set: /products uses searchParams (dynamic page),
+  // so full-page ISR is not possible — this caches the expensive DB work instead, same TTL as home.
+  const cacheKey = JSON.stringify({ where, orderBy });
+  const totalMatching = await cachedCount(cacheKey, where);
   // select only card fields — descriptions/tags/sku stay on the server,
   // keeping the transferred page payload small on mobile connections
-  let products = await db.product.findMany({
-    where, orderBy,
-    select: {
-      id: true, title: true, slug: true, price: true, comparePrice: true, stock: true,
-      badge: true, isNew: true, isBestSeller: true, saleEnds: true, preorder: true,
-      category: { select: { name: true } },
-      images: { select: { url: true }, orderBy: { position: "asc" }, take: 6 },
-      variants: { select: { id: true, size: true, color: true, stock: true, price: true }, orderBy: { id: "asc" } },
-    },
-  });
+  let products = await cachedProducts(cacheKey, where, orderBy);
 
   if (sp.size) {
     products = products.filter((p) => p.variants.some((v) => v.size === sp.size && v.stock > 0));
