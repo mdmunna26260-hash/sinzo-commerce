@@ -248,7 +248,7 @@ button.image-progress-segment:focus-visible::after {
 /* ---------- Footer ---------- */
 .footer { border-top: 1px solid var(--line); padding: 60px 0 30px; background: var(--bg); }
 .footer-grid { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 40px; margin-bottom: 44px; }
-.footer h4 { font-size: 11px; letter-spacing: .2em; text-transform: uppercase; color: var(--muted); margin-bottom: 16px; }
+.footer h4, .footer h3.ft-h { font-size: 11px; letter-spacing: .2em; text-transform: uppercase; color: var(--muted); margin-bottom: 16px; }
 .footer a { display: block; font-size: 13.5px; color: var(--text); padding: 4px 0; }
 .footer a:hover { color: var(--accent); }
 .footer .about { font-size: 13.5px; color: var(--muted); max-width: 300px; margin-top: 12px; }

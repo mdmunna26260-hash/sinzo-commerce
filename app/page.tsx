@@ -179,7 +179,7 @@ async function HomeContent() {
       <>
         {/* Preload the LCP hero image so the browser fetches it at high priority before
             React hydrates (PSI: LCP was 5.0s because the image was discovered late). */}
-        <link rel="preload" as="image" href={imgSrc(heroSlides[0].image, 1200)} imageSrcSet={[600, 1000, 1200].map((w) => imgSrc(heroSlides[0].image, w) + " " + w + "w").join(", ")} imageSizes="100vw" fetchPriority="high" />
+        <link rel="preload" as="image" href={imgSrc(heroSlides[0].image, 1200)} imageSrcSet={[400, 600, 1000, 1200].map((w) => imgSrc(heroSlides[0].image, w) + " " + w + "w").join(", ")} imageSizes="100vw" fetchPriority="high" />
         <HeroCarousel key="hero" slides={heroSlides} intervalMs={2000} overlay={hp.heroOverlay !== false} />
         {/* 2nd announcement bar at the END of the hero — text from Settings → Homepage */}
         <Announcement text={hp.heroBottomAnnouncement} className="announce-hero-bottom" />
@@ -273,11 +273,11 @@ async function HomeContent() {
     <CartProvider>
       <Announcement text={hp.announcement} />
       <Header storeName={cfg.store?.name || "Store"} categories={navCats(cats)} />
-
+      <main id="main">
       {sectionCfg.filter((x) => x.enabled).map((x) => (
         <Fragment key={x.id}>{sections[x.id] ? <SafeSection id={x.id}>{sections[x.id]}</SafeSection> : null}</Fragment>
       ))}
-
+      </main>
       <Footer cfg={{ ...cfg, _nav: { categories: navCats(cats) } }} />
     </CartProvider>
   );
