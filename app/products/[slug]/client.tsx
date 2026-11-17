@@ -71,6 +71,15 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
 
   // ---------- gallery state ----------
   const [img, setImg] = useState(0);
+  const [floatBuy, setFloatBuy] = useState(false);
+  const actionsRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    const el = actionsRef.current;
+    if (!el || typeof IntersectionObserver === "undefined") return;
+    const ob = new IntersectionObserver(([e]) => setFloatBuy(!e.isIntersecting), { threshold: 0 });
+    ob.observe(el);
+    return () => ob.disconnect();
+  }, []);
   const thumbsRef = useRef<HTMLDivElement>(null);
   const [lightbox, setLightbox] = useState(false);
   const [lbIdx, setLbIdx] = useState(0);
@@ -530,7 +539,7 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
             <PdpWaitlist productId={product.id} variantId={activeVariant?.id ?? null} title={product.title} />
           )}
 
-          <div className="pdp-actions">
+          <div className="pdp-actions" ref={actionsRef}>
             <div className="pdp-buy-row">
               <div className="qty" role="group" aria-label="Quantity">
                 <button type="button" onClick={() => setQty(Math.max(1, qty - 1))} aria-label="Decrease quantity">−</button>
@@ -610,6 +619,19 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
             {!sizeChartImage && sizeChartHtml && <div dangerouslySetInnerHTML={{ __html: sizeChartHtml }} />}
             <p style={{ fontSize: 12.5, color: "var(--muted)", marginTop: 14 }}>Measurements are approximate. Between sizes? We recommend sizing up.</p>
           </div>
+        </div>
+      )}
+
+      {/* floating Buy-it-now bar: appears once the real action buttons scroll out of view */}
+      {floatBuy && (
+        <div className="pdp-floatbar">
+          <div className="pf-info">
+            <b>{product.title}</b>
+            <span>৳{Math.round((activeVariant?.price ?? product.price) * qty).toLocaleString("en-IN")}</span>
+          </div>
+          <button className="btn pdp-buy" disabled={(avail <= 0 && !preorder) || buying} onClick={buyNow}>
+            {buying ? "Processing…" : "Buy it now"}
+          </button>
         </div>
       )}
 

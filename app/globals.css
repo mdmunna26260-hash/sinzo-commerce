@@ -4146,3 +4146,17 @@ body:has(.admin-body) .scroll-progress { display: none !important; }
   border: 2px solid #b3392f; color: #b3392f; background: rgba(255,255,255,.82);
   font-weight: 700; letter-spacing: .12em; font-size: 13px; padding: 5px 14px; border-radius: 4px;
 }
+
+/* floating buy bar on PDP */
+.pdp-floatbar {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 60;
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 16px calc(10px + env(safe-area-inset-bottom));
+  background: color-mix(in srgb, var(--bg) 88%, transparent);
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  border-top: 1px solid var(--line);
+}
+.pdp-floatbar .pf-info { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.pdp-floatbar .pf-info b { font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pdp-floatbar .pf-info span { font-size: 14px; font-weight: 700; color: var(--accent, var(--text)); }
+.pdp-floatbar .pdp-buy { flex: none; padding: 12px 22px; }
