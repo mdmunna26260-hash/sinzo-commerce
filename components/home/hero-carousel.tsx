@@ -10,7 +10,7 @@ import type { HomeHeroSlide } from "@/lib/home-hero";
 function mobileSrcSet(src: string): string | undefined {
   if (!src) return undefined;
   const seen = new Set<string>();
-  const candidates = [480, 720, 1000]
+  const candidates = [400, 600, 800]  // must be VARIANT_WIDTHS — anything else serves the full original
     .map((width) => ({ width, url: imgSrc(src, width) }))
     .filter(({ url }) => { if (!url || seen.has(url)) return false; seen.add(url); return true; });
   return candidates.length > 1 ? candidates.map(({ width, url }) => `${url} ${width}w`).join(", ") : src;

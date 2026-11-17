@@ -143,6 +143,25 @@ await prisma.user.upsert({
       create: { name, slug, description },
     });
   }
+  // ---- Winter Limited department (3-level tree: main -> sub -> products) ----
+  const winterMain = await prisma.category.upsert({
+    where: { slug: "winter-limited" },
+    update: {},
+    create: { name: "Winter Limited Product", slug: "winter-limited", description: "Limited-stock winter drop — once a size is gone, it is gone." },
+  });
+  const winterSubs = [
+    ["Zipper Hoodie", "zipper-hoodie"], ["Denim Jacket Zipper", "denim-jacket-zipper"],
+    ["Boxy Zipper", "boxy-zipper"], ["Sherpa Shacket", "sherpa-shacket"],
+    ["Boxy Hoodie", "boxy-hoodie"], ["Double Layer Jacket", "double-layer-jacket"],
+  ];
+  for (const [name, slug] of winterSubs) {
+    cats[slug] = await prisma.category.upsert({
+      where: { slug },
+      update: { parentId: winterMain.id },
+      create: { name, slug, description: name + " — limited winter stock", parentId: winterMain.id },
+    });
+  }
+
   await prisma.category.update({ where: { slug: "shirts" }, data: { sizeChart:
     "<table><tr><th>Size</th><th>Chest</th><th>Length</th><th>Shoulder</th></tr><tr><td>S</td><td>38\"</td><td>27\"</td><td>17\"</td></tr><tr><td>M</td><td>40\"</td><td>28\"</td><td>17.5\"</td></tr><tr><td>L</td><td>42\"</td><td>29\"</td><td>18\"</td></tr><tr><td>XL</td><td>44\"</td><td>30\"</td><td>18.5\"</td></tr></table>" } });
   await prisma.category.update({ where: { slug: "dresses" }, data: { sizeChart:
@@ -201,6 +220,30 @@ await prisma.user.upsert({
       short: "Crisp cotton poplin with a sculptural column silhouette.",
       desc: "Crisp cotton poplin falls in a clean column shape, with a boat neckline and subtle back slit. Unlined but opaque. Press the creases in — or don't. It reads intentional either way.",
       tags: "dress,poplin,minimal", featured: false, sizes: ["S", "M", "L"], colors: ["Off-white"], stock: 9 },
+    { title: "Zipper Hoodie 01", slug: "zipper-hoodie-01", price: 2190, comparePrice: 2990, cat: "zipper-hoodie", img: "/uploads/seed/p-knit.jpg",
+      short: "Heavyweight zip hoodie — limited winter drop.", desc: "480 GSM brushed-back fleece zip hoodie. Boxy fit, metal zip, kangaroo pocket. Limited stock per size.", tags: "hoodie,zip,winter,limited", featured: false, sizes: ["M", "L"], colors: ["Black", "Grey"], stock: 3 },
+    { title: "Zipper Hoodie 02", slug: "zipper-hoodie-02", price: 2290, comparePrice: 2990, cat: "zipper-hoodie", img: "/uploads/seed/p-knit.jpg",
+      short: "Oversized zip hoodie in washed black.", desc: "Oversized cut, washed black, matte zip. Limited winter drop.", tags: "hoodie,zip,winter,limited", featured: false, sizes: ["L", "XL"], colors: ["Black"], stock: 2 },
+    { title: "Denim Jacket Zipper 01", slug: "denim-jacket-zipper-01", price: 3290, comparePrice: 4200, cat: "denim-jacket-zipper", img: "/uploads/seed/p-denim.jpg",
+      short: "Zip-front denim jacket, 12oz indigo.", desc: "Trucker jacket with a zip front in rigid 12oz indigo. Limited stock.", tags: "denim,jacket,zip,winter,limited", featured: false, sizes: ["M", "L"], colors: ["Indigo"], stock: 4 },
+    { title: "Denim Jacket Zipper 02", slug: "denim-jacket-zipper-02", price: 3390, comparePrice: 4200, cat: "denim-jacket-zipper", img: "/uploads/seed/p-denim.jpg",
+      short: "Washed-black zip denim jacket.", desc: "Washed black denim with zip front and chest pockets. Limited stock.", tags: "denim,jacket,zip,winter,limited", featured: false, sizes: ["S", "M"], colors: ["Black"], stock: 2 },
+    { title: "Boxy Zipper 01", slug: "boxy-zipper-01", price: 1990, comparePrice: 2600, cat: "boxy-zipper", img: "/uploads/seed/p-knit.jpg",
+      short: "Boxy cropped zip-up — limited.", desc: "Cropped boxy zip-up in heavy fleece. Limited winter stock.", tags: "boxy,zip,winter,limited", featured: false, sizes: ["M", "L"], colors: ["Sand"], stock: 3 },
+    { title: "Boxy Zipper 02", slug: "boxy-zipper-02", price: 1990, comparePrice: 2600, cat: "boxy-zipper", img: "/uploads/seed/p-knit.jpg",
+      short: "Boxy zip-up in charcoal.", desc: "Charcoal boxy zip-up, dropped shoulder. Limited stock.", tags: "boxy,zip,winter,limited", featured: false, sizes: ["L", "XL"], colors: ["Charcoal"], stock: 2 },
+    { title: "Sherpa Shacket 01", slug: "sherpa-shacket-01", price: 2890, comparePrice: 3600, cat: "sherpa-shacket", img: "/uploads/seed/p-coat.jpg",
+      short: "Sherpa-lined shacket — cozy limited drop.", desc: "Shirt-jacket with sherpa lining, snap front. Limited winter stock.", tags: "sherpa,shacket,winter,limited", featured: false, sizes: ["M", "L"], colors: ["Brown"], stock: 3 },
+    { title: "Sherpa Shacket 02", slug: "sherpa-shacket-02", price: 2890, comparePrice: 3600, cat: "sherpa-shacket", img: "/uploads/seed/p-coat.jpg",
+      short: "Cream sherpa shacket.", desc: "Cream sherpa shacket with snap buttons. Limited stock.", tags: "sherpa,shacket,winter,limited", featured: false, sizes: ["L"], colors: ["Cream"], stock: 2 },
+    { title: "Boxy Hoodie 01", slug: "boxy-hoodie-01", price: 1890, comparePrice: 2500, cat: "boxy-hoodie", img: "/uploads/seed/p-knit.jpg",
+      short: "Boxy pullover hoodie, 480 GSM.", desc: "Boxy pullover hoodie in brushed fleece. Limited winter drop.", tags: "hoodie,boxy,winter,limited", featured: false, sizes: ["M", "L", "XL"], colors: ["Grey"], stock: 4 },
+    { title: "Boxy Hoodie 02", slug: "boxy-hoodie-02", price: 1890, comparePrice: 2500, cat: "boxy-hoodie", img: "/uploads/seed/p-knit.jpg",
+      short: "Black boxy pullover hoodie.", desc: "Black boxy hoodie, kangaroo pocket, ribbed trims. Limited stock.", tags: "hoodie,boxy,winter,limited", featured: false, sizes: ["M", "L"], colors: ["Black"], stock: 3 },
+    { title: "Double Layer Jacket 01", slug: "double-layer-jacket-01", price: 3890, comparePrice: 4900, cat: "double-layer-jacket", img: "/uploads/seed/p-coat.jpg",
+      short: "Double-layer jacket — limited.", desc: "Two-layer shell with quilted liner, zip + snap. Limited winter stock.", tags: "jacket,double-layer,winter,limited", featured: false, sizes: ["M", "L"], colors: ["Black"], stock: 3 },
+    { title: "Double Layer Jacket 02", slug: "double-layer-jacket-02", price: 3990, comparePrice: 4900, cat: "double-layer-jacket", img: "/uploads/seed/p-coat.jpg",
+      short: "Olive double-layer jacket.", desc: "Olive two-layer jacket, water-resistant shell. Limited stock.", tags: "jacket,double-layer,winter,limited", featured: false, sizes: ["L", "XL"], colors: ["Olive"], stock: 2 },
     { title: "Merino Crew Sweater", slug: "merino-crew-sweater", price: 3150, comparePrice: 3800, cat: "knitwear", img: "/uploads/seed/p-knit.jpg",
       short: "Fine-gauge merino, cut clean. Layers under everything.",
       desc: "Fine-gauge merino wool in a clean crew cut — warm without bulk, and slim enough to layer under the Camel Overcoat. Ribbed detailing at collar and cuffs, fully fashioned seams.",

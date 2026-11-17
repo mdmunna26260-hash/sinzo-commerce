@@ -278,14 +278,14 @@ export function Footer({ cfg }: { cfg: any }) {
             <p className="about">{store.footerText}</p>
           </div>
           <div>
-            <h4>Shop</h4>
+            <h3 className="ft-h">Shop</h3>
             {(cfg?._nav?.categories || []).slice(0, 5).map((c: any) => (
               <Link prefetch key={c.slug} href={"/products?category=" + c.slug}>{c.name}</Link>
             ))}
             <Link prefetch href="/products">All Products</Link>
           </div>
           <div>
-            <h4>Help</h4>
+            <h3 className="ft-h">Help</h3>
             <Link prefetch href="/track">Track Order</Link>
             <Link prefetch href="/returns#delivery">Shipping</Link>
             <Link prefetch href="/returns">Returns &amp; Exchange</Link>
@@ -293,7 +293,7 @@ export function Footer({ cfg }: { cfg: any }) {
             <a href={store.whatsapp ? waLink(store.whatsapp) : "#"} target="_blank" rel="noreferrer noopener">WhatsApp Support</a>
           </div>
           <div>
-            <h4>Contact</h4>
+            <h3 className="ft-h">Contact</h3>
             <a href={"mailto:" + store.email}>{store.email}</a>
             <a href={telLink(store.phone)}>{store.phone}</a>
             <a href={store.facebook} target="_blank" rel="noreferrer">Facebook</a>

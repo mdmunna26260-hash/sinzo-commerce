@@ -348,6 +348,20 @@ export default async function PDP(props: { params: Promise<{ slug: string }>; se
             <div><div className="eyebrow">Customer feedback</div><h2>Reviews ({p.reviews.length})</h2></div>
             {avgRating > 0 && <div style={{ fontSize: 15 }}>{"★".repeat(Math.round(avgRating))}<span style={{ color: "var(--muted)" }}> {avgRating.toFixed(1)} / 5</span></div>}
           </div>
+          {p.reviews.length > 0 && (() => {
+            const counts = [5, 4, 3, 2, 1].map((s) => p.reviews.filter((r) => r.rating === s).length);
+            return (
+              <div className="rating-bars" aria-label="Rating breakdown">
+                {[5, 4, 3, 2, 1].map((star, i) => (
+                  <div key={star} className="rb-row">
+                    <span className="rb-star">{star}★</span>
+                    <span className="rb-track"><span className="rb-fill" style={{ width: p.reviews.length ? `${(counts[i] / p.reviews.length) * 100}%` : "0%" }} /></span>
+                    <span className="rb-n">{counts[i]}</span>
+                  </div>
+                ))}
+              </div>
+            );
+          })()}
           {p.reviews.length === 0 && <p style={{ color: "var(--muted)" }}>No reviews yet — be the first to review this product.</p>}
           {p.reviews.length > 1 && (
             <div className="reviews-hint">Swipe for all {p.reviews.length} reviews <span aria-hidden="true">→</span></div>

@@ -71,6 +71,7 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
 
   // ---------- gallery state ----------
   const [img, setImg] = useState(0);
+
   const thumbsRef = useRef<HTMLDivElement>(null);
   const [lightbox, setLightbox] = useState(false);
   const [lbIdx, setLbIdx] = useState(0);

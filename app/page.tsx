@@ -165,6 +165,13 @@ async function HomeContent() {
   const catalogCards = toCards(activeCatalog);
   const discountProducts = pickDiscountProducts(catalogCards, 8);
   const limitedProducts = pickLimitedProducts(catalogCards, 8).map((product) => ({ ...product, badge: product.badge || "limited" }));
+  // Winter Limited department: products whose category is the winter main cat or one of its subcats
+  const winterCatIds = cats.filter((c: any) => c.slug === "winter-limited" || c.parentId != null && cats.find((x: any) => x.id === c.parentId)?.slug === "winter-limited").map((c: any) => c.id);
+  const winterProducts = winterCatIds.length ? await db.product.findMany({
+    where: { status: "ACTIVE", categoryId: { in: winterCatIds } },
+    orderBy: [{ position: "asc" }, { id: "asc" }], take: 12,
+    select: { id: true, title: true, slug: true, price: true, comparePrice: true, stock: true, badge: true, isNew: true, isBestSeller: true, saleEnds: true, preorder: true, category: { select: { name: true } }, images: { select: { url: true }, orderBy: { position: "asc" }, take: 1 }, variants: { select: { id: true, size: true, color: true, stock: true, price: true } } },
+  }) : [];
   const biggestDiscount = discountProducts.reduce((max, product) => Math.max(max, discountPercent(product)), 0);
   const heroSlides = buildHomeHeroSlides(hp, [...featuredProducts, ...catalogCards]).map((slide) => ({
     ...slide,
@@ -179,7 +186,7 @@ async function HomeContent() {
       <>
         {/* Preload the LCP hero image so the browser fetches it at high priority before
             React hydrates (PSI: LCP was 5.0s because the image was discovered late). */}
-        <link rel="preload" as="image" href={imgSrc(heroSlides[0].image, 1200)} imageSrcSet={[600, 1000, 1200].map((w) => imgSrc(heroSlides[0].image, w) + " " + w + "w").join(", ")} imageSizes="100vw" fetchPriority="high" />
+        <link rel="preload" as="image" href={imgSrc(heroSlides[0].image, 1200)} imageSrcSet={[400, 600, 1000, 1200].map((w) => imgSrc(heroSlides[0].image, w) + " " + w + "w").join(", ")} imageSizes="100vw" fetchPriority="high" />
         <HeroCarousel key="hero" slides={heroSlides} intervalMs={2000} overlay={hp.heroOverlay !== false} />
         {/* 2nd announcement bar at the END of the hero — text from Settings → Homepage */}
         <Announcement text={hp.heroBottomAnnouncement} className="announce-hero-bottom" />
@@ -243,6 +250,13 @@ async function HomeContent() {
         <ProductShelf products={cp(bestSellers).slice(0, 8)} />
       </section>
     ),
+    winter: winterProducts.length ? (
+      <section className="section container merch-section merch-winter" id="winter-limited" style={{ paddingTop: 0 }} key="winter">
+        <Head no="06" eyebrow="Winter drop" title="Winter Limited Product" href="/products?category=winter-limited" />
+        <div className="merch-context"><span>Limited stock per size</span><strong>Once it's gone, it's gone</strong></div>
+        <ProductShelf products={winterProducts} />
+      </section>
+    ) : null,
     limited: limitedProducts.length ? (
       <section className="section container merch-section merch-limited" id="limited-availability" style={{ paddingTop: 0 }} key="limited">
         <Head no="05" eyebrow="Small quantities" title="Limited Availability" href="/products?avail=1" />
@@ -273,11 +287,11 @@ async function HomeContent() {
     <CartProvider>
       <Announcement text={hp.announcement} />
       <Header storeName={cfg.store?.name || "Store"} categories={navCats(cats)} />
-
+      <main id="main">
       {sectionCfg.filter((x) => x.enabled).map((x) => (
         <Fragment key={x.id}>{sections[x.id] ? <SafeSection id={x.id}>{sections[x.id]}</SafeSection> : null}</Fragment>
       ))}
-
+      </main>
       <Footer cfg={{ ...cfg, _nav: { categories: navCats(cats) } }} />
     </CartProvider>
   );

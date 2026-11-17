@@ -248,7 +248,7 @@ button.image-progress-segment:focus-visible::after {
 /* ---------- Footer ---------- */
 .footer { border-top: 1px solid var(--line); padding: 60px 0 30px; background: var(--bg); }
 .footer-grid { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 40px; margin-bottom: 44px; }
-.footer h4 { font-size: 11px; letter-spacing: .2em; text-transform: uppercase; color: var(--muted); margin-bottom: 16px; }
+.footer h4, .footer h3.ft-h { font-size: 11px; letter-spacing: .2em; text-transform: uppercase; color: var(--muted); margin-bottom: 16px; }
 .footer a { display: block; font-size: 13.5px; color: var(--text); padding: 4px 0; }
 .footer a:hover { color: var(--accent); }
 .footer .about { font-size: 13.5px; color: var(--muted); max-width: 300px; margin-top: 12px; }
@@ -4129,3 +4129,34 @@ body:has(.admin-body) .scroll-progress { display: none !important; }
 
 /* filter group headings (h2 for correct heading order; styled like the old h3) */
 .flt-h { font-size: 12px; font-weight: 650; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); margin: 16px 0 8px; }
+
+/* review rating breakdown bars */
+.rating-bars { display: grid; gap: 5px; max-width: 340px; margin: 4px 0 18px; }
+.rb-row { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); }
+.rb-star { width: 26px; color: var(--text); font-weight: 600; }
+.rb-track { flex: 1; height: 7px; border-radius: 99px; background: var(--line-soft, #eceae6); overflow: hidden; }
+.rb-fill { display: block; height: 100%; border-radius: 99px; background: #e8a33d; }
+.rb-n { width: 22px; text-align: right; font-variant-numeric: tabular-nums; }
+
+/* sold-out stamp on product card image (like the PDP stamp) */
+.pcard.is-oos .pcard-img img { filter: grayscale(.5) brightness(.82); }
+.pcard-oos-stamp {
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(-14deg);
+  z-index: 4; pointer-events: none;
+  border: 2px solid #b3392f; color: #b3392f; background: rgba(255,255,255,.82);
+  font-weight: 700; letter-spacing: .12em; font-size: 13px; padding: 5px 14px; border-radius: 4px;
+}
+
+/* floating buy bar on PDP */
+.pdp-floatbar {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 60;
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 16px calc(10px + env(safe-area-inset-bottom));
+  background: color-mix(in srgb, var(--bg) 88%, transparent);
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  border-top: 1px solid var(--line);
+}
+.pdp-floatbar .pf-info { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.pdp-floatbar .pf-info b { font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pdp-floatbar .pf-info span { font-size: 14px; font-weight: 700; color: var(--accent, var(--text)); }
+.pdp-floatbar .pdp-buy { flex: none; padding: 12px 22px; }
