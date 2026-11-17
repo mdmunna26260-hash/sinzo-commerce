@@ -121,7 +121,7 @@ function ResultsFallback() {
 }
 
 /* The data-dependent part: products query + toolbar/filters + grid */
-async function Results({ sp, cats, sizes, unknownCategory }: { sp: SP; cats: { id: number; name: string; slug: string }[]; sizes: string[]; unknownCategory?: boolean }) {
+async function Results({ sp, cats, sizes, unknownCategory }: { sp: SP; cats: { id: number; name: string; slug: string; parentId?: number | null }[]; sizes: string[]; unknownCategory?: boolean }) {
   const where: any = { status: "ACTIVE" };
   if (unknownCategory) where.id = -1; // show the empty state instead of an unfiltered catalogue
   if (sp.q) {
@@ -130,7 +130,11 @@ async function Results({ sp, cats, sizes, unknownCategory }: { sp: SP; cats: { i
   }
   if (sp.category) {
     const c = cats.find((x) => x.slug === sp.category);
-    if (c) where.categoryId = c.id;
+    if (c) {
+      // a main category (e.g. Winter Limited) shows products of ALL its sub-categories
+      const childIds = cats.filter((x: any) => x.parentId === c.id).map((x: any) => x.id);
+      where.categoryId = { in: [c.id, ...childIds] };
+    }
   }
   if (sp.min || sp.max) {
     where.price = {};

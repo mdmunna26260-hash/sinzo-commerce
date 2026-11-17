@@ -8,6 +8,7 @@ export const DEFAULT_HOME_SECTIONS: HomeSectionConfig[] = [
   { id: "promo", enabled: true },
   { id: "bestsellers", enabled: true },
   { id: "limited", enabled: true },
+  { id: "winter", enabled: true },
   { id: "recently", enabled: true },
   { id: "testimonials", enabled: true },
 ];
