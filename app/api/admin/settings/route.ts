@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { requirePerm } from "@/lib/admin-guard";
 import { getSettings, saveGroup, envFallback } from "@/lib/settings";
 import { logAudit } from "@/lib/auth";
@@ -78,6 +79,9 @@ export async function PUT(req: Request) {
   if (group === "checkout") delete merged.giftWrapFee;
   if (group === "integrations" && (value.metaTestEventCode === "" || value.metaTestEventCode === "-" || value.metaTestEventCode === null)) delete merged.metaTestEventCode;
   await saveGroup(group, merged);
+  // homeSections/homepage changes must show on "/" immediately — the homepage is ISR-cached
+  // (revalidate 60), so without this the admin toggles "don't work" until the cache expires
+  if (group === "homeSections" || group === "homepage") revalidatePath("/");
   await logAudit(g.user.email, "SETTINGS_UPDATED", group);
   return NextResponse.json({ ok: true });
 }
