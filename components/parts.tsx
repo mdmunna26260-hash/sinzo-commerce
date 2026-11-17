@@ -34,10 +34,11 @@ export function ProductCard({ p, rd }: { p: CardProduct; rd?: number }) {
      <a> may not contain interactive content. */
   return (
     <div className="pcard-cell" style={rd != null ? ({ "--rd": rd } as CSSProperties) : undefined}>
-    <CardLink className="pcard reveal" href={"/products/" + p.slug}>
+    <CardLink className={"pcard reveal" + (p.stock <= 0 && !p.preorder ? " is-oos" : "")} href={"/products/" + p.slug}>
       {/* photo(s) + the segmented image progress bar under them — see components/card-media.tsx.
           The badges are passed as children so they stay inside the clipped image box. */}
       <CardMedia images={p.images} image={p.image} alt={p.title} slug={p.slug}>
+        {p.stock <= 0 && !p.preorder && <span className="pcard-oos-stamp" aria-hidden>SOLD OUT</span>}
         <div className="pcard-badges">
           {p.stock <= 0 && !p.preorder && <span className="badge">SOLD OUT</span>}
           {p.preorder && <span className="badge">Pre-Order</span>}
