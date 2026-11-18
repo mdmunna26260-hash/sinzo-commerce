@@ -350,6 +350,10 @@ async function run(): Promise<void> {
     ? `ALTER TABLE "Customer" ADD COLUMN IF NOT EXISTS "waOptInAt" TIMESTAMP(3)`
     : `ALTER TABLE "Customer" ADD COLUMN "waOptInAt" DATETIME`).catch(() => {});
   await db.$executeRawUnsafe(isPg
+    ? `ALTER TABLE "Order" ADD COLUMN IF NOT EXISTS "paymentTrxId" TEXT`
+    : `ALTER TABLE "Order" ADD COLUMN "paymentTrxId" TEXT`).catch(() => {});
+
+  await db.$executeRawUnsafe(isPg
     ? `CREATE TABLE IF NOT EXISTS "WaBroadcast" (
         "id" SERIAL PRIMARY KEY,
         "name" TEXT NOT NULL,

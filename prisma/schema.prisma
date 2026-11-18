@@ -225,8 +225,9 @@ model Order {
   deliveryFee   Float       @default(0)
   total         Float
   couponCode    String?
-  paymentMethod String      @default("COD")
+  paymentMethod String      @default("COD") // COD | NAGAD | BKASH | BANK (manual)
   paymentStatus String      @default("PENDING") // PENDING | PAID | FAILED | REFUNDED
+  paymentTrxId  String?     // manual payment transaction id (bKash/Nagad/bank) — verified by admin before PAID
   status        String      @default("PENDING") // PENDING | CONFIRMED | PROCESSING | PACKED | SHIPPED | DELIVERED | CANCELLED | RETURNED | ON_HOLD
   riskLevel     String      @default("LOW") // LOW | MEDIUM | HIGH | CRITICAL
   riskFlags     String?

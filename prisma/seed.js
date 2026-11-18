@@ -78,6 +78,13 @@ const DEFAULT_SETTINGS = {
     codEnabled: true,
     onlinePaymentEnabled: false,
     minPhoneDigits: 11,
+    /* manual bank/MFS transfer: customer sends money here and submits the TrxID;
+       admin verifies in the order page and marks PAID */
+    manualPayments: {
+      nagad: { enabled: true, number: "01576450711", name: "MUNNA" },
+      bkash: { enabled: true, number: "01902154737", name: "LITON" },
+      bank: { enabled: true, bankName: "Pubali Bank PLC", branch: "Kamrangirchar", routing: "175273588", accountNo: "4622101043161", accountName: "Md Siyam" },
+    },
   },
   fraud: {
     enabled: true,

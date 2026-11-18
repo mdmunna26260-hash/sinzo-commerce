@@ -35,6 +35,12 @@ export default function CheckoutPage() {
   const outside = nonNegativeAmount(shipCfg.outsideDhaka, 140);
   const checkoutCfg = recoveryPricing?.checkout || cfg?.checkout;
   const codEnabled = checkoutCfg?.codEnabled !== false;
+  const manual = checkoutCfg?.manualPayments || {};
+  const manualOptions = [
+    manual.nagad?.enabled ? { id: "NAGAD", label: "Nagad", detail: `Send to ${manual.nagad.number} (${manual.nagad.name})` } : null,
+    manual.bkash?.enabled ? { id: "BKASH", label: "bKash", detail: `Send to ${manual.bkash.number} (${manual.bkash.name})` } : null,
+    manual.bank?.enabled ? { id: "BANK", label: "Bank transfer", detail: `${manual.bank.bankName} · A/C ${manual.bank.accountNo} · ${manual.bank.accountName} · Branch ${manual.bank.branch} · Routing ${manual.bank.routing}` } : null,
+  ].filter(Boolean) as { id: string; label: string; detail: string }[];
 
   const [form, setForm] = useState({ name: "", phone: "", email: "", address: "", area: "INSIDE_DHAKA", notes: "" });
   const [coupon, setCoupon] = useState("");
@@ -46,6 +52,7 @@ export default function CheckoutPage() {
   const [busy, setBusy] = useState(false);
   const [cbusy, setCBusy] = useState(false);
   const [payment, setPayment] = useState("COD");
+  const [trxId, setTrxId] = useState("");
 
   const [bundles, setBundles] = useState<any[]>([]);
   useEffect(() => { fetch("/api/gift-rule").then((r) => r.json()).then(setGiftRule).catch(() => {}); }, []);
@@ -264,7 +271,8 @@ export default function CheckoutPage() {
   };
 
   const placeOrder = async () => {
-    if (busy || cbusy || !codEnabled || recoveryStage === "choice") return;
+    if (busy || cbusy || recoveryStage === "choice") return;
+    if (payment !== "COD" && trxId.trim().length < 6) { toast("Transaction ID (TrxID) din — jeta send korar por peyechen"); return; }
     if (!validate()) { window.scrollTo({ top: 0, behavior: "smooth" }); return; }
     orderInFlight.current = true; captureRequest.current?.abort(); setBusy(true);
     trackEvent("AddPaymentInfo", { value: total, currency: "BDT" });
@@ -275,7 +283,7 @@ export default function CheckoutPage() {
       const r = await fetch("/api/checkout", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          ...form, phone: normalizeBDPhone(form.phone), paymentMethod: payment,
+          ...form, phone: normalizeBDPhone(form.phone), paymentMethod: payment, trxId: payment === "COD" ? undefined : trxId,
           captureKey: getCaptureKey(), recoveryToken: recoveryStage === "restored" ? recoveryToken : undefined,
           couponCode: applied?.code || null, purchaseEventId: eventId,
           attribution: captureAttribution(),
@@ -414,15 +422,38 @@ export default function CheckoutPage() {
 
           <div className="checkout-payment-row">
             <span className="checkout-payment-heading">Payment</span>
-            {codEnabled ? (
+            {codEnabled && (
               <label className="checkout-payment-option">
                 <input type="radio" name="payment" checked={payment === "COD"} onChange={() => setPayment("COD")} />
                 <span>Cash on delivery</span>
               </label>
-            ) : (
-              <span className="checkout-payment-disabled">Cash on delivery is currently unavailable.</span>
+            )}
+            {manualOptions.map((m) => (
+              <label className="checkout-payment-option" key={m.id}>
+                <input type="radio" name="payment" checked={payment === m.id} onChange={() => setPayment(m.id)} />
+                <span>{m.label} <small style={{ color: "var(--muted)" }}>— send money, then submit TrxID</small></span>
+              </label>
+            ))}
+            {!codEnabled && manualOptions.length === 0 && (
+              <span className="checkout-payment-disabled">No payment method available right now.</span>
             )}
           </div>
+          {payment !== "COD" && (
+            <div className="checkout-manual-pay" style={{ marginTop: 10, padding: 14, border: "1px solid var(--line)", borderRadius: 10, fontSize: 13.5 }}>
+              <div style={{ fontWeight: 650, marginBottom: 4 }}>Send ৳{Math.round(total).toLocaleString("en-IN")} to:</div>
+              <div style={{ color: "var(--muted)", lineHeight: 1.6 }}>
+                {manualOptions.find((m) => m.id === payment)?.detail}
+              </div>
+              <input
+                style={{ marginTop: 10, width: "100%" }}
+                placeholder="Transaction ID (TrxID) — e.g. 8HG5K2XN9Q"
+                value={trxId}
+                onChange={(e) => setTrxId(e.target.value)}
+                autoCapitalize="characters"
+              />
+              <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 6 }}>After sending, paste the TrxID here. We verify it and confirm your order.</div>
+            </div>
+          )}
         </section>
 
         <aside className="checkout-summary" aria-labelledby="checkout-summary-title">

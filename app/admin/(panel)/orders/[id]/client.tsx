@@ -504,6 +504,9 @@ export default function OrderDetailClient({ initial, nav }: { initial: Order; na
                     <button className="abtn sm" disabled={busy} onClick={() => put({ paymentStatus: "PENDING" }, "Payment → PENDING")}>↩ Back to Pending</button>
                   )}
                 </div>
+                {(o as any).paymentTrxId && (
+                  <div style={{ marginTop: 6, fontSize: 12.5, color: "var(--muted)" }}>TrxID: <b style={{ color: "var(--ad-text)" }}>{(o as any).paymentTrxId}</b> <span style={{ fontSize: 11 }}>(verify, then mark PAID)</span></div>
+                )}
               </div>
               <div className="af">
                 <label>Admin Note</label>

@@ -29,6 +29,10 @@ export async function POST(req: Request) {
     const notes = typeof body.notes === "string" ? body.notes.trim().slice(0, 2000) : "";
     const { area, couponCode } = body;
     const paymentMethod = body.paymentMethod || "COD";
+    // manual MFS/bank transfer: allowed only if enabled in Settings → Checkout, and a TrxID is required
+    const manualCfg = (await getSettings()).checkout?.manualPayments || {};
+    const MANUAL = { NAGAD: manualCfg.nagad?.enabled, BKASH: manualCfg.bkash?.enabled, BANK: manualCfg.bank?.enabled };
+    const trxId = typeof body.trxId === "string" ? body.trxId.trim().slice(0, 64) : "";
     const purchaseEventId = typeof body.purchaseEventId === "string" ? body.purchaseEventId.slice(0, 128) : undefined;
     const cleanPhone = normalizeBDPhone(String(body.phone || ""));
     const errors: Record<string, string> = {};
@@ -51,7 +55,12 @@ export async function POST(req: Request) {
     const s = envFallback(await getSettings(true));
     const shipCfg = s.shipping || {};
     const checkoutCfg = s.checkout || {};
-    if (paymentMethod !== "COD") return NextResponse.json({ error: "Online payment is not available yet. Please use Cash on Delivery." }, { status: 400 });
+    if (paymentMethod !== "COD" && !MANUAL[paymentMethod]) {
+      return NextResponse.json({ error: "This payment method is not available. Please use Cash on Delivery." }, { status: 400 });
+    }
+    if (paymentMethod !== "COD" && trxId.length < 6) {
+      throw new CheckoutValidationError("Please enter the transaction ID (TrxID) you received after sending the money");
+    }
     if (checkoutCfg.codEnabled === false) return NextResponse.json({ error: "Cash on Delivery is currently disabled. Please contact support." }, { status: 400 });
 
     const products = await db.product.findMany({
@@ -130,7 +139,7 @@ export async function POST(req: Request) {
           code: "TEMP-" + crypto.randomUUID(), name, phone: cleanPhone, email: email || null,
           address, area, notes: notes || null,
           subtotal, discount, comboDiscount: comboSavings, giftDiscount: giftSavings || 0, deliveryFee, total, couponCode: appliedCode, capiPurchaseSentAt: new Date(),
-          paymentMethod, paymentStatus: "PENDING", status: risk.level === "HIGH" ? "ON_HOLD" : "PENDING",
+          paymentMethod, paymentTrxId: paymentMethod === "COD" ? null : trxId, paymentStatus: "PENDING", status: risk.level === "HIGH" ? "ON_HOLD" : "PENDING",
           riskLevel: risk.level, riskFlags: risk.flags.join(", ") || null,
           source: recovered ? "Recovered" : detectSource(attribution), attribution: Object.keys(attribution).length ? JSON.stringify(attribution) : null,
           channel: deployChannel(), ip, customerId: customer.id, items: { create: orderItems },
@@ -187,7 +196,7 @@ export async function POST(req: Request) {
     // admin notification (in-app + Telegram + email if configured)
     notifyAdmin("order.placed",
       `🛒 NEW ORDER ${code}`,
-      `👤 ${name} (${cleanPhone})\n💰 ৳${Math.round(total).toLocaleString("en-IN")} · ${paymentMethod}\n📍 ${area === "INSIDE_DHAKA" ? "Inside Dhaka" : "Outside Dhaka"}\n📦 ${orderItems.reduce((a, i) => a + i.qty, 0)} item(s)${appliedCode ? `\n🎟 ${appliedCode}` : ""}${risk.level !== "LOW" ? `\n⚠ Risk: ${risk.level}` : ""}`,
+      `👤 ${name} (${cleanPhone})\n💰 ৳${Math.round(total).toLocaleString("en-IN")} · ${paymentMethod}${paymentMethod !== "COD" ? " · TrxID: " + trxId : ""}\n📍 ${area === "INSIDE_DHAKA" ? "Inside Dhaka" : "Outside Dhaka"}\n📦 ${orderItems.reduce((a, i) => a + i.qty, 0)} item(s)${appliedCode ? `\n🎟 ${appliedCode}` : ""}${risk.level !== "LOW" ? `\n⚠ Risk: ${risk.level}` : ""}`,
       code).catch(() => {});
 
     return NextResponse.json({ ok: true, code, total, risk: risk.level });
