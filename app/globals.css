@@ -1922,14 +1922,18 @@ input::placeholder, textarea::placeholder { color: #b0aaa1; }
 .rel-dot.on { width: 8px; height: 8px; background: var(--text); }
 
 /* ---------- Recently Viewed strip ---------- */
+@keyframes recentIn { from { opacity: 0; transform: translateY(14px) scale(.97); } to { opacity: 1; transform: none; } }
 .recent-strip {
   display: flex;
   gap: 12px;
   overflow-x: auto;
   scrollbar-width: none;
+  scroll-snap-type: x proximity;
   -webkit-overflow-scrolling: touch;
   padding: 4px 0;
 }
+.recent-card { scroll-snap-align: start; animation: recentIn .5s cubic-bezier(.22,.8,.32,1) both; }
+@media (prefers-reduced-motion: reduce) { .recent-card { animation: none; } }
 .recent-strip::-webkit-scrollbar { display: none; }
 .recent-card {
   flex: 0 0 140px;
