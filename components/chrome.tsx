@@ -4,7 +4,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { useCart, trackEvent } from "./store";
 import { ThemeIconToggle } from "./theme-toggle";
-import { telLink } from "@/lib/phone";
+import { telLink, waLink } from "@/lib/phone";
 
 export type HeaderCfg = { storeName: string; announcement?: string; categories: { name: string; slug: string }[] };
 
@@ -290,6 +290,7 @@ export function Footer({ cfg }: { cfg: any }) {
             <Link prefetch href="/returns#delivery">Shipping</Link>
             <Link prefetch href="/returns">Returns &amp; Exchange</Link>
             <Link prefetch href="/blog">Journal</Link>
+            {store.whatsapp && <a href={waLink(store.whatsapp)} target="_blank" rel="noreferrer noopener">WhatsApp Support</a>}
           </div>
           <div>
             <h3 className="ft-h">Contact</h3>

@@ -19,3 +19,13 @@ export function telLink(raw: string): string {
   if (d.startsWith("0")) d = d.slice(1);
   return /^1[3-9]\d{8}$/.test(d) ? "tel:+880" + d : "tel:" + String(raw).replace(/[^0-9+]/g, "");
 }
+
+/* wa.me link for the footer support button — country code WITHOUT "+" and WITHOUT the
+   leading 0, so 01676450711 becomes https://wa.me/8801676450711 */
+export function waLink(raw: string): string {
+  let d = String(raw || "").replace(/[^0-9]/g, "");
+  if (!d) return "#";
+  if (d.startsWith("880")) d = d.slice(3);
+  if (d.startsWith("0")) d = d.slice(1);
+  return /^1[3-9]\d{8}$/.test(d) ? "https://wa.me/880" + d : "https://wa.me/" + String(raw).replace(/[^0-9+]/g, "").replace(/^\+/, "");
+}

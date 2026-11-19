@@ -336,6 +336,7 @@ export default function SettingsClient({ groups, user, userCount, hasCourier, co
             <F k="tagline" label="Tagline" group="store" />
             <F k="email" label="Support email" group="store" />
             <F k="phone" label="Support phone" group="store" />
+            <F k="whatsapp" label="WhatsApp number (8801…)" group="store" />
             <F k="currencySymbol" label="Currency symbol" group="store" />
             <F k="address" label="Address" group="store" />
             <F k="facebook" label="Facebook URL" group="store" />
