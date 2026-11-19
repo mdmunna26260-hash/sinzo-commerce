@@ -4,6 +4,7 @@ import RevealInit from "@/components/reveal";
 import PageViewTracker from "@/components/pageview";
 import PageTransition from "@/components/page-transition";
 import ViewTransitionRoot from "@/components/view-transition-root";
+import { ScrollToTop } from "@/components/chrome";
 import { CartProvider } from "@/components/store";
 import PushRegister from "@/components/push-register";
 import PushNudge from "@/components/push-nudge";
@@ -33,7 +34,7 @@ export async function generateMetadata(): Promise<Metadata> {
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.VERCEL_URL || "";
     return {
       // without metadataBase every absolute share URL (og:image, canonical) silently
-      // resolves to nothing — Facebook/WhatsApp then show no preview picture
+      // resolves to nothing — social previews then show no preview picture
       metadataBase: new URL(siteUrl ? (siteUrl.startsWith("http") ? siteUrl : "https://" + siteUrl) : "https://sinzooffcial.com"),
       title: {
         default: clean(s.seo?.metaTitle) || `${s.store?.name || "Store"} — ${clean(s.store?.tagline) || "Shop online, pay on delivery"}`,
@@ -254,6 +255,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             is excluded by `body:has(.admin-body)`. */}
         <div className="scroll-progress" aria-hidden />
         {children}
+        <ScrollToTop />
         </CartProvider>
         <PushRegister />
         <PushNudge />

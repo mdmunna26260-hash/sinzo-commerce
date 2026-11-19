@@ -1,5 +1,4 @@
 import { db } from "./db";
-import { waSend } from "./wa";
 import { sendSms, smsConfigured } from "./sms";
 import { logApp } from "./logs";
 import type { SettingsMap } from "./settings";
@@ -7,9 +6,8 @@ import type { SettingsMap } from "./settings";
 /* Out-of-stock waitlist.
    A sold-out product is a lost sale unless someone tells the customer the moment it is back.
    One contact per row (phone or email — whatever they typed), and the notify path uses whatever
-   channel the shop actually has: WhatsApp bridge → SMS gateway → email. If none is configured the
-   entry is kept and the admin screen offers a tap-to-send wa.me / mailto link, so the lead is
-   never silently dropped. */
+   channel the shop actually has: SMS gateway → email. If none is configured the entry is
+   kept and the admin screen offers a mailto link, so the lead is never silently dropped. */
 
 export type WaitlistEntry = {
   id: number; productId: number; variantId: number | null; contact: string; note: string | null;
@@ -25,7 +23,7 @@ export function waitlistMessage(productTitle: string, variant?: string | null, u
   return `Sinzo: apni je "${productTitle}"${v} er jonno wait korechilen — seta abar stock-e esheche! Take a look: ${url || "https://sinzooffcial.com"}`;
 }
 
-export type NotifyResult = { ok: boolean; channel: "whatsapp" | "sms" | "email" | "manual"; error?: string; link?: string };
+export type NotifyResult = { ok: boolean; channel: "sms" | "email" | "manual"; error?: string; link?: string };
 
 /** Tell one waitlister. Returns the channel actually used (or "manual" + a link to send by hand). */
 export async function notifyWaitlistEntry(entry: WaitlistEntry, s: SettingsMap): Promise<NotifyResult> {
@@ -38,12 +36,6 @@ export async function notifyWaitlistEntry(entry: WaitlistEntry, s: SettingsMap):
   const contact = entry.contact.trim();
 
   if (!looksLikeEmail(contact)) {
-    const wa = await waSend(contact, msg);
-    if (wa.ok) {
-      await markNotified(entry.id);
-      await logApp("INFO", "WHATSAPP", `waitlist #${entry.id} → WhatsApp ${contact}`);
-      return { ok: true, channel: "whatsapp" };
-    }
     if (smsConfigured(s)) {
       const r = await sendSms(s, contact, msg, "waitlist");
       if (r.ok) {
@@ -51,7 +43,7 @@ export async function notifyWaitlistEntry(entry: WaitlistEntry, s: SettingsMap):
         return { ok: true, channel: "sms" };
       }
     }
-    return { ok: false, channel: "manual", error: "No WhatsApp/SMS channel available", link: `https://wa.me/${contact.replace(/\D/g, "")}?text=${encodeURIComponent(msg)}` };
+    return { ok: false, channel: "manual", error: "No SMS channel available", link: `sms:${contact}?body=${encodeURIComponent(msg)}` };
   }
 
   // email

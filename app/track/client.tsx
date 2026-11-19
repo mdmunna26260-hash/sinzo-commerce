@@ -250,7 +250,7 @@ export default function TrackClient() {
             ))}
             {items.length === 0 && result.source !== "steadfast" && (
               <div style={{ fontSize: 13, color: "var(--muted)" }}>
-                Item list for this order isn&apos;t available here — use your ORD- code with the mobile number you ordered with, or WhatsApp us.
+                Item list for this order isn&apos;t available here — use your ORD- code with the mobile number you ordered with, or call us.
               </div>
             )}
 

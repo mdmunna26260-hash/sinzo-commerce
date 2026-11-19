@@ -7,7 +7,7 @@ import { APP_LOG_KINDS, APP_LOG_LEVELS, logApp } from "@/lib/logs";
 export const dynamic = "force-dynamic";
 
 /* App log viewer (admin menu item 12) — the place to look when something broke at 2am:
-   browser crashes, SMS/WhatsApp failures, courier webhooks, cron and backup runs. */
+   browser crashes, SMS failures, courier webhooks, cron and backup runs. */
 
 export async function GET(req: Request) {
   const g = await requirePerm("settings", req);

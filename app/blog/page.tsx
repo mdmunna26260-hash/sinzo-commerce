@@ -13,7 +13,7 @@ export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
   title: "Journal",
   description:
-    "Buying guides, sizing help and care tips from SINZO — the questions customers ask us on WhatsApp, written down properly before you order.",
+    "Buying guides, sizing help and care tips from SINZO — the questions customers ask us every day, written down properly before you order.",
   alternates: { canonical: "/blog" },
 };
 
@@ -49,7 +49,7 @@ export default async function BlogIndex() {
           <h1>Guides, sizing &amp; care</h1>
           <p className="blog-lede">
             What to check before you order, how the sizes actually run, and how to keep a piece looking new —
-            the questions we answer on WhatsApp every day, written down properly.
+            the questions we answer every day, written down properly.
           </p>
         </div>
 

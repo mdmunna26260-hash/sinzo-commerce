@@ -37,14 +37,6 @@ export async function deleteAdminOrder(orderId: number, userEmail: string) {
       data: { convertedOrderId: null, checkoutStatus: "OPEN", recovered: false },
     });
 
-    // Do not let queued automations message a customer about an order that no
-    // longer exists. Sent message/inbox history is retained, only unlinked.
-    await tx.waMessage.updateMany({
-      where: { orderId: order.id, status: { in: ["QUEUED", "SENDING"] } },
-      data: { status: "SKIPPED", orderId: null, error: "Order deleted by admin", lockedAt: null, nextAttemptAt: null },
-    });
-    await tx.waMessage.updateMany({ where: { orderId: order.id }, data: { orderId: null } });
-    await tx.inboxMessage.updateMany({ where: { orderId: order.id }, data: { orderId: null } });
 
     await tx.order.delete({ where: { id: order.id } });
     await tx.auditLog.create({

@@ -51,8 +51,6 @@ function deletionHarness(orderPatch = {}, deducted = false) {
   const tx = {
     coupon: { updateMany: async (query) => calls.push(['coupon', query]) },
     abandonedCheckout: { updateMany: async (query) => calls.push(['abandoned', query]) },
-    waMessage: { updateMany: async (query) => calls.push(['wa', query]) },
-    inboxMessage: { updateMany: async (query) => calls.push(['inbox', query]) },
     order: { delete: async (query) => calls.push(['delete', query]) },
     auditLog: { create: async (query) => calls.push(['audit', query]) },
   };
@@ -65,12 +63,11 @@ function deletionHarness(orderPatch = {}, deducted = false) {
   return { ...mod, calls };
 }
 
-test('admin order deletion cleans coupon, recovery and message references atomically', async () => {
+test('admin order deletion cleans coupon and recovery references atomically', async () => {
   const { deleteAdminOrder, calls } = deletionHarness();
   assert.deepEqual(await deleteAdminOrder(7, 'admin@example.test'), { id: 7, code: 'ORD-1007' });
   assert.ok(calls.some(([name]) => name === 'coupon'));
   assert.ok(calls.some(([name, query]) => name === 'abandoned' && query.data.checkoutStatus === 'OPEN'));
-  assert.equal(calls.filter(([name]) => name === 'wa').length, 2);
   assert.ok(calls.some(([name]) => name === 'delete'));
   assert.ok(calls.some(([name, query]) => name === 'audit' && query.data.action === 'ORDER_DELETED'));
 });

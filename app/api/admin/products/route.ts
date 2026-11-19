@@ -57,6 +57,7 @@ export async function POST(req: Request) {
         soldCount: input.soldCount,
         saleEnds: input.saleEnds,
         comboEligible: input.comboEligible,
+        outsideDeliveryFee: input.outsideDeliveryFee == null ? null : Number(input.outsideDeliveryFee),
         comboOffers: input.comboOffers,
         preorder: input.preorder,
         preorderDate: input.preorderDate,

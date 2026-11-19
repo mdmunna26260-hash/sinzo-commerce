@@ -51,7 +51,7 @@ export default function ReviewRequests({ queue, autoRequest, asked, pending }: {
       <div className="acard-b">
         <label style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 13.5, marginBottom: 12 }}>
           <input type="checkbox" checked={auto} disabled={busy === "auto"} onChange={toggle} />
-          Delivery confirm hole automatic review request pathao (WhatsApp → SMS → email)
+          Delivery confirm hole automatic review request pathao (SMS → email)
         </label>
 
         {msg && <div className={"noti " + (msg.ok ? "ok" : "err")} style={{ marginBottom: 12 }}>{msg.text}</div>}

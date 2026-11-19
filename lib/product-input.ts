@@ -137,6 +137,7 @@ export function parseProductInput(value: unknown) {
     preorderDate: dateValue(body.preorderDate, "pre-order date"),
     soldMode,
     comboEligible: body.comboEligible === true,
+    outsideDeliveryFee: numberValue(body.outsideDeliveryFee, "Outside Dhaka delivery fee", { optional: true, max: 100000 }),
     comboOffers: comboOffersValue(body.comboOffers),
     colorGroupId: optionalId(body.colorGroupId, "color group"),
     colorName: text(body.colorName, "Color name", 40),

@@ -5,8 +5,8 @@ import { useState } from "react";
 
 type Row = { id: number; contact: string; note: string | null; notifiedAt: string | null; createdAt: string; productId: number; productTitle: string; stock: number; slug: string };
 
-/* Rows + per-row notify. The API tells us whether it went out over WhatsApp/SMS/email, or
-   nothing was configured and here's a wa.me / mailto link to send it by hand. */
+/* Rows + per-row notify. The API tells us whether it went out over SMS/email, or
+   nothing was configured and here's an sms:/mailto link to send it by hand. */
 export default function WaitlistClient({ rows, productId }: { rows: Row[]; productId: number }) {
   const router = useRouter();
   const [busy, setBusy] = useState<number | 0>(0);

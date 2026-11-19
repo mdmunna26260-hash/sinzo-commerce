@@ -73,10 +73,17 @@ export default function RelatedCarousel({ items, dots = false, cap = 40 }: { ite
         ))}
       </div>
       {totalPages > 1 && (dots ? (
-        /* This is a page indicator for the related-products rail, not a product-photo gallery;
-           keep the compact page dots here and in the home rails. */
-        <div className="rel-dots" aria-hidden>
-          {pages.map((_, pi) => <span key={pi} className={"rel-dot" + (pi === page ? " on" : "")} />)}
+        /* Page dots PLUS arrows: dots alone did not tell mobile users another page exists. */
+        <div className="rel-arrows rel-dots-row">
+          <button className="rel-arrow" onClick={() => goTo(page - 1)} disabled={page === 0} aria-label="Previous products">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+          </button>
+          <div className="rel-dots" aria-hidden>
+            {pages.map((_, pi) => <span key={pi} className={"rel-dot" + (pi === page ? " on" : "")} />)}
+          </div>
+          <button className="rel-arrow" onClick={() => goTo(page + 1)} disabled={page >= totalPages - 1} aria-label="Next products">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+          </button>
         </div>
       ) : (
         <div className="rel-arrows">

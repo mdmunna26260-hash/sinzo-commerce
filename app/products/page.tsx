@@ -24,7 +24,7 @@ const cachedProducts = (key: string, where: any, orderBy: any) =>
     where, orderBy,
     select: {
       id: true, title: true, slug: true, price: true, comparePrice: true, stock: true,
-      badge: true, isNew: true, isBestSeller: true, saleEnds: true, preorder: true,
+      badge: true, isNew: true, isBestSeller: true, saleEnds: true, preorder: true, outsideDeliveryFee: true,
       category: { select: { name: true } },
       images: { select: { url: true }, orderBy: { position: "asc" }, take: 6 },
       variants: { select: { id: true, size: true, color: true, stock: true, price: true }, orderBy: { id: "asc" } },
@@ -208,6 +208,7 @@ async function Results({ sp, cats, sizes, unknownCategory }: { sp: SP; cats: { i
           image: p.images?.[0]?.url, images: (p.images || []).map((im) => im.url), categoryName: p.category?.name, stock: Math.max(p.stock, p.variants.reduce((s, v) => s + v.stock, 0)),
           isNew: p.isNew, isBestSeller: p.isBestSeller, badge: p.badge, preorder: !!p.preorder,
           saleEnds: (p as any).saleEnds ? new Date((p as any).saleEnds).toISOString() : null,
+          outsideDeliveryFee: (p as any).outsideDeliveryFee ?? null,
           colors: Array.from(new Set(p.variants.filter((v) => (p.preorder || v.stock > 0) && v.color).map((v) => v.color!))),
           sizes: [...new Set(p.variants.filter((v) => (p.preorder || v.stock > 0) && v.size).map((v) => v.size!))].sort(),
           /* default variant for one-tap quick add: only usable when there is nothing to choose

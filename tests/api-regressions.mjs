@@ -286,7 +286,6 @@ try {
   try {
     // Only fixture identifiers are removed. Original configuration is restored exactly.
     const fixtureOrders = await db.order.findMany({ where: { phone: { in: phones } }, select: { id: true, code: true } });
-    await db.waMessage.deleteMany({ where: { orderId: { in: fixtureOrders.map((order) => order.id) } } });
     await db.notification.deleteMany({ where: { ref: { in: fixtureOrders.map((order) => order.code) } } });
     await db.order.deleteMany({ where: { phone: { in: phones } } });
     await db.customer.deleteMany({ where: { phone: { in: phones } } });

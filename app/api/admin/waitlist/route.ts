@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 
 /* Waitlist actions: tell one person, tell everyone waiting for a product, or clean up.
    Each notify reports which channel was used, and when no channel exists it returns the
-   wa.me / mailto link so the owner can still send it by hand. */
+   sms:/mailto link so the owner can still send it by hand. */
 export async function GET(req: Request) {
   const g = await requirePerm("products", req);
   if ("res" in g) return g.res;

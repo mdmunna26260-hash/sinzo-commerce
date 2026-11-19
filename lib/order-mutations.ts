@@ -147,10 +147,6 @@ async function afterOrderChange(before: { id: number; code: string; status: stri
   const evtMap: Record<string, any> = { CONFIRMED: "order.confirmed", CANCELLED: "order.cancelled", SHIPPED: "order.shipped", DELIVERED: "order.delivered" };
   const evt = evtMap[status];
   if (evt) notifyAdmin(evt, `Order ${before.code} → ${status}`, `${before.name} · ৳${Math.round(before.total).toLocaleString("en-IN")}`, before.code).catch(() => {});
-  await import("./wa-queue").then(async ({ eventForStatus, enqueueOrderEvent }) => {
-    const event = eventForStatus(status);
-    if (event) await enqueueOrderEvent(before.id, event);
-  }).catch(() => {});
   import("./sms").then(async ({ autoSmsOnStatus }) => {
     const { getSettings, envFallback } = await import("./settings");
     await autoSmsOnStatus(envFallback(await getSettings()), status, before);

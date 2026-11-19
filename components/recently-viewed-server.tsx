@@ -36,8 +36,8 @@ export default function RecentlyViewedServer({ currentId = 0, homepage = false }
         <div className="section-head"><div><div className="eyebrow">Your history</div><h2>Recently Viewed</h2></div></div>
       )}
       <div className="recent-strip" aria-label="Recently viewed products">
-        {items.map((item) => (
-          <Link key={item.id} href={"/products/" + encodeURIComponent(item.slug)} className="recent-card">
+        {items.map((item, i) => (
+          <Link key={item.id} href={"/products/" + encodeURIComponent(item.slug)} className="recent-card" style={{ animationDelay: `${Math.min(i, 8) * 60}ms` }}>
             {item.image && <img src={item.image} alt={item.title} loading="lazy" decoding="async" width={140} height={186} />}
             <div className="recent-info">
               <div className="recent-title">{item.title}</div>

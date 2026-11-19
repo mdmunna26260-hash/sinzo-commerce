@@ -18,7 +18,7 @@ export type QaVariant = { variantId: number; price: number; stock: number; size?
 
 export type QaProduct = {
   id: number; title: string; slug: string; price: number; image?: string;
-  stock: number; sizes?: string[]; preorder?: boolean; qa?: QaVariant | null;
+  stock: number; sizes?: string[]; preorder?: boolean; qa?: QaVariant | null; outsideDeliveryFee?: number | null;
 };
 
 type Row = { id: number; size: string | null; color: string | null; price: number | null; stock: number };
@@ -70,6 +70,7 @@ export default function QuickAdd({ p }: { p: QaProduct }) {
       color: v?.color || undefined,
       stock: p.preorder ? 99 : Math.max(stock, 1),
       preorder: !!p.preorder,
+      outsideDeliveryFee: p.outsideDeliveryFee ?? null,
     };
   };
 

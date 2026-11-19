@@ -102,6 +102,7 @@ model Product {
   saleEnds       DateTime?       // flash sale countdown: when set + comparePrice > price → countdown shows
   comboOffers    String?         // JSON string of quantity combo tiers: [{"qty":2,"total":1600},{"qty":3,"total":2300}] — total price for that many items (String because dev schema is SQLite)
   comboEligible  Boolean         @default(false) // "combo department" member: combo offers/bundles apply ONLY to these products
+  outsideDeliveryFee Float?     // per-product override for OUTSIDE_DHAKA delivery charge (null = use settings default)
   // ── kept in sync with schema.prod.prisma: these were missing here, so `npm run dev`
   //    (SQLite) crashed every page that selects preorder/preorderDate/soldMode ──
   preorder       Boolean          @default(false) // pre-order: order accepted before stock is available
@@ -190,9 +191,6 @@ model Customer {
   referralCode        String?  @unique
   referredBy          Int?
   referralRewardedAt  DateTime?
-  // WhatsApp marketing consent (transactional order updates do not need it)
-  waOptIn             Boolean   @default(false)
-  waOptInAt           DateTime?
   orders    Order[]
   createdAt DateTime @default(now())
 }
@@ -225,8 +223,9 @@ model Order {
   deliveryFee   Float       @default(0)
   total         Float
   couponCode    String?
-  paymentMethod String      @default("COD")
+  paymentMethod String      @default("COD") // COD | NAGAD | BKASH | BANK (manual)
   paymentStatus String      @default("PENDING") // PENDING | PAID | FAILED | REFUNDED
+  paymentTrxId  String?     // manual payment transaction id (bKash/Nagad/bank) — verified by admin before PAID
   status        String      @default("PENDING") // PENDING | CONFIRMED | PROCESSING | PACKED | SHIPPED | DELIVERED | CANCELLED | RETURNED | ON_HOLD
   riskLevel     String      @default("LOW") // LOW | MEDIUM | HIGH | CRITICAL
   riskFlags     String?
@@ -411,25 +410,12 @@ model Payment {
   createdAt DateTime @default(now())
 }
 
-// WhatsApp two-way: the bridge forwards every inbound message here, and the admin reply is
-// stored next to it, so one thread per number.
-model InboxMessage {
-  id        Int      @id @default(autoincrement())
-  waId      String
-  name      String?
-  direction String   // IN | OUT
-  body      String
-  orderId   Int?
-  status    String   @default("ok") // ok | failed (with the reason in body)
-  createdAt DateTime @default(now())
-}
-
 // One place for the things that fail in the background: client crashes, webhook calls, SMS
-// gateway replies, WhatsApp bridge sends, backup runs. The Logs screen reads this.
+// gateway replies, backup runs. The Logs screen reads this.
 model AppLog {
   id        Int      @id @default(autoincrement())
   level     String   @default("INFO") // INFO | WARN | ERROR
-  kind      String   // CLIENT | WEBHOOK | SMS | WHATSAPP | MAIL | CRON | BACKUP
+  kind      String   // CLIENT | WEBHOOK | SMS | MAIL | CRON | BACKUP
   message   String
   meta      String?
   createdAt DateTime @default(now())
@@ -458,117 +444,6 @@ model BlogPost {
   published Boolean  @default(false)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// WhatsApp broadcast & automation (Baileys multi-device).
-// Phase 1: devices + outbox queue + worker + auto order messages.
-// Nothing here is sent inside a web request — every message is a WaMessage row
-// that scripts/wa-worker.js picks up, paces and hands to the bridge.
-// ─────────────────────────────────────────────────────────────────────────────
-model WaDevice {
-  id           Int       @id @default(autoincrement())
-  name         String
-  sessionId    String    @unique // .wa-auth/<sessionId>/ — the keys never leave that folder
-  phone        String?
-  status       String    @default("DISCONNECTED") // CONNECTED | DISCONNECTED | QR | PAUSED | BANNED
-  isDefault    Boolean   @default(false)
-  dailyCap     Int       @default(50) // warm-up: 50 → 150 → 300 → 400
-  sentToday    Int       @default(0)
-  sentDate     String? // YYYY-MM-DD, the day sentToday belongs to (counter reset)
-  warmupStage  Int       @default(0) // 0 new · 1 2nd week · 2 3rd week · 3 mature
-  consecutiveFailures Int @default(0) // auto-pause when a number keeps failing
-  lastSeenAt   DateTime?
-  lastError    String?
-  createdAt    DateTime  @default(now())
-}
-
-model WaTemplate {
-  id        Int      @id @default(autoincrement())
-  key       String   @unique // order_placed | order_confirmed | … | custom
-  name      String
-  category  String   @default("UTILITY") // UTILITY | MARKETING
-  body      String // {name} {code} {amount} {tracking} {link} {coupon} {product} {items} {area} {eta}
-  mediaMode String   @default("NONE") // NONE | PRODUCT | CUSTOM
-  enabled   Boolean  @default(true) // per-event switch for the automatic events
-  updatedAt DateTime @updatedAt
-}
-
-model WaMessage {
-  id            Int       @id @default(autoincrement())
-  deviceId      Int?
-  toWaId        String // 8801XXXXXXXXX (digits only, country code)
-  kind          String    @default("AUTO") // AUTO | BROADCAST | REPLY | MANUAL
-  templateKey   String?
-  body          String
-  mediaJson     String? // JSON: image URLs, one per line in the message
-  couponCode    String?
-  orderId       Int?
-  broadcastId   Int?
-  status        String    @default("QUEUED") // QUEUED | SENDING | SENT | DELIVERED | READ | FAILED | SKIPPED
-  attempts      Int       @default(0)
-  error         String?
-  dedupeKey     String?   @unique // "order_placed:1042" — an order never gets the same message twice
-  bridgeId      String? // WhatsApp message id — delivery/read receipts match on this
-  nextAttemptAt DateTime?
-  lockedAt      DateTime?
-  meta          String? // JSON: code / name / amount / area — what the queue screen shows
-  queuedAt      DateTime  @default(now())
-  sentAt        DateTime?
-  deliveredAt   DateTime?
-  readAt        DateTime?
-  @@index([status, nextAttemptAt])
-  @@index([dedupeKey])
-  @@index([toWaId])
-}
-
-// ── WhatsApp broadcast (Phase 3): campaigns, short links, opt-outs ──
-
-model WaBroadcast {
-  id           Int       @id @default(autoincrement())
-  name         String
-  body         String
-  templateKey  String?
-  images       String? // JSON: image URLs
-  productIds   String? // JSON: product ids — their cards are appended to the body
-  couponCode   String?
-  linkTarget   String? // URL the short link points at (empty = current store URL)
-  linkSlug     String? // WaLink slug created for this campaign (click tracking)
-  audienceRule String    @default("{}") // JSON: WaAudienceRule
-  deviceIds    String? // JSON: [deviceId]; empty = least-loaded device
-  status       String    @default("DRAFT") // DRAFT | SCHEDULED | RUNNING | PAUSED | DONE | FAILED
-  scheduledAt  DateTime?
-  recipients   String? // JSON: [{to,name}] frozen when the campaign starts
-  total        Int       @default(0)
-  sent         Int       @default(0)
-  failed       Int       @default(0)
-  skipped      Int       @default(0)
-  enqueued     Int       @default(0)
-  createdBy    String?
-  lastError    String?
-  createdAt    DateTime  @default(now())
-  startedAt    DateTime?
-  finishedAt   DateTime?
-  @@index([status, scheduledAt])
-}
-
-model WaLink {
-  id          Int       @id @default(autoincrement())
-  slug        String    @unique
-  target      String
-  label       String?
-  broadcastId Int?
-  clicks      Int       @default(0)
-  lastClickAt DateTime?
-  createdAt   DateTime  @default(now())
-}
-
-model WaOptOut {
-  id        Int      @id @default(autoincrement())
-  waId      String   @unique // 8801XXXXXXXXX
-  reason    String?
-  source    String? // INBOUND | MANUAL | CSV
-  createdAt DateTime @default(now())
 }
 
 model ComboBundle {

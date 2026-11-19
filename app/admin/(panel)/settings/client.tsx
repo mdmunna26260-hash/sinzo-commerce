@@ -28,135 +28,6 @@ function CourierTestBadge() {
   );
 }
 
-function WaNumberEditor({ initial, onChanged }: { initial: string; onChanged: () => void }) {
-  const [num, setNum] = useState(initial);
-  const [waCust, setWaCust] = useState(true);
-  const [saved, setSaved] = useState("");
-  useEffect(() => { setNum(initial); }, [initial]);
-  useEffect(() => {
-    afetch("/api/admin/whatsapp").then(async (r) => { if (r.ok) { const j = await r.json(); setWaCust(j.waCustomerEnabled !== false); } }).catch(() => {});
-  }, []);
-  const save = async () => {
-    await afetch("/api/admin/settings", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ group: "notifications", value: { waNotifyNumber: num.trim(), waCustomerEnabled: waCust } }) });
-    setSaved("Saved ✓");
-    setTimeout(() => setSaved(""), 2500);
-    onChanged();
-  };
-  return (
-    <div className="form-grid" style={{ marginTop: 18 }}>
-      <div className="af"><label>Admin WhatsApp number (notification kobor jabe)</label>
-        <div style={{ display: "flex", gap: 8 }}>
-          <input value={num} placeholder="8801XXXXXXXXX (country code soho)" onChange={(e) => setNum(e.target.value)} autoCapitalize="none" />
-          <button className="abtn primary" onClick={save} type="button">Save</button>
-        </div>
-      </div>
-      <div className="af"><label>Customer confirmation</label>
-        <label style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 13.5, paddingTop: 8 }}>
-          <input type="checkbox" checked={waCust} onChange={(e) => setWaCust(e.target.checked)} /> Order hole customer-ke WhatsApp confirm pathao
-        </label>
-      </div>
-      {saved && <div className="noti ok full">{saved}</div>}
-    </div>
-  );
-}
-
-function WhatsAppCard() {
-  const router = useRouter();
-  const [st, setSt] = useState<any>({ loading: true });
-  const [msg, setMsg] = useState("");
-  const [busy, setBusy] = useState(false);
-  const load = async () => {
-    try { const r = await afetch("/api/admin/whatsapp"); if (r.ok) setSt(await r.json()); } catch {}
-  };
-  useEffect(() => { load(); const iv = setInterval(load, 5000); return () => clearInterval(iv); }, []);
-  const logout = async () => {
-    if (!confirm("WhatsApp device unlink korbo? Notun QR scan korte hobe.")) return;
-    setBusy(true);
-    await afetch("/api/admin/whatsapp/logout", { method: "POST" });
-    setBusy(false); load();
-  };
-  const test = async () => {
-    setBusy(true); setMsg("");
-    const r = await afetch("/api/admin/notifications/test", { method: "POST" });
-    const j = await r.json();
-    setMsg(r.ok ? "✓ " + (j.detail || "Test pathano hoyeche") : "⚠ " + (j.error || "fail"));
-    setBusy(false);
-    setTimeout(() => setMsg(""), 8000);
-  };
-  return (
-    <div className="acard" style={{ marginTop: 16 }}>
-      <div className="acard-h"><h3>📱 WhatsApp (Linked Device — QR)</h3>
-        <span className={"risk-badge " + (st.connected ? "risk-LOW" : st.bridgeRunning ? "risk-MEDIUM" : "risk-HIGH")}>
-          {st.loading ? "…" : st.connected ? "CONNECTED" : st.bridgeRunning ? "QR WAITING" : "BRIDGE OFF"}
-        </span>
-      </div>
-      <div className="acard-b">
-        {st.connected ? (
-          <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-            <span style={{ fontSize: 30 }}>✅</span>
-            <div>
-              <div style={{ fontWeight: 600 }}>WhatsApp connected</div>
-              <div style={{ fontSize: 12.5, color: "var(--muted)" }}>{st.me || ""}</div>
-            </div>
-          </div>
-        ) : (
-          <QrPanel bridgeRunning={st.bridgeRunning} onPaired={load} />
-        )}
-        <WaNumberEditor initial={st.waNotifyNumber || ""} onChanged={load} />
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          {st.connected && <button className="abtn danger" onClick={logout} disabled={busy}>Unlink device</button>}
-          <button className="abtn primary" onClick={test} disabled={busy}>Send Test</button>
-        </div>
-        {msg && <div className={"noti " + (msg.includes("✓") ? "ok" : "err")} style={{ marginTop: 10 }}>{msg}</div>}
-      </div>
-    </div>
-  );
-}
-
-function QrPanel({ bridgeRunning, onPaired }: { bridgeRunning: boolean; onPaired: () => void }) {
-  const [qr, setQr] = useState<string | null>(null);
-  const [hint, setHint] = useState("");
-  useEffect(() => {
-    let stop = false;
-    const poll = async () => {
-      try {
-        const r = await afetch("/api/admin/whatsapp/qr");
-        if (r.ok) {
-          const j = await r.json();
-          if (j.connected) { stop = true; onPaired(); return; }
-          setQr(j.qr); setHint(j.hint || "");
-        }
-      } catch {}
-    };
-    poll();
-    const iv = setInterval(poll, 4000);
-    return () => { stop = true; clearInterval(iv); };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-  if (!bridgeRunning) {
-    return (
-      <div className="cfg-note">⚠ WhatsApp bridge service cholche na. Server console-e <b>npm run wa</b> chalan (thik ase sandbox-e ami chalaiye dicchi). Bridge 127.0.0.1-e private thake.</div>
-    );
-  }
-  return (
-    <div style={{ display: "flex", gap: 18, alignItems: "flex-start", flexWrap: "wrap" }}>
-      <div style={{ background: "#fff", border: "1px solid #d0d5dd", borderRadius: 8, padding: 10, width: 300, textAlign: "center" }}>
-        {qr ? <img src={qr} alt="WhatsApp QR" style={{ width: "100%" }} /> : <div style={{ padding: "60px 10px", color: "var(--muted)", fontSize: 13 }}>{hint || "QR asche…"}</div>}
-        <div style={{ fontSize: 11.5, color: "var(--muted)", marginTop: 6 }}>QR every ~20s refresh hoy — notun QR hoye jayle auto-update</div>
-      </div>
-      <div style={{ flex: 1, minWidth: 220, fontSize: 13.5 }}>
-        <b>Pair korar niyom:</b>
-        <ol style={{ margin: "8px 0 0 18px", display: "grid", gap: 6 }}>
-          <li>Phone-e <b>WhatsApp</b> khulun</li>
-          <li>Settings (⋮) → <b>Linked devices</b></li>
-          <li><b>Link a device</b> → QR scan korun</li>
-        </ol>
-        <div style={{ marginTop: 10, color: "var(--muted)", fontSize: 12.5 }}>Scan hole eta WhatsApp Web-er moto kaj korbe — session save thake, restart-er por-o reconnect hoy.</div>
-      </div>
-    </div>
-  );
-}
-
 function TestNotifBtn() {
   const [state, setState] = useState<{ busy: boolean; msg: string; ok: boolean }>({ busy: false, msg: "", ok: false });
   const test = async () => {
@@ -759,29 +630,6 @@ export default function SettingsClient({ groups, user, userCount, hasCourier, co
             <div className="af"><label>SMTP Port</label><input type="number" value={g.notifications?.smtp?.port || ""} onChange={(e) => setG({ ...g, notifications: { ...g.notifications, smtp: { ...g.notifications?.smtp, port: e.target.value } } })} placeholder="587" /></div>
             <div className="af"><label>SMTP User</label><input value={g.notifications?.smtp?.user || ""} onChange={(e) => setG({ ...g, notifications: { ...g.notifications, smtp: { ...g.notifications?.smtp, user: e.target.value } } })} autoCapitalize="none" /></div>
             <div className="af"><label>SMTP Password / App password</label><input type="password" value={g.notifications?.smtp?.pass || ""} onChange={(e) => setG({ ...g, notifications: { ...g.notifications, smtp: { ...g.notifications?.smtp, pass: e.target.value } } })} /></div>
-            <div className="af full"><label>WhatsApp auto-reply (first message er jonno, optional)</label>
-              <input value={g.notifications?.waAutoReply || ""} onChange={(e) => setG({ ...g, notifications: { ...g.notifications, waAutoReply: e.target.value } })} placeholder="Assalamu alaikum {name}! Sinzo te message pathanor jonno dhonnobad — apnar order niye help lagle likhun." />
-              <div style={{ fontSize: 11.5, color: "var(--muted)", marginTop: 4 }}>Kono customer prothom bar WhatsApp korle ei text ta auto pathano hobe (bridge linked thakle).</div>
-            </div>
-          <div className="acard" style={{ marginTop: 16 }}>
-            <div className="acard-h"><h3>WhatsApp broadcast &amp; devices</h3><span style={{ fontSize: 12, color: "var(--muted)" }}>queue · caps · templates</span></div>
-            <div className="acard-b" style={{ fontSize: 13, color: "var(--muted)", display: "grid", gap: 8 }}>
-              <div>
-                Order-confirm, 2–3 number-er device manager, QR pairing, daily caps, quiet hours, retry + SMS fallback —
-                shob ek jaygay. Kono message web request-er vitore jay na: order hole row queue-te joma hoy,
-                <code> npm run wa:worker </code> seta pathay.
-              </div>
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                <a className="abtn" href="/admin/whatsapp">Broadcast &amp; Queue</a>
-                <a className="abtn" href="/admin/whatsapp/devices">Devices</a>
-                <a className="abtn" href="/admin/whatsapp/templates">Templates</a>
-              </div>
-            </div>
-          </div>
-            <div className="af full"><label>WhatsApp bridge key (x-bridge-key)</label>
-              <input value={g.notifications?.waBridgeKey || ""} onChange={(e) => setG({ ...g, notifications: { ...g.notifications, waBridgeKey: e.target.value } })} placeholder="local-bridge" autoCapitalize="none" />
-              <div style={{ fontSize: 11.5, color: "var(--muted)", marginTop: 4 }}>Bridge chalanor somoy <code>WA_BRIDGE_KEY</code> same rakhte hobe — inbound message ei key diye verify hoy.</div>
-            </div>
             <div className="af full"><label>From address</label><input value={g.notifications?.smtp?.from || ""} onChange={(e) => setG({ ...g, notifications: { ...g.notifications, smtp: { ...g.notifications?.smtp, from: e.target.value } } })} placeholder="store@example.com" /></div>
             <div className="full" style={{ fontSize: 12, color: "var(--muted)" }}>
               Gmail hole: 2FA on kore <b>App Password</b> nin (account.google.com/apppasswords). Configure korle admin alert + customer order-confirmation email dutoi jabe.
@@ -854,7 +702,6 @@ export default function SettingsClient({ groups, user, userCount, hasCourier, co
             <div className="full"><button className="abtn primary" onClick={() => save("integrations", g.integrations)} disabled={busy}>Save Integrations</button></div>
           </div></div>
 
-          <WhatsAppCard />
         </>
       )}
       {tab === "SEO & Maintenance" && (
