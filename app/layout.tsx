@@ -4,6 +4,7 @@ import RevealInit from "@/components/reveal";
 import PageViewTracker from "@/components/pageview";
 import PageTransition from "@/components/page-transition";
 import ViewTransitionRoot from "@/components/view-transition-root";
+import { ScrollToTop } from "@/components/chrome";
 import { CartProvider } from "@/components/store";
 import PushRegister from "@/components/push-register";
 import PushNudge from "@/components/push-nudge";
@@ -254,6 +255,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             is excluded by `body:has(.admin-body)`. */}
         <div className="scroll-progress" aria-hidden />
         {children}
+        <ScrollToTop />
         </CartProvider>
         <PushRegister />
         <PushNudge />

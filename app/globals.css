@@ -1910,8 +1910,9 @@ input::placeholder, textarea::placeholder { color: #b0aaa1; }
   gap: 6px;
   align-items: center;
   justify-content: center;
-  padding: 10px 0 2px;
+  padding: 0;
 }
+.rel-dots-row { padding: 10px 0 4px; }
 .rel-dot {
   width: 6px;
   height: 6px;
@@ -4118,3 +4119,31 @@ body:has(.admin-body) .scroll-progress { display: none !important; }
 .pdp-floatbar .pf-info b { font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .pdp-floatbar .pf-info span { font-size: 14px; font-weight: 700; color: var(--accent, var(--text)); }
 .pdp-floatbar .pdp-buy { flex: none; padding: 12px 22px; }
+
+/* ---------- Scroll-to-top button (appears after scrolling down) ---------- */
+@keyframes toTopIn { from { opacity: 0; transform: translateY(10px) scale(.9); } to { opacity: 1; transform: none; } }
+.to-top {
+  position: fixed;
+  right: 18px;
+  bottom: calc(18px + env(safe-area-inset-bottom));
+  z-index: 90;
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  background: var(--card, #fff);
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 6px 18px rgba(16, 24, 40, .14);
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(10px);
+  transition: opacity .25s ease, transform .25s ease, background .15s ease;
+  animation: toTopIn .25s ease;
+}
+.to-top.show { opacity: 1; pointer-events: auto; transform: none; }
+.to-top:hover { background: var(--bg); }
+@media (prefers-reduced-motion: reduce) { .to-top { transition: none; animation: none; } }
