@@ -1334,15 +1334,11 @@ a, button, [role="button"], label, summary, input, select, textarea,
 @media (min-width: 1100px) { .cat-grid-desktop { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
 @media (min-width: 1500px) { .cat-grid-desktop { grid-template-columns: repeat(5, minmax(0, 1fr)); } }
 
-/* Categories mobile: 3 per swipe page, laid out as 3 columns × 1 row.
-   This used to be 2×2 at 4:5, which made every category photo ~250px tall — six of them
-   stacked (with the 1.2x first card) meant the homepage was six full screens of images
-   before the product shelves started. Three across, same aspect, is a third of the height. */
-.cat-row-4 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
-.cat-row-4 .ctile { aspect-ratio: 4 / 5; }
-.cat-row-4 .ctile:first-child { grid-column: auto; }
-.cat-row-4 .ctile-label { padding: 28px 10px 10px; }
-.cat-row-4 .ctile-label h3 { font-size: 13px; }
+/* Categories mobile: max 4 cards per swipe slide, ALWAYS a strict 2×2 grid.
+   Every slide is the same height (two rows of equal 4:5 tiles), cards are identical
+   in size, and the pagination sits directly under the grid. Desktop grid is untouched. */
+.cat-row-4 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.cat-row-4 .ctile { aspect-ratio: 4 / 5; width: 100%; }
 /* tiles are ~190px wide inside the mobile swipe row, but the label was built for a full-width
    desktop tile: 60/24px padding + a 24px heading ate half the card. Scale it down there only. */
 @media (max-width: 899px) {
