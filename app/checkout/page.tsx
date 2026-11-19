@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useCart, trackEvent, trackPageView, toast, captureAttribution, newEventId, setTrackingPhone } from "@/components/store";
 import { normalizeBDPhone, isValidBDPhone } from "@/lib/phone";
 import { imgSrc, imgSrcSet } from "@/components/parts";
-import { checkoutTotals, couponDiscount, nonNegativeAmount } from "@/lib/checkout-pricing";
+import { checkoutTotals, couponDiscount, nonNegativeAmount, maxOutsideDeliveryOverride } from "@/lib/checkout-pricing";
 import { bestBundleSavings } from "@/lib/combo";
 import { getCaptureKey, nextCaptureRevision, clearCaptureKey, captureSignature, PENDING_RECOVERY_KEY } from "@/lib/recovery-client";
 
@@ -74,6 +74,7 @@ export default function CheckoutPage() {
   const discount = couponDiscount(netSubtotal, applied);
   const { deliveryFee: ship, total } = checkoutTotals({
     subtotal: netSubtotal, discount, area: form.area, shipping: shipCfg, freeship: applied?.freeship,
+    outsideOverride: maxOutsideDeliveryOverride(lines as any),
   });
 
   /* InitiateCheckout was never sent before: Meta only saw AddToCart and then

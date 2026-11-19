@@ -7,7 +7,7 @@ import { ensureExtraTables } from "@/lib/db-ensure";
 import { captureKeyHash } from "@/lib/recovery-security";
 import { validateRecoveryContact, cartMetadata, cartProducts, RecoveryError, lockAbandoned } from "@/lib/abandoned-cart";
 import { parseCheckoutLines, buildCheckoutItems, CheckoutValidationError } from "@/lib/checkout-items";
-import { checkoutTotals } from "@/lib/checkout-pricing";
+import { checkoutTotals, maxOutsideDeliveryOverride } from "@/lib/checkout-pricing";
 import { validateCoupon, CouponValidationError } from "@/lib/coupons";
 export const dynamic = "force-dynamic";
 const headers = { "Cache-Control": "private, no-store" };
@@ -33,7 +33,7 @@ export async function POST(req: Request) {
       try { applied = await validateCoupon(db, await db.coupon.findUnique({ where: { code: metadata.couponCode } }), quote.subtotal, contact.phone); }
       catch (e) { if (!(e instanceof CouponValidationError)) throw e; }
     }
-    const totals = checkoutTotals({ subtotal: quote.subtotal, discount: applied?.discount, freeship: applied?.freeship, area: metadata.area, shipping: settings.shipping });
+    const totals = checkoutTotals({ subtotal: quote.subtotal, discount: applied?.discount, freeship: applied?.freeship, area: metadata.area, shipping: settings.shipping, outsideOverride: maxOutsideDeliveryOverride(products) });
     const cartJson = JSON.stringify({ version: 2, ...metadata, items: quote.items });
     const result = await db.$transaction(async tx => {
       // Insert a private browser-owned identity once, then serialize updates.

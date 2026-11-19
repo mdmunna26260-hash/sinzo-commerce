@@ -32,7 +32,7 @@ async function sqliteSchemaIsCurrent(): Promise<boolean> {
     Subscriber: ["unsubscribed", "unsubscribedAt"],
     Campaign: ["cursorId"],
     AbandonedCheckout: ["email", "recoveryEmailedAt", "captureKeyHash", "captureRevision", "recoveryAttemptedAt", "recoveryClaimId", "recoveryError", "convertedOrderId"],
-    Product: ["saleEnds", "colorGroupId", "colorName", "colorImage", "soldCount", "preorder", "preorderDate", "soldMode"],
+    Product: ["saleEnds", "colorGroupId", "colorName", "colorImage", "soldCount", "preorder", "preorderDate", "soldMode", "outsideDeliveryFee"],
     User: ["twoFactorSecret", "twoFactorEnabled", "sessionVersion", "recoveryCodes"],
     Customer: ["points", "referralCode", "referredBy", "referralRewardedAt"],
   };
@@ -202,4 +202,7 @@ async function run(): Promise<void> {
   await db.$executeRawUnsafe(isPg
     ? `ALTER TABLE "Order" ADD COLUMN IF NOT EXISTS "paymentTrxId" TEXT`
     : `ALTER TABLE "Order" ADD COLUMN "paymentTrxId" TEXT`).catch(() => {});
+  await db.$executeRawUnsafe(isPg
+    ? `ALTER TABLE "Product" ADD COLUMN IF NOT EXISTS "outsideDeliveryFee" DOUBLE PRECISION`
+    : `ALTER TABLE "Product" ADD COLUMN "outsideDeliveryFee" REAL`).catch(() => {});
 }

@@ -111,7 +111,7 @@ async function HomeContent() {
   // descriptions, tags and SKUs stay on the server and out of the page payload.
   const productCardSelect = {
     id: true, title: true, slug: true, price: true, comparePrice: true, stock: true, lowStock: true,
-    badge: true, isNew: true, isBestSeller: true, position: true, status: true, preorder: true, saleEnds: true,
+    badge: true, isNew: true, isBestSeller: true, position: true, status: true, preorder: true, saleEnds: true, outsideDeliveryFee: true,
     category: { select: { name: true } },
     images: { select: { url: true }, orderBy: { position: "asc" as const }, take: 6 },
     variants: { select: { size: true, color: true, stock: true } },

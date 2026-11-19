@@ -102,6 +102,7 @@ model Product {
   saleEnds       DateTime?       // flash sale countdown: when set + comparePrice > price → countdown shows
   comboOffers    String?         // JSON string of quantity combo tiers: [{"qty":2,"total":1600},{"qty":3,"total":2300}] — total price for that many items (String because dev schema is SQLite)
   comboEligible  Boolean         @default(false) // "combo department" member: combo offers/bundles apply ONLY to these products
+  outsideDeliveryFee Float?     // per-product override for OUTSIDE_DHAKA delivery charge (null = use settings default)
   // ── kept in sync with schema.prod.prisma: these were missing here, so `npm run dev`
   //    (SQLite) crashed every page that selects preorder/preorderDate/soldMode ──
   preorder       Boolean          @default(false) // pre-order: order accepted before stock is available

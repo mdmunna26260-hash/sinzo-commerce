@@ -40,7 +40,7 @@ function VariantImgCell({ v, i, setEdit }: { v: any; i: number; setEdit: any }) 
   );
 }
 
-const EMPTY: any = { title: "", slug: "", shortDesc: "", description: "", sku: "", price: "", comparePrice: "", cost: "", stock: "0", lowStock: "5", soldCount: "", saleEnds: "", status: "ACTIVE", featured: false, isNew: false, isBestSeller: false, badge: '', sizeChartImage: "", tags: "", categoryId: "", images: [], variants: [], colorGroupId: "", colorName: "", colorImage: "", preorder: false, preorderDate: "", soldMode: "fixed", comboEligible: false, comboTiers: [] as { qty: string; total: string }[] };
+const EMPTY: any = { title: "", slug: "", shortDesc: "", description: "", sku: "", price: "", comparePrice: "", cost: "", stock: "0", lowStock: "5", soldCount: "", saleEnds: "", status: "ACTIVE", featured: false, isNew: false, isBestSeller: false, badge: '', sizeChartImage: "", tags: "", categoryId: "", images: [], variants: [], colorGroupId: "", colorName: "", colorImage: "", preorder: false, preorderDate: "", soldMode: "fixed", comboEligible: false, comboTiers: [] as { qty: string; total: string }[], outsideDeliveryFee: "" };
 function DescriptionEditor({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   const ref = useRef<HTMLTextAreaElement>(null);
   const wrap = (before: string, after: string) => {
@@ -144,6 +144,7 @@ export default function ProductsClient({ initial, categories }: { initial: P[]; 
     preorder: !!p.preorder, preorderDate: p.preorderDate ? new Date(p.preorderDate).toISOString().slice(0, 10) : "",
     soldMode: p.soldMode || "fixed",
     comboEligible: !!p.comboEligible,
+    outsideDeliveryFee: p.outsideDeliveryFee != null ? String(p.outsideDeliveryFee) : "",
     comboTiers: (() => { try { const t = JSON.parse(p.comboOffers || "[]"); return Array.isArray(t) ? t.map((x: any) => ({ qty: String(x.qty), total: String(x.total) })) : []; } catch { return []; } })(),
     colorGroupId: p.colorGroupId != null ? String(p.colorGroupId) : "",
     colorName: p.colorName || "",
@@ -217,6 +218,7 @@ export default function ProductsClient({ initial, categories }: { initial: P[]; 
         preorderDate: edit.preorderDate ? new Date(edit.preorderDate + "T12:00:00").toISOString() : null,
         soldMode: edit.soldMode === "random" ? "random" : "fixed",
         comboEligible: !!edit.comboEligible,
+        outsideDeliveryFee: edit.outsideDeliveryFee === "" || edit.outsideDeliveryFee == null ? null : Number(edit.outsideDeliveryFee),
         comboOffers: (edit.comboTiers || []).filter((t: any) => t.qty && t.total).map((t: any) => ({ qty: Number(t.qty), total: Number(t.total) })),
         colorGroupId: edit.colorGroupId ? Number(edit.colorGroupId) : null,
         colorName: edit.colorName ? String(edit.colorName).trim().slice(0, 40) : null,
@@ -341,6 +343,9 @@ export default function ProductsClient({ initial, categories }: { initial: P[]; 
               <div className="af"><label>SKU</label><input value={edit.sku} onChange={(e) => setEdit({ ...edit, sku: e.target.value })} /></div>
               <div className="af"><label>Stock</label><input type="number" min="0" step="1" value={edit.stock} onChange={(e) => setEdit({ ...edit, stock: e.target.value })} /></div>
               <div className="af"><label>Low-stock alert at</label><input type="number" min="0" step="1" value={edit.lowStock} onChange={(e) => setEdit({ ...edit, lowStock: e.target.value })} /></div>
+              <div className="af"><label>Outside Dhaka delivery (৳)</label><input type="number" min="0" step="1" value={edit.outsideDeliveryFee} onChange={(e) => setEdit({ ...edit, outsideDeliveryFee: e.target.value })} placeholder="e.g. 150 — blank = default" />
+                <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 4 }}>Per-product override: outside-Dhaka orders pay THIS fee instead of the global setting (highest in cart wins).</div>
+              </div>
               <div className="af full"><label>Flash sale countdown (optional)</label>
                 <input type="datetime-local" value={edit.saleEnds || ""} onChange={(e) => setEdit({ ...edit, saleEnds: e.target.value })} />
                 <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 4 }}>

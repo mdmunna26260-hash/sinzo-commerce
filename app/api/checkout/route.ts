@@ -11,7 +11,7 @@ import { normalizeBDPhone, isValidBDPhone } from "@/lib/phone";
 import { notifyAdmin, emailCustomerOrder } from "@/lib/notify";
 import { subscribeImplicit } from "@/lib/newsletter";
 import { parseCheckoutLines, buildCheckoutItems, CheckoutValidationError } from "@/lib/checkout-items";
-import { checkoutTotals } from "@/lib/checkout-pricing";
+import { checkoutTotals, maxOutsideDeliveryOverride } from "@/lib/checkout-pricing";
 import { validateCoupon, CouponValidationError } from "@/lib/coupons";
 import { deployChannel } from "@/lib/deploy-channel";
 import { captureKeyHash } from "@/lib/recovery-security";
@@ -128,7 +128,7 @@ export async function POST(req: Request) {
         appliedCode = applied.code;
         await tx.coupon.update({ where: { code }, data: { usedCount: { increment: 1 } } });
       }
-      const { total, deliveryFee } = checkoutTotals({ subtotal, discount, area, shipping: shipCfg, freeship });
+      const { total, deliveryFee } = checkoutTotals({ subtotal, discount, area, shipping: shipCfg, freeship, outsideOverride: maxOutsideDeliveryOverride(products) });
       const customer = await tx.customer.upsert({
         where: { phone: cleanPhone },
         update: { name, address, area, ...(email ? { email } : {}) },

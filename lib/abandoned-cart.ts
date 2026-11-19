@@ -1,7 +1,7 @@
 import type { Prisma, AbandonedCheckout } from "@prisma/client";
 import { parseCheckoutLines, buildCheckoutItems, CheckoutValidationError, type CheckoutLine } from "./checkout-items";
 import { normalizeBDPhone, isValidBDPhone } from "./phone";
-import { checkoutTotals } from "./checkout-pricing";
+import { checkoutTotals, maxOutsideDeliveryOverride } from "./checkout-pricing";
 import { validateCoupon, CouponValidationError } from "./coupons";
 import { readRecoveryToken, matchesRecoverySubject } from "./recovery-security";
 
@@ -65,7 +65,7 @@ export async function quoteSavedCart(tx: Prisma.TransactionClient | any, row: Ab
     applied = await validateCoupon(tx, await tx.coupon.findUnique({ where: { code } }), subtotal, contact.phone);
     if (consume) await tx.coupon.update({ where: { code }, data: { usedCount: { increment: 1 } } });
   }
-  const totals = checkoutTotals({ subtotal, discount: applied?.discount, freeship: applied?.freeship, area: saved.area, shipping: settings.shipping });
+  const totals = checkoutTotals({ subtotal, discount: applied?.discount, freeship: applied?.freeship, area: saved.area, shipping: settings.shipping, outsideOverride: maxOutsideDeliveryOverride(products) });
   return { saved, contact, items, subtotal, applied, totals, products };
 }
 /* Restore only current, real SKUs. Explicit warnings accompany any removal or
@@ -108,6 +108,6 @@ export async function prepareRecoveredCart(tx: Prisma.TransactionClient | any, r
     try { applied = await validateCoupon(tx, await tx.coupon.findUnique({ where: { code } }), subtotal, contact.phone); }
     catch (e) { if (!(e instanceof CouponValidationError)) throw e; restored.warnings.push("The recovery coupon is no longer eligible. No discount has been applied."); }
   }
-  const totals = checkoutTotals({ subtotal, discount: applied?.discount, freeship: applied?.freeship, area: saved.area, shipping: settings.shipping });
+  const totals = checkoutTotals({ subtotal, discount: applied?.discount, freeship: applied?.freeship, area: saved.area, shipping: settings.shipping, outsideOverride: maxOutsideDeliveryOverride(products) });
   return { ...restored, contact: { ...contact, area: saved.area }, notes: saved.notes, couponCode: code, applied, totals };
 }

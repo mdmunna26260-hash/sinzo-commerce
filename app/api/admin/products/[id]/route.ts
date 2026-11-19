@@ -72,6 +72,7 @@ export async function PUT(req: Request, props: Ctx) {
           soldCount: input.soldCount,
           saleEnds: input.saleEnds,
           comboEligible: input.comboEligible,
+          outsideDeliveryFee: input.outsideDeliveryFee == null ? null : Number(input.outsideDeliveryFee),
           comboOffers: input.comboOffers,
           preorder: input.preorder,
           preorderDate: input.preorderDate,

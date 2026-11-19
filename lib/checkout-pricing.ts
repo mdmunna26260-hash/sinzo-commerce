@@ -20,16 +20,30 @@ export function couponDiscount(subtotal: number, coupon?: CouponPricing | null):
    delivery fees are valid settings. */
 export function checkoutTotals(input: {
   subtotal: number; discount?: number; area: string; shipping?: Record<string, any>;
-  freeship?: boolean;
+  freeship?: boolean; outsideOverride?: number | null;
 }) {
   const { shipping = {} } = input;
   const subtotal = nonNegativeAmount(input.subtotal);
   const discount = Math.min(subtotal, nonNegativeAmount(input.discount));
   const threshold = nonNegativeAmount(shipping.freeShippingThreshold);
+  /* Per-product override: if any cart product sets its own OUTSIDE_DHAKA fee, the highest
+     one wins over the global setting (caller passes the max). Null/0 = use the default. */
+  const override = input.outsideOverride != null ? nonNegativeAmount(input.outsideOverride, 0) : 0;
   const fee = input.area === "INSIDE_DHAKA"
     ? nonNegativeAmount(shipping.insideDhaka, 80)
-    : nonNegativeAmount(shipping.outsideDhaka, 140);
+    : (override > 0 ? override : nonNegativeAmount(shipping.outsideDhaka, 140));
   const deliveryFee = input.freeship || (threshold > 0 && subtotal - discount >= threshold) ? 0 : fee;
   const total = roundMoney(subtotal - discount + deliveryFee);
   return { subtotal, discount, deliveryFee, total };
+}
+
+/* Highest per-product OUTSIDE_DHAKA delivery override in a cart (null when none set). */
+export function maxOutsideDeliveryOverride(products: Array<{ outsideDeliveryFee?: number | null }> | null | undefined): number | null {
+  if (!products?.length) return null;
+  let max: number | null = null;
+  for (const p of products) {
+    const v = Number((p as any)?.outsideDeliveryFee);
+    if (Number.isFinite(v) && v > 0 && (max === null || v > max)) max = v;
+  }
+  return max;
 }

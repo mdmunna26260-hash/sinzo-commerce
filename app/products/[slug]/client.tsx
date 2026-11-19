@@ -318,6 +318,7 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
     productId: product.id, variantId: activeVariant?.id, slug: product.slug, title: product.title,
     image: product.images[0]?.url, price, qty, size: size || undefined, color: color || undefined, stock: avail || 99,
     preorder: !!preorder, comboOffers: product.comboOffers ?? null, comboEligible: !!product.comboEligible,
+    outsideDeliveryFee: (product as any).outsideDeliveryFee ?? null,
   });
   const addLine = () => {
     if (adding || buying) return; // no duplicate adds
