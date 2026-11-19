@@ -1819,12 +1819,13 @@ input::placeholder, textarea::placeholder { color: #b0aaa1; }
   height: 36px;
   border-radius: 50%;
   border: 1px solid var(--line);
-  background: #fff;
+  background: var(--card);
   color: var(--text);
   cursor: pointer;
   transition: background 180ms ease, opacity 180ms ease;
 }
 .rel-arrow:hover { background: var(--bg); }
+@media (hover: hover) { .rel-arrow:hover { background: var(--bg); } }
 .rel-arrow:disabled { opacity: 0.25; cursor: default; }
 .rel-page-num {
   font-size: 12px;
