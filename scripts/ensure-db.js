@@ -31,6 +31,9 @@ async function main() {
     await db.$executeRawUnsafe(`ALTER TABLE "Order" ADD COLUMN IF NOT EXISTS "stockDeducted" BOOLEAN NOT NULL DEFAULT false`);
     // Order.channel
     await db.$executeRawUnsafe(`ALTER TABLE "Order" ADD COLUMN IF NOT EXISTS "channel" TEXT NOT NULL DEFAULT 'vps'`).catch(() => {});
+    // Order.paymentTrxId (manual Nagad/bKash/Bank payments) + Product.outsideDeliveryFee (per-product outside-Dhaka delivery override)
+    await db.$executeRawUnsafe(`ALTER TABLE "Order" ADD COLUMN IF NOT EXISTS "paymentTrxId" TEXT`).catch(() => {});
+    await db.$executeRawUnsafe(`ALTER TABLE "Product" ADD COLUMN IF NOT EXISTS "outsideDeliveryFee" DOUBLE PRECISION`).catch(() => {});
     // Subscriber unsubscribe flags + Campaign table (newsletter send)
     await db.$executeRawUnsafe(`ALTER TABLE "Subscriber" ADD COLUMN IF NOT EXISTS "unsubscribed" BOOLEAN NOT NULL DEFAULT false`).catch(() => {});
     await db.$executeRawUnsafe(`ALTER TABLE "Subscriber" ADD COLUMN IF NOT EXISTS "unsubscribedAt" TIMESTAMP(3)`).catch(() => {});
