@@ -78,8 +78,5 @@ export async function POST(req: Request) {
   if (["PENDING", "CONFIRMED", "PROCESSING"].includes(order.status)) data.status = "PACKED";
   const updated = await db.order.update({ where: { id: order.id }, data, include: { items: true } });
   await logAudit(g.user.email, "ORDER_PACKED", `${order.code} packed (scan) — ${order.items.length} item(s), status ${order.status} → ${updated.status}`);
-  await logApp("INFO", "WHATSAPP", `scan-to-pack: ${order.code} packed by ${g.user.email}`, { orderId: order.id }).catch(() => {});
-  // queued (worker sends) — the same dedupeKey as the status change, so the customer gets it once
-  await import("@/lib/wa-queue").then(({ enqueueOrderEvent }) => enqueueOrderEvent(order.id, "order_packed")).catch(() => {});
   return NextResponse.json({ ok: true, order: updated });
 }

@@ -1,24 +1,18 @@
 /* Redirect-target validation.
 
-   `/l/<slug>` answers a campaign click with a 302 to whatever is stored in
-   WaLink.target. The old check was `/^https?:\/\//.test(target)` — i.e. "is it a URL",
+   Short-link redirects answer a campaign click with a 302 to whatever target is
+   stored. The old check was `/^https?:\/\//.test(target)` — i.e. "is it a URL",
    not "is it a URL we are willing to send our customers to". Any http(s) value passed,
    so the shop's own trusted domain became an open redirect: a phishing link that
-   arrives as https://sinzooffcial.com/l/sale reads as a shop URL in a WhatsApp
-   preview, in the address bar of anyone who clicks through, and in every referrer the
-   destination receives. Whoever can write a WaLink row — an account with the
-   "marketing" permission, or an attacker who has taken one — gets that for free.
+   arrives as https://sinzooffcial.com/l/sale reads as a shop URL in the address bar of
+   anyone who clicks through, and in every referrer the destination receives.
 
    The rule now is: same origin always, other origins only if the operator listed them.
    Relative paths stay relative (they cannot leave the site), and anything with a
    non-http scheme or a protocol-relative "//host" form is rejected outright. */
 
-const DEFAULT_ALLOWED_HOSTS = [
-  // The campaign feature is WhatsApp-first; these are the only off-site destinations a
-  // legitimate broadcast link realistically needs. Extend with REDIRECT_ALLOWLIST.
-  "wa.me",
-  "api.whatsapp.com",
-  "chat.whatsapp.com",
+const DEFAULT_ALLOWED_HOSTS: string[] = [
+  // Off-site redirect destinations are operator-listed only (REDIRECT_ALLOWLIST).
 ];
 
 function allowedHosts(): Set<string> {
@@ -34,8 +28,8 @@ function allowedHosts(): Set<string> {
   return hosts;
 }
 
-/* Exact host match, or a subdomain of an allowed host (so "www.wa.me" passes when
-   "wa.me" is listed). Never a substring match — "wa.me.evil.com" must not pass. */
+/* Exact host match, or a subdomain of an allowed host. Never a substring match —
+   "example.com.evil.com" must not pass when "example.com" is listed. */
 function hostAllowed(hostname: string, allowed: Set<string>): boolean {
   const host = hostname.toLowerCase().replace(/\.$/, "");
   if (!host) return false;

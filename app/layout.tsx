@@ -33,7 +33,7 @@ export async function generateMetadata(): Promise<Metadata> {
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.VERCEL_URL || "";
     return {
       // without metadataBase every absolute share URL (og:image, canonical) silently
-      // resolves to nothing — Facebook/WhatsApp then show no preview picture
+      // resolves to nothing — social previews then show no preview picture
       metadataBase: new URL(siteUrl ? (siteUrl.startsWith("http") ? siteUrl : "https://" + siteUrl) : "https://sinzooffcial.com"),
       title: {
         default: clean(s.seo?.metaTitle) || `${s.store?.name || "Store"} — ${clean(s.store?.tagline) || "Shop online, pay on delivery"}`,

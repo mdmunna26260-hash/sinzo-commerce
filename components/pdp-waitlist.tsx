@@ -40,7 +40,7 @@ export default function PdpWaitlist({ productId, variantId, title }: { productId
             <button className="btn" type="submit" disabled={busy}>{busy ? "…" : "Notify me"}</button>
           </div>
           <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Kono size/color preference? (optional)" style={{ marginTop: 8 }} />
-          <div className="waitlist-hint">Size ta fire ele ekta WhatsApp/SMS pathabo — spam korbo na.</div>
+          <div className="waitlist-hint">Size ta fire ele ekta SMS/email pathabo — spam korbo na.</div>
           {err && <div className="waitlist-err">{err}</div>}
         </form>
       )}

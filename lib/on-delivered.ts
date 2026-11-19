@@ -27,7 +27,7 @@ export async function onOrderDelivered(orderId: number): Promise<{ points: numbe
       const r = await sendReviewRequest(orderId, s);
       reviewSent = !!r.ok;
     } catch (e: any) {
-      await logApp("WARN", "WHATSAPP", `auto review request failed for order #${orderId}: ${String(e?.message || e).slice(0, 160)}`, { orderId });
+      await logApp("WARN", "SMS", `auto review request failed for order #${orderId}: ${String(e?.message || e).slice(0, 160)}`, { orderId });
     }
   }
 

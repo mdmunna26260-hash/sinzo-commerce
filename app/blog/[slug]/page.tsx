@@ -119,7 +119,7 @@ export default async function BlogPostPage(props: Props) {
           <div className="blog-cta">
             <div>
               <b>Still not sure which one?</b>
-              <div>Tell us your size on WhatsApp — we&apos;ll tell you what fits.</div>
+              <div>Message us your size on the track page — we&apos;ll tell you what fits.</div>
             </div>
             <Link className="btn btn-accent" href="/products">Shop the collection</Link>
           </div>

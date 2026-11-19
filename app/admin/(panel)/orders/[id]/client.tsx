@@ -467,9 +467,6 @@ export default function OrderDetailClient({ initial, nav }: { initial: Order; na
                   <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
                     <a className="abtn sm" style={{ fontWeight: 600 }} href={"tel:" + o.phone}>📞 Call</a>
                     <button className="abtn sm" disabled={busy} onClick={() => copy("Phone", o.phone)}>📋 Copy</button>
-                    <a className="abtn sm" style={{ color: "var(--ok)", borderColor: "#c4dfd0", fontWeight: 600 }}
-                      href={"https://wa.me/" + (() => { let d = o.phone.replace(/[^0-9]/g, ""); if (d.startsWith("0")) d = "88" + d; else if (!d.startsWith("880")) d = "880" + d; return d; })()}
-                      target="_blank" rel="noreferrer">💬 WhatsApp customer</a>
                   </div>
                   <div style={{ display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap" }}>
                     <button className="abtn sm danger" disabled={busy} onClick={() => quickBlock("PHONE", o.phone)}>🚫 Block phone</button>

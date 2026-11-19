@@ -5,7 +5,7 @@ import { db } from "./db";
    blocks the caller's response — a logging failure must not fail the thing being logged. */
 
 export const APP_LOG_LEVELS = ["INFO", "WARN", "ERROR"] as const;
-export const APP_LOG_KINDS = ["CLIENT", "WEBHOOK", "SMS", "WHATSAPP", "MAIL", "BACKUP", "CRON", "ORDER", "AUTH"] as const;
+export const APP_LOG_KINDS = ["CLIENT", "WEBHOOK", "SMS", "MAIL", "BACKUP", "CRON", "ORDER", "AUTH"] as const;
 export type LogLevel = (typeof APP_LOG_LEVELS)[number];
 export type LogKind = (typeof APP_LOG_KINDS)[number];
 

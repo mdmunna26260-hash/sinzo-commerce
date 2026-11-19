@@ -179,11 +179,6 @@ export async function POST(req: Request) {
       }).catch(() => {});
     }
 
-    // customer order-confirmation WhatsApp — written to the outbox here, sent by the worker
-    // (lib/wa-queue → scripts/wa-worker.js, respecting caps/quiet hours/pacing). A blocked
-    // number or a sleeping bridge can never slow this request down.
-    await import("@/lib/wa-queue").then(({ enqueueOrderEvent }) => enqueueOrderEvent(order.id, "order_placed")).catch(() => {});
-
     // customer order-confirmation email (if email given + SMTP configured)
     if (email) {
       emailCustomerOrder(String(email), String(name).trim(), { code, total, area, items: orderItems.map((i) => ({ title: i.title + (i.preorder ? " [Pre-order]" : ""), qty: i.qty, price: i.price })) }).catch(() => {});

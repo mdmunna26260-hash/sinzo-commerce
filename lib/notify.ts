@@ -1,6 +1,5 @@
 import { db } from "./db";
 import { getSettings, envFallback } from "./settings";
-import { waSend, waStatus } from "./wa";
 const emailText = (value: string) => value.replace(/[&<>"\']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!));
 
 /* Notification abstraction (PDF §38): in-app center (always) + Telegram + SMTP email.
@@ -67,14 +66,13 @@ function emailHtml(title: string, body: string, storeName = "SINZO"): string {
   </div>`;
 }
 
-export async function notifyAdmin(evt: NotifyEvent, title: string, body: string, ref?: string): Promise<{ inApp: boolean; telegram: boolean | null; email: boolean | null; whatsapp: boolean | null }> {
+export async function notifyAdmin(evt: NotifyEvent, title: string, body: string, ref?: string): Promise<{ inApp: boolean; telegram: boolean | null; email: boolean | null }> {
   // 1) in-app notification center (always)
   let inApp = true;
   try { await db.notification.create({ data: { type: evt, title, body, ref } }); } catch { inApp = false; }
   // 2) channels
   let telegram: boolean | null = null;
   let email: boolean | null = null;
-  let whatsapp: boolean | null = null;
   try {
     const s = envFallback(await getSettings());
     const n = s.notifications || {};
@@ -87,16 +85,9 @@ export async function notifyAdmin(evt: NotifyEvent, title: string, body: string,
       if (n.smtp?.host && n.smtp?.user && n.smtp?.pass && n.notifyEmail) {
         email = await sendMail(n.smtp, n.notifyEmail, `[SINZO] ${title}`, emailHtml(title, body, s.store?.name), undefined, s);
       }
-      if (n.waEnabled !== false && n.waNotifyNumber) {
-        const st = await waStatus();
-        if (st.connected) {
-          const lines = body.replace(/<[^>]+>/g, "");
-          whatsapp = (await waSend(n.waNotifyNumber, `*${title}*\n${lines}${ref ? `\nRef: ${ref}` : ""}`)).ok;
-        } else whatsapp = false;
-      }
     }
   } catch {}
-  return { inApp, telegram, email, whatsapp };
+  return { inApp, telegram, email };
 }
 
 /* Canonical public site URL for links inside emails */
@@ -170,7 +161,7 @@ export async function emailCustomerStatus(
       subject = `SINZO: Order ${order.code} cancelled`;
       title = `Order ${order.code} has been cancelled`;
       body = `Hi ${name},<br><br>Apnar order <b>${order.code}</b> cancel kora hoyeche. Eta Cash on Delivery order chhilo, tai apnar kono taka jay ni — kono chinta nai.<br><br>
-        Bhul ba onno kono proyojon hole amader WhatsApp/phone e janaben — abar order kore dibo.`;
+        Bhul ba onno kono proyojon hole amader phone/email e janaben — abar order kore dibo.`;
     } else {
       subject = `SINZO: Order ${order.code} shipped`;
       title = `Order ${order.code} has been shipped`;

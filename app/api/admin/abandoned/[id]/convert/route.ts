@@ -65,7 +65,6 @@ export async function POST(req: Request, props: { params: Promise<{ id: string }
     if (!result.reused) {
       logAudit(g.user.email, "ABANDONED_CONVERTED", `${id} → ${result.order.code}`).catch(() => {});
       notifyAdmin("order.placed", `RECOVERED ORDER ${result.order.code}`, `Recovered checkout #${id} · ৳${result.order.total}`, result.order.code).catch(() => {});
-      import("@/lib/wa-queue").then(({ enqueueOrderEvent }) => enqueueOrderEvent(result.order.id, "order_placed")).catch(() => {});
     }
     return NextResponse.json({ ok: true, code: result.order.code, orderId: result.order.id, total: result.order.total, reused: result.reused });
   } catch (e: any) {

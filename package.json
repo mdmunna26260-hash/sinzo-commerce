@@ -12,8 +12,6 @@
     "db:migrate": "prisma migrate deploy",
     "db:seed": "node prisma/seed.js",
     "db:studio": "prisma studio",
-    "wa": "node scripts/whatsapp-bridge.js",
-    "wa:worker": "node scripts/wa-worker.js",
     "recovery:run": "node scripts/abandoned-worker.js --once",
     "recovery:worker": "node scripts/abandoned-worker.js",
     "postinstall": "prisma generate",

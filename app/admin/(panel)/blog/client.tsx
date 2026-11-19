@@ -104,7 +104,7 @@ export default function BlogEditor({ posts }: { posts: Post[] }) {
               </div>
             </div>
             <div className="af" style={{ gridColumn: "1 / -1" }}>
-              <label>Short summary (shown in the list and in Google / WhatsApp previews, {e.excerpt.length}/300)</label>
+              <label>Short summary (shown in the list and in Google previews, {e.excerpt.length}/300)</label>
               <input value={e.excerpt} maxLength={300} onChange={(ev) => set("excerpt", ev.target.value)} placeholder="One or two lines about what the reader gets." />
             </div>
             <div className="af" style={{ gridColumn: "1 / -1" }}>

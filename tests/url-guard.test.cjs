@@ -1,14 +1,14 @@
 /* Regression tests for lib/url-guard.ts — the /l/<slug> campaign redirect.
 
-   Before this, the only check on WaLink.target was /^https?:\/\//, so the shop's own
+   Before this, the only check on a stored target was /^https?:\/\//, so the shop's own
    domain served a 302 to any http(s) URL: an open redirect on a host customers already
-   trust, reachable from a WhatsApp campaign link. */
+   trust, reachable from any campaign link. */
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { loader } = require('./load-ts.cjs');
 
 const SITE = 'https://sinzooffcial.com';
-const REQ = SITE + '/l/sale';
+const REQ = SITE + '/redirect/sale';
 const opts = (over = {}) => ({ requestUrl: REQ, siteOrigin: SITE, ...over });
 
 const { safeExternalTarget, isSameOriginPath } = loader()('lib/url-guard.ts');
@@ -25,10 +25,10 @@ test('relative paths stay relative and resolve against the request', () => {
   assert.equal(safeExternalTarget('/products/x', { siteOrigin: SITE }), '/products/x');
 });
 
-test('the default allow-list covers the WhatsApp destinations a campaign needs', () => {
-  assert.ok(safeExternalTarget('https://wa.me/8801700000000', opts()));
-  assert.ok(safeExternalTarget('https://api.whatsapp.com/send?phone=8801700000000', opts()));
-  assert.ok(safeExternalTarget('https://chat.whatsapp.com/AbCdEf', opts()));
+test('off-site destinations are refused unless the operator allow-listed them', () => {
+  assert.equal(safeExternalTarget('https://wa.me/8801700000000', opts()), null);
+  assert.equal(safeExternalTarget('https://api.whatsapp.com/send?phone=8801700000000', opts()), null);
+  assert.equal(safeExternalTarget('https://chat.whatsapp.com/AbCdEf', opts()), null);
 });
 
 test('arbitrary off-site targets are refused', () => {
@@ -37,7 +37,7 @@ test('arbitrary off-site targets are refused', () => {
     'http://evil.example.com/',
     'https://sinzooffcial.com.evil.example.com/',   // suffix trick, not a subdomain
     'https://evilsinzooffcial.com/',
-    'https://wa.me.evil.example.com/',              // allowed host used as a label
+    'https://facebook.com.evil.example.com/',        // allowed host used as a label
     'https://user:pass@evil.example.com/',
     'ftp://evil.example.com/x',
     'javascript:alert(1)',

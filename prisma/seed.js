@@ -12,7 +12,6 @@ const DEFAULT_SETTINGS = {
     currencySymbol: "৳",
     email: "support@sinzo.com.bd",
     phone: "+880 1700-000000",
-    whatsapp: "+8801700000000",
     address: "Gulshan Avenue, Dhaka 1212, Bangladesh",
     facebook: "https://facebook.com",
     instagram: "https://instagram.com",

@@ -45,7 +45,7 @@ export async function POST(req: Request) {
     const queue = await reviewRequestQueue(limit);
     const results: any[] = [];
     for (const o of queue) {
-      // sequential on purpose: the WhatsApp bridge dislikes bursts, and this is a background chore
+      // sequential on purpose: this is a background chore and gateways dislike bursts
       const r = await sendReviewRequest(o.id, s).catch((e) => ({ ok: false, error: String(e?.message || e) }));
       results.push({ code: o.code, ...r });
     }

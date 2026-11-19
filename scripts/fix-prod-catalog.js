@@ -8,7 +8,7 @@
  *   2. misspelled category slug + label        (stright-fit → straight-fit)
  *      — safe: lib/search.ts aliases both spellings, so no link ever 404s
  *   3. misspelled product names                (LATHER → LEATHER, FALME → FLAME)
- *      — titles always; slugs only with --slugs (ads/WhatsApp links point at the
+ *      — titles always; slugs only with --slugs (ads/social links point at the
  *        current slug, so moving it is opt-in)
  *   4. products missing from their own category → the "LEATHER JACKET" menu link
  *      opened an empty page while the jacket sat in a different category

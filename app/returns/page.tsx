@@ -3,7 +3,7 @@ import { getSettings, publicSettings } from "@/lib/settings";
 import { getCategories } from "@/lib/catalog";
 import { navCats } from "@/lib/category-tree";
 import { readPolicy } from "@/lib/policy";
-import { waLink, telLink } from "@/lib/phone";
+import { telLink } from "@/lib/phone";
 import Link from "next/link";
 import type { Metadata } from "next";
 
@@ -29,7 +29,6 @@ export default async function ReturnsPage() {
 
   const cur = store.currencySymbol || "৳";
   const money = (n: any) => cur + Math.round(Number(n) || 0).toLocaleString("en-IN");
-  const wa = store.whatsapp ? waLink(store.whatsapp) : "";
   const freeAt = Number(ship.freeShippingThreshold) || 0;
 
   const facts = [
@@ -55,7 +54,7 @@ export default async function ReturnsPage() {
   const steps = [
     {
       t: "Message us with your order code",
-      d: `WhatsApp or call ${store.phone || "our support number"}${store.email ? `, or email ${store.email}` : ""}. Send the order code (it looks like ORD-1234 — you can also find it on the Track Order page) and which item it is.`,
+      d: `Call ${store.phone || "our support number"}${store.email ? `, or email ${store.email}` : ""}. Send the order code (it looks like ORD-1234 — you can also find it on the Track Order page) and which item it is.`,
     },
     {
       t: "Tell us what you'd like",
@@ -70,7 +69,7 @@ export default async function ReturnsPage() {
       : { t: "Send it back to us", d: `Drop the parcel with any courier to ${store.address || "our address"}. Return courier charges are on you.` },
     {
       t: "We check it and finish the job",
-      d: `Once it reaches us we inspect it and confirm on WhatsApp. If it's an exchange, we send the replacement out as soon as that's confirmed; refunds are released within ${pol.refundTime} (see "Refunds" below).`,
+      d: `Once it reaches us we inspect it and confirm by phone or email. If it's an exchange, we send the replacement out as soon as that's confirmed; refunds are released within ${pol.refundTime} (see "Refunds" below).`,
     },
   ];
 
@@ -185,7 +184,7 @@ export default async function ReturnsPage() {
               </ul>
               <p>
                 We also can&apos;t take an item back after the {pol.returnDays}-day window has passed, unless we agreed
-                to an extension in writing on WhatsApp before it ran out.
+                to an extension in writing before it ran out.
               </p>
             </section>
 
@@ -234,11 +233,6 @@ export default async function ReturnsPage() {
                 Returns are handled by a person, not a form. Message us and you&apos;ll get a reply with a name on it.
               </p>
               <div className="policy-cta">
-                {wa && (
-                  <a className="btn" href={wa} target="_blank" rel="noreferrer noopener" style={{ background: "var(--accent)", color: "#fff" }}>
-                    WhatsApp us
-                  </a>
-                )}
                 {store.phone && (
                   <a className="btn" href={telLink(store.phone)} style={{ border: "1px solid var(--line)", background: "var(--card)" }}>
                     {store.phone}

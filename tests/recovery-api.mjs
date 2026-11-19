@@ -225,8 +225,6 @@ try {
     }
   }
   await db.abandonedCheckout.deleteMany({ where: { phone: { in: phones } } });
-  await db.waMessage.deleteMany({ where: { toWaId: { in: phones.map(p => '88' + p) } } });
-  await db.inboxMessage.deleteMany({ where: { waId: { in: phones } } });
   await db.orderItem.deleteMany({ where: { order: { phone: { in: phones } } } });
   await db.payment.deleteMany({ where: { order: { phone: { in: phones } } } });
   const orders = await db.order.findMany({ where: { phone: { in: phones } }, select: { code: true } });

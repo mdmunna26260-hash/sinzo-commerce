@@ -22,10 +22,6 @@ export async function POST(req: Request, props: Ctx) {
     if (order.email) {
       emailCustomerStatus(order.email, order.name, { code: order.code, total: order.total, area: order.area, courierName: "Steadfast" }, "in_review").catch(() => {});
     }
-    // consignment created = parcel left the shop → queued "shipped" WhatsApp (worker sends it)
-    if (order.status !== "ON_HOLD") {
-      await import("@/lib/wa-queue").then(({ enqueueOrderEvent }) => enqueueOrderEvent(order.id, "order_shipped")).catch(() => {});
-    }
     return NextResponse.json({ ok: true, consignment: r.data });
   }
   return NextResponse.json({ ok: false, configured: r.configured, error: r.error }, { status: r.configured ? 502 : 400 });

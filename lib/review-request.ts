@@ -1,5 +1,4 @@
 import { db } from "./db";
-import { waSend } from "./wa";
 import { sendSms, smsConfigured } from "./sms";
 import { logApp } from "./logs";
 import type { SettingsMap } from "./settings";
@@ -7,13 +6,13 @@ import type { SettingsMap } from "./settings";
 /* Post-delivery review request.
    Reviews are what turn a product page into a shelf people trust (and they are the only lawful
    way to get star ratings into Google). So after a parcel is actually delivered, ask — once —
-   over whichever channel the shop has: WhatsApp bridge → SMS gateway → email. */
+   over whichever channel the shop has: SMS gateway → email. */
 
 export function autoReviewRequestEnabled(s: SettingsMap): boolean {
   return ((s as any).reviews || {}).autoRequest === true;
 }
 
-export type ReviewRequestResult = { ok: boolean; channel?: "whatsapp" | "sms" | "email"; error?: string; skipped?: string };
+export type ReviewRequestResult = { ok: boolean; channel?: "sms" | "email"; error?: string; skipped?: string };
 
 export async function sendReviewRequest(orderId: number, s: SettingsMap, opts: { force?: boolean } = {}): Promise<ReviewRequestResult> {
   const order = await db.order.findUnique({ where: { id: orderId }, include: { items: true } });
@@ -29,13 +28,11 @@ export async function sendReviewRequest(orderId: number, s: SettingsMap, opts: {
 
   let channel: ReviewRequestResult["channel"];
   let error = "";
-  const wa = await waSend(order.phone, msg);
-  if (wa.ok) channel = "whatsapp";
-  else if (smsConfigured(s)) {
+  if (smsConfigured(s)) {
     const r = await sendSms(s, order.phone, msg, "review-request");
     if (r.ok) channel = "sms";
     else error = r.error || "SMS failed";
-  } else error = wa.error || "No WhatsApp bridge or SMS gateway configured";
+  } else error = "No SMS gateway configured";
 
   if (!channel && order.email) {
     try {
@@ -56,11 +53,11 @@ export async function sendReviewRequest(orderId: number, s: SettingsMap, opts: {
   }
 
   if (!channel) {
-    await logApp("WARN", "WHATSAPP", `review request for ${order.code} not sent — ${error}`, { orderId });
+    await logApp("WARN", "SMS", `review request for ${order.code} not sent — ${error}`, { orderId });
     return { ok: false, error };
   }
   await db.order.update({ where: { id: orderId }, data: { reviewRequestedAt: new Date() } });
-  await logApp("INFO", channel === "email" ? "MAIL" : channel === "sms" ? "SMS" : "WHATSAPP", `review request sent for ${order.code} via ${channel}`, { orderId });
+  await logApp("INFO", channel === "email" ? "MAIL" : "SMS", `review request sent for ${order.code} via ${channel}`, { orderId });
   return { ok: true, channel };
 }
 

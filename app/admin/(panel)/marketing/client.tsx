@@ -118,15 +118,6 @@ export default function MarketingClient({ abandoned, sources, recCouponInit, rec
     setBusy(false);
   };
 
-  /* BD numbers stored as 01XXXXXXXXX — wa.me needs full international format 8801XXXXXXXXX */
-  const waLink = (phone?: string | null) => {
-    if (!phone) return null;
-    let digits = phone.replace(/[^0-9]/g, "");
-    if (digits.startsWith("0")) digits = "88" + digits;
-    else if (!digits.startsWith("880")) digits = "880" + digits;
-    return "https://wa.me/" + digits;
-  };
-
   return (
     <>
       <div className="admin-top">
@@ -164,9 +155,6 @@ export default function MarketingClient({ abandoned, sources, recCouponInit, rec
                     <td><span className={"pill " + (STATUS_PILL[a.status] || "PENDING")}>{a.status}</span></td>
                     <td style={{ whiteSpace: "nowrap" }}>
                       {a.phone && <button className="abtn sm" title="Copy phone" onClick={(e) => copyPhone(e, a.phone)}>📋</button>}{" "}
-                      {a.status === "OPEN" && a.phone && (
-                        <a className="abtn sm" style={{ color: "var(--ok)", borderColor: "#c4dfd0" }} href={waLink(a.phone)} target="_blank" rel="noreferrer" title="WhatsApp customer">💬</a>
-                      )}{" "}
                       {a.status === "OPEN" && (
                         <>
                           {!a.legacy && <button className="abtn sm" disabled={busy} onClick={(e) => copyRecovery(a, e)}>Copy recovery link</button>}
@@ -209,7 +197,6 @@ export default function MarketingClient({ abandoned, sources, recCouponInit, rec
                                   <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
                                     📞 <b>{a.phone}</b>
                                     <button className="abtn sm" onClick={(e) => copyPhone(e, a.phone)}>📋 Copy</button>
-                                    <a className="abtn sm" style={{ color: "var(--ok)", borderColor: "#c4dfd0", fontWeight: 600 }} href={waLink(a.phone)} target="_blank" rel="noreferrer">💬 WhatsApp</a>
                                   </div>
                                 )}
                                 {a.address && (
@@ -218,7 +205,7 @@ export default function MarketingClient({ abandoned, sources, recCouponInit, rec
                                     <button className="abtn sm" onClick={(e) => { e.stopPropagation(); copyText(a.address).then(() => flash("📍 Address copied ✓")); }}>📋 Copy</button>
                                   </div>
                                 )}
-                                {!a.phone && <div style={{ color: "var(--danger)", fontSize: 12.5 }}>⚠ Phone nai — WhatsApp/call kora jabe na</div>}
+                                {!a.phone && <div style={{ color: "var(--danger)", fontSize: 12.5 }}>⚠ Phone nai — call kora jabe na</div>}
                               </div>
                             ) : (
                               <div style={{ color: "var(--muted)", fontSize: 13 }}>Checkout form fill kore nai — shudhu cart items ase.</div>
