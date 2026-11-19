@@ -202,7 +202,7 @@ async function HomeContent() {
       <section className="section container" id="shop-categories" style={{ paddingTop: 0 }} key="categories">
         <Head no="02" eyebrow="Browse" title="Shop by Category" href="/products" />
         {/* SOB category dekhabe: mobile-e swipeable carousel (3 per page), desktop-e full grid */}
-        <Carousel className="mobile-only" autoMs={5000}>
+        <Carousel className="mobile-only" autoMs={3000}>
           {Array.from({ length: Math.ceil(cats.length / 4) }, (_, i) => (
             <div className="cat-row-4" key={"cp" + i}>{cats.slice(i * 4, i * 4 + 4).map((c, idx) => <CatTile key={c.id} c={c} rd={(i * 4 + idx) % 4} />)}</div>
           ))}
