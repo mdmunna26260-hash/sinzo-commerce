@@ -4,6 +4,7 @@ import { afetch, withToken, copyText } from "@/lib/afetch";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { waLink } from "@/lib/phone";
 
 function ThermalLink({ orderId, token }: { orderId: number; token: string }) {
   const [w, setW] = useState("80");
@@ -467,6 +468,9 @@ export default function OrderDetailClient({ initial, nav }: { initial: Order; na
                   <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
                     <a className="abtn sm" style={{ fontWeight: 600 }} href={"tel:" + o.phone}>📞 Call</a>
                     <button className="abtn sm" disabled={busy} onClick={() => copy("Phone", o.phone)}>📋 Copy</button>
+                    <a className="abtn sm" style={{ color: "var(--ok)", borderColor: "#c4dfd0", fontWeight: 600 }}
+                      href={waLink(o.phone) + "?text=" + encodeURIComponent(`Assalamu alaikum ${o.name || ""}! SINZO theke apnar order ${o.code} — status: ${o.status}. Kono proyojon hole ei number-e message korun. Dhonnobad!`)}
+                      target="_blank" rel="noreferrer">💬 WhatsApp customer</a>
                   </div>
                   <div style={{ display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap" }}>
                     <button className="abtn sm danger" disabled={busy} onClick={() => quickBlock("PHONE", o.phone)}>🚫 Block phone</button>

@@ -63,6 +63,7 @@ export default function TrackingClient({ cfg, events, counts, lastEvent }: any) 
               <div>GA4: <b style={{ color: cfg.ga4Id ? "#2e6b4f" : "#b3392f" }}>{cfg.ga4Id ? cfg.ga4Id : "Not set"}</b></div>
               <div>GTM: <b style={{ color: cfg.gtmId ? "#2e6b4f" : "#b3392f" }}>{cfg.gtmId ? cfg.gtmId : "Not set"}</b></div>
               <div style={{ gridColumn: "1/-1" }}>Last event: {lastEvent ? <>{lastEvent.name} · {new Date(lastEvent.at).toLocaleString("en-GB")} {lastEvent.ok ? "✓" : "✗"}</> : "—"}</div>
+              <div style={{ gridColumn: "1/-1" }}>Product catalog feed (Meta Advantage+ / Dynamic Ads): <a href="/feed.xml" target="_blank" rel="noreferrer" style={{ color: "var(--accent)", fontWeight: 600 }}>{typeof location !== "undefined" ? location.origin : ""}/feed.xml</a> — Meta Commerce Manager-e ei URL data source hishebe add korun.</div>
             </div>
           </div>
           <div className="acard">
