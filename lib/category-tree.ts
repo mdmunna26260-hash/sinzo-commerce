@@ -1,7 +1,7 @@
 /* 3-level category tree helpers (main → sub → child).
    Shared by the admin catalog UI, the product form and the storefront nav. */
 
-export type CatLike = { id: number; name: string; slug: string; parentId?: number | null };
+export type CatLike = { id: number; name: string; slug: string; parentId?: number | null; position?: number };
 type IdParent = { id: number; parentId?: number | null };
 
 export type CatNode<T extends CatLike = CatLike> = T & {
@@ -31,7 +31,8 @@ export function buildCategoryTree<T extends CatLike>(cats: T[]): CatNode<T>[] {
     for (const ch of n.children) setPath(ch);
   };
   for (const r of roots) setPath(r);
-  const byName = (a: CatNode<T>, b: CatNode<T>) => a.name.localeCompare(b.name);
+  // position (admin reorder) first, then name — position is 0 for legacy rows
+  const byName = (a: CatNode<T>, b: CatNode<T>) => (a.position ?? 0) - (b.position ?? 0) || a.name.localeCompare(b.name);
   const sortRec = (nodes: CatNode<T>[]) => { nodes.sort(byName); for (const n of nodes) sortRec(n.children); };
   sortRec(roots);
   return roots;

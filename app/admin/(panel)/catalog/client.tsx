@@ -1,10 +1,12 @@
 "use client";
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { buildCategoryTree, flattenCategoryTree, MAX_CATEGORY_DEPTH } from "@/lib/category-tree";
 
 export default function CatalogClient({ categories, collections, products }: any) {
   const router = useRouter();
+  const [reordering, setReordering] = useState(false);
+  const [refreshing, startRefresh] = useTransition();
   const [msg, setMsg] = useState("");
   const [newCat, setNewCat] = useState({ name: "", description: "", image: "", parentId: "" });
   const [editCatId, setEditCatId] = useState<number | null>(null);
@@ -67,6 +69,31 @@ export default function CatalogClient({ categories, collections, products }: any
     return j;
   };
 
+  // Move only among siblings; the entire subtree travels with its parent.
+  const siblingsOf = (c: any) => flatCats.filter((n) => (n.parentId ?? null) === (c.parentId ?? null));
+  const moveCat = async (c: any, dir: -1 | 1) => {
+    if (reordering || refreshing) return;
+    const ids = siblingsOf(c).map((n) => n.id);
+    const i = ids.indexOf(c.id);
+    const j = i + dir;
+    if (i < 0 || j < 0 || j >= ids.length) return;
+    [ids[i], ids[j]] = [ids[j], ids[i]];
+    setReordering(true);
+    try {
+      const r = await fetch("/api/admin/categories/reorder", {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ids }),
+      });
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.error || "Reorder failed");
+      setMsg("Category order saved");
+      startRefresh(() => router.refresh());
+    } catch (err) {
+      setMsg(err instanceof Error ? err.message : "Reorder failed. Please retry.");
+    } finally {
+      setReordering(false);
+    }
+  };
+
   const saveCollection = async () => {
     if (!editCol) return;
     setColBusy(true);
@@ -91,6 +118,7 @@ export default function CatalogClient({ categories, collections, products }: any
         {/* CATEGORIES */}
         <div className="acard">
           <div className="acard-h"><h3>Categories ({categories.length})</h3></div>
+          <p style={{ padding: "0 16px", fontSize: 12 }}>Use Up / Down to change storefront order. Sub-categories move within their parent.</p>
           <div className="tbl-scroll">
           <table className="tbl">
             <thead><tr><th>Name</th><th>Slug</th><th>Products</th><th></th></tr></thead>
@@ -130,6 +158,8 @@ export default function CatalogClient({ categories, collections, products }: any
                   <td style={{ fontSize: 12, color: "var(--muted)" }}>/{c.slug}</td>
                   <td>{c.productCount}</td>
                   <td style={{ whiteSpace: "nowrap" }}>
+                    <button className="abtn sm" title="Move up" aria-label={"Move " + c.name + " up"} disabled={reordering || refreshing || siblingsOf(c)[0]?.id === c.id} onClick={() => moveCat(c, -1)}>Up</button>{" "}
+                    <button className="abtn sm" title="Move down" aria-label={"Move " + c.name + " down"} disabled={reordering || refreshing || siblingsOf(c).at(-1)?.id === c.id} onClick={() => moveCat(c, 1)}>Down</button>{" "}
                     <button className="abtn sm" title="Rename / move (edit parent)" onClick={() => setEditing({ id: c.id, name: c.name, parentId: c.parentId ? String(c.parentId) : "" })}>✏️</button>{" "}
                     <button className="abtn sm" title="Upload category image" onClick={() => { setEditCatId(editCatId === c.id ? null : c.id); setEditCatImg(""); }}>🖼</button>{" "}
                     <button className="abtn sm danger" onClick={() => confirm("Delete " + c.name + "? (sub-categories become main, products keep but lose link)") && api("/api/admin/categories/" + c.id, "DELETE")}>✕</button>

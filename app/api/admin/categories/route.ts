@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 export async function GET(req: Request) {
   const g = await requirePerm("categories", req);
   if ("res" in g) return g.res;
-  return NextResponse.json({ categories: await db.category.findMany({ include: { _count: { select: { products: true } } }, orderBy: { id: "asc" } }) });
+  return NextResponse.json({ categories: await db.category.findMany({ include: { _count: { select: { products: true } } }, orderBy: [{ position: "asc" }, { id: "asc" }] }) });
 }
 
 /* Validate a parentId for a category: must exist, max 3 levels (main → sub → child),
