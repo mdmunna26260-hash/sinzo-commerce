@@ -205,4 +205,7 @@ async function run(): Promise<void> {
   await db.$executeRawUnsafe(isPg
     ? `ALTER TABLE "Product" ADD COLUMN IF NOT EXISTS "outsideDeliveryFee" DOUBLE PRECISION`
     : `ALTER TABLE "Product" ADD COLUMN "outsideDeliveryFee" REAL`).catch(() => {});
+  await db.$executeRawUnsafe(isPg
+    ? `ALTER TABLE "Category" ADD COLUMN IF NOT EXISTS "position" INTEGER NOT NULL DEFAULT 0`
+    : `ALTER TABLE "Category" ADD COLUMN "position" INTEGER NOT NULL DEFAULT 0`).catch(() => {});
 }

@@ -51,6 +51,7 @@ model Category {
   parent      Category?  @relation("CategoryTree", fields: [parentId], references: [id], onDelete: SetNull)
   children    Category[] @relation("CategoryTree")
   products    Product[]
+  position    Int        @default(0) // admin reorder -> homepage "Shop by Category" + nav order
 }
 
 model Collection {

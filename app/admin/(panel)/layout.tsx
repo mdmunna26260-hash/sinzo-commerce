@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 import { getSessionUser, can } from "@/lib/auth";
 import Sidebar from "@/components/admin-sidebar";
+import AdminQuickNavigation from "@/components/admin/quick-navigation";
 
 export const dynamic = "force-dynamic";
 
@@ -16,6 +17,7 @@ export default async function PanelLayout({ children }: { children: React.ReactN
     <div className="admin-body">
       <Sidebar pending={pending} lowStock={lowStock} />
       <main className="admin-main">{children}</main>
+      <AdminQuickNavigation allowed={user ? ["dashboard", "orders", "products", "marketing", "settings"].filter((permission) => can(user, permission)) : null} />
     </div>
   );
 }

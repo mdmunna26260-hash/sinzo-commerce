@@ -9,9 +9,9 @@ import { flattenCategoryTree } from "./category-tree";
    Returned in 3-level tree order (main → sub → child) so nav/pills read naturally. */
 export const getCategories = unstable_cache(
   async () => {
-    const cats = await db.category.findMany({ orderBy: { id: "asc" } });
+    const cats = await db.category.findMany({ orderBy: [{ position: "asc" }, { id: "asc" }] });
     return flattenCategoryTree(cats);
   },
-  ["categories-v2"],
-  { revalidate: 60 }
+  ["categories-v3"],
+  { revalidate: 60, tags: ["categories"] }
 );
