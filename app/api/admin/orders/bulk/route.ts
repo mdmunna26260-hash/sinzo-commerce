@@ -46,7 +46,7 @@ export async function POST(req: Request) {
     const { createConsignment } = await import("@/lib/steadfast");
     const results: { code: string; ok: boolean; error?: string; consignment?: string }[] = [];
     for (const id of orderIds) {
-      const order = await db.order.findUnique({ where: { id }, include: { items: true } });
+      const order = await db.order.findUnique({ where: { id }, include: { items: true, payments: { select: { amount: true, kind: true } } } });
       if (!order) { results.push({ code: "#" + id, ok: false, error: "not found" }); continue; }
       if (order.courierConsignmentId) { results.push({ code: order.code, ok: false, error: "already sent" }); continue; }
       const r = await createConsignment(order);

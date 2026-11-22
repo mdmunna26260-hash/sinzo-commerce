@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import { adminLoginDestination, adminSessionProbeUrl } from "@/lib/admin-login-destination";
 
 export default function AdminLogin() {
   const [email, setEmail] = useState("");
@@ -20,19 +21,23 @@ export default function AdminLogin() {
     } catch {}
   }, []);
 
-  /* One place for "we are in": fallback JS cookie, cookie probe, URL-token fallback.
-     Both the password-only path and the 2FA path end here. */
+  /* Shared by password and 2FA login. Preview tokens must survive the first
+     navigation even when third-party cookies appear to work during a fetch. */
   const finish = async (j: any) => {
-    if (j.token) {
-      document.cookie = `sz_session_fb=${j.token}; path=/; max-age=604800; SameSite=Lax`;
-      try { localStorage.setItem("sz_admin_token", j.token); } catch {}
-    }
+    const destination = await adminLoginDestination(j.token, async (token) => {
+      try {
+        const probe = await fetch(adminSessionProbeUrl(token), {
+          cache: "no-store", credentials: "same-origin",
+          referrerPolicy: "no-referrer",
+        });
+        return probe.ok;
+      } catch { return false; }
+    });
     try {
-      const probe = await fetch("/api/admin/whoami");
-      if (probe.ok) { window.location.href = "/admin/dashboard"; return; }
-    } catch {}
-    if (j.token) { window.location.href = "/admin/dashboard?t=" + encodeURIComponent(j.token); return; }
-    window.location.href = "/admin/dashboard";
+      if (j.token) localStorage.setItem("sz_admin_token", j.token);
+      else localStorage.removeItem("sz_admin_token");
+    } catch { /* Storage may be blocked in an embedded preview; URL fallback still works. */ }
+    window.location.assign(destination);
   };
 
   const friendly = (msg: string) =>
@@ -82,8 +87,8 @@ export default function AdminLogin() {
       if (r.ok && j.ok) { await finish(j); return; }
       setErr(friendly(j.error || "Login failed"));
       setBusy(false);
-    } catch {
-      setErr("Network error — page reload kore abar try korun (server restart hoye thakte pare).");
+    } catch (error) {
+      setErr(error instanceof Error ? error.message : "Network error. Reload the page and try again.");
       setBusy(false);
     }
   };

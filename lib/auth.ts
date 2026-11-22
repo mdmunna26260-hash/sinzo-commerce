@@ -48,11 +48,15 @@ export async function verifySessionToken(token?: string | null): Promise<Session
   return { ...user, email: current.email, name: current.name, role: current.role, sv: current.sessionVersion };
 }
 export async function getSessionUser(req?: Request): Promise<SessionUser | null> {
-  if (req) return verifySessionToken(cookieToken(req, ["sz_session", "sz_session_fb"]));
-  const { cookies } = await import("next/headers");
-  const jar = await cookies();
-  const c = jar.get("sz_session") || jar.get("sz_session_fb");
-  return verifySessionToken(c?.value);
+  const jar = req ? null : await (await import("next/headers")).cookies();
+  // An expired primary cookie must not shadow a still-valid legacy fallback.
+  for (const name of ["sz_session", "sz_session_fb"]) {
+    const token = req ? cookieToken(req, [name]) : jar?.get(name)?.value;
+    if (!token) continue;
+    const user = await verifySessionToken(token);
+    if (user) return user;
+  }
+  return null;
 }
 
 /* ---- second step of admin login (TOTP) ---------------------------------------
@@ -193,6 +197,12 @@ export async function requireAdmin(sp?: { t?: string | string[] | undefined }, p
 }
 export function tokenFromRequest(req?: Request): string | null {
   if (!req) return null;
+  // Dev-preview gateways may inject their own Bearer credential. It is not an
+  // app session: prefer the explicitly supplied, signed preview token instead.
+  if (!IS_PROD && ALLOW_URL_TOKEN) {
+    const previewToken = new URL(req.url).searchParams.get("t");
+    if (previewToken) return previewToken;
+  }
   const auth = req.headers.get("authorization");
   if (auth?.startsWith("Bearer ")) return auth.slice(7);
   if (!ALLOW_URL_TOKEN) return null; // never read the token from the query string in production

@@ -1,7 +1,10 @@
 "use client";
+import { escapeHtml } from "@/lib/escape-html";
+import { orderWhatsAppMessage } from "@/lib/order-whatsapp";
+import { telLink, waLink } from "@/lib/phone";
 import { FmtDate } from "@/components/dates";
 import { afetch, withToken, copyText } from "@/lib/afetch";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
@@ -9,7 +12,7 @@ type O = {
   id: number; code: string; name: string; phone: string; address: string; area: string; total: number;
   status: string; paymentStatus: string; paymentMethod: string; riskLevel: string;
   channel?: string | null; source?: string | null; courierName?: string | null; courierConsignmentId?: string | null;
-  courierStatus?: string | null; createdAt: string; items: { title: string; qty: number; variant?: string | null; preorder?: boolean }[];
+  courierStatus?: string | null; createdAt: string; items: { title: string; qty: number; image?: string | null; variant?: string | null; preorder?: boolean }[];
 };
 const STATUSES = ["PENDING", "CONFIRMED", "PROCESSING", "PACKED", "SHIPPED", "DELIVERED", "CANCELLED", "RETURNED", "ON_HOLD"];
 const TAB_GROUPS: Record<string, string[]> = {
@@ -22,13 +25,21 @@ const TABS: [string, string][] = [["ALL", "All"], ["PENDING", "Pending"], ["CONF
 export default function OrdersClient({ initial, initialTab = "ALL" }: { initial: O[]; initialTab?: string }) {
   const router = useRouter();
   const [q, setQ] = useState("");
-  const [tab, setTab] = useState(TAB_GROUPS[initialTab] ? initialTab : "ALL");
+  const [tab, setTab] = useState(TABS.some(([key]) => key === initialTab) ? initialTab : "ALL");
   const [payment, setPayment] = useState("");
   const [dateFilter, setDateFilter] = useState("");
   const [sel, setSel] = useState<Set<number>>(new Set());
   const [busy, setBusy] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const rowLock = useRef(false);
+  const [rowBusy, setRowBusy] = useState<number | null>(null);
+  const [rowOverrides, setRowOverrides] = useState<Record<number, Partial<O>>>({});
+  const [actionNotice, setActionNotice] = useState<{ text: string; error: boolean } | null>(null);
+  useEffect(() => { setRowOverrides({}); }, [initial]);
+  const orders = useMemo(() => initial.map((order) => ({ ...order, ...rowOverrides[order.id] })), [initial, rowOverrides]);
+  const filterCount = Number(!!payment) + Number(!!dateFilter);
 
-  const list = useMemo(() => initial.filter((o) => {
+  const list = useMemo(() => orders.filter((o) => {
     if (tab === "PREORDER") { if (!(o.items || []).some((i) => i.preorder)) return false; }
     else { const g = TAB_GROUPS[tab] || []; if (g.length && !g.includes(o.status)) return false; }
     if (payment && o.paymentStatus !== payment) return false;
@@ -48,14 +59,13 @@ export default function OrdersClient({ initial, initialTab = "ALL" }: { initial:
       }
     }
     return true;
-  }), [initial, q, tab, payment, dateFilter]);
+  }), [orders, q, tab, payment, dateFilter]);
 
   const openOrder = (id: number) => router.push(withToken("/admin/orders/" + id));
 
   const copyPhone = async (e: React.MouseEvent, phone: string) => {
     e.preventDefault(); e.stopPropagation();
     const ok = await copyText(phone);
-    setBusy(false);
     const t = document.createElement("div");
     t.className = "toast"; t.textContent = ok ? "📋 " + phone + " copied" : "Copy failed";
     document.body.appendChild(t); setTimeout(() => t.remove(), 1800);
@@ -69,8 +79,10 @@ export default function OrdersClient({ initial, initialTab = "ALL" }: { initial:
   const allSel = list.length > 0 && list.every((o) => sel.has(o.id));
 
   const bulk = async (action: string, value?: string) => {
-    if (!sel.size) return;
+    if (!sel.size || busy || rowLock.current) return;
+    if (action === "courier" && !confirm(`Send ${sel.size} order(s) to Steadfast?`)) return;
     if (action === "delete" && !confirm(`Delete ${sel.size} order(s)? Delivered/courier-active orders must be returned or cancelled first.`)) return;
+    rowLock.current = true;
     setBusy(true);
     try {
       const response = await afetch("/api/admin/orders/bulk", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ids: Array.from(sel), action, value }) });
@@ -78,60 +90,92 @@ export default function OrdersClient({ initial, initialTab = "ALL" }: { initial:
       if (!response.ok) {
         const failures = (result.results || []).filter((item: any) => !item.ok).map((item: any) => `#${item.id}: ${item.error}`).join("\n");
         alert(failures || result.error || "The bulk action could not be completed.");
+      } else if (action === "courier") {
+        alert(`Sent: ${result.sent || 0} / Failed: ${result.failed || 0}${result.failed ? "\n" + (result.results || []).filter((item: any) => !item.ok).map((item: any) => item.code + ": " + item.error).join("\n") : ""}`);
       }
       setSel(new Set());
       router.refresh();
     } catch {
       alert("Network error. Please try again.");
     } finally {
+      rowLock.current = false;
       setBusy(false);
     }
+  };
+  const runCardAction = async (order: O, status?: string) => {
+    if (busy || rowLock.current || status === order.status) return;
+    if (!status && (order.courierConsignmentId || ["DELIVERED", "CANCELLED", "RETURNED"].includes(order.status))) return;
+    const prompt = status
+      ? `Change ${order.code} to ${status.replace(/_/g, " ")}? Delivery/return changes may update inventory.`
+      : `Send ${order.code} to Steadfast? This creates a courier consignment.`;
+    if (!confirm(prompt)) return;
+    rowLock.current = true;
+    setRowBusy(order.id); setActionNotice(null);
+    try {
+      const response = await afetch(`/api/admin/orders/${order.id}${status ? "" : "/courier"}`, {
+        method: status ? "PUT" : "POST",
+        ...(status ? { headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status }) } : {}),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || !data.ok) throw new Error(data.error || "Could not save this order. Please retry.");
+      if (status) {
+        setRowOverrides((current) => ({ ...current, [order.id]: { ...current[order.id], status: data.order?.status || status, paymentStatus: data.order?.paymentStatus || order.paymentStatus } }));
+      } else {
+        if (!data.consignment?.consignment_id) throw new Error("Courier response is incomplete. Refresh the order before retrying.");
+        setRowOverrides((current) => ({ ...current, [order.id]: {
+          ...current[order.id], courierName: "Steadfast", courierConsignmentId: String(data.consignment.consignment_id),
+          courierStatus: data.consignment.delivery_status || "in_review", status: order.status === "ON_HOLD" ? "SHIPPED" : order.status,
+        } }));
+      }
+      setActionNotice({ text: status ? `${order.code}: status updated` : `${order.code}: sent to Steadfast`, error: false });
+      router.refresh();
+    } catch (error) {
+      setActionNotice({ text: `${order.code}: ${error instanceof Error ? error.message : "Network error. Please retry."}`, error: true });
+    } finally { rowLock.current = false; setRowBusy(null); }
   };
   const exportCsv = () => { window.location.href = withToken("/api/admin/export?type=orders"); };
 
   return (
-    <>
-      <div className="admin-top">
-        <h1>Orders <span style={{ fontSize: 14, color: "var(--muted)" }}>({list.length})</span></h1>
+    <section className="orders-page" aria-label="Orders management">
+      <div className="admin-top orders-heading">
+        <h1>Orders <span className="orders-count">{initial.length}</span></h1>
         <div className="admin-actions">
-          <button className="abtn" onClick={exportCsv}>⭳ Export CSV</button>
-          {sel.size > 0 && <>
+          <button className="abtn orders-export" onClick={exportCsv}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="M12 3v12m-5-5 5 5 5-5M4 16v5h16v-5" /></svg>
+            Export CSV
+          </button>
+        </div>
+      </div>
+      {sel.size > 0 && <fieldset className="orders-bulk" disabled={busy || rowBusy !== null}>
+            <legend>{sel.size} selected</legend>
             <select className="abtn" defaultValue="" onChange={(e) => e.target.value && bulk("status", e.target.value)}>
               <option value="">Set status ({sel.size})…</option>
               {STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
             </select>
-            <button className="abtn" onClick={async () => {
-              if (!confirm(`Send ${sel.size} order(s) to Steadfast?`)) return;
-              setBusy(true);
-              const r = await afetch("/api/admin/orders/bulk", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ids: Array.from(sel), action: "courier" }) });
-              const j = await r.json().catch(() => ({}));
-              setBusy(false);
-              if (r.ok) { setSel(new Set()); router.refresh(); alert(`Sent: ${j.sent} · Failed: ${j.failed}${j.failed ? "\n" + (j.results || []).filter((x: any) => !x.ok).map((x: any) => x.code + ": " + x.error).join("\n") : ""}`); }
-              else alert(j.error || "Failed");
-            }}>🚚 Send to Steadfast</button>
+            <button className="abtn" onClick={() => bulk("courier")}>Send to Steadfast</button>
             <button className="abtn" onClick={() => {
               const w = window.open("", "_blank");
               if (!w) return;
               const labels = Array.from(sel).map((id) => {
-                const o = initial.find((x) => x.id === id);
+                const o = orders.find((x) => x.id === id);
                 if (!o) return "";
                 const consignment = o.courierConsignmentId || "—";
-                const items = (o.items || []).map((i: any) => `${i.title}${i.variant ? " (" + i.variant + ")" : ""}${i.preorder ? " [PRE-ORDER]" : ""} × ${i.qty}`).join("<br>");
+                const items = (o.items || []).map((i: any) => `${escapeHtml(i.title)}${i.variant ? " (" + escapeHtml(i.variant) + ")" : ""}${i.preorder ? " [PRE-ORDER]" : ""} x ${escapeHtml(i.qty)}`).join("<br>");
                 return `<div style="page-break-after:always;padding:20px 16px;border-bottom:2px solid #333;font-family:Arial,sans-serif">
                   <div style="text-align:center;margin-bottom:12px">
                     <span style="font-family:Charm,'Brush Script MT',cursive;font-size:18px;font-weight:700;letter-spacing:.15em">SINZO</span>
                   </div>
                   <div style="border:1px solid #ccc;border-radius:6px;padding:12px;margin-bottom:10px">
                     <div style="font-size:10px;color:#888;text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px">Consignment ID</div>
-                    <div style="font-size:15px;font-weight:700">${consignment}</div>
+                    <div style="font-size:15px;font-weight:700">${escapeHtml(consignment)}</div>
                   </div>
                   <div style="border:1px solid #ccc;border-radius:6px;padding:12px;margin-bottom:10px">
                     <div style="font-size:10px;color:#888;text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px">Steadfast ID</div>
-                    <div style="font-size:13px;font-weight:600">${consignment !== "—" ? "SF-" + consignment : "—"}</div>
+                    <div style="font-size:13px;font-weight:600">${consignment !== "—" ? "SF-" + escapeHtml(consignment) : "—"}</div>
                   </div>
                   <div style="border:1px solid #ccc;border-radius:6px;padding:12px;margin-bottom:10px">
                     <div style="font-size:10px;color:#888;text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px">Customer Phone</div>
-                    <div style="font-size:14px;font-weight:600">${o.phone}</div>
+                    <div style="font-size:14px;font-weight:600">${escapeHtml(o.phone)}</div>
                   </div>
                   <div style="border:1px solid #ccc;border-radius:6px;padding:12px;margin-bottom:10px">
                     <div style="font-size:10px;color:#888;text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px">Items</div>
@@ -146,36 +190,101 @@ export default function OrdersClient({ initial, initialTab = "ALL" }: { initial:
               try { w.document.fonts.load("700 18px Charm").then(go, go); } catch { go(); }
             }}>🖨 Print labels</button>
             <button className="abtn danger" onClick={() => bulk("delete")}>Delete</button>
-          </>}
+            <button className="abtn" onClick={() => setSel(new Set())}>Clear selection</button>
+      </fieldset>}
+      <div className="orders-filters">
+        <div className="orders-search-row">
+          <label className="orders-search">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" /><path d="m16 16 5 5" /></svg>
+            <input type="search" placeholder="Search orders, name or phone" aria-label="Search orders by code, name, phone or consignment" value={q} onChange={(e) => setQ(e.target.value)} />
+          </label>
+          <button className={"abtn orders-filter-toggle" + (filterCount ? " has-filters" : "")} aria-expanded={filtersOpen} aria-controls="orders-extra-filters" onClick={() => setFiltersOpen(!filtersOpen)}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="M4 7h16M7 12h10M10 17h4" /></svg>
+            Filters{filterCount > 0 && <span>{filterCount}</span>}
+          </button>
         </div>
-      </div>
-      <div className="stat-strip admin-filters">
-        <input className="asearch" placeholder="Search code / phone / name / consignment…" value={q} onChange={(e) => setQ(e.target.value)} />
-        <span className="tab-strip" style={{ display: "inline-flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+        <div className="orders-status-tabs" role="group" aria-label="Filter orders by status">
           {TABS.map(([key, label]) => {
-            const n = key === "ALL" ? initial.length : initial.filter((o) => key === "PREORDER" ? (o.items || []).some((i) => i.preorder) : TAB_GROUPS[key].includes(o.status)).length;
+            const n = key === "ALL" ? initial.length : orders.filter((o) => key === "PREORDER" ? (o.items || []).some((i) => i.preorder) : TAB_GROUPS[key].includes(o.status)).length;
             const active = tab === key;
-            return <button key={key} className={"abtn" + (active ? " primary" : "")} style={active ? { fontWeight: 700 } : undefined} onClick={() => setTab(key)}>{label} <span style={{ opacity: 0.65 }}>({n})</span></button>;
+            return <button key={key} className={"orders-status-tab" + (active ? " is-active" : "")} aria-pressed={active} onClick={() => setTab(key)}>{label} <span style={{ opacity: 0.65 }}>({n})</span></button>;
           })}
-        </span>
-        <select className="abtn" value={payment} onChange={(e) => setPayment(e.target.value)}>
+        </div>
+        <div id="orders-extra-filters" className="orders-extra-filters" hidden={!filtersOpen}>
+        <label>Payment<select aria-label="Filter by payment status" className="abtn" value={payment} onChange={(e) => setPayment(e.target.value)}>
           <option value="">All payments</option>
           <option value="PENDING">Unpaid</option><option value="PAID">Paid</option>
-        </select>
-        <select className="abtn" value={dateFilter} onChange={(e) => setDateFilter(e.target.value)}>
+        </select></label>
+        <label>Date range<select aria-label="Filter by date range" className="abtn" value={dateFilter} onChange={(e) => setDateFilter(e.target.value)}>
           <option value="">All dates</option>
           <option value="today">Today</option>
           <option value="yesterday">Yesterday</option>
           <option value="week">Last 7 days</option>
           <option value="month">Last 30 days</option>
-        </select>
+        </select></label>
+        {filterCount > 0 && <button className="abtn" onClick={() => { setPayment(""); setDateFilter(""); }}>Reset filters</button>}
+        </div>
       </div>
-      <div className="acard">
+      {actionNotice && <div className={"orders-action-notice" + (actionNotice.error ? " is-error" : "")} role={actionNotice.error ? "alert" : "status"}>
+        <span>{actionNotice.text}</span><button type="button" aria-label="Dismiss order notification" onClick={() => setActionNotice(null)}>x</button>
+      </div>}
+      <div className="orders-list-summary">
+        <label><input type="checkbox" aria-label="Select all matching orders" checked={allSel} onChange={() => setSel(allSel ? new Set() : new Set(list.map((o) => o.id)))} /> Select all</label>
+        <span role="status">{list.length} {list.length === 1 ? "order" : "orders"}{sel.size > 0 ? ` / ${sel.size} selected` : ""}</span>
+      </div>
+      <div className="orders-mobile-list">
+        {list.length === 0 && <div className="orders-empty"><b>No orders found</b><p>Try another search or change your filters.</p></div>}
+        {list.map((o) => (
+          <article className={"order-mobile-card" + (sel.has(o.id) ? " is-selected" : "")} key={o.id} aria-label={"Order " + o.code}>
+            <div className="order-mobile-head">
+              <input type="checkbox" aria-label={"Select " + o.code} checked={sel.has(o.id)} onChange={() => toggle(o.id)} />
+              <Link href={withToken("/admin/orders/" + o.id)} className="order-mobile-code">{o.code}</Link>
+              {o.courierConsignmentId && <span className="order-mobile-consignment" title={(o.courierName || "Courier") + " consignment ID"}>CID {o.courierConsignmentId}</span>}
+              <span className={"pill " + o.status}>{o.status.replace(/_/g, " ")}</span>
+            </div>
+            <Link href={withToken("/admin/orders/" + o.id)} className="order-mobile-content" aria-label={"View " + o.code + " for " + o.name}>
+              <div className="order-mobile-customer"><strong>{o.name}</strong><b>{"BDT " + Math.round(o.total).toLocaleString("en-IN")}</b></div>
+              <div className="order-mobile-area">{o.area === "INSIDE_DHAKA" ? "Inside Dhaka" : "Outside Dhaka"}</div>
+              <ul className="order-mobile-items">{o.items.map((item, index) => (
+                <li key={index}>
+                  <span className="order-item-thumb" aria-hidden="true">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="m8 3-6 4 3 5 3-2v11h8V10l3 2 3-5-6-4a4 4 0 0 1-8 0Z" /></svg>
+                    {item.image && <img src={/^\/api\/media\/[^/]+$/.test(item.image) ? item.image + "/w80" : item.image} alt="" width={42} height={48} loading="lazy" decoding="async" onError={(event) => { event.currentTarget.hidden = true; }} />}
+                  </span>
+                  <span className="order-item-info">{item.title}{item.variant && <small>{item.variant}</small>}{item.preorder && <span className="po-tag">Pre-order</span>}</span><b>x{item.qty}</b></li>
+              ))}</ul>
+            </Link>
+            <div className="order-mobile-meta">
+              <span className={"pill " + o.paymentStatus}>{o.paymentMethod === "COD" ? "COD" : o.paymentMethod} / {o.paymentStatus}</span>
+              <span><FmtDate iso={o.createdAt} /></span>
+            </div>
+            {o.courierName && <div className="order-mobile-courier">{o.courierName} / {o.courierStatus || o.courierConsignmentId || "Awaiting update"}</div>}
+            <div className="order-mobile-footer">
+              <a href={telLink(o.phone)} aria-label={"Call " + o.name}>{o.phone}</a>
+              <a className="order-contact order-contact-wa" href={waLink(o.phone) + "?text=" + encodeURIComponent(orderWhatsAppMessage(o))} target="_blank" rel="noopener noreferrer" referrerPolicy="no-referrer" aria-label={"WhatsApp " + o.name} title="WhatsApp customer">WP</a>
+              <a className="order-contact" href={telLink(o.phone)} aria-label={"Call customer for " + o.code}>Call</a>
+              <Link className="order-mobile-open" href={withToken("/admin/orders/" + o.id)}>View order <span aria-hidden="true">&rarr;</span></Link>
+            </div>
+            <div className="order-mobile-actions" aria-busy={rowBusy === o.id}>
+              <button type="button" className="abtn order-send" disabled={busy || rowBusy !== null || !!o.courierConsignmentId || ["DELIVERED", "CANCELLED", "RETURNED"].includes(o.status)} onClick={() => runCardAction(o)}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true"><path d="M2 5h12v12H2zM14 9h4l4 4v4h-8M6 21a2 2 0 1 0 0-4 2 2 0 0 0 0 4m12 0a2 2 0 1 0 0-4 2 2 0 0 0 0 4" /></svg>
+                {rowBusy === o.id ? "Saving..." : o.courierConsignmentId ? "Courier sent" : "Send to Steadfast"}
+              </button>
+              <label className="order-mini-status"><span>Status</span>
+                <select aria-label={"Change status for " + o.code} value={o.status} disabled={busy || rowBusy !== null} onChange={(event) => runCardAction(o, event.target.value)}>
+                  {STATUSES.map((status) => <option value={status} key={status}>{status.replace(/_/g, " ")}</option>)}
+                </select>
+              </label>
+            </div>
+          </article>
+        ))}
+      </div>
+      <div className="acard orders-desktop-list">
         <div className="tbl-scroll tbl-sticky tbl-sticky-2">
           <table className="tbl">
             <thead>
               <tr>
-                <th><input type="checkbox" checked={allSel} onChange={() => setSel(allSel ? new Set() : new Set(Array.from(list, (o) => o.id)))} /></th>
+                <th><input type="checkbox" aria-label="Select all matching orders in table" checked={allSel} onChange={() => setSel(allSel ? new Set() : new Set(Array.from(list, (o) => o.id)))} /></th>
                 <th>Order</th><th>Customer</th><th>Items</th><th>Total</th><th>Payment</th><th>Status</th><th className="hide-m">Courier</th><th className="hide-m">Risk</th><th className="hide-m">Source</th><th>Date</th><th></th>
               </tr>
             </thead>
@@ -183,7 +292,7 @@ export default function OrdersClient({ initial, initialTab = "ALL" }: { initial:
               {list.length === 0 && <tr><td colSpan={12} style={{ color: "var(--muted)", padding: 30 }}>No orders match.</td></tr>}
               {list.map((o) => (
                 <tr key={o.id} style={{ cursor: "pointer" }} onClick={() => openOrder(o.id)}>
-                  <td onClick={(e) => e.stopPropagation()}><input type="checkbox" checked={sel.has(o.id)} onChange={() => toggle(o.id)} /></td>
+                  <td onClick={(e) => e.stopPropagation()}><input type="checkbox" aria-label={"Select " + o.code} checked={sel.has(o.id)} onChange={() => toggle(o.id)} /></td>
                   <td><Link href={withToken("/admin/orders/" + o.id)} onClick={(e) => e.stopPropagation()}><b>{o.code}</b></Link>{o.channel && o.channel !== "vps" && <span title="Order onugroho onno website theke (Vercel)" style={{ marginLeft: 6, fontSize: 9.5, fontWeight: 700, letterSpacing: ".06em", color: "#8a6d3b", background: "#f5ecd9", borderRadius: 99, padding: "2px 7px", verticalAlign: "middle" }}>{o.channel.toUpperCase()}</span>}</td>
                   <td>{o.name}<br />
                     <span style={{ color: "var(--muted)", fontSize: 12, display: "inline-flex", alignItems: "center", gap: 4 }}>
@@ -192,7 +301,7 @@ export default function OrdersClient({ initial, initialTab = "ALL" }: { initial:
                       <span>· {o.area === "INSIDE_DHAKA" ? "Inside Dhaka" : "Outside"}</span>
                     </span>
                   </td>
-                  <td style={{ fontSize: 12.5 }}>{o.items.map((i) => <div key={i.title}>{i.title}{i.variant ? ` (${i.variant})` : ""} ×{i.qty}{i.preorder ? <span className="po-tag">Pre-order</span> : null}</div>)}</td>
+                  <td style={{ fontSize: 12.5 }}>{o.items.map((i, index) => <div key={index}>{i.title}{i.variant ? ` (${i.variant})` : ""} ×{i.qty}{i.preorder ? <span className="po-tag">Pre-order</span> : null}</div>)}</td>
                   <td><b>৳{Math.round(o.total).toLocaleString("en-IN")}</b></td>
                   <td><span className={"pill " + o.paymentStatus}>{o.paymentMethod === "COD" ? "COD" : "ONLINE"} · {o.paymentStatus}</span></td>
                   <td><span className={"pill " + o.status}>{o.status}</span></td>
@@ -208,6 +317,6 @@ export default function OrdersClient({ initial, initialTab = "ALL" }: { initial:
         </div>
       </div>
       {busy && <div className="toast">Working…</div>}
-    </>
+    </section>
   );
 }

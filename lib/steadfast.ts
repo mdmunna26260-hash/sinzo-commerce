@@ -1,3 +1,4 @@
+import { courierCollectAmount } from "./courier-order";
 import { getSettings, envFallback } from "./settings";
 
 /* Steadfast Courier API client (official V1 docs).
@@ -18,9 +19,11 @@ function authHeaders(cfg: { apiKey: string; secretKey: string }) {
 }
 
 export async function createConsignment(order: any): Promise<{ ok: boolean; configured: boolean; data?: any; error?: string }> {
+  let codAmount: number;
+  try { codAmount = courierCollectAmount(order); }
+  catch (error) { return { ok: false, configured: true, error: error instanceof Error ? error.message : "Review order before courier booking." }; }
   const cfg = await steadfastCfg();
   if (!cfg.configured) return { ok: false, configured: false, error: "Not Configured: add Steadfast API Key & Secret in Admin > Settings > Courier" };
-  const codAmount = Math.max(0, Math.round(order.total));
   const body = {
     invoice: order.code,
     recipient_name: order.name,
@@ -54,7 +57,7 @@ export async function checkStatusByTracking(trackingCode: string): Promise<{ ok:
       headers: authHeaders(cfg), signal: AbortSignal.timeout(20000), cache: "no-store",
     });
     const json: any = await res.json().catch(() => ({}));
-    if (!res.ok) return { ok: false, configured: true, error: json.message || `HTTP ${res.status}` };
+    if (!res.ok || json.status >= 400) return { ok: false, configured: true, error: json.message || `HTTP ${res.status}` };
     return { ok: true, configured: true, data: json }; // { status:200, delivery_status }
   } catch (e: any) { return { ok: false, configured: true, error: String(e?.message || e) }; }
 }
@@ -67,7 +70,7 @@ export async function checkStatusByConsignment(consignmentId: string): Promise<{
       headers: authHeaders(cfg), signal: AbortSignal.timeout(20000), cache: "no-store",
     });
     const json: any = await res.json().catch(() => ({}));
-    if (!res.ok) return { ok: false, configured: true, error: json.message || `HTTP ${res.status}` };
+    if (!res.ok || json.status >= 400) return { ok: false, configured: true, error: json.message || `HTTP ${res.status}` };
     return { ok: true, configured: true, data: json };
   } catch (e: any) { return { ok: false, configured: true, error: String(e?.message || e) }; }
 }

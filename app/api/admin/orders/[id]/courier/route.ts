@@ -11,8 +11,11 @@ export async function POST(req: Request, props: Ctx) {
   const params = await props.params;
   const g = await requirePerm("orders", req);
   if ("res" in g) return g.res;
-  const order = await db.order.findUnique({ where: { id: Number(params.id) }, include: { items: true } });
+  const id = Number(params.id);
+  if (!Number.isSafeInteger(id) || id <= 0) return NextResponse.json({ error: "Invalid order ID" }, { status: 400 });
+  const order = await db.order.findUnique({ where: { id }, include: { items: true, payments: { select: { amount: true, kind: true } } } });
   if (!order) return NextResponse.json({ error: "Order not found" }, { status: 404 });
+  if (["DELIVERED", "CANCELLED", "RETURNED"].includes(order.status)) return NextResponse.json({ error: "Closed orders cannot be sent to courier" }, { status: 400 });
   if (order.courierConsignmentId) return NextResponse.json({ error: "Already sent to courier (" + order.courierConsignmentId + ")" }, { status: 400 });
   const r = await createConsignment(order);
   if (r.ok && r.data?.consignment_id) {
@@ -30,9 +33,11 @@ export async function GET(req: Request, props: Ctx) {
   const params = await props.params;
   const g = await requirePerm("orders", req);
   if ("res" in g) return g.res;
+  const id = Number(params.id);
+  if (!Number.isSafeInteger(id) || id <= 0) return NextResponse.json({ error: "Invalid order ID" }, { status: 400 });
   const { ensureExtraTables } = await import("@/lib/db-ensure");
   await ensureExtraTables().catch(() => {});
-  const order = await db.order.findUnique({ where: { id: Number(params.id) } });
+  const order = await db.order.findUnique({ where: { id } });
   if (!order?.courierConsignmentId) return NextResponse.json({ error: "No courier consignment on this order" }, { status: 400 });
   const beforeStatus = order.courierStatus;
   const r = await checkStatusByConsignment(order.courierConsignmentId);
@@ -57,5 +62,5 @@ export async function GET(req: Request, props: Ctx) {
       await logAudit(g.user.email, "COURIER_STATUS", `${order.code}: ${beforeStatus} → cancelled (Steadfast)`);
     }
   }
-  return NextResponse.json({ ok: r.ok, configured: r.configured, data: r.data, error: r.error });
+  return NextResponse.json({ ok: r.ok, configured: r.configured, data: r.data, error: r.error }, { status: r.ok ? 200 : r.configured ? 502 : 400 });
 }

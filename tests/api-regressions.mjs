@@ -245,6 +245,12 @@ try {
   check('bulk return really restores inventory', JSON.stringify(await counts(inventory)) === '[10,10]');
   await expect('bulk delivery uses the same stock lifecycle', '/api/admin/orders/bulk', { json: { ids: [order.id], action: 'status', value: 'DELIVERED' } }, 200);
   check('bulk delivery really deducts inventory', JSON.stringify(await counts(inventory)) === '[6,6]');
+  // A delivered fixture must be rejected before any external courier request.
+  await expect('manual courier refuses a closed order', '/api/admin/orders/' + order.id + '/courier', { json: {} }, 400);
+  const closedCourier = await expect('bulk courier handles a closed order without booking', '/api/admin/orders/bulk', { json: { ids: [order.id], action: 'courier' } }, 200);
+  check('bulk courier reports closed-order failure without a consignment', closedCourier.body.sent === 0 && closedCourier.body.failed === 1 && /cannot be sent/.test(closedCourier.body.results[0].error) && !(await db.order.findUnique({ where: { id: order.id } })).courierConsignmentId);
+  await expect('manual courier rejects invalid order IDs', '/api/admin/orders/not-an-id/courier', { json: {} }, 400);
+  await expect('manual courier status rejects invalid order IDs', '/api/admin/orders/not-an-id/courier', {}, 400);
   await expect('invalid order status is rejected', '/api/admin/orders/' + order.id, { method: 'PUT', json: { status: 'NOT-A-STATUS' } }, 400);
   await expect('fractional admin order quantity is rejected', '/api/admin/orders/' + order.id, { method: 'PUT', json: { items: [{ id: order.items[0].id, price: 200, qty: 1.5 }] } }, 400);
   await expect('duplicate admin item IDs are rejected atomically', '/api/admin/orders/' + order.id, { method: 'PUT', json: { items: Array.from({ length: 2 }, () => ({ id: order.items[0].id, price: 200, qty: 1 })) } }, 400);
@@ -287,6 +293,10 @@ try {
     // Only fixture identifiers are removed. Original configuration is restored exactly.
     const fixtureOrders = await db.order.findMany({ where: { phone: { in: phones } }, select: { id: true, code: true } });
     await db.notification.deleteMany({ where: { ref: { in: fixtureOrders.map((order) => order.code) } } });
+    // Mirror production cascades explicitly for isolated adapter-backed DBs too.
+    await db.orderItem.deleteMany({ where: { orderId: { in: fixtureOrders.map((order) => order.id) } } });
+    await db.payment.deleteMany({ where: { orderId: { in: fixtureOrders.map((order) => order.id) } } });
+    await db.inventoryMovement.deleteMany({ where: { productId: { in: productIds } } });
     await db.order.deleteMany({ where: { phone: { in: phones } } });
     await db.customer.deleteMany({ where: { phone: { in: phones } } });
     await db.product.deleteMany({ where: { id: { in: productIds } } });
