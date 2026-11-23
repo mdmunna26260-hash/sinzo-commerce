@@ -299,6 +299,9 @@ try {
     await db.inventoryMovement.deleteMany({ where: { productId: { in: productIds } } });
     await db.order.deleteMany({ where: { phone: { in: phones } } });
     await db.customer.deleteMany({ where: { phone: { in: phones } } });
+    await db.collectionProduct.deleteMany({ where: { productId: { in: productIds } } });
+    await db.productImage.deleteMany({ where: { productId: { in: productIds } } });
+    await db.productVariant.deleteMany({ where: { productId: { in: productIds } } });
     await db.product.deleteMany({ where: { id: { in: productIds } } });
     await db.coupon.deleteMany({ where: { id: { in: couponIds } } });
     await db.user.deleteMany({ where: { id: { in: userIds } } });

@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { imgSrc, imgSrcSet } from "./img-src";
 
 /* Shows recently viewed products from localStorage. The homepage variant is a
    personalised conversion shelf; it stays completely absent for first-time
@@ -38,7 +39,7 @@ export default function RecentlyViewedServer({ currentId = 0, homepage = false }
       <div className="recent-strip" aria-label="Recently viewed products">
         {items.map((item, i) => (
           <Link key={item.id} href={"/products/" + encodeURIComponent(item.slug)} className="recent-card" style={{ animationDelay: `${Math.min(i, 8) * 60}ms` }}>
-            {item.image && <img src={item.image} alt={item.title} loading="lazy" decoding="async" width={140} height={186} />}
+            {item.image && <img src={imgSrc(item.image, 300)} srcSet={imgSrcSet(item.image, [200, 300, 400, 600])} sizes={homepage ? "(max-width: 700px) 142px, 170px" : "140px"} alt={item.title} loading="lazy" decoding="async" width={140} height={186} />}
             <div className="recent-info">
               <div className="recent-title">{item.title}</div>
               <div className="recent-price">৳{Number(item.price).toLocaleString("en-IN")}</div>

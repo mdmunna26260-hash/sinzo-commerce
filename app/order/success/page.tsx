@@ -1,44 +1,28 @@
-import Link from "next/link";
 import PurchaseTracker from "./tracker";
-import PushOptIn from "@/components/push-optin";
+import SuccessReceipt from "./receipt";
+import { getSuccessOrder } from "@/lib/success-order";
+import { getSettings } from "@/lib/settings";
+import { waLink } from "@/lib/phone";
 
-export const metadata = { title: "Order Confirmed" };
+export const dynamic = "force-dynamic";
+export const metadata = {
+  title: "Thank You - Order Received",
+  robots: { index: false, follow: false },
+  referrer: "no-referrer" as const,
+};
 
-export default async function SuccessPage(
-  props: { searchParams: Promise<{ code?: string; total?: string; eid?: string; ids?: string; num?: string; ph?: string }> }
-) {
-  const searchParams = await props.searchParams;
-  const code = searchParams.code || "";
-  const total = searchParams.total || "";
-  const eid = searchParams.eid || "";
-  const ids = (searchParams.ids || "").split(",").filter(Boolean);
-  const num = parseInt(searchParams.num || "0", 10) || 0;
-  const ph = searchParams.ph || "";
-  return (
-    <div className="success-wrap">
-      {eid && <PurchaseTracker eid={eid} total={Number(total) || 0} ids={ids} num={num} phone={ph} />}
-      <div className="check">
-        <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path className="check-path" d="M20 6 9 17l-5-5"/></svg>
-      </div>
-      <h1>Thank you! Order confirmed.</h1>
-      <p style={{ color: "var(--muted)" }}>We&apos;ve received your order. Our team will call you shortly to confirm.</p>
-      {code && <div className="order-code">ORDER&nbsp;&nbsp;{code}</div>}
-      <p style={{ color: "var(--muted)", fontSize: 14 }}>
-        {total && <>Amount payable on delivery: <b style={{ color: "var(--text)" }}>৳{Number(total).toLocaleString("en-IN")}</b><br /></>}
-        Save your order code to track your parcel anytime.
-      </p>
-      <div style={{ display: "flex", gap: 12, justifyContent: "center", marginTop: 26, flexWrap: "wrap" }}>
-        {code && (
-          <a className="btn btn-accent" href={"/invoice/" + code} target="_blank" rel="noreferrer">
-            🧾 Download Invoice
-          </a>
-        )}
-        <Link className="btn" href={"/track?code=" + code}>Track Order</Link>
-        <Link className="btn btn-outline" href="/products">Continue Shopping</Link>
-      </div>
-      <div style={{ maxWidth: 420, margin: "22px auto 0" }}>
-        <PushOptIn phone={ph} code={code} />
-      </div>
-    </div>
-  );
+export default async function SuccessPage(props: {
+  searchParams: Promise<{ code?: string; ph?: string; eid?: string; total?: string; ids?: string; num?: string }>;
+}) {
+  const query = await props.searchParams;
+  // Prices, items and payment/status labels come from the verified order, never URL totals.
+  const order = await getSuccessOrder(query.code, query.ph);
+  const settings = await getSettings();
+  const support = settings.store?.whatsapp;
+  const supportHref = support ? waLink(String(support)) : undefined;
+  const eid = typeof query.eid === "string" && /^[a-zA-Z0-9_.:-]{1,160}$/.test(query.eid) ? query.eid : "";
+  return <>
+    {order && eid && <PurchaseTracker eid={eid} total={order.total} ids={order.items.filter((item) => item.productId).map((item) => String(item.productId))} num={order.items.reduce((sum, item) => sum + item.qty, 0)} phone={order.phone} />}
+    <SuccessReceipt order={order} supportHref={supportHref} />
+  </>;
 }

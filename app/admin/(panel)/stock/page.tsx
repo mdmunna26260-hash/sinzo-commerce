@@ -3,11 +3,13 @@ import { requireAdmin } from "@/lib/auth";
 import { money, units, resolveRange, RANGE_PRESETS } from "@/lib/reports";
 import Link from "next/link";
 import RestockPanel from "./client";
+import { adminWorkflowHref } from "@/lib/admin-workflow";
+import { ALLOW_URL_TOKEN } from "@/lib/session-token";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Stock" };
 
-type SP = { preset?: string; from?: string; to?: string; t?: string; reason?: string; product?: string };
+type SP = { preset?: string; from?: string; to?: string; t?: string; reason?: string; product?: string; attention?: string };
 
 /* Stock ledger.
    InventoryMovement has been written since the beginning — by deliveries, cancellations, returns
@@ -22,20 +24,20 @@ const REASON_LABEL: Record<string, string> = {
 export default async function StockPage(props: { searchParams: Promise<SP> }) {
   const searchParams = await props.searchParams;
   const user = await requireAdmin(searchParams, "products");
-  const t = searchParams.t || "";
-  const tk = (p: string) => (t ? p + (p.includes("?") ? "&" : "?") + "t=" + encodeURIComponent(t) : p);
+  const t = ALLOW_URL_TOKEN ? searchParams.t || "" : "";
+  const tk = (p: string) => adminWorkflowHref(p, t);
   const { start, end, label, preset } = resolveRange(searchParams);
   const reason = (searchParams.reason || "").toUpperCase();
   const productFilter = Number(searchParams.product || 0);
 
   const [products, movements, inRange] = await Promise.all([
     db.product.findMany({
-      where: { status: { not: "ARCHIVED" } },
-      select: { id: true, title: true, slug: true, stock: true, lowStock: true, cost: true, status: true, barcode: true, sku: true },
+      where: { status: searchParams.attention === "1" ? "ACTIVE" : { not: "ARCHIVED" } },
+      select: { id: true, title: true, slug: true, stock: true, lowStock: true, cost: true, status: true, barcode: true, sku: true, variants: { select: { id: true, size: true, color: true, sku: true, barcode: true, stock: true } } },
       orderBy: { stock: "asc" },
     }),
     db.inventoryMovement.findMany({
-      where: { ...(reason ? { reason } : {}), ...(productFilter ? { productId: productFilter } : {}) },
+      where: { createdAt: { gte: start, lte: end }, ...(reason ? { reason } : {}), ...(Number.isSafeInteger(productFilter) && productFilter > 0 ? { productId: productFilter } : {}) },
       orderBy: { id: "desc" },
       take: 120,
       include: { product: { select: { title: true, slug: true } } },
@@ -49,7 +51,7 @@ export default async function StockPage(props: { searchParams: Promise<SP> }) {
   const stockValue = products.reduce((a, p) => a + (p.cost ?? 0) * p.stock, 0);
   const totalUnits = products.reduce((a, p) => a + p.stock, 0);
   const out = products.filter((p) => p.stock <= 0);
-  const low = products.filter((p) => p.stock > 0 && p.stock <= (p.lowStock || 5));
+  const low = products.filter((p) => p.stock > 0 && p.stock <= (p.lowStock ?? 5));
   const needCost = products.filter((p) => p.cost == null && p.status === "ACTIVE").length;
 
   const soldUnits = inRange.filter((r) => r.reason === "ORDER" || r.reason === "DELIVERED").reduce((a, r) => a + Math.abs(r.delta), 0);
@@ -58,7 +60,7 @@ export default async function StockPage(props: { searchParams: Promise<SP> }) {
   const adjustment = inRange.filter((r) => r.reason === "MANUAL" || r.reason === "ADJUST").reduce((a, r) => a + r.delta, 0);
 
   const kpis = [
-    { label: "Units in stock", val: units(totalUnits), sub: `${products.length} active products` },
+    { label: "Units in stock", val: units(totalUnits), sub: `${products.length} non-archived products` },
     { label: "Stock value at cost", val: money(stockValue), sub: needCost ? `${needCost} products have no cost` : "every product priced" },
     { label: "Out of stock", val: units(out.length), sub: out.length ? "customers see SOLD OUT" : "nothing is sold out" },
     { label: "Low stock", val: units(low.length), sub: "at or under the alert level" },
@@ -69,11 +71,11 @@ export default async function StockPage(props: { searchParams: Promise<SP> }) {
   const reasons = ["", "RESTOCK", "DELIVERED", "CANCEL", "RETURN", "MANUAL", "ADJUST"];
 
   return (
-    <>
+    <section className="inventory-page">
       <div className="admin-top">
-        <div><h1>Stock</h1><div className="who">{label} · {user.name}</div></div>
+        <div><h1>{searchParams.attention === "1" ? "Stock attention" : "Stock"}</h1><div className="who">{label} · {user.name}</div>{searchParams.attention === "1" && <Link className="abtn" href={tk("/admin/stock")}>View all stock</Link>}</div>
         <form method="get" action="/admin/stock" style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-          {t && <input type="hidden" name="t" value={t} />}
+          {t && <input type="hidden" name="t" value={t} />}{searchParams.attention === "1" && <input type="hidden" name="attention" value="1" />}
           <select className="abtn" name="preset" defaultValue={preset}>
             {RANGE_PRESETS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
           </select>
@@ -86,14 +88,11 @@ export default async function StockPage(props: { searchParams: Promise<SP> }) {
         {kpis.map((k) => <div className="kpi" key={k.label}><div className="k-label">{k.label}</div><div className="k-val">{k.val}</div>{k.sub && <div className="k-sub">{k.sub}</div>}</div>)}
       </div>
 
-      <div className="adm-cols" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, alignItems: "start", marginBottom: 16  }}>
-        <div className="acard">
-          <div className="acard-h"><h3>Restock</h3><span style={{ fontSize: 12, color: "var(--muted)" }}>{out.length + low.length} products need attention</span></div>
-          <div className="acard-b">
-            <RestockPanel products={[...out, ...low].map((p) => ({ id: p.id, title: p.title, stock: p.stock, lowStock: p.lowStock, cost: p.cost }))} />
-          </div>
-        </div>
-
+      <div className="acard" style={{ marginBottom: 16 }}>
+        <div className="acard-h" id="stock-restock" style={{ scrollMarginTop: 80 }}><h3>Quick stock update</h3><span>{out.length + low.length} products at alert level</span></div>
+        <div className="acard-b"><RestockPanel products={products} attentionOnly={searchParams.attention === "1"} /></div>
+      </div>
+      <details className="inventory-report" style={{ marginBottom: 16 }}><summary>Stock value by product</summary>
         <div className="acard">
           <div className="acard-h"><h3>Stock value by product</h3><span style={{ fontSize: 12, color: "var(--muted)" }}>cost × units on hand</span></div>
           <div className="acard-b" style={{ overflowX: "auto", maxHeight: 420 }}>
@@ -106,7 +105,7 @@ export default async function StockPage(props: { searchParams: Promise<SP> }) {
                       <Link href={tk("/admin/products?edit=" + p.id)}>{p.title}</Link>
                       {p.sku && <div style={{ fontSize: 11.5, color: "var(--muted)" }}>{p.sku}{p.barcode ? " · " + p.barcode : ""}</div>}
                     </td>
-                    <td style={{ fontVariantNumeric: "tabular-nums", color: p.stock <= 0 ? "var(--ad-red, #b42318)" : p.stock <= (p.lowStock || 5) ? "var(--ad-amber, #b54708)" : undefined, fontWeight: p.stock <= (p.lowStock || 5) ? 600 : 400 }}>{units(p.stock)}</td>
+                    <td style={{ fontVariantNumeric: "tabular-nums", color: p.stock <= 0 ? "var(--ad-red, #b42318)" : p.stock <= (p.lowStock ?? 5) ? "var(--ad-amber, #b54708)" : undefined, fontWeight: p.stock <= (p.lowStock ?? 5) ? 600 : 400 }}>{units(p.stock)}</td>
                     <td style={{ fontVariantNumeric: "tabular-nums", color: "var(--muted)" }}>{p.cost == null ? "—" : money(p.cost)}</td>
                     <td style={{ fontVariantNumeric: "tabular-nums" }}>{p.cost == null ? "—" : money(p.cost * p.stock)}</td>
                   </tr>
@@ -115,7 +114,7 @@ export default async function StockPage(props: { searchParams: Promise<SP> }) {
             </table>
           </div>
         </div>
-      </div>
+      </details>
 
       <div className="acard">
         <div className="acard-h">
@@ -159,6 +158,6 @@ export default async function StockPage(props: { searchParams: Promise<SP> }) {
         back, editing an order or the product form logs an adjustment, and a restock adds it. That is what makes
         &ldquo;why is this 3?&rdquo; answerable. {adjustment !== 0 && <>Net manual adjustment in this range: <b>{adjustment > 0 ? "+" : ""}{adjustment}</b>.</>}
       </div>
-    </>
+    </section>
   );
 }

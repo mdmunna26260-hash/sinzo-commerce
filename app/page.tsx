@@ -44,20 +44,15 @@ function ProductShelf({ products }: { products: any[] }) {
   if (!products.length) return null;
   const pages = Array.from({ length: Math.ceil(products.length / 4) }, (_, index) => products.slice(index * 4, index * 4 + 4));
   return (
-    <>
-      <Carousel className="mobile-only">
+    <div className="grid grid-4 shelf-grid">
+      <Carousel className="shelf-carousel" desktopGrid>
         {pages.map((page, pageIndex) => (
           <div className="grid grid-4" key={"shelf-" + pageIndex}>
             {page.map((product: any, index: number) => <ProductCard key={product.id} p={product} rd={(pageIndex * 4 + index) % 4} />)}
           </div>
         ))}
       </Carousel>
-      <div className="desktop-only">
-        <div className="grid grid-4">
-          {products.map((product: any, index: number) => <ProductCard key={product.id} p={product} rd={index % 4} />)}
-        </div>
-      </div>
-    </>
+    </div>
   );
 }
 

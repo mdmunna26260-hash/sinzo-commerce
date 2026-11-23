@@ -11,7 +11,7 @@ function numeric(value: unknown, field: string): number {
   return Number(value);
 }
 
-export function parseStockAdjustment(body: unknown): { productId: number; qty: number; mode: "add" | "set"; unitCost: number | null; note: string } {
+export function parseStockAdjustment(body: unknown): { productId: number; qty: number; mode: "add" | "set"; unitCost: number | null; note: string; variantId?: number; expectedStock?: number; expectedProductStock?: number } {
   if (!body || typeof body !== "object" || Array.isArray(body)) throw new StockAdjustmentError("Invalid stock adjustment");
   const b = body as Record<string, unknown>;
   const productId = numeric(b.productId, "Product ID");
@@ -28,7 +28,14 @@ export function parseStockAdjustment(body: unknown): { productId: number; qty: n
     if (unitCost < 0 || unitCost > MAX_COST) throw new StockAdjustmentError("Unit cost must be a non-negative amount within the cost limit");
   }
   if (b.note != null && typeof b.note !== "string") throw new StockAdjustmentError("Note must be text");
-  return { productId, qty, mode, unitCost, note: typeof b.note === "string" ? b.note.slice(0, 120) : "" };
+  const optional: { variantId?: number; expectedStock?: number; expectedProductStock?: number } = {};
+  for (const key of ["variantId", "expectedStock", "expectedProductStock"] as const) {
+    if (b[key] === undefined) continue;
+    const value = numeric(b[key], key);
+    if (!Number.isSafeInteger(value) || value < (key === "variantId" ? 1 : 0) || value > MAX_STOCK) throw new StockAdjustmentError("Invalid " + key);
+    optional[key] = value;
+  }
+  return { ...optional, productId, qty, mode, unitCost, note: typeof b.note === "string" ? b.note.slice(0, 120) : "" };
 }
 
 export function adjustedStock(current: number, mode: "add" | "set", qty: number): number {

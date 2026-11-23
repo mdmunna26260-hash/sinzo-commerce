@@ -1,10 +1,11 @@
 "use client";
 import { FmtDate } from "@/components/dates";
 import { afetch, withToken, copyText } from "@/lib/afetch";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { waLink } from "@/lib/phone";
+import { orderWhatsAppMessage } from "@/lib/order-whatsapp";
+import { telLink, waLink } from "@/lib/phone";
 
 function ThermalLink({ orderId, token }: { orderId: number; token: string }) {
   const [w, setW] = useState("80");
@@ -172,6 +173,10 @@ export default function OrderDetailClient({ initial, nav }: { initial: Order; na
   const router = useRouter();
   const [o, setO] = useState(initial);
   const [busy, setBusy] = useState(false);
+  const mutationLock = useRef(false);
+  const [msgError, setMsgError] = useState(false);
+  const [keyboardOpen, setKeyboardOpen] = useState(false);
+
   const [msg, setMsg] = useState("");
   const [note, setNote] = useState(o.adminNote || "");
   const [edit, setEdit] = useState({ name: o.name, phone: o.phone, address: o.address });
@@ -188,7 +193,52 @@ export default function OrderDetailClient({ initial, nav }: { initial: Order; na
   const [pBusy, setPBusy] = useState(false);
   const [pickSel, setPickSel] = useState<{ productId: number; variantId: number | null; qty: string } | null>(null);
 
+  const customerDirty = edit.name !== o.name || edit.phone !== o.phone || edit.address !== o.address;
+  const noteDirty = note !== (o.adminNote || "");
+  const dirty = itemsEd !== null || customerDirty || noteDirty;
+  const closed = ["DELIVERED", "CANCELLED", "RETURNED"].includes(o.status);
+  const canSend = !o.courierConsignmentId && ["CONFIRMED", "PROCESSING", "PACKED"].includes(o.status);
+  useEffect(() => {
+    if (!dirty && !busy) { setO(initial); setEdit({ name: initial.name, phone: initial.phone, address: initial.address }); setNote(initial.adminNote || ""); }
+  }, [initial]);
+  useEffect(() => {
+    if (!dirty) return;
+    const unload = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = ""; };
+    const navigate = (event: MouseEvent) => {
+      const link = (event.target as Element)?.closest?.("a[href]") as HTMLAnchorElement | null;
+      if (!link || link.target === "_blank" || link.hasAttribute("download")) return;
+      const target = new URL(link.href, location.href);
+      if (!["http:", "https:"].includes(target.protocol) || (target.pathname === location.pathname && target.search === location.search && target.hash)) return;
+      if (!confirm("You have unsaved order changes. Leave without saving?")) { event.preventDefault(); event.stopPropagation(); }
+    };
+    window.addEventListener("beforeunload", unload); document.addEventListener("click", navigate, true);
+    return () => { window.removeEventListener("beforeunload", unload); document.removeEventListener("click", navigate, true); };
+  }, [dirty]);
+  useEffect(() => {
+    const viewport = window.visualViewport;
+    const update = () => setKeyboardOpen(!!viewport && window.innerHeight - viewport.height > 150);
+    viewport?.addEventListener("resize", update); update();
+    return () => viewport?.removeEventListener("resize", update);
+  }, []);
+  const mutate = async (url: string, options: RequestInit) => {
+    if (mutationLock.current) return null;
+    mutationLock.current = true; setBusy(true); setMsg(""); setMsgError(false);
+    try {
+      const response = await afetch(url, options);
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok || result.ok === false) throw new Error(result.error || "Could not complete this action. Please retry.");
+      return result;
+    } catch (error) {
+      setMsgError(true); setMsg(error instanceof Error ? error.message : "Network error. Your edits are still here. Please retry.");
+      return null;
+    } finally { mutationLock.current = false; setBusy(false); }
+  };
+  const requireSaved = () => {
+    if (dirty) { setMsgError(true); setMsg("Save or cancel your edits before changing fulfillment or payment status."); return false; }
+    return !mutationLock.current;
+  };
   const startItemsEdit = () => {
+    if (mutationLock.current) return;
     setItemsEd(o.items.map((i: any) => ({ ...i })));
     setDeliveryEd(String(Math.round(o.deliveryFee || 0)));
     setTotalEd(String(Math.round(o.total || 0)));
@@ -236,18 +286,16 @@ export default function OrderDetailClient({ initial, nav }: { initial: Order; na
       deliveryFee: Number(deliveryEd) || 0,
       total: shownTotal,
     };
-    setBusy(true); setMsg("");
-    const r = await afetch("/api/admin/orders/" + o.id, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-    const j = await r.json();
-    if (r.ok) { setItemsEd(null); setMsg("Items updated ✓ — totals synced"); router.refresh(); }
-    else setMsg(j.error || "Item update failed");
-    setBusy(false);
-    setTimeout(() => setMsg(""), 4000);
+    const result = await mutate("/api/admin/orders/" + o.id, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    if (!result) return false;
+    setO((current: any) => ({ ...current, ...result.order }));
+    setItemsEd(null); setMsg("Items and totals saved."); router.refresh();
+    return true;
   };
 
   const copy = async (label: string, text: string) => {
     const ok = await copyText(text);
-    setMsg(ok ? `📋 ${label} copied ✓` : "Copy failed");
+    setMsgError(!ok); setMsg(ok ? `${label} copied.` : "Copy failed");
     setTimeout(() => setMsg(""), 1800);
   };
   const downloadOrder = () => {
@@ -286,56 +334,57 @@ export default function OrderDetailClient({ initial, nav }: { initial: Order; na
   };
 
   const put = async (body: any, noteMsg?: string) => {
-    setBusy(true); setMsg("");
-    const r = await afetch("/api/admin/orders/" + o.id, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-    const j = await r.json();
-    if (r.ok) { setO({ ...o, ...body }); setMsg(noteMsg || "Saved ✓"); router.refresh(); }
-    else setMsg(j.error || "Failed");
-    setBusy(false);
-    setTimeout(() => setMsg(""), 2500);
+    if (mutationLock.current) return false;
+    if ((body.status || body.paymentStatus) && (!requireSaved() || !confirm(`Change ${body.status ? "order status" : "payment status"} to ${body.status || body.paymentStatus}? Delivery/return changes can update inventory.`))) return false;
+    const result = await mutate("/api/admin/orders/" + o.id, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    if (!result) return false;
+    setO((current: any) => ({ ...current, ...result.order }));
+    if (body.adminNote !== undefined) setNote(body.adminNote);
+    if (body.name !== undefined || body.phone !== undefined || body.address !== undefined) setEdit({ name: result.order?.name ?? body.name ?? o.name, phone: result.order?.phone ?? body.phone ?? o.phone, address: result.order?.address ?? body.address ?? o.address });
+    setMsg(noteMsg || "Changes saved."); router.refresh();
+    return true;
   };
-
+  const saveCustomer = async () => { if (await put(edit, "Customer details saved.")) setEditing(false); };
+  const saveAll = async () => {
+    if (itemsEd && !(await saveItems())) return;
+    if (customerDirty && !(await put(edit, "Customer details saved."))) return;
+    if (noteDirty && !(await put({ adminNote: note }, "Note saved."))) return;
+    setEditing(false);
+  };
   const sendCourier = async () => {
-    if (!confirm("Send this order to Steadfast courier?")) return;
-    setBusy(true); setMsg("");
-    const r = await afetch(`/api/admin/orders/${o.id}/courier`, { method: "POST" });
-    const j = await r.json();
-    if (r.ok) {
-      setO({ ...o, courierName: "Steadfast", courierConsignmentId: j.consignment?.consignment_id, courierStatus: j.consignment?.delivery_status });
-      setMsg("Sent to Steadfast ✓ " + (j.consignment?.consignment_id || ""));
-    } else {
-      setMsg(j.configured === false ? "⚠ Steadfast is NOT CONFIGURED — add API keys in Settings > Courier" : "Courier error: " + (j.error || "unknown"));
-    }
-    setBusy(false);
+    if (!requireSaved() || !canSend || !confirm("Send this order to Steadfast courier? This creates a consignment.")) return;
+    const result = await mutate(`/api/admin/orders/${o.id}/courier`, { method: "POST" });
+    if (!result) return;
+    if (!result.consignment?.consignment_id) { setMsgError(true); setMsg("Incomplete courier response. Refresh the order before retrying."); return; }
+    setO((current: any) => ({ ...current, courierName: "Steadfast", courierConsignmentId: String(result.consignment.consignment_id), courierStatus: result.consignment.delivery_status || "in_review" }));
+    setMsg("Order sent to Steadfast."); router.refresh();
   };
   const quickBlock = async (type: string, value: string) => {
-    if (!value) return;
-    if (!confirm(`Blacklist ${type}: ${value}?`)) return;
-    setBusy(true);
-    const r = await afetch("/api/admin/blacklist", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ type, value, note: "manual: from order " + o.code }) });
-    setMsg(r.ok ? `🚫 ${type} blacklisted ✓` : "Blacklist failed");
-    setBusy(false);
-    setTimeout(() => setMsg(""), 3000);
+    if (!value || mutationLock.current || !confirm(`Blacklist ${type}: ${value}?`)) return;
+    const result = await mutate("/api/admin/blacklist", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ type, value, note: "manual: from order " + o.code }) });
+    if (result) setMsg(`${type} blacklisted.`);
   };
-
   const trackCourier = async () => {
-    setBusy(true); setMsg("");
-    const r = await afetch(`/api/admin/orders/${o.id}/courier`);
-    const j = await r.json();
-    if (r.ok) { setO({ ...o, courierStatus: j.data?.delivery_status || o.courierStatus }); setMsg("Courier status: " + (j.data?.delivery_status || "unknown")); }
-    else setMsg(j.configured === false ? "⚠ Steadfast NOT CONFIGURED" : "Courier error: " + (j.error || ""));
-    setBusy(false);
+    if (!requireSaved()) return;
+    const result = await mutate(`/api/admin/orders/${o.id}/courier`, {});
+    if (!result) return;
+    // This manual check can update order status/inventory server-side: reload its actual state.
+    const latest = await mutate(`/api/admin/orders/${o.id}`, {});
+    if (latest?.order) setO((current: any) => ({ ...current, ...latest.order }));
+    if (latest) setMsg("Courier status refreshed.");
+    router.refresh();
   };
 
-  const money = (n: number) => "৳" + Math.round(n).toLocaleString("en-IN");
+  const money = (n: number) => "BDT " + Math.round(n).toLocaleString("en-IN");
 
   return (
-    <>
-      <div className="admin-top">
+    <section className={"order-detail" + (keyboardOpen ? " is-keyboard-open" : "")} aria-label="Order details">
+      <div className="admin-top order-detail-heading">
         <div>
           <h1>{o.code}</h1>
           <div className="who">Placed <FmtDate iso={o.createdAt} /> · Updated <FmtDate iso={o.updatedAt} /></div>
         </div>
+        <details className="order-detail-documents"><summary>Documents and order navigation</summary>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           <button className="abtn" onClick={downloadOrder}>⭳ Download</button>
           <ThermalLink orderId={o.id} token={(() => { try { return new URLSearchParams(location.search).get("t") || localStorage.getItem("sz_admin_token") || ""; } catch { return ""; } })()} />
@@ -344,23 +393,35 @@ export default function OrderDetailClient({ initial, nav }: { initial: Order; na
           <Link className="abtn" href={withToken("/admin/orders?tab=PENDING")}>← Back to Pending Orders</Link>
           <Link className="abtn" href={withToken("/admin/orders/" + o.id + "/invoice")} target="_blank">🖨 Invoice</Link>
           {!o.courierConsignmentId
-            ? <button className="abtn primary" onClick={sendCourier} disabled={busy}>🚚 Send to Steadfast</button>
-            : <button className="abtn" onClick={trackCourier} disabled={busy}>🔄 Refresh courier status</button>}
+            ? <button className="abtn primary" onClick={sendCourier} disabled={busy || dirty || !canSend} title={canSend ? "Book with Steadfast" : "Confirm the order before booking; closed or shipped orders cannot be sent"}>🚚 Send to Steadfast</button>
+            : <button className="abtn" onClick={trackCourier} disabled={busy || dirty}>🔄 Refresh courier status</button>}
         </div>
+        </details>
       </div>
-      {msg && <div className="noti ok">{msg}</div>}
+      {msg && <div className={"noti order-detail-notice " + (msgError ? "err" : "ok")} role={msgError ? "alert" : "status"}>{msg}<button type="button" aria-label="Dismiss notification" onClick={() => setMsg("")}>x</button></div>}
+      <section className="order-detail-overview" aria-label="Customer and delivery summary">
+        <div><span className={"pill " + o.status}>{o.status.replace(/_/g, " ")}</span><h2>{o.name}</h2><a href={telLink(o.phone)}>{o.phone}</a><p>{o.address}</p><small>{o.area === "INSIDE_DHAKA" ? "Inside Dhaka" : "Outside Dhaka"}</small></div>
+        <div className="order-detail-overview-total"><small>Order total / {o.paymentMethod}</small><strong>{money(o.total)}</strong><span className={"pill " + o.paymentStatus}>{o.paymentStatus}</span></div>
+        <div className="order-detail-contact">
+          <a className="abtn" href={telLink(o.phone)}>Call</a>
+          <a className="abtn" href={waLink(o.phone) + "?text=" + encodeURIComponent(orderWhatsAppMessage(o))} target="_blank" rel="noopener noreferrer" referrerPolicy="no-referrer">WhatsApp</a>
+          <button className="abtn" onClick={() => copy("Phone", o.phone)}>Copy phone</button>
+          <button className="abtn" onClick={() => copy("Address", o.address)}>Copy address</button>
+          <a className="abtn" href="#order-customer">Edit customer</a>
+        </div>
+      </section>
       {o.riskLevel !== "LOW" && (
         <div className="noti err">⚠ Risk level: <b>{o.riskLevel}</b>{o.riskFlags ? " — " + o.riskFlags : ""} — review before shipping.</div>
       )}
-      <FraudCheck orderId={o.id} phone={o.phone} />
+      <details className="order-detail-secondary"><summary>Courier history and fraud tools</summary><FraudCheck orderId={o.id} phone={o.phone} /></details>
 
-      <div className="adm-cols" style={{ display: "grid", gridTemplateColumns: "1.6fr 1fr", gap: 16, alignItems: "start"  }}>
+      <div className="adm-cols order-detail-columns" style={{ display: "grid", gridTemplateColumns: "1.6fr 1fr", gap: 16, alignItems: "start"  }}>
         <div>
           <div className="acard" style={{ marginBottom: 16 }}>
             <div className="acard-h">
               <h3>Items</h3>
               {!itemsEd
-                ? <button className="abtn sm" onClick={startItemsEdit}>✏️ Edit items</button>
+                ? <button className="abtn sm" onClick={startItemsEdit} disabled={busy}>✏️ Edit items</button>
                 : <div style={{ display: "flex", gap: 8 }}>
                     <button className="abtn sm primary" onClick={saveItems} disabled={busy} aria-busy={busy || undefined}>{busy && <span className="spinner" aria-hidden="true" />}Save items</button>
                     <button className="abtn sm" onClick={cancelItemsEdit} disabled={busy}>Cancel</button>
@@ -370,14 +431,14 @@ export default function OrderDetailClient({ initial, nav }: { initial: Order; na
             {!itemsEd ? (
               <>
                 <div className="tbl-scroll">
-                <table className="tbl">
+                <table className="tbl order-detail-items-table">
                   <thead><tr><th>Product</th><th>Variant</th><th>Price</th><th>Qty</th><th>Total</th></tr></thead>
                   <tbody>
                     {o.items.map((i: any) => (
                       <tr key={i.id}>
-                        <td>{i.image && <img src={i.image} alt="" style={{ display: "inline", marginRight: 10, verticalAlign: "middle" }} />}{i.title}{i.preorder ? <span className="po-tag">Pre-order{i.preorderDate ? " · " + new Date(i.preorderDate).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : ""}</span> : null}</td>
-                        <td>{i.variant || "—"}</td>
-                        <td>{money(i.price)}</td><td>{i.qty}</td><td><b>{money(i.price * i.qty)}</b></td>
+                        <td data-label="Product">{i.image && <img src={i.image} alt="" style={{ display: "inline", marginRight: 10, verticalAlign: "middle" }} />}{i.title}{i.preorder ? <span className="po-tag">Pre-order{i.preorderDate ? " · " + new Date(i.preorderDate).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : ""}</span> : null}</td>
+                        <td data-label="Variant">{i.variant || "—"}</td>
+                        <td data-label="Price">{money(i.price)}</td><td data-label="Qty">{i.qty}</td><td data-label="Total"><b>{money(i.price * i.qty)}</b></td>
                       </tr>
                     ))}
                   </tbody>
@@ -396,19 +457,19 @@ export default function OrderDetailClient({ initial, nav }: { initial: Order; na
                   Item add / remove / qty-price change korun. Product change korle ager product er stock ferot hobe, notun product er stock kata hobe. Save items na chaple kichu save hobe na.
                 </div>
                 <div className="tbl-scroll">
-                <table className="tbl">
+                <table className="tbl order-detail-items-table">
                   <thead><tr><th>Product</th><th>Variant</th><th>Price</th><th>Qty</th><th>Total</th><th></th></tr></thead>
                   <tbody>
                     {itemsEd.map((i: any, idx: number) => (
                       <tr key={i.id ?? "new-" + idx}>
-                        <td>
+                        <td data-label="Product">
                           {i.image && <img src={i.image} alt="" style={{ display: "inline", marginRight: 8, verticalAlign: "middle", width: 30, height: 38, objectFit: "cover", borderRadius: 3 }} />}
                           <span style={{ verticalAlign: "middle" }}>{i.title}</span>
                         </td>
-                        <td style={{ fontSize: 12.5 }}>{i.variant || "—"}</td>
-                        <td><input type="number" min={0} value={i.price} onChange={(e) => setItemsEd((cur) => (cur || []).map((x, k) => (k === idx ? { ...x, price: e.target.value } : x)))} style={{ width: 82, padding: "6px 8px" }} /></td>
-                        <td><input type="number" min={1} value={i.qty} onChange={(e) => setItemsEd((cur) => (cur || []).map((x, k) => (k === idx ? { ...x, qty: e.target.value } : x)))} style={{ width: 60, padding: "6px 8px" }} /></td>
-                        <td><b>{money((Number(i.price) || 0) * (Number(i.qty) || 0))}</b></td>
+                        <td data-label="Variant" style={{ fontSize: 12.5 }}>{i.variant || "—"}</td>
+                        <td data-label="Price"><input aria-label={"Price for item " + (idx + 1)} inputMode="decimal" type="number" min={0} value={i.price} onChange={(e) => setItemsEd((cur) => (cur || []).map((x, k) => (k === idx ? { ...x, price: e.target.value } : x)))} style={{ width: 82, padding: "6px 8px" }} /></td>
+                        <td data-label="Qty"><input aria-label={"Quantity for item " + (idx + 1)} inputMode="numeric" type="number" min={1} value={i.qty} onChange={(e) => setItemsEd((cur) => (cur || []).map((x, k) => (k === idx ? { ...x, qty: e.target.value } : x)))} style={{ width: 60, padding: "6px 8px" }} /></td>
+                        <td data-label="Total"><b>{money((Number(i.price) || 0) * (Number(i.qty) || 0))}</b></td>
                         <td style={{ whiteSpace: "nowrap" }}>
                           <button className="abtn sm" title="Change product" onClick={() => openPicker(idx)}>↻</button>{" "}
                           <button className="abtn sm danger" title="Remove item" onClick={() => setItemsEd((cur) => (cur || []).filter((_, k) => k !== idx))}>✕</button>
@@ -443,14 +504,14 @@ export default function OrderDetailClient({ initial, nav }: { initial: Order; na
             )}
           </div>
 
-          <div className="acard">
-            <div className="acard-h"><h3>Customer</h3>{!editing && <button className="abtn sm" onClick={() => setEditing(true)}>Edit</button>}{editing && <button className="abtn sm primary" onClick={() => { put(edit, "Customer updated ✓"); setEditing(false); }} disabled={busy}>Save</button>}</div>
+          <div className="acard" id="order-customer">
+            <div className="acard-h"><h3>Customer</h3>{!editing && <button className="abtn sm" onClick={() => setEditing(true)} disabled={busy}>Edit</button>}{editing && <button className="abtn sm" onClick={() => { setEdit({ name: o.name, phone: o.phone, address: o.address }); setEditing(false); }} disabled={busy}>Cancel</button>}{editing && <button className="abtn sm primary" onClick={saveCustomer} disabled={busy}>Save</button>}</div>
             <div className="acard-b">
               {editing ? (
                 <div className="form-grid">
-                  <div className="af"><label>Name</label><input value={edit.name} onChange={(e) => setEdit({ ...edit, name: e.target.value })} /></div>
-                  <div className="af"><label>Phone</label><input value={edit.phone} onChange={(e) => setEdit({ ...edit, phone: e.target.value })} /></div>
-                  <div className="af full"><label>Address</label><textarea value={edit.address} onChange={(e) => setEdit({ ...edit, address: e.target.value })} style={{ minHeight: 70 }} /></div>
+                  <div className="af"><label>Name</label><input aria-label="Customer name" value={edit.name} onChange={(e) => setEdit({ ...edit, name: e.target.value })} /></div>
+                  <div className="af"><label>Phone</label><input aria-label="Customer phone" inputMode="tel" autoComplete="tel" value={edit.phone} onChange={(e) => setEdit({ ...edit, phone: e.target.value })} /></div>
+                  <div className="af full"><label>Address</label><textarea aria-label="Customer address" value={edit.address} onChange={(e) => setEdit({ ...edit, address: e.target.value })} style={{ minHeight: 70 }} /></div>
                 </div>
               ) : (
                 <>
@@ -466,10 +527,10 @@ export default function OrderDetailClient({ initial, nav }: { initial: Order; na
                     {o.ip ? <> · IP: {o.ip}</> : null}
                   </div>
                   <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
-                    <a className="abtn sm" style={{ fontWeight: 600 }} href={"tel:" + o.phone}>📞 Call</a>
+                    <a className="abtn sm" style={{ fontWeight: 600 }} href={telLink(o.phone)}>📞 Call</a>
                     <button className="abtn sm" disabled={busy} onClick={() => copy("Phone", o.phone)}>📋 Copy</button>
                     <a className="abtn sm" style={{ color: "var(--ok)", borderColor: "#c4dfd0", fontWeight: 600 }}
-                      href={waLink(o.phone) + "?text=" + encodeURIComponent(`Assalamu alaikum ${o.name || ""}! SINZO theke apnar order ${o.code} — status: ${o.status}. Kono proyojon hole ei number-e message korun. Dhonnobad!`)}
+                      href={waLink(o.phone) + "?text=" + encodeURIComponent(orderWhatsAppMessage(o))}
                       target="_blank" rel="noreferrer">💬 WhatsApp customer</a>
                   </div>
                   <div style={{ display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap" }}>
@@ -488,18 +549,18 @@ export default function OrderDetailClient({ initial, nav }: { initial: Order; na
             <div className="acard-b">
               <div className="af" style={{ marginBottom: 12 }}>
                 <label>Order Status</label>
-                <select value={o.status} onChange={(e) => put({ status: e.target.value }, "Status → " + e.target.value)} disabled={busy}>
+                <select aria-label="Order status" value={o.status} onChange={(e) => put({ status: e.target.value }, "Status → " + e.target.value)} disabled={busy}>
                   {STATUSES.map((s) => <option key={s}>{s}</option>)}
                 </select>
               </div>
               {!o.courierConsignmentId && (
-                <button className="abtn primary sm" style={{ marginBottom: 12 }} onClick={sendCourier} disabled={busy}>🚚 Send to Steadfast</button>
+                <button className="abtn primary sm" style={{ marginBottom: 12 }} onClick={sendCourier} disabled={busy || dirty || !canSend} title={canSend ? "Book with Steadfast" : "Confirm the order before booking; closed or shipped orders cannot be sent"}>🚚 Send to Steadfast</button>
               )}
               <div className="af" style={{ marginBottom: 12 }}>
                 <label>Payment Status</label>
                 <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-                  <select value={o.paymentStatus} onChange={(e) => put({ paymentStatus: e.target.value }, "Payment → " + e.target.value)} disabled={busy} style={{ flex: 1, minWidth: 130 }}>
-                    <option>PENDING</option><option>PAID</option><option>FAILED</option><option>REFUNDED</option>
+                  <select aria-label="Payment status" value={o.paymentStatus} onChange={(e) => put({ paymentStatus: e.target.value }, "Payment → " + e.target.value)} disabled={busy} style={{ flex: 1, minWidth: 130 }}>
+                    <option>PENDING</option><option>PARTIAL</option><option>PAID</option><option>FAILED</option><option>REFUNDED</option>
                   </select>
                   {o.paymentStatus !== "PENDING" && (
                     <button className="abtn sm" disabled={busy} onClick={() => put({ paymentStatus: "PENDING" }, "Payment → PENDING")}>↩ Back to Pending</button>
@@ -511,7 +572,7 @@ export default function OrderDetailClient({ initial, nav }: { initial: Order; na
               </div>
               <div className="af">
                 <label>Admin Note</label>
-                <textarea value={note} onChange={(e) => setNote(e.target.value)} placeholder="Internal notes…" style={{ minHeight: 70 }} />
+                <textarea aria-label="Admin note" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Internal notes…" style={{ minHeight: 70 }} />
                 <div style={{ display: "flex", gap: 8, marginTop: 8, alignItems: "center", justifyContent: "space-between", flexWrap: "wrap" }}>
                   <button className="abtn sm" onClick={() => put({ adminNote: note }, "Note saved ✓")} disabled={busy}>Save note</button>
                   <span style={{ fontSize: 11.5, color: "var(--muted)", display: "inline-flex", alignItems: "center", gap: 5 }} title="Steadfast consignment">
@@ -524,7 +585,7 @@ export default function OrderDetailClient({ initial, nav }: { initial: Order; na
             </div>
           </div>
 
-          <PaymentsCard orderId={o.id} total={o.total} />
+          <PaymentsCard orderId={o.id} total={o.total} paymentStatus={o.paymentStatus} canMutate={requireSaved} onBusyChange={(value) => { mutationLock.current = value; setBusy(value); }} onSaved={(paymentStatus) => setO((current: any) => ({ ...current, paymentStatus }))} />
         </div>
       </div>
 
@@ -580,7 +641,15 @@ export default function OrderDetailClient({ initial, nav }: { initial: Order; na
           </div>
         </div>
       )}
-    </>
+      <div className="order-detail-mobile-bar" role="region" aria-label="Quick order actions">
+        <div><b>{dirty ? "Unsaved changes" : o.code}</b><small>{dirty ? "Your edits stay here if saving fails" : o.status.replace(/_/g, " ")}</small></div>
+        {dirty ? <button className="abtn primary" disabled={busy} onClick={saveAll}>{busy ? "Saving..." : "Save changes"}</button>
+          : o.status === "PENDING" ? <button className="abtn primary" disabled={busy} onClick={() => put({ status: "CONFIRMED" })}>{busy ? "Saving..." : "Confirm order"}</button>
+          : canSend ? <button className="abtn primary" disabled={busy} onClick={sendCourier}>{busy ? "Sending..." : "Send courier"}</button>
+          : o.courierConsignmentId && !closed ? <button className="abtn" disabled={busy} onClick={trackCourier}>{busy ? "Checking..." : "Check courier"}</button>
+          : <a className="abtn" href="#order-customer">Customer details</a>}
+      </div>
+    </section>
   );
 }
 
@@ -590,7 +659,7 @@ export default function OrderDetailClient({ initial, nav }: { initial: Order; na
 const PAY_METHODS = [["bkash", "bKash"], ["nagad", "Nagad"], ["rocket", "Rocket"], ["bank", "Bank"], ["cash", "Cash"], ["other", "Other"]];
 const PAY_KINDS = [["ADVANCE", "Advance"], ["DUE", "Collected at delivery"], ["REFUND", "Refund"]];
 
-function PaymentsCard({ orderId, total }: { orderId: number; total: number }) {
+function PaymentsCard({ orderId, total, paymentStatus, canMutate, onBusyChange, onSaved }: { orderId: number; total: number; paymentStatus: string; canMutate: () => boolean; onBusyChange: (value: boolean) => void; onSaved: (status: string) => void }) {
   const router = useRouter();
   const [rows, setRows] = useState<any[] | null>(null);
   const [sum, setSum] = useState<any>(null);
@@ -598,44 +667,44 @@ function PaymentsCard({ orderId, total }: { orderId: number; total: number }) {
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ text: string; ok: boolean } | null>(null);
 
+  const [loadError, setLoadError] = useState("");
+  const paymentLock = useRef(false);
   const load = async () => {
-    const r = await afetch(`/api/admin/orders/${orderId}/payments`);
-    const j = await r.json().catch(() => ({}));
-    if (r.ok) { setRows(j.rows || []); setSum(j.summary || null); }
-    else setRows([]);
+    setLoadError("");
+    try {
+      const response = await afetch(`/api/admin/orders/${orderId}/payments`);
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || "Could not load payment history.");
+      setRows(data.rows || []); setSum(data.summary || null);
+    } catch { setLoadError("Could not load payments. Retry before recording another payment."); }
   };
-  useEffect(() => { load(); }, [orderId]);
-
-  const money = (n: number) => "৳" + Number(n || 0).toLocaleString("en-IN");
-
-  const add = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setBusy(true); setMsg(null);
-    const r = await afetch(`/api/admin/orders/${orderId}/payments`, {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(form),
-    });
-    const j = await r.json().catch(() => ({}));
-    setBusy(false);
-    if (!r.ok || !j.ok) { setMsg({ text: j.error || "Could not save", ok: false }); return; }
-    setMsg({ text: `Saved — paid ${money(j.summary.net)}, still due ${money(j.summary.balance)}`, ok: true });
-    setForm({ amount: "", method: form.method, kind: form.kind, note: "" });
-    load(); router.refresh();
+  useEffect(() => { load(); }, [orderId, total]);
+  const money = (n: number) => "BDT " + Number(n || 0).toLocaleString("en-IN");
+  const changePayment = async (method: string, id?: number) => {
+    if (paymentLock.current || !canMutate()) return;
+    if (method === "DELETE" && !confirm("Remove this payment entry? The paid amount and remaining balance will change.")) return;
+    paymentLock.current = true; setBusy(true); onBusyChange(true); setMsg(null);
+    try {
+      const response = await afetch(`/api/admin/orders/${orderId}/payments${id ? "?paymentId=" + id : ""}`, {
+        method, ...(method === "POST" ? { headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) } : {}),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok || !result.ok) throw new Error(result.error || "Could not save payment.");
+      if (result.paymentStatus) onSaved(result.paymentStatus);
+      setMsg({ text: method === "DELETE" ? "Payment entry removed." : "Payment saved. Updated balance: " + money(result.summary?.balance), ok: true });
+      if (method === "POST") setForm({ amount: "", method: form.method, kind: form.kind, note: "" });
+      await load(); router.refresh();
+    } catch (error) { setMsg({ text: error instanceof Error ? error.message : "Network error. Check payment history before retrying.", ok: false }); }
+    finally { paymentLock.current = false; setBusy(false); onBusyChange(false); }
   };
-
-  const remove = async (id: number) => {
-    if (!confirm("Remove this payment entry? The order's paid amount will drop accordingly.")) return;
-    setBusy(true);
-    const r = await afetch(`/api/admin/orders/${orderId}/payments?paymentId=${id}`, { method: "DELETE" });
-    setBusy(false);
-    if (r.ok) { load(); router.refresh(); }
-  };
+  const add = async (event: React.FormEvent) => { event.preventDefault(); await changePayment("POST"); };
+  const remove = (id: number) => changePayment("DELETE", id);
 
   return (
     <div className="acard" style={{ marginBottom: 16 }}>
       <div className="acard-h">
         <h3>Payments</h3>
-        {sum && (
+        {sum && !(paymentStatus === "PAID" && !rows?.length) && (
           <span style={{ fontSize: 12.5 }}>
             <b style={{ color: sum.balance <= 0.5 ? "var(--ok)" : "var(--ad-red, #b42318)" }}>
               {sum.balance > 0.5 ? money(sum.balance) + " to collect" : sum.balance < -0.5 ? money(-sum.balance) + " overpaid" : "fully paid"}
@@ -645,8 +714,8 @@ function PaymentsCard({ orderId, total }: { orderId: number; total: number }) {
         )}
       </div>
       <div className="acard-b" style={{ fontSize: 13 }}>
-        {rows === null ? <div style={{ color: "var(--muted)" }}>Loading…</div> : rows.length === 0 ? (
-          <div style={{ color: "var(--muted)" }}>Nothing paid yet — the full {money(total)} is due at delivery.</div>
+        {loadError ? <div role="alert" className="noti err">{loadError}<button type="button" className="abtn" onClick={load}>Retry payments</button></div> : rows === null ? <div style={{ color: "var(--muted)" }}>Loading…</div> : rows.length === 0 ? (
+          <div style={{ color: "var(--muted)" }}>{paymentStatus === "PAID" ? "Marked paid. No payment ledger entries are available for this order." : "No payment entries recorded. Review the payment status before collecting " + money(total) + "."}</div>
         ) : (
           <div className="tbl-scroll">
           <table className="tbl" style={{ marginBottom: 12 }}>
@@ -668,19 +737,19 @@ function PaymentsCard({ orderId, total }: { orderId: number; total: number }) {
 
         <form onSubmit={add} style={{ display: "grid", gap: 8, borderTop: "1px solid var(--line)", paddingTop: 12 }}>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <input value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} type="number" min="1" step="0.01" placeholder="Amount ৳" required style={{ width: 120, padding: "8px 10px", border: "1px solid #d0d5dd", borderRadius: 5 }} />
-            <select value={form.method} onChange={(e) => setForm({ ...form, method: e.target.value })} style={{ padding: "8px 10px", border: "1px solid #d0d5dd", borderRadius: 5 }}>
+            <input aria-label="Payment amount" inputMode="decimal" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} type="number" min="1" step="0.01" placeholder="Amount ৳" required style={{ width: 120, padding: "8px 10px", border: "1px solid #d0d5dd", borderRadius: 5 }} />
+            <select aria-label="Payment method" value={form.method} onChange={(e) => setForm({ ...form, method: e.target.value })} style={{ padding: "8px 10px", border: "1px solid #d0d5dd", borderRadius: 5 }}>
               {PAY_METHODS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
             </select>
-            <select value={form.kind} onChange={(e) => setForm({ ...form, kind: e.target.value })} style={{ padding: "8px 10px", border: "1px solid #d0d5dd", borderRadius: 5 }}>
+            <select aria-label="Payment kind" value={form.kind} onChange={(e) => setForm({ ...form, kind: e.target.value })} style={{ padding: "8px 10px", border: "1px solid #d0d5dd", borderRadius: 5 }}>
               {PAY_KINDS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
             </select>
             {sum && sum.balance > 0.5 && (
               <button type="button" className="abtn sm" onClick={() => setForm({ ...form, amount: String(Math.round(sum.balance)) })} title="Fill the remaining balance">Full {money(sum.balance)}</button>
             )}
           </div>
-          <input value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} placeholder="Note — bKash TrxID, rider name…" style={{ padding: "8px 10px", border: "1px solid #d0d5dd", borderRadius: 5 }} />
-          <button className="abtn primary" type="submit" disabled={busy || !form.amount} style={{ justifySelf: "start" }}>{busy ? "…" : "Add payment"}</button>
+          <input aria-label="Payment note" value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} placeholder="Note — bKash TrxID, rider name…" style={{ padding: "8px 10px", border: "1px solid #d0d5dd", borderRadius: 5 }} />
+          <button className="abtn primary" type="submit" disabled={busy || !!loadError || !form.amount} style={{ justifySelf: "start" }}>{busy ? "…" : "Add payment"}</button>
           {msg && <div className={"noti " + (msg.ok ? "ok" : "err")}>{msg.text}</div>}
         </form>
       </div>
