@@ -1,4 +1,5 @@
 "use client";
+import { isReadyToSend, READY_TO_SEND_STATUSES } from "@/lib/admin-workflow";
 import { escapeHtml } from "@/lib/escape-html";
 import { orderWhatsAppMessage } from "@/lib/order-whatsapp";
 import { telLink, waLink } from "@/lib/phone";
@@ -10,40 +11,80 @@ import { useRouter } from "next/navigation";
 
 type O = {
   id: number; code: string; name: string; phone: string; address: string; area: string; total: number;
-  status: string; paymentStatus: string; paymentMethod: string; riskLevel: string;
+  adminNote?: string | null; status: string; paymentStatus: string; paymentMethod: string; riskLevel: string;
   channel?: string | null; source?: string | null; courierName?: string | null; courierConsignmentId?: string | null;
   courierStatus?: string | null; createdAt: string; items: { title: string; qty: number; image?: string | null; variant?: string | null; preorder?: boolean }[];
 };
 const STATUSES = ["PENDING", "CONFIRMED", "PROCESSING", "PACKED", "SHIPPED", "DELIVERED", "CANCELLED", "RETURNED", "ON_HOLD"];
 const TAB_GROUPS: Record<string, string[]> = {
-  ALL: [], PENDING: ["PENDING"], CONFIRMED: ["CONFIRMED"],
+  ALL: [], PENDING: ["PENDING"], CONFIRMED: ["CONFIRMED"], READY: READY_TO_SEND_STATUSES,
   ACTIVE: ["PROCESSING", "PACKED", "SHIPPED"], ON_HOLD: ["ON_HOLD"],
   DELIVERED: ["DELIVERED"], CLOSED: ["CANCELLED", "RETURNED"],
 };
-const TABS: [string, string][] = [["ALL", "All"], ["PENDING", "Pending"], ["CONFIRMED", "Confirmed"], ["ACTIVE", "Active"], ["ON_HOLD", "On Hold"], ["PREORDER", "Pre-order"], ["DELIVERED", "Delivered"], ["CLOSED", "Cancelled/Returned"]];
+const TABS: [string, string][] = [["ALL", "All"], ["PENDING", "Pending"], ["CONFIRMED", "Confirmed"], ["READY", "Ready to send"], ["ACTIVE", "Active"], ["ON_HOLD", "On Hold"], ["PREORDER", "Pre-order"], ["DELIVERED", "Delivered"], ["CLOSED", "Cancelled/Returned"]];
 
-export default function OrdersClient({ initial, initialTab = "ALL" }: { initial: O[]; initialTab?: string }) {
+export default function OrdersClient({ initial, initialTab = "ALL", initialQueue = "" }: { initial: O[]; initialTab?: string; initialQueue?: string }) {
   const router = useRouter();
   const [q, setQ] = useState("");
   const [tab, setTab] = useState(TABS.some(([key]) => key === initialTab) ? initialTab : "ALL");
   const [payment, setPayment] = useState("");
   const [dateFilter, setDateFilter] = useState("");
+  const [zone, setZone] = useState("");
   const [sel, setSel] = useState<Set<number>>(new Set());
   const [busy, setBusy] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const rowLock = useRef(false);
   const [rowBusy, setRowBusy] = useState<number | null>(null);
   const [rowOverrides, setRowOverrides] = useState<Record<number, Partial<O>>>({});
+  const [noteEdit, setNoteEdit] = useState<{ id: number; draft: string; original: string } | null>(null);
+  const [noteError, setNoteError] = useState("");
+  const noteDirty = !!noteEdit && noteEdit.draft !== noteEdit.original;
+  useEffect(() => {
+    if (!noteDirty) return;
+    const warn = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = ""; };
+    const navigate = (event: MouseEvent) => {
+      const link = (event.target as Element)?.closest?.("a[href]") as HTMLAnchorElement | null;
+      if (!link || link.target === "_blank" || link.hasAttribute("download") || !link.getAttribute("href")?.startsWith("/")) return;
+      if (!confirm("Leave with an unsaved internal note?")) { event.preventDefault(); event.stopPropagation(); }
+    };
+    window.addEventListener("beforeunload", warn); document.addEventListener("click", navigate, true);
+    return () => { window.removeEventListener("beforeunload", warn); document.removeEventListener("click", navigate, true); };
+  }, [noteDirty]);
+  const discardNote = () => {
+    if (rowLock.current || (noteDirty && !confirm("Discard this unsaved internal note?"))) return false;
+    setNoteEdit(null); setNoteError(""); return true;
+  };
+  const editNote = (order: O) => {
+    if (busy || rowLock.current || !discardNote()) return;
+    setNoteEdit({ id: order.id, draft: order.adminNote || "", original: order.adminNote || "" });
+  };
+  const saveNote = async (order: O) => {
+    if (!noteEdit || noteEdit.id !== order.id || busy || rowLock.current) return;
+    const draft = noteEdit.draft;
+    rowLock.current = true; setRowBusy(order.id); setNoteError("");
+    try {
+      const response = await afetch("/api/admin/orders/" + order.id, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ adminNote: draft }) });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || !data.ok) throw new Error(data.error || "Could not save note. Your text is kept.");
+      const saved = data.order?.adminNote ?? draft;
+      setRowOverrides(current => ({ ...current, [order.id]: { ...current[order.id], adminNote: saved } }));
+      setNoteEdit(null); setActionNotice({ text: order.code + ": internal note saved", error: false }); router.refresh();
+    } catch (error) { setNoteError(error instanceof Error ? error.message : "Could not confirm save. Your text is kept for retry."); }
+    finally { rowLock.current = false; setRowBusy(null); }
+  };
   const [actionNotice, setActionNotice] = useState<{ text: string; error: boolean } | null>(null);
   useEffect(() => { setRowOverrides({}); }, [initial]);
   const orders = useMemo(() => initial.map((order) => ({ ...order, ...rowOverrides[order.id] })), [initial, rowOverrides]);
-  const filterCount = Number(!!payment) + Number(!!dateFilter);
+  const filterCount = Number(!!payment) + Number(!!dateFilter) + Number(!!zone);
+  const resetFilters = () => { setPayment(""); setDateFilter(""); setZone(""); };
 
   const list = useMemo(() => orders.filter((o) => {
+    if (tab === "READY" && !isReadyToSend(o)) return false;
     if (tab === "PREORDER") { if (!(o.items || []).some((i) => i.preorder)) return false; }
     else { const g = TAB_GROUPS[tab] || []; if (g.length && !g.includes(o.status)) return false; }
     if (payment && o.paymentStatus !== payment) return false;
-    if (q && ![o.code, o.name, o.phone, o.courierConsignmentId || ""].join(" ").toLowerCase().includes(q.toLowerCase())) return false;
+    if (zone && o.area !== zone) return false;
+    if (q.trim() && ![o.code, o.name, o.phone, o.courierConsignmentId || "", ...o.items.map((item) => item.title + " " + (item.variant || ""))].join(" ").toLowerCase().includes(q.trim().toLowerCase())) return false;
     if (dateFilter) {
       const d = new Date(o.createdAt);
       const now = new Date();
@@ -59,7 +100,7 @@ export default function OrdersClient({ initial, initialTab = "ALL" }: { initial:
       }
     }
     return true;
-  }), [orders, q, tab, payment, dateFilter]);
+  }), [orders, q, tab, payment, dateFilter, zone]);
 
   const openOrder = (id: number) => router.push(withToken("/admin/orders/" + id));
 
@@ -104,7 +145,7 @@ export default function OrdersClient({ initial, initialTab = "ALL" }: { initial:
   };
   const runCardAction = async (order: O, status?: string) => {
     if (busy || rowLock.current || status === order.status) return;
-    if (!status && (order.courierConsignmentId || ["DELIVERED", "CANCELLED", "RETURNED"].includes(order.status))) return;
+    if (!status && (order.courierConsignmentId || !["CONFIRMED", "PROCESSING", "PACKED"].includes(order.status))) return;
     const prompt = status
       ? `Change ${order.code} to ${status.replace(/_/g, " ")}? Delivery/return changes may update inventory.`
       : `Send ${order.code} to Steadfast? This creates a courier consignment.`;
@@ -146,6 +187,7 @@ export default function OrdersClient({ initial, initialTab = "ALL" }: { initial:
           </button>
         </div>
       </div>
+      {initialQueue && <p className="orders-queue-context">Showing the latest {initial.length} {initialQueue} orders (up to 200). Tab counts reflect this loaded queue. <Link href={withToken("/admin/orders")}>View all orders</Link></p>}
       {sel.size > 0 && <fieldset className="orders-bulk" disabled={busy || rowBusy !== null}>
             <legend>{sel.size} selected</legend>
             <select className="abtn" defaultValue="" onChange={(e) => e.target.value && bulk("status", e.target.value)}>
@@ -194,10 +236,11 @@ export default function OrdersClient({ initial, initialTab = "ALL" }: { initial:
       </fieldset>}
       <div className="orders-filters">
         <div className="orders-search-row">
-          <label className="orders-search">
+          <div className="orders-search">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" /><path d="m16 16 5 5" /></svg>
-            <input type="search" placeholder="Search orders, name or phone" aria-label="Search orders by code, name, phone or consignment" value={q} onChange={(e) => setQ(e.target.value)} />
-          </label>
+            <input type="search" placeholder="Search order, name, phone, CID..." aria-label="Search orders by code, name, phone or consignment" value={q} onChange={(e) => setQ(e.target.value)} />
+            {q && <button type="button" className="orders-clear-search" aria-label="Clear order search" onClick={() => setQ("")}>x</button>}
+          </div>
           <button className={"abtn orders-filter-toggle" + (filterCount ? " has-filters" : "")} aria-expanded={filtersOpen} aria-controls="orders-extra-filters" onClick={() => setFiltersOpen(!filtersOpen)}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="M4 7h16M7 12h10M10 17h4" /></svg>
             Filters{filterCount > 0 && <span>{filterCount}</span>}
@@ -205,9 +248,12 @@ export default function OrdersClient({ initial, initialTab = "ALL" }: { initial:
         </div>
         <div className="orders-status-tabs" role="group" aria-label="Filter orders by status">
           {TABS.map(([key, label]) => {
-            const n = key === "ALL" ? initial.length : orders.filter((o) => key === "PREORDER" ? (o.items || []).some((i) => i.preorder) : TAB_GROUPS[key].includes(o.status)).length;
+            const n = key === "ALL" ? initial.length : orders.filter((o) => key === "PREORDER" ? (o.items || []).some((i) => i.preorder) : key === "READY" ? isReadyToSend(o) : TAB_GROUPS[key].includes(o.status)).length;
             const active = tab === key;
-            return <button key={key} className={"orders-status-tab" + (active ? " is-active" : "")} aria-pressed={active} onClick={() => setTab(key)}>{label} <span style={{ opacity: 0.65 }}>({n})</span></button>;
+            return <button key={key} className={"orders-status-tab" + (active ? " is-active" : "")} aria-pressed={active} onClick={() => { if ((initialQueue || key === "READY") && key !== tab) {
+              const queue = key === "READY" ? "ready" : key === "PENDING" ? "pending" : key === "ON_HOLD" ? "hold" : "";
+              router.push(withToken("/admin/orders?tab=" + key + (queue ? "&queue=" + queue : "")));
+            } else setTab(key); }}>{label} <span style={{ opacity: 0.65 }}>({n})</span></button>;
           })}
         </div>
         <div id="orders-extra-filters" className="orders-extra-filters" hidden={!filtersOpen}>
@@ -222,7 +268,10 @@ export default function OrdersClient({ initial, initialTab = "ALL" }: { initial:
           <option value="week">Last 7 days</option>
           <option value="month">Last 30 days</option>
         </select></label>
-        {filterCount > 0 && <button className="abtn" onClick={() => { setPayment(""); setDateFilter(""); }}>Reset filters</button>}
+        <label>Delivery zone<select aria-label="Filter by delivery zone" className="abtn" value={zone} onChange={(e) => setZone(e.target.value)}>
+          <option value="">All zones</option><option value="INSIDE_DHAKA">Inside Dhaka</option><option value="OUTSIDE_DHAKA">Outside Dhaka</option>
+        </select></label>
+        {filterCount > 0 && <button className="abtn" onClick={resetFilters}>Reset filters</button>}
         </div>
       </div>
       {actionNotice && <div className={"orders-action-notice" + (actionNotice.error ? " is-error" : "")} role={actionNotice.error ? "alert" : "status"}>
@@ -232,15 +281,15 @@ export default function OrdersClient({ initial, initialTab = "ALL" }: { initial:
         <label><input type="checkbox" aria-label="Select all matching orders" checked={allSel} onChange={() => setSel(allSel ? new Set() : new Set(list.map((o) => o.id)))} /> Select all</label>
         <span role="status">{list.length} {list.length === 1 ? "order" : "orders"}{sel.size > 0 ? ` / ${sel.size} selected` : ""}</span>
       </div>
-      <div className="orders-mobile-list">
-        {list.length === 0 && <div className="orders-empty"><b>No orders found</b><p>Try another search or change your filters.</p></div>}
+      <div className="orders-mobile-list" aria-label="Order cards">
+        {list.length === 0 && <div className="orders-empty"><b>No orders found</b><p>Try another search or change your filters.</p><button className="abtn" onClick={() => { resetFilters(); setQ(""); setTab("ALL"); }}>Reset all filters</button></div>}
         {list.map((o) => (
           <article className={"order-mobile-card" + (sel.has(o.id) ? " is-selected" : "")} key={o.id} aria-label={"Order " + o.code}>
             <div className="order-mobile-head">
               <input type="checkbox" aria-label={"Select " + o.code} checked={sel.has(o.id)} onChange={() => toggle(o.id)} />
               <Link href={withToken("/admin/orders/" + o.id)} className="order-mobile-code">{o.code}</Link>
               {o.courierConsignmentId && <span className="order-mobile-consignment" title={(o.courierName || "Courier") + " consignment ID"}>CID {o.courierConsignmentId}</span>}
-              <span className={"pill " + o.status}>{o.status.replace(/_/g, " ")}</span>
+              <span className={"pill " + o.status}><i aria-hidden="true" />{o.status.replace(/_/g, " ")}</span>
             </div>
             <Link href={withToken("/admin/orders/" + o.id)} className="order-mobile-content" aria-label={"View " + o.code + " for " + o.name}>
               <div className="order-mobile-customer"><strong>{o.name}</strong><b>{"BDT " + Math.round(o.total).toLocaleString("en-IN")}</b></div>
@@ -251,14 +300,22 @@ export default function OrdersClient({ initial, initialTab = "ALL" }: { initial:
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="m8 3-6 4 3 5 3-2v11h8V10l3 2 3-5-6-4a4 4 0 0 1-8 0Z" /></svg>
                     {item.image && <img src={/^\/api\/media\/[^/]+$/.test(item.image) ? item.image + "/w80" : item.image} alt="" width={42} height={48} loading="lazy" decoding="async" onError={(event) => { event.currentTarget.hidden = true; }} />}
                   </span>
-                  <span className="order-item-info">{item.title}{item.variant && <small>{item.variant}</small>}{item.preorder && <span className="po-tag">Pre-order</span>}</span><b>x{item.qty}</b></li>
+                  <span className="order-item-info"><span className="order-item-title">{item.title}</span>{item.variant && <small>{item.variant}</small>}{item.preorder && <span className="po-tag">Pre-order</span>}</span><b>x{item.qty}</b></li>
               ))}</ul>
             </Link>
             <div className="order-mobile-meta">
               <span className={"pill " + o.paymentStatus}>{o.paymentMethod === "COD" ? "COD" : o.paymentMethod} / {o.paymentStatus}</span>
               <span><FmtDate iso={o.createdAt} /></span>
             </div>
-            {o.courierName && <div className="order-mobile-courier">{o.courierName} / {o.courierStatus || o.courierConsignmentId || "Awaiting update"}</div>}
+            <div className="order-card-note">
+              {noteEdit?.id === o.id ? <div className="order-card-note-editor">
+                <label htmlFor={"order-note-" + o.id}>Internal note <small>Admin only</small></label>
+                <textarea id={"order-note-" + o.id} aria-label={"Internal note for " + o.code} rows={2} maxLength={2000} autoFocus disabled={rowBusy !== null || busy} value={noteEdit.draft} onChange={event => setNoteEdit(current => current ? { ...current, draft: event.target.value } : current)} placeholder="e.g. Call after 5 PM" />
+                {noteError && <p role="alert">{noteError}</p>}
+                <div><span>{noteEdit.draft.length}/2000</span><button type="button" className="abtn" disabled={rowBusy !== null || busy} onClick={discardNote}>Cancel</button><button type="button" className="abtn primary" disabled={rowBusy !== null || busy || !noteDirty} onClick={() => saveNote(o)}>{rowBusy === o.id ? "Saving..." : "Save note"}</button></div>
+              </div> : <button type="button" className="order-card-note-preview" disabled={rowBusy !== null || busy} aria-label={(o.adminNote ? "Edit internal note for " : "Add internal note for ") + o.code} onClick={() => editNote(o)}><span className="order-card-note-label">Note</span><span className={"order-card-note-text" + (!o.adminNote ? " is-empty" : "")}>{o.adminNote || "Add internal note"}</span><span className="order-card-note-edit">{o.adminNote ? "Edit" : "+"}</span></button>}
+            </div>
+            {o.courierName && <div className="order-mobile-courier"><i aria-hidden="true" />{o.courierName} / {o.courierStatus ? o.courierStatus.replace(/_/g, " ") : "Awaiting update"}</div>}
             <div className="order-mobile-footer">
               <a href={telLink(o.phone)} aria-label={"Call " + o.name}>{o.phone}</a>
               <a className="order-contact order-contact-wa" href={waLink(o.phone) + "?text=" + encodeURIComponent(orderWhatsAppMessage(o))} target="_blank" rel="noopener noreferrer" referrerPolicy="no-referrer" aria-label={"WhatsApp " + o.name} title="WhatsApp customer">WP</a>
@@ -266,10 +323,19 @@ export default function OrdersClient({ initial, initialTab = "ALL" }: { initial:
               <Link className="order-mobile-open" href={withToken("/admin/orders/" + o.id)}>View order <span aria-hidden="true">&rarr;</span></Link>
             </div>
             <div className="order-mobile-actions" aria-busy={rowBusy === o.id}>
-              <button type="button" className="abtn order-send" disabled={busy || rowBusy !== null || !!o.courierConsignmentId || ["DELIVERED", "CANCELLED", "RETURNED"].includes(o.status)} onClick={() => runCardAction(o)}>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true"><path d="M2 5h12v12H2zM14 9h4l4 4v4h-8M6 21a2 2 0 1 0 0-4 2 2 0 0 0 0 4m12 0a2 2 0 1 0 0-4 2 2 0 0 0 0 4" /></svg>
-                {rowBusy === o.id ? "Saving..." : o.courierConsignmentId ? "Courier sent" : "Send to Steadfast"}
-              </button>
+              {o.status === "PENDING" ? (
+                <button type="button" className="abtn order-confirm" disabled={busy || rowBusy !== null} onClick={() => runCardAction(o, "CONFIRMED")}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="m5 12 4 4L19 6" /></svg>
+                  {rowBusy === o.id ? "Saving..." : "Confirm order"}
+                </button>
+              ) : !["DELIVERED", "CANCELLED", "RETURNED"].includes(o.status) && o.courierConsignmentId ? (
+                <Link className="abtn order-parcel" href={withToken("/admin/orders/" + o.id)}>View parcel <span aria-hidden="true">&rarr;</span></Link>
+              ) : (
+                <button type="button" className="abtn order-send" disabled={busy || rowBusy !== null || !!o.courierConsignmentId || !["CONFIRMED", "PROCESSING", "PACKED"].includes(o.status)} onClick={() => runCardAction(o)}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true"><path d="M2 5h12v12H2zM14 9h4l4 4v4h-8M6 21a2 2 0 1 0 0-4 2 2 0 0 0 0 4m12 0a2 2 0 1 0 0-4 2 2 0 0 0 0 4" /></svg>
+                  {rowBusy === o.id ? "Saving..." : ["DELIVERED", "CANCELLED", "RETURNED"].includes(o.status) ? "Order " + o.status.toLowerCase() : o.status === "ON_HOLD" ? "On hold" : o.status === "SHIPPED" ? "Already shipped" : "Send to courier"}
+                </button>
+              )}
               <label className="order-mini-status"><span>Status</span>
                 <select aria-label={"Change status for " + o.code} value={o.status} disabled={busy || rowBusy !== null} onChange={(event) => runCardAction(o, event.target.value)}>
                   {STATUSES.map((status) => <option value={status} key={status}>{status.replace(/_/g, " ")}</option>)}

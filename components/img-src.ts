@@ -15,7 +15,7 @@ export function imgSrc(url: string | undefined | null, w: number): string {
 export function imgSrcSet(url: string | undefined | null, ws: number[]): string | undefined {
   if (!url) return undefined;
   const m = url.match(MEDIA_RE);
-  if (m) return ws.map((w) => `/api/media/${m[2]}/${variantKey(w)} ${w}w`).join(", ");
+  if (m) return ws.map((w) => `/api/media/${m[2]}/${variantKey(w)}${m[3] || ""} ${w}w`).join(", ");
   if (/\/uploads\/seed\/[^?]*\.jpg/i.test(url)) {
     // .jpg(?query)? → -{w}.webp(?query) — the buster rides along on every candidate
     return ws.map((w) => `${url.replace(/\.jpg(\?.*)?$/i, `-${w}.webp$1`)} ${w}w`).join(", ");

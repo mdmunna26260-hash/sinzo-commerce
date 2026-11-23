@@ -42,3 +42,11 @@ test('stock notes stay text and are bounded', () => {
   assert.equal(parse({ note: 'n'.repeat(150) }).note.length, 120);
   assert.throws(() => parse({ note: { bad: true } }), StockAdjustmentError);
 });
+
+test('variant ownership and optimistic preview identifiers are strictly validated', () => {
+  assert.deepEqual(parse({ variantId: '9', expectedStock: '0', expectedProductStock: '5' }), { productId: 1, qty: 2, mode: 'add', unitCost: null, note: '', variantId: 9, expectedStock: 0, expectedProductStock: 5 });
+  for (const key of ['variantId', 'expectedStock', 'expectedProductStock']) {
+    for (const value of [null, '', true, 1.5, -1, 2_147_483_648]) assert.throws(() => parse({ [key]: value }), StockAdjustmentError);
+  }
+  assert.throws(() => parse({ variantId: 0 }), StockAdjustmentError);
+});

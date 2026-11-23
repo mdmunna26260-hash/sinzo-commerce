@@ -1,6 +1,9 @@
 import { db } from "@/lib/db";
-import { requireAdmin } from "@/lib/auth";
-import { redirect } from "next/navigation";
+import DashboardWork from "@/components/admin/dashboard-work";
+import { dashboardWork } from "@/lib/dashboard-work";
+import { adminWorkflowHref } from "@/lib/admin-workflow";
+import { ALLOW_URL_TOKEN } from "@/lib/session-token";
+import { requireAdmin, can } from "@/lib/auth";
 import Link from "next/link";
 
 export const dynamic = "force-dynamic";
@@ -83,8 +86,11 @@ export default async function Dashboard(props: { searchParams: Promise<any> }) {
   const user = await requireAdmin(searchParams, "orders");
   const { ensureExtraTables } = await import("@/lib/db-ensure");
   await ensureExtraTables().catch(() => {});
-  const t = (searchParams?.t as string) || "";
-  const tk = (p: string) => (t ? p + "?t=" + encodeURIComponent(t) : p);
+  const rawToken = Array.isArray(searchParams?.t) ? searchParams.t[0] : searchParams?.t;
+  const t = ALLOW_URL_TOKEN && typeof rawToken === "string" ? rawToken : "";
+  const tk = (path: string) => adminWorkflowHref(path, t);
+  const productsAllowed = can(user, "products");
+  const customersAllowed = can(user, "customers");
 
   const startToday = new Date();startToday.setHours(0, 0, 0, 0);
   const startYesterday = new Date(startToday);startYesterday.setDate(startYesterday.getDate() - 1);
@@ -92,28 +98,27 @@ export default async function Dashboard(props: { searchParams: Promise<any> }) {
   const start14 = new Date(Date.now() - 14 * 86400000);
   const valid = { status: { notIn: ["CANCELLED"] } };
 
-  const [todayAgg, weekAgg, allAgg, todayCount, allCount, customerCount, pendingCount, deliveredCount, cancelledCount, lowStock, recentOrders, topProducts,
-    yesterdayAgg, prev7Agg, weekCount, prev7Count] = await Promise.all([
+  const [todayAgg, weekAgg, allAgg, todayCount, allCount, customerCount, deliveredCount, cancelledCount, recentOrders, topProducts,
+    yesterdayAgg, prev7Agg, weekCount, prev7Count, work] = await Promise.all([
     db.order.aggregate({ where: { ...valid, createdAt: { gte: startToday } }, _sum: { total: true } }),
     db.order.aggregate({ where: { ...valid, createdAt: { gte: start7 } }, _sum: { total: true } }),
     db.order.aggregate({ where: valid, _sum: { total: true } }),
     db.order.count({ where: { createdAt: { gte: startToday } } }),
     db.order.count(),
-    db.customer.count(),
-    db.order.count({ where: { status: "PENDING" } }),
+    customersAllowed ? db.customer.count() : Promise.resolve(0),
     db.order.count({ where: { status: "DELIVERED" } }),
     db.order.count({ where: { status: { in: ["CANCELLED", "RETURNED"] } } }),
-    db.product.findMany({ where: { status: "ACTIVE", stock: { lte: 5 } }, take: 6, select: { id: true, title: true, stock: true } }),
     db.order.findMany({ orderBy: { id: "desc" }, take: 8, include: { items: true } }),
     db.orderItem.groupBy({ by: ["productId", "title"], _count: { _all: true }, _sum: { qty: true }, orderBy: { _sum: { qty: "desc" } }, take: 5 }),
     db.order.aggregate({ where: { ...valid, createdAt: { gte: startYesterday, lt: startToday } }, _sum: { total: true } }),
     db.order.aggregate({ where: { ...valid, createdAt: { gte: start14, lt: start7 } }, _sum: { total: true } }),
     db.order.count({ where: { ...valid, createdAt: { gte: start7 } } }),
     db.order.count({ where: { ...valid, createdAt: { gte: start14, lt: start7 } } }),
+    dashboardWork({ orders: true, products: productsAllowed }),
   ]);
 
   const topIds = topProducts.map((x) => x.productId).filter(Boolean) as number[];
-  const topImgs = topIds.length
+  const topImgs = productsAllowed && topIds.length
     ? await db.product.findMany({ where: { id: { in: topIds } }, select: { id: true, images: { select: { url: true }, take: 1 } } })
     : [];
   const topImg = new Map(topImgs.map((p) => [p.id, p.images?.[0]?.url || ""]));
@@ -140,15 +145,17 @@ export default async function Dashboard(props: { searchParams: Promise<any> }) {
   const aovPrev7 = prev7Count ? prevWeek / prev7Count : 0;
 
   return (
-    <>
+    <section className="dashboard-page" aria-label="Store dashboard">
       <div className="admin-top">
         <div><h1>Dashboard</h1><div className="who">Welcome back, {user.name} · {new Date().toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" })}</div></div>
         <div className="admin-actions">
           <Link className="abtn" href="/" target="_blank">View Website</Link>
-          <Link className="abtn" href={tk("/admin/products")}>+ Add Product</Link>
+          {productsAllowed && <Link className="abtn" href={tk("/admin/products?new=1")}>+ Add Product</Link>}
           <Link className="abtn primary" href={tk("/admin/orders")}>View Orders</Link>
         </div>
       </div>
+
+      <DashboardWork counts={work} productsAllowed={productsAllowed} token={t} />
 
       {/* KPI row 1 — sales with trends */}
       <div className="kpis">
@@ -181,11 +188,11 @@ export default async function Dashboard(props: { searchParams: Promise<any> }) {
 
       {/* KPI row 2 — operational counts */}
       <div className="stat-strip dash-strip">
-        <div className="kpi"><div className="k-top"><div className="k-label">Pending Orders</div><div className="k-ic amber">{IC.clock}</div></div><div className="k-val">{pendingCount}</div><div className="k-sub">needs confirmation</div></div>
+        <div className="kpi"><div className="k-top"><div className="k-label">Pending Orders</div><div className="k-ic amber">{IC.clock}</div></div><div className="k-val">{work.pending ?? "--"}</div><div className="k-sub">needs confirmation</div></div>
         <div className="kpi"><div className="k-top"><div className="k-label">Delivered</div><div className="k-ic green">{IC.check}</div></div><div className="k-val">{deliveredCount}</div><div className="k-sub">completed</div></div>
         <div className="kpi"><div className="k-top"><div className="k-label">Cancelled / Returned</div><div className="k-ic red">{IC.x}</div></div><div className="k-val">{cancelledCount}</div><div className="k-sub">all-time</div></div>
-        <div className="kpi"><div className="k-top"><div className="k-label">Customers</div><div className="k-ic indigo">{IC.user}</div></div><div className="k-val">{customerCount}</div><div className="k-sub">total</div></div>
-        <div className="kpi"><div className="k-top"><div className="k-label">Low Stock</div><div className="k-ic amber">{IC.box}</div></div><div className="k-val">{lowStock.length}</div><div className="k-sub">{lowStock.length ? "needs restock" : "all good"}</div></div>
+        {customersAllowed && <div className="kpi"><div className="k-top"><div className="k-label">Customers</div><div className="k-ic indigo">{IC.user}</div></div><div className="k-val">{customerCount}</div><div className="k-sub">total</div></div>}
+        {productsAllowed && <div className="kpi"><div className="k-top"><div className="k-label">Low Stock</div><div className="k-ic amber">{IC.box}</div></div><div className="k-val">{work.stock ?? "--"}</div><div className="k-sub">{work.stock === null ? "count unavailable" : work.stock ? "needs restock" : "all good"}</div></div>}
       </div>
 
       <div className="adm-split adm-split-dash">
@@ -252,6 +259,6 @@ export default async function Dashboard(props: { searchParams: Promise<any> }) {
           </table>
         </div>
       </div>
-    </>
+    </section>
   );
 }

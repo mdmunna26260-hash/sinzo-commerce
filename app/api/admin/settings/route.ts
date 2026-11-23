@@ -83,5 +83,5 @@ export async function PUT(req: Request) {
   // (revalidate 60), so without this the admin toggles "don't work" until the cache expires
   if (group === "homeSections" || group === "homepage") revalidatePath("/");
   await logAudit(g.user.email, "SETTINGS_UPDATED", group);
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, value: maskAdminSettings({ [group]: merged })[group] });
 }

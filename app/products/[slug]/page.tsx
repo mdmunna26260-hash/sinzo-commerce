@@ -9,10 +9,8 @@ import { readPolicy } from "@/lib/policy";
 import { getCategories } from "@/lib/catalog";
 import { navCats } from "@/lib/category-tree";
 import { Header, Footer, Announcement } from "@/components/chrome";
-import { ProductCard } from "@/components/parts";
-
 import { imgSrc, PDP_WIDTHS, PDP_SIZES, PDP_SRC_WIDTH } from "@/components/img-src";
-import RelatedCarousel from "@/components/related-carousel";
+import RelatedStrip from "@/components/related-strip";
 import ProductPageClient from "./client";
 import ProductPageReviewForm from "./review-form";
 import RecentlyViewedServer from "@/components/recently-viewed-server";
@@ -107,14 +105,8 @@ export default async function PDP(props: { params: Promise<{ slug: string }>; se
   const cfg = publicSettings(s);
   const pol = readPolicy(s);
   const cats = await getCategories();
-  /* `images` is capped at 6 (same as the /products grid): the card draws its segmented photo
-     progress bar and drag gallery, so the rail needs the whole photo list, not just the cover. */
-  const relSelect = { id: true, title: true, slug: true, price: true, comparePrice: true, stock: true, badge: true, isNew: true, isBestSeller: true, categoryId: true, preorder: true, images: { select: { url: true, alt: true }, orderBy: { position: "asc" }, take: 6 }, variants: { select: { size: true, stock: true } } } as const;
-  const sizesOf = (r: typeof related[number]) => Array.from(new Set((r.variants || []).filter((v) => (r.preorder ? !!v.size : v.stock > 0 && v.size)).map((v) => v.size!))).sort((a, b) => {
-    const na = Number(a), nb = Number(b);
-    if (!Number.isNaN(na) && !Number.isNaN(nb)) return na - nb;
-    return 0;
-  });
+  // Compact recommendations only need the cover, title, price and product link.
+  const relSelect = { id: true, title: true, slug: true, price: true, images: { select: { url: true }, orderBy: { position: "asc" }, take: 1 } } as const;
   const related = await db.product.findMany({
     where: { status: "ACTIVE", categoryId: p.categoryId, id: { not: p.id } },
     select: relSelect, take: 40,
@@ -396,27 +388,9 @@ export default async function PDP(props: { params: Promise<{ slug: string }>; se
         {/* Related */}
         <section className="section" style={{ paddingTop: 20 }}>
           <div className="section-head"><div><div className="eyebrow">Keep browsing</div><h2>You may also like</h2></div></div>
-          {/* MOBILE: 2×2 swipeable carousel. This markup used to be rendered inline — with
-              `touch-action: pan-y` on `.rel-scroll` (which tells the browser NOT to pan it
-              horizontally) and no gesture handler behind it, so a thumb swipe on a phone moved
-              nothing at all. It is the shared rail now: same classes, same 2×2 pages, same bare
-              dots, but `components/related-carousel.tsx` drives `scrollLeft` with the swipe
-              machine and keeps the dots in sync with the page. */}
-          <RelatedCarousel
-            items={related.slice(0, 40).map((r) => ({
-              id: r.id, title: r.title, slug: r.slug, price: r.price, comparePrice: r.comparePrice,
-              image: r.images?.[0]?.url, images: r.images, stock: r.stock,
-              badge: r.badge, isNew: r.isNew, isBestSeller: r.isBestSeller, preorder: r.preorder, sizes: sizesOf(r),
-            }))}
-            dots
-          />
-
-          {/* DESKTOP: compact 4-col grid (normal product card size) */}
-          <div className="grid grid-4 desktop-only">
-            {related.map((r) => (
-              <ProductCard key={r.id} p={{ id: r.id, title: r.title, slug: r.slug, price: r.price, comparePrice: r.comparePrice, image: r.images?.[0]?.url, images: (r.images || []).map((i) => i.url), stock: r.stock, badge: r.badge, isNew: r.isNew, isBestSeller: r.isBestSeller, preorder: r.preorder, sizes: sizesOf(r) }} />
-            ))}
-          </div>
+          <RelatedStrip items={related.map((r) => ({
+            id: r.id, title: r.title, slug: r.slug, price: r.price, image: r.images?.[0]?.url,
+          }))} />
         </section>
       </div>
       <RecentlyViewedServer currentId={p.id} />

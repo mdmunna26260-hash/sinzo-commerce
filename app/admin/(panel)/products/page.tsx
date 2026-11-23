@@ -15,7 +15,7 @@ export default async function AdminProducts(props: { searchParams: Promise<any> 
   const products = await db.product.findMany({ include: { images: true, variants: true, category: true }, orderBy: [{ position: "asc" }, { id: "desc" }] });
   const categories = await db.category.findMany({ orderBy: { name: "asc" } });
   const data = products.map((p) => ({
-    id: p.id, title: p.title, slug: p.slug, sku: p.sku, price: p.price, comparePrice: p.comparePrice,
+    id: p.id, title: p.title, slug: p.slug, sku: p.sku, barcode: p.barcode, price: p.price, comparePrice: p.comparePrice,
     cost: p.cost, stock: p.stock, lowStock: p.lowStock, status: p.status, featured: p.featured,
     tags: p.tags, shortDesc: p.shortDesc, description: p.description,
     sizeChartImage: p.sizeChartImage || null, badge: p.badge, isNew: p.isNew, isBestSeller: p.isBestSeller,
@@ -29,5 +29,5 @@ export default async function AdminProducts(props: { searchParams: Promise<any> 
     images: p.images.sort((a, b) => a.position - b.position).map((i) => i.url),
     variants: p.variants.map((v) => ({ id: v.id, size: v.size, color: v.color, sku: v.sku, price: v.price, stock: v.stock, image: v.image })),
   }));
-  return <ProductsClient initial={data} categories={flattenCategoryTree(categories).map((c) => ({ id: c.id, name: c.path }))} />;
+  return <ProductsClient initialEditId={Number(searchParams.edit) || undefined} initialCreate={searchParams.new === "1"} initial={data} categories={flattenCategoryTree(categories).map((c) => ({ id: c.id, name: c.path }))} />;
 }

@@ -10,7 +10,7 @@ import { useRailSwipe } from "@/components/swipe-rail";
    finger moves and always settles on a page. Native scroll-snap was a coin flip on iOS —
    a diagonal thumb swipe scrolled the page and left the rail ("swipe korle change hoy na").
    Arrows and dots keep using scrollTo, so nothing else had to change. */
-export default function Carousel({ children, className = "", autoMs = 0 }: { children: React.ReactNode; className?: string; autoMs?: number }) {
+export default function Carousel({ children, className = "", autoMs = 0, desktopGrid = false }: { children: React.ReactNode; className?: string; autoMs?: number; desktopGrid?: boolean }) {
   const [idx, setIdx] = useState(0);
   const [pages, setPages] = useState(1);
   const [manualPause, setManualPause] = useState(false);
@@ -62,15 +62,24 @@ export default function Carousel({ children, className = "", autoMs = 0 }: { chi
   const measure = () => {
     const el = rail.node.current;
     if (!el) return;
-    setPages(Math.max(1, Math.ceil(el.scrollWidth / el.clientWidth)));
-    setIdx(Math.round(el.scrollLeft / el.clientWidth));
+    // The same product cards form the desktop grid; its display:contents rail
+    // has no box to measure and must not own horizontal touch gestures.
+    if (desktopGrid && window.matchMedia("(min-width: 900px)").matches) {
+      el.scrollLeft = 0;
+      setPages(1);
+      setIdx(0);
+      return;
+    }
+    const width = Math.max(1, el.clientWidth);
+    setPages(Math.max(1, Math.ceil(el.scrollWidth / width)));
+    setIdx(Math.round(el.scrollLeft / width));
   };
   useEffect(() => {
     measure();
     window.addEventListener("resize", measure);
     return () => window.removeEventListener("resize", measure);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [children]);
+  }, [children, desktopGrid]);
 
   const nudge = (dir: number) => {
     if (autoMs) pauseAfterInteraction();

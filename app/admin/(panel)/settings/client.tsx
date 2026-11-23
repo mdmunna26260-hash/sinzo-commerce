@@ -1,23 +1,30 @@
 "use client";
 import { afetch, withToken } from "@/lib/afetch";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { mergeHomeSections } from "@/lib/home-sections";
+import { SETTINGS_SECTIONS, SETTINGS_GROUP_LABELS, changedSettingsGroups } from "@/lib/settings-workflow";
+import { maskAdminSettings } from "@/lib/settings-values";
 import { MAX_HERO_SLIDES } from "@/lib/home-hero";
 
 const TABS = ["Store", "Theme", "Homepage Layout", "Shipping", "Policies", "Courier", "Checkout & Fraud", "Notifications", "SEO & Maintenance"];
-const MAP: Record<string, string> = { Store: "store", Theme: "theme", Shipping: "shipping", Courier: "courier", "Checkout & Fraud": "__multi", "SEO & Maintenance": "__multi2" };
+
 
 function CourierTestBadge() {
   const [state, setState] = useState<{ busy: boolean; msg: string; ok: boolean }>({ busy: false, msg: "", ok: false });
+  const testLock = useRef(false);
   const test = async () => {
+    if (testLock.current) return;
     setState({ busy: true, msg: "Steadfast API call…" , ok: false });
-    const r = await afetch("/api/admin/courier/test", { method: "POST" });
-    const j = await r.json();
-    if (r.ok && j.ok) setState({ busy: false, msg: "✓ " + (j.detail || "Connected"), ok: true });
-    else if (j.configured === false) setState({ busy: false, msg: "⚠ " + (j.error || "Not configured"), ok: false });
-    else setState({ busy: false, msg: "✗ " + (j.detail || j.error || "API unreachable"), ok: false });
-    setTimeout(() => setState({ busy: false, msg: "", ok: false }), 15000);
+    testLock.current = true;
+    try {
+      const r = await afetch("/api/admin/courier/test", { method: "POST" });
+      const j = await r.json();
+      if (r.ok && j.ok) setState({ busy: false, msg: "✓ " + (j.detail || "Connected"), ok: true });
+      else if (j.configured === false) setState({ busy: false, msg: "⚠ " + (j.error || "Not configured"), ok: false });
+      else setState({ busy: false, msg: "✗ " + (j.detail || j.error || "API unreachable"), ok: false });
+    } catch { setState({ busy: false, msg: "Network error. Test was not confirmed; check the provider before retrying.", ok: false }); }
+    finally { testLock.current = false; }
   };
   return (
     <span style={{ display: "inline-flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
@@ -30,14 +37,19 @@ function CourierTestBadge() {
 
 function TestNotifBtn() {
   const [state, setState] = useState<{ busy: boolean; msg: string; ok: boolean }>({ busy: false, msg: "", ok: false });
+  const testLock = useRef(false);
   const test = async () => {
+    if (testLock.current) return;
     setState({ busy: true, msg: "Sending…", ok: false });
-    const r = await afetch("/api/admin/notifications/test", { method: "POST" });
-    const j = await r.json();
-    if (r.ok && j.ok) setState({ busy: false, msg: "✓ Telegram-e test pathano hoyeche — check korun!", ok: true });
-    else if (j.configured === false) setState({ busy: false, msg: "⚠ " + (j.error || "Not configured"), ok: false });
-    else setState({ busy: false, msg: "✗ Telegram rejected: " + (j.error || "unknown"), ok: false });
-    setTimeout(() => setState({ busy: false, msg: "", ok: false }), 7000);
+    testLock.current = true;
+    try {
+      const r = await afetch("/api/admin/notifications/test", { method: "POST" });
+      const j = await r.json();
+      if (r.ok && j.ok) setState({ busy: false, msg: "✓ Telegram-e test pathano hoyeche — check korun!", ok: true });
+      else if (j.configured === false) setState({ busy: false, msg: "⚠ " + (j.error || "Not configured"), ok: false });
+      else setState({ busy: false, msg: "✗ Telegram rejected: " + (j.error || "unknown"), ok: false });
+    } catch { setState({ busy: false, msg: "Network error. Test was not confirmed; check the provider before retrying.", ok: false }); }
+    finally { testLock.current = false; }
   };
   return (
     <span style={{ display: "inline-flex", gap: 10, alignItems: "center" }}>
@@ -50,18 +62,23 @@ function TestNotifBtn() {
 function TestSmsBtn() {
   const [state, setState] = useState<{ busy: boolean; msg: string; ok: boolean }>({ busy: false, msg: "", ok: false });
   const [phone, setPhone] = useState("");
+  const testLock = useRef(false);
   const test = async () => {
+    if (testLock.current) return;
     const to = phone.trim() || prompt("Test SMS kothay pathabo? Number din (01XXXXXXXXX):") || "";
-    if (!to) return;
+    if (!to || !confirm("Send a test SMS to " + to + " using saved settings? SMS charges may apply.")) return;
     setState({ busy: true, msg: "Sending…", ok: false });
-    const r = await afetch("/api/admin/sms", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ phone: to, message: "Sinzo test SMS — gateway thik moto kaj korche ✓" }),
-    });
-    const j = await r.json().catch(() => ({}));
-    if (j.ok) setState({ busy: false, msg: "✓ Sent to " + j.to, ok: true });
-    else setState({ busy: false, msg: "✗ " + (j.error || "Send failed"), ok: false });
-    setTimeout(() => setState({ busy: false, msg: "", ok: false }), 9000);
+    testLock.current = true;
+    try {
+      const r = await afetch("/api/admin/sms", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone: to, message: "Sinzo test SMS — gateway thik moto kaj korche ✓" }),
+      });
+      const j = await r.json().catch(() => ({}));
+      if (j.ok) setState({ busy: false, msg: "✓ Sent to " + j.to, ok: true });
+      else setState({ busy: false, msg: "✗ " + (j.error || "Send failed"), ok: false });
+    } catch { setState({ busy: false, msg: "Network error. Test was not confirmed; check the provider before retrying.", ok: false }); }
+    finally { testLock.current = false; }
   };
   return (
     <span style={{ display: "inline-flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
@@ -123,8 +140,9 @@ function HeroProductsPicker({ homepage, products, onChange }: { homepage: any; p
   );
 }
 
-function HomepageLayoutTab({ groups, save, busy, collections = [], products = [] }: any) {
-  const [secs, setSecs] = useState<any[]>(() => mergeHomeSections(groups.homeSections));
+function HomepageLayoutTab({ groups, save, busy, onChange, collections = [], products = [] }: any) {
+  const secs = mergeHomeSections(groups.homeSections);
+  const setSecs = onChange;
   const [drag, setDrag] = useState<number | null>(null);
   const move = (i: number, j: number) => {
     if (j < 0 || j >= secs.length) return;
@@ -249,98 +267,125 @@ function HeroSlidesEditor({ homepage, onChange, onUpload, busy }: {
   );
 }
 
+/* Stable component identities keep typing focus on every keystroke. */
+function SettingsField({ k, label, type = "text", group, groups, onChange }: any) {
+  const id = "setting-" + group + "-" + k;
+  return <div className="af"><label htmlFor={id}>{label}</label><input id={id} type={type} value={groups[group]?.[k] ?? ""} onChange={e => onChange((current: any) => ({ ...current, [group]: { ...current[group], [k]: e.target.value } }))} /></div>;
+}
+function SettingsImageField({ k, label, group, groups, onChange, onUpload }: any) {
+  const id = "setting-" + group + "-" + k;
+  return <div className="af full"><label htmlFor={id}>{label}</label><div className="settings-image-field">
+    {groups[group]?.[k] && <img src={groups[group][k]} alt="Current image" width="56" height="70" />}
+    <input id={id} value={groups[group]?.[k] ?? ""} onChange={e => onChange((current: any) => ({ ...current, [group]: { ...current[group], [k]: e.target.value } }))} placeholder="/uploads/..." />
+    <label className="abtn">Upload<input type="file" accept="image/*" hidden onChange={e => { const file = e.target.files?.[0]; if (file) void onUpload(file, group, k); e.target.value = ""; }} /></label>
+  </div></div>;
+}
+
 export default function SettingsClient({ groups, user, userCount, hasCourier, collections = [], products = [] }: any) {
   const router = useRouter();
   const [tab, setTab] = useState("Store");
   const [g, setG] = useState<any>(groups);
-  const [msg, setMsg] = useState("");
   const [busy, setBusy] = useState(false);
+  const [saved, setSaved] = useState<any>(() => JSON.parse(JSON.stringify(groups)));
+  const [results, setResults] = useState<Record<string, { ok: boolean; text: string }>>({});
+  const mutation = useRef(false);
+  const pageRef = useRef<HTMLElement>(null);
+  const changed = changedSettingsGroups(g, saved);
+  const currentGroups = SETTINGS_SECTIONS[tab] || [];
+  const begin = () => { if (mutation.current) return false; mutation.current = true; setBusy(true); return true; };
+  const finish = () => { mutation.current = false; setBusy(false); };
+  useEffect(() => {
+    if (!changed.length && !busy) return;
+    const warn = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = ""; };
+    const navigate = (event: MouseEvent) => {
+      const link = (event.target as Element)?.closest?.("a[href]") as HTMLAnchorElement | null;
+      if (!link || link.target === "_blank" || link.hasAttribute("download") || link.getAttribute("href")?.startsWith("#")) return;
+      if (!confirm("Leave Settings with unsaved changes or an operation in progress?")) { event.preventDefault(); event.stopPropagation(); }
+    };
+    window.addEventListener("beforeunload", warn); document.addEventListener("click", navigate, true);
+    return () => { window.removeEventListener("beforeunload", warn); document.removeEventListener("click", navigate, true); };
+  }, [changed.length, busy]);
+  useEffect(() => {
+    const viewport = window.visualViewport;
+    const fit = () => {
+      const offset = Math.max(0, innerHeight - (viewport?.height || innerHeight) - (viewport?.offsetTop || 0));
+      pageRef.current?.style.setProperty("--settings-keyboard-offset", offset + "px");
+      pageRef.current?.classList.toggle("settings-keyboard-open", offset > 100);
+    };
+    fit(); viewport?.addEventListener("resize", fit); viewport?.addEventListener("scroll", fit);
+    return () => { viewport?.removeEventListener("resize", fit); viewport?.removeEventListener("scroll", fit); };
+  }, []);
+  const [msg, setMsg] = useState("");
   const [bl, setBl] = useState({ type: "PHONE", value: "" });
 
   const save = async (group: string, value: any) => {
-    setBusy(true); setMsg("");
-    const r = await afetch("/api/admin/settings", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ group, value }) });
-    const j = await r.json();
-    setMsg(r.ok ? "Settings saved ✓" : j.error || "Failed");
-    setBusy(false);
-    setTimeout(() => { setMsg(""); if (r.ok) router.refresh(); }, 1200);
+    if (mutation.current) return;
+    const label = SETTINGS_GROUP_LABELS[group] || group;
+    if (["shipping", "checkout", "maintenance", "courier", "fraud"].includes(group) && !confirm("Save " + label + " settings? These changes affect the live store.")) return;
+    if (!begin()) return;
+    const snapshot = JSON.parse(JSON.stringify(value ?? {}));
+    setResults(current => ({ ...current, [group]: { ok: true, text: "Saving " + label + "..." } }));
+    try {
+      const r = await afetch("/api/admin/settings", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ group, value: snapshot }) });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok || !j.ok) { setResults(current => ({ ...current, [group]: { ok: false, text: j.error || label + " could not save. Edits are kept." } })); return; }
+      const masked = j.value ?? maskAdminSettings({ [group]: snapshot })[group];
+      setSaved((current: any) => ({ ...current, [group]: masked }));
+      setG((current: any) => ({ ...current, [group]: masked }));
+      setResults(current => ({ ...current, [group]: { ok: true, text: label + " saved. Other sections are unchanged." } }));
+      router.refresh();
+    } catch { setResults(current => ({ ...current, [group]: { ok: false, text: label + " save could not be confirmed. Edits are kept for retry." } })); }
+    finally { finish(); }
   };
-  const uploadImg = async (file: File, group: string, key: string) => {
-    setBusy(true); setMsg("Uploading image…");
-    const fd = new FormData(); fd.append("file", file);
-    const r = await afetch("/api/admin/upload", { method: "POST", body: fd });
-    const j = await r.json();
-    if (r.ok) {
-      setG((x: any) => ({ ...x, [group]: { ...x[group], [key]: j.url } }));
-      setMsg("Image uploaded ✓ — ekhon Save chapun");
-    } else setMsg(j.error || "Upload failed");
-    setBusy(false);
-    setTimeout(() => setMsg(""), 3500);
+  const uploadImage = async (file: File, apply: (url: string) => void) => {
+    if (!begin()) return;
+    setMsg("Uploading image...");
+    try {
+      const fd = new FormData(); fd.append("file", file);
+      const r = await afetch("/api/admin/upload", { method: "POST", body: fd }); const j = await r.json().catch(() => ({}));
+      if (!r.ok || !j.url) { setMsg(j.error || "Upload failed. Other edits are kept."); return; }
+      apply(j.url); setMsg("Image uploaded. Save its section to publish the change.");
+    } catch { setMsg("Upload failed. Other edits are kept. Select the image again to retry."); }
+    finally { finish(); }
   };
-  const uploadHeroSlideImage = async (file: File, index: number, key: "image" | "mobileImage") => {
-    setBusy(true); setMsg("Uploading hero image…");
-    const fd = new FormData(); fd.append("file", file);
-    const response = await afetch("/api/admin/upload", { method: "POST", body: fd });
-    const result = await response.json().catch(() => ({}));
-    if (response.ok) {
-      setG((current: any) => {
-        const slides = Array.isArray(current.homepage?.heroSlides) ? [...current.homepage.heroSlides] : [];
-        if (!slides[index]) return current;
-        slides[index] = { ...slides[index], [key]: result.url };
-        return { ...current, homepage: { ...current.homepage, heroSlides: slides } };
-      });
-      setMsg("Hero image uploaded ✓ — Save Homepage chapun");
-    } else setMsg(result.error || "Upload failed");
-    setBusy(false);
-    setTimeout(() => setMsg(""), 3500);
-  };
-  const ImgField = ({ k, label, group }: any) => (
-    <div className="af full">
-      <label>{label}</label>
-      <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-        {g[group]?.[k] && <img src={g[group][k]} alt="" style={{ width: 56, height: 70, objectFit: "cover", borderRadius: 4, border: "1px solid #ddd" }} />}
-        <input value={g[group]?.[k] ?? ""} onChange={(e) => setG({ ...g, [group]: { ...g[group], [k]: e.target.value } })} style={{ flex: 1, minWidth: 200 }} placeholder="/uploads/…" />
-        <label className="abtn" style={{ cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 }}>
-          ⬆ Upload
-          <input type="file" accept="image/*" hidden onChange={(e) => { if (e.target.files?.[0]) uploadImg(e.target.files[0], group, k); e.target.value = ""; }} />
-        </label>
-      </div>
-    </div>
-  );
-  const F = ({ k, label, type = "text", group }: any) => (
-    <div className="af">
-      <label>{label}</label>
-      <input type={type} value={g[group]?.[k] ?? ""} onChange={(e) => setG({ ...g, [group]: { ...g[group], [k]: e.target.value } })} />
-    </div>
-  );
+  const uploadImg = (file: File, group: string, key: string) => uploadImage(file, url => setG((current: any) => ({ ...current, [group]: { ...current[group], [key]: url } })));
+  const uploadHeroSlideImage = (file: File, index: number, key: "image" | "mobileImage") => uploadImage(file, url => setG((current: any) => ({ ...current, homepage: { ...current.homepage, heroSlides: (current.homepage?.heroSlides || []).map((slide: any, i: number) => i === index ? { ...slide, [key]: url } : slide) } })));
   const saveBtn = (group: string) => <button className="abtn primary" onClick={() => save(group, g[group])} disabled={busy} aria-busy={busy || undefined}>{busy && <span className="spinner" aria-hidden="true" />} {busy ? "Saving…" : "Save " + group.charAt(0).toUpperCase() + group.slice(1)}</button>;
   const blacklistAdd = async () => {
-    if (!bl.value) return;
-    // blacklist is stored via settings-less model — use audit+blacklist API? simplest: direct fetch to a tiny route
-    const r = await afetch("/api/admin/blacklist", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(bl) });
-    if (r.ok) { setMsg("Blacklisted ✓"); setBl({ type: bl.type, value: "" }); router.refresh(); }
+    if (!bl.value || mutation.current || !confirm("Blacklist this " + bl.type.toLowerCase() + "? Matching orders may be rejected.")) return;
+    if (!begin()) return;
+    try {
+      const r = await afetch("/api/admin/blacklist", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(bl) });
+      const j = await r.json().catch(() => ({}));
+      if (r.ok) { setMsg("Blacklist entry saved."); setBl({ type: bl.type, value: "" }); router.refresh(); }
+      else setMsg(j.error || "Blacklist failed. Input is kept.");
+    } catch { setMsg("Blacklist failed. Input is kept for retry."); }
+    finally { finish(); }
   };
 
   return (
-    <>
+    <section className="settings-workflow" ref={pageRef}>
       <div className="admin-top"><h1>Settings</h1><span className="who">Everything here is editable without touching code.</span></div>
+      <div className="settings-section-jump"><label htmlFor="settings-section">Jump to section</label><select id="settings-section" disabled={busy} value={tab} onChange={e => { setTab(e.target.value); setMsg(""); }}>{TABS.map(title => <option key={title} value={title}>{title}{SETTINGS_SECTIONS[title]?.some(key => changed.includes(key)) ? " - unsaved" : ""}</option>)}</select><p>{changed.length ? changed.length + " settings group(s) have unsaved changes. Switching sections keeps your edits." : "Save only the section you change. Other sections stay untouched."}</p></div>
       <div className="settings-nav" role="tablist" aria-label="Settings sections">
-        {TABS.map((t) => <button key={t} type="button" role="tab" aria-selected={tab === t} className={"chip" + (tab === t ? " active" : "")} style={{ cursor: "pointer" }} onClick={(e) => { setTab(t); e.currentTarget.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" }); }}>{t}</button>)}
+        {TABS.map((t) => <button key={t} type="button" role="tab" id={"settings-tab-" + TABS.indexOf(t)} aria-controls="settings-content" disabled={busy} aria-selected={tab === t} className={"chip" + (tab === t ? " active" : "")} style={{ cursor: "pointer" }} onClick={(e) => { setTab(t); setMsg(""); e.currentTarget.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" }); }}>{t}{SETTINGS_SECTIONS[t]?.some(key => changed.includes(key)) ? " *" : ""}</button>)}
       </div>
-      {msg && <div className="noti ok">{msg}</div>}
-
+      {msg && <div className="noti" role="status">{msg}</div>}
+      {(tab === "Courier" || tab === "Notifications") && <p className="settings-tests-note">Connection and message tests use saved settings, not unsaved fields. Test messages may incur provider charges.</p>}
+      <div className="settings-section-feedback" aria-live="polite">{currentGroups.map(group => results[group] && <p key={group} role={results[group].ok ? "status" : "alert"} className={results[group].ok ? "is-ok" : "is-error"}>{results[group].text}{changed.includes(group) && !busy ? " Current edits are not saved." : ""}</p>)}</div>
+      <fieldset className="settings-section-fields" disabled={busy} id="settings-content" role="tabpanel" aria-labelledby={"settings-tab-" + TABS.indexOf(tab)}>
       {tab === "Store" && (
         <div className="acard"><div className="acard-h"><h3>Store &amp; Brand</h3></div>
           <div className="acard-b form-grid">
-            <F k="name" label="Store name" group="store" />
-            <F k="tagline" label="Tagline" group="store" />
-            <F k="email" label="Support email" group="store" />
-            <F k="phone" label="Support phone" group="store" />
-            <F k="whatsapp" label="WhatsApp number (8801…)" group="store" />
-            <F k="currencySymbol" label="Currency symbol" group="store" />
-            <F k="address" label="Address" group="store" />
-            <F k="facebook" label="Facebook URL" group="store" />
-            <F k="instagram" label="Instagram URL" group="store" />
+            <SettingsField groups={g} onChange={setG} k="name" label="Store name" group="store" />
+            <SettingsField groups={g} onChange={setG} k="tagline" label="Tagline" group="store" />
+            <SettingsField groups={g} onChange={setG} k="email" label="Support email" group="store" />
+            <SettingsField groups={g} onChange={setG} k="phone" label="Support phone" group="store" />
+            <SettingsField groups={g} onChange={setG} k="whatsapp" label="WhatsApp number (8801…)" group="store" />
+            <SettingsField groups={g} onChange={setG} k="currencySymbol" label="Currency symbol" group="store" />
+            <SettingsField groups={g} onChange={setG} k="address" label="Address" group="store" />
+            <SettingsField groups={g} onChange={setG} k="facebook" label="Facebook URL" group="store" />
+            <SettingsField groups={g} onChange={setG} k="instagram" label="Instagram URL" group="store" />
             <div className="af full"><label>Footer text</label><input value={g.store?.footerText || ""} onChange={(e) => setG({ ...g, store: { ...g.store, footerText: e.target.value } })} /></div>
             <div className="full">{saveBtn("store")}</div>
           </div>
@@ -388,10 +433,10 @@ export default function SettingsClient({ groups, user, userCount, hasCourier, co
             </div>
             <div className="af full"><label>2nd announcement bar — bottom of hero section</label><input value={g.homepage?.heroBottomAnnouncement || ""} onChange={(e) => setG({ ...g, homepage: { ...g.homepage, heroBottomAnnouncement: e.target.value } })} placeholder="e.g. FREE DELIVERY OVER ৳5,000" /><div style={{ fontSize: 12, color: "var(--muted)", marginTop: 4 }}>Hero section er sheshe dekha jabe. Empty rakhle bar ta hide thake.</div></div>
             <div className="cfg-note full">Hero images, copy and links এখন <b>Homepage Layout → Hero Carousel</b> থেকে manage করুন.</div>
-            <F k="promoTitle" label="Promo banner title" group="homepage" />
-            <F k="promoText" label="Promo banner text" group="homepage" />
-            <ImgField k="promoImage" label="Promo banner image (upload or paste URL)" group="homepage" />
-            <F k="featuredCollection" label="Featured collection slug (e.g. new-arrivals)" group="homepage" />
+            <SettingsField groups={g} onChange={setG} k="promoTitle" label="Promo banner title" group="homepage" />
+            <SettingsField groups={g} onChange={setG} k="promoText" label="Promo banner text" group="homepage" />
+            <SettingsImageField groups={g} onChange={setG} onUpload={uploadImg} k="promoImage" label="Promo banner image (upload or paste URL)" group="homepage" />
+            <SettingsField groups={g} onChange={setG} k="featuredCollection" label="Featured collection slug (e.g. new-arrivals)" group="homepage" />
             <div className="full">{saveBtn("theme")}</div>
             <div className="full"><button className="abtn" onClick={() => save("homepage", g.homepage)} disabled={busy}>Save Homepage Content</button></div>
           </div>
@@ -400,7 +445,7 @@ export default function SettingsClient({ groups, user, userCount, hasCourier, co
 
       {tab === "Homepage Layout" && (
         <>
-          <HomepageLayoutTab groups={g} save={save} busy={busy} collections={collections} products={products} />
+          <HomepageLayoutTab onChange={(sections: any[]) => setG((current: any) => ({ ...current, homeSections: sections }))} groups={g} save={save} busy={busy} collections={collections} products={products} />
           <div className="acard" style={{ marginTop: 16 }}>
             <div className="acard-h"><h3>Hero Carousel</h3><div>{saveBtn("homepage")}</div></div>
             <div className="acard-b">
@@ -420,9 +465,9 @@ export default function SettingsClient({ groups, user, userCount, hasCourier, co
           <div className="acard" style={{ marginTop: 16 }}>
             <div className="acard-h"><h3>Promo Banner</h3></div>
             <div className="acard-b form-grid">
-              <F k="promoTitle" label="Promo title" group="homepage" />
-              <F k="promoText" label="Promo text" group="homepage" />
-              <ImgField k="promoImage" label="Promo image" group="homepage" />
+              <SettingsField groups={g} onChange={setG} k="promoTitle" label="Promo title" group="homepage" />
+              <SettingsField groups={g} onChange={setG} k="promoText" label="Promo text" group="homepage" />
+              <SettingsImageField groups={g} onChange={setG} onUpload={uploadImg} k="promoImage" label="Promo image" group="homepage" />
               <div className="full">{saveBtn("homepage")}</div>
             </div>
           </div>
@@ -450,11 +495,11 @@ export default function SettingsClient({ groups, user, userCount, hasCourier, co
               Ei value gulo /returns page e dekhay <b>ar</b> Google er Product markup e <code>MerchantReturnPolicy</code> hisebe jay.
               Ek jaygay bodlale dutoi bodle jabe — page ar markup kokhono alada hobe na.
             </div>
-            <F k="returnDays" label="Return window (days from delivery)" type="number" group="policies" />
-            <F k="damageReportHours" label="Hours to report a wrong/damaged item" type="number" group="policies" />
-            <F k="refundTime" label="Refund time (as shown to customer)" group="policies" />
-            <F k="refundMethod" label="Refund method (COD orders)" group="policies" />
-            <F k="updated" label="Last updated (shown on the page)" group="policies" />
+            <SettingsField groups={g} onChange={setG} k="returnDays" label="Return window (days from delivery)" type="number" group="policies" />
+            <SettingsField groups={g} onChange={setG} k="damageReportHours" label="Hours to report a wrong/damaged item" type="number" group="policies" />
+            <SettingsField groups={g} onChange={setG} k="refundTime" label="Refund time (as shown to customer)" group="policies" />
+            <SettingsField groups={g} onChange={setG} k="refundMethod" label="Refund method (COD orders)" group="policies" />
+            <SettingsField groups={g} onChange={setG} k="updated" label="Last updated (shown on the page)" group="policies" />
             <div className="af full">
               <label>Exchange note</label>
               <textarea rows={3} value={g.policies?.exchangeNote ?? ""} onChange={(e) => setG({ ...g, policies: { ...g.policies, exchangeNote: e.target.value } })} />
@@ -494,11 +539,11 @@ export default function SettingsClient({ groups, user, userCount, hasCourier, co
         </div>
         <div className="acard"><div className="acard-h"><h3>Delivery Charges (BD)</h3></div>
           <div className="acard-b form-grid">
-            <F k="insideDhaka" label="Inside Dhaka fee (৳)" type="number" group="shipping" />
-            <F k="outsideDhaka" label="Outside Dhaka fee (৳)" type="number" group="shipping" />
-            <F k="freeShippingThreshold" label="Free shipping over (৳, 0 = off)" type="number" group="shipping" />
-            <F k="estimateInside" label="Inside Dhaka estimate" group="shipping" />
-            <F k="estimateOutside" label="Outside Dhaka estimate" group="shipping" />
+            <SettingsField groups={g} onChange={setG} k="insideDhaka" label="Inside Dhaka fee (৳)" type="number" group="shipping" />
+            <SettingsField groups={g} onChange={setG} k="outsideDhaka" label="Outside Dhaka fee (৳)" type="number" group="shipping" />
+            <SettingsField groups={g} onChange={setG} k="freeShippingThreshold" label="Free shipping over (৳, 0 = off)" type="number" group="shipping" />
+            <SettingsField groups={g} onChange={setG} k="estimateInside" label="Inside Dhaka estimate" group="shipping" />
+            <SettingsField groups={g} onChange={setG} k="estimateOutside" label="Outside Dhaka estimate" group="shipping" />
             <div className="full">{saveBtn("shipping")}</div>
           </div>
         </div>
@@ -511,12 +556,12 @@ export default function SettingsClient({ groups, user, userCount, hasCourier, co
           {hasCourier && <CourierTestBadge />}
           <div className="acard"><div className="acard-h"><h3>Steadfast Courier</h3></div>
             <div className="acard-b form-grid">
-              <F k="apiUrl" label="API URL" group="courier" />
-              <F k="merchantId" label="Steadfast Merchant ID (receipt-e print hobe)" group="courier" />
-              <F k="apiKey" label="API Key" group="courier" />
-              <F k="secretKey" label="Secret Key" group="courier" />
-              <F k="insideDhaka" label="Inside Dhaka charge (৳)" type="number" group="courier" />
-              <F k="outsideDhaka" label="Outside Dhaka charge (৳)" type="number" group="courier" />
+              <SettingsField groups={g} onChange={setG} k="apiUrl" label="API URL" group="courier" />
+              <SettingsField groups={g} onChange={setG} k="merchantId" label="Steadfast Merchant ID (receipt-e print hobe)" group="courier" />
+              <SettingsField groups={g} onChange={setG} k="apiKey" label="API Key" group="courier" />
+              <SettingsField groups={g} onChange={setG} k="secretKey" label="Secret Key" group="courier" />
+              <SettingsField groups={g} onChange={setG} k="insideDhaka" label="Inside Dhaka charge (৳)" type="number" group="courier" />
+              <SettingsField groups={g} onChange={setG} k="outsideDhaka" label="Outside Dhaka charge (৳)" type="number" group="courier" />
               <div className="full">{saveBtn("courier")}</div>
             </div>
           </div>
@@ -570,16 +615,16 @@ export default function SettingsClient({ groups, user, userCount, hasCourier, co
           <div className="acard"><div className="acard-h"><h3>Fraud Protection</h3></div>
             <div className="acard-b form-grid">
               <label className="full" style={{ display: "flex", gap: 8, fontSize: 13.5 }}><input type="checkbox" checked={!!g.fraud?.enabled} onChange={(e) => setG({ ...g, fraud: { ...g.fraud, enabled: e.target.checked } })} /> Enabled</label>
-              <F k="velocityMaxOrders" label="Auto-block: orders in window (e.g. 9)" type="number" group="fraud" />
-              <F k="velocityWindowMinutes" label="Window (minutes, e.g. 10)" type="number" group="fraud" />
+              <SettingsField groups={g} onChange={setG} k="velocityMaxOrders" label="Auto-block: orders in window (e.g. 9)" type="number" group="fraud" />
+              <SettingsField groups={g} onChange={setG} k="velocityWindowMinutes" label="Window (minutes, e.g. 10)" type="number" group="fraud" />
               <div className="af"><label>Auto-block action</label>
                 <div style={{ display: "grid", gap: 6, fontSize: 13, paddingTop: 4 }}>
                   <span style={{ color: "var(--muted)" }}>Threshold cross korle IP automatic blacklist + order reject hoy ✓</span>
                   <label style={{ display: "flex", gap: 8 }}><input type="checkbox" checked={!!g.fraud?.autoBlacklistPhone} onChange={(e) => setG({ ...g, fraud: { ...g.fraud, autoBlacklistPhone: e.target.checked } })} /> Phone-o auto-blacklist korun (strict)</label>
                 </div>
               </div>
-              <F k="maxOrdersPerHourPerPhone" label="Max orders/hour per phone (hold)" type="number" group="fraud" />
-              <F k="highRiskCancelCount" label="Cancellations before HIGH risk" type="number" group="fraud" />
+              <SettingsField groups={g} onChange={setG} k="maxOrdersPerHourPerPhone" label="Max orders/hour per phone (hold)" type="number" group="fraud" />
+              <SettingsField groups={g} onChange={setG} k="highRiskCancelCount" label="Cancellations before HIGH risk" type="number" group="fraud" />
               <div className="full">{saveBtn("fraud")}</div>
             </div>
           </div>
@@ -722,7 +767,11 @@ export default function SettingsClient({ groups, user, userCount, hasCourier, co
           </div>
         </div>
       )}
-      <div style={{ height: 40 }} />
-    </>
+      </fieldset>
+      <aside className="settings-savebar" aria-label="Save current settings section">
+        <div><strong>{tab}</strong><small>{currentGroups.filter(group => changed.includes(group)).length ? "Unsaved changes" : "No unsaved changes"}</small></div>
+        <div className="settings-savebar-buttons">{currentGroups.map(group => <button key={group} type="button" className="abtn primary" disabled={busy || !changed.includes(group)} onClick={() => save(group, g[group])}>{"Save " + SETTINGS_GROUP_LABELS[group]}</button>)}</div>
+      </aside>
+    </section>
   );
 }

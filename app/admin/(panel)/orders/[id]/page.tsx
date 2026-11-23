@@ -9,7 +9,9 @@ export default async function OrderDetail(props: { params: Promise<{ id: string 
   const searchParams = await props.searchParams;
   const params = await props.params;
   await requireAdmin(searchParams, "orders");
-  const order = await db.order.findUnique({ where: { id: Number(params.id) }, include: { items: true } });
+  const id = Number(params.id);
+  if (!Number.isSafeInteger(id) || id <= 0) notFound();
+  const order = await db.order.findUnique({ where: { id }, include: { items: true } });
   if (!order) notFound();
   // neighbour ids (same ordering as the orders list: newest first) for fast prev/next switching
   const all = await db.order.findMany({ select: { id: true, code: true, status: true }, orderBy: { id: "desc" }, take: 500 });
@@ -21,7 +23,7 @@ export default async function OrderDetail(props: { params: Promise<{ id: string 
   const data = {
     ...order,
     createdAt: order.createdAt.toISOString(), updatedAt: order.updatedAt.toISOString(),
-    attribution: order.attribution ? JSON.parse(order.attribution) : null,
+    attribution: (() => { try { return order.attribution ? JSON.parse(order.attribution) : null; } catch { return null; } })(),
   };
-  return <OrderDetailClient initial={data} nav={nav} />;
+  return <OrderDetailClient key={order.id} initial={data} nav={nav} />;
 }

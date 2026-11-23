@@ -552,7 +552,7 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
           <div className="pdp-meta">
             <div><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M1 3h15v13H1zM16 8h4l3 3v5h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>Cash on Delivery available all over Bangladesh</div>
             <div><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>Inside Dhaka 1–2 days · Outside Dhaka 2–4 days</div>
-            <div><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M3 12a9 9 0 1 0 9-9 9 9 0 0 0-7.6 4.2M3 3v5h5"/></svg>7-day easy return &amp; exchange</div>
+            <div><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M3 12a9 9 0 1 0 9-9 9 9 0 0 0-7.6 4.2M3 3v5h5"/></svg>Check on delivery &amp; exchange within 2 days</div>
             {product.sku && <div style={{ fontSize: 12 }}>SKU: {product.sku}</div>}
           </div>
         </div>
@@ -577,23 +577,19 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
           <details className="acc-item">
             <summary><span>Return &amp; care</span><i className="acc-ico" aria-hidden="true" /></summary>
             <div className="acc-body">
-              <h4>7-day return &amp; exchange</h4>
-              <p>Not the right fit? Tell us within 7 days of delivery — returns are free, we arrange the courier pickup. Keep the tags and original packaging on, and the piece unworn and unwashed. Size or colour exchange is possible while stock allows.</p>
+              <h4>Return &amp; exchange</h4>
+              <p>Please check your product in the presence of the delivery agent. If you need to return it, please do so at the time of delivery, before the agent leaves.</p>
+              <p>Exchanges are available within 2 days of delivery. The product must be undamaged, with all original tags intact. Damaged products or items without their original tags cannot be accepted for return or exchange.</p>
               <h4>Caring for it</h4>
               <p>Follow the care label inside the garment first, it is written for that exact fabric. As a rule: cold wash cotton and linen separately or inside out, no tumble dry, reshape while damp and iron on the reverse. Fold knitwear, hang shirting, and keep suede and wool away from damp.</p>
             </div>
           </details>
 
           <details className="acc-item">
-            <summary><span>Delivery</span><i className="acc-ico" aria-hidden="true" /></summary>
+            <summary><span>Need urgent delivery at Dhaka?</span><i className="acc-ico" aria-hidden="true" /></summary>
             <div className="acc-body">
-              <ul className="acc-list">
-                <li>Inside Dhaka — usually {policies?.inside || "1-2 days"}</li>
-                <li>Outside Dhaka — usually {policies?.outside || "2-4 days"}</li>
-                <li>Cash on Delivery available all over Bangladesh</li>
-                {policies?.freeAt ? <li>Free delivery on orders over ৳{policies.freeAt.toLocaleString("en-IN")}</li> : null}
-                <li>Track the parcel any time with your order code on the tracking page</li>
-              </ul>
+              <p>If your delivery address is within Dhaka, we can arrange delivery via Pathao within 4 hours.</p>
+              <p>For urgent delivery, message us on WhatsApp at <a href="https://wa.me/8801576450711" target="_blank" rel="noopener noreferrer" style={{ textDecoration: "underline", textUnderlineOffset: 3 }}>01576450711</a>.</p>
             </div>
           </details>
         </div>

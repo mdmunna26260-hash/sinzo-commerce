@@ -1,46 +1,27 @@
 "use client";
 import { afetch, withToken } from "@/lib/afetch";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { appendSizePreset, productEditorPayload } from "@/lib/product-editor";
+import { parseProductInput } from "@/lib/product-input";
+import { useRouter } from "next/navigation";
 
-type V = { id?: number; size: string; color: string; sku: string; price: string; stock: string };
 type P = any;
 
-/* Linked color-variant image cell: upload (or paste URL) an image for this
+/* Linked color-variant image cell: upload an image for this
    variant; selecting that color on the PDP shows this image first. */
-function VariantImgCell({ v, i, setEdit }: { v: any; i: number; setEdit: any }) {
-  const [up, setUp] = useState(false);
-  const setImg = (url: string) => {
-    setEdit((e: any) => { const vs = [...e.variants]; vs[i] = { ...v, image: url }; return { ...e, variants: vs }; });
-  };
-  return (
-    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-      {v.image ? (
-        <div style={{ position: "relative" }}>
-          <img src={v.image} alt="" style={{ width: 30, height: 38, objectFit: "cover", borderRadius: 3, border: "1px solid #ddd" }} />
-          <button type="button" title="Remove image" onClick={() => setImg("")} style={{ position: "absolute", top: -7, right: -7, width: 16, height: 16, borderRadius: 99, border: "none", background: "#b3392f", color: "#fff", fontSize: 10, cursor: "pointer" }}>✕</button>
-        </div>
-      ) : null}
-      <label className="abtn sm" style={{ cursor: "pointer" }} title="Upload color image">
-        {up ? "…" : "⬆"}
-        <input type="file" accept="image/*" style={{ display: "none" }} onChange={async (e) => {
-          const f = e.target.files?.[0];
-          if (!f) return;
-          setUp(true);
-          try {
-            const fd = new FormData(); fd.append("file", f);
-            const r = await afetch("/api/admin/upload", { method: "POST", body: fd });
-            const j = await r.json();
-            if (j.url) setImg(j.url); else alert(j.error || "Upload failed");
-          } catch { alert("Upload failed"); }
-          setUp(false);
-        }} />
-      </label>
-    </div>
-  );
+function VariantImgCell({ v, i, uploadImage, removeImage }: { v: any; i: number; removeImage: () => void; uploadImage: (file: File, index: number) => Promise<void> }) {
+  return <div className="product-variant-image">
+    {v.image && <img src={v.image} alt="Variant preview" width="30" height="38" />}
+    <label className="abtn sm">Photo
+      <input type="file" accept="image/*" hidden aria-label={"Variant " + (i + 1) + " photo"} onChange={e => {
+        const file = e.target.files?.[0]; if (file) void uploadImage(file, i); e.target.value = "";
+      }} />
+    </label>
+    {v.image && <button type="button" className="abtn sm" aria-label={"Remove variant " + (i + 1) + " photo"} onClick={removeImage}>Remove photo</button>}
+  </div>;
 }
 
-const EMPTY: any = { title: "", slug: "", shortDesc: "", description: "", sku: "", price: "", comparePrice: "", cost: "", stock: "0", lowStock: "5", soldCount: "", saleEnds: "", status: "ACTIVE", featured: false, isNew: false, isBestSeller: false, badge: '', sizeChartImage: "", tags: "", categoryId: "", images: [], variants: [], colorGroupId: "", colorName: "", colorImage: "", preorder: false, preorderDate: "", soldMode: "fixed", comboEligible: false, comboTiers: [] as { qty: string; total: string }[], outsideDeliveryFee: "" };
+const EMPTY: any = { title: "", slug: "", shortDesc: "", description: "", sku: "", barcode: "", price: "", comparePrice: "", cost: "", stock: "0", lowStock: "5", soldCount: "", saleEnds: "", status: "DRAFT", featured: false, isNew: false, isBestSeller: false, badge: '', sizeChartImage: "", tags: "", categoryId: "", images: [], variants: [], colorGroupId: "", colorName: "", colorImage: "", preorder: false, preorderDate: "", soldMode: "fixed", comboEligible: false, comboTiers: [] as { qty: string; total: string }[], outsideDeliveryFee: "" };
 function DescriptionEditor({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   const ref = useRef<HTMLTextAreaElement>(null);
   const wrap = (before: string, after: string) => {
@@ -79,10 +60,10 @@ function DescriptionEditor({ value, onChange }: { value: string; onChange: (v: s
 
 const slugify = (s: string) => s.toLowerCase().trim().replace(/[^a-z0-9\u0980-\u09FF]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 80);
 
-export default function ProductsClient({ initial, categories }: { initial: P[]; categories: { id: number; name: string }[] }) {
+export default function ProductsClient({ initial, categories, initialCreate = false, initialEditId }: { initial: P[]; categories: { id: number; name: string }[]; initialCreate?: boolean; initialEditId?: number }) {
   const router = useRouter();
   const [q, setQ] = useState("");
-  const [edit, setEdit] = useState<any | null>(null);
+  const [edit, setEdit] = useState<any | null>(() => initialCreate ? { ...EMPTY, images: [], variants: [], comboTiers: [] } : null);
   const [colorGroups, setColorGroups] = useState<any[]>([]);
 
   const loadColorGroups = () => {
@@ -91,8 +72,44 @@ export default function ProductsClient({ initial, categories }: { initial: P[]; 
       .then((j) => setColorGroups(j.groups || []))
       .catch(() => {});
   };
+  useEffect(() => { if (initialCreate) loadColorGroups(); }, [initialCreate]);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
+  const mutation = useRef(false);
+  const baseline = useRef(JSON.stringify(initialCreate ? { ...EMPTY, images: [], variants: [], comboTiers: [] } : null));
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const [bulkStock, setBulkStock] = useState("");
+  const dirty = !!edit && JSON.stringify(edit) !== baseline.current;
+  const beginEditor = (value: any) => { baseline.current = JSON.stringify(value); setEdit(value); setMsg(""); setBulkStock(""); };
+  const closeEditor = () => {
+    if (mutation.current || (dirty && !confirm("Discard unsaved product changes?"))) return;
+    setEdit(null); setMsg("");
+  };
+  useEffect(() => {
+    if (!edit) return;
+    const previous = document.activeElement as HTMLElement | null;
+    const overflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    dialogRef.current?.focus();
+    const viewport = window.visualViewport;
+    const fitKeyboard = () => {
+      const overlay = dialogRef.current?.parentElement;
+      overlay?.style.setProperty("--product-keyboard-offset", Math.max(0, window.innerHeight - (viewport?.height || window.innerHeight) - (viewport?.offsetTop || 0)) + "px");
+    };
+    fitKeyboard(); viewport?.addEventListener("resize", fitKeyboard); viewport?.addEventListener("scroll", fitKeyboard);
+    return () => {
+      document.body.style.overflow = overflow; previous?.focus();
+      viewport?.removeEventListener("resize", fitKeyboard); viewport?.removeEventListener("scroll", fitKeyboard);
+    };
+  }, [!!edit]);
+  useEffect(() => {
+    if (!dirty && !busy) return;
+    const warn = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = ""; };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [dirty, busy]);
+  const lock = () => { if (mutation.current) return false; mutation.current = true; setBusy(true); return true; };
+  const unlock = () => { mutation.current = false; setBusy(false); };
   const [slugTouched, setSlugTouched] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -102,13 +119,14 @@ export default function ProductsClient({ initial, categories }: { initial: P[]; 
   const list = useMemo(() => items.filter((p) => !q || (p.title + p.sku + p.tags).toLowerCase().includes(q.toLowerCase())), [items, q]);
 
   const persistOrder = async (next: P[]) => {
+    if (!lock()) return;
     setItems(next);
     try {
       const r = await afetch("/api/admin/products/reorder", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ids: next.map((p) => p.id) }) });
       if (r.ok) { setMsg("✓ Order saved — homepage/listing-e dekhabe"); router.refresh(); }
       else { const j = await r.json(); setMsg(j.error || "Reorder failed"); }
     } catch { setMsg("Network error"); }
-    setTimeout(() => setMsg(""), 2500);
+    finally { unlock(); }
   };
   const move = (fromId: number | null, toId: number) => {
     if (fromId == null || fromId === toId) return;
@@ -129,14 +147,17 @@ export default function ProductsClient({ initial, categories }: { initial: P[]; 
     persistOrder(next);
   };
 
-  const openNew = () => { setSlugTouched(false); setEdit({ ...EMPTY }); loadColorGroups(); };
+  const openNew = () => { if (mutation.current) return; setSlugTouched(false); beginEditor({ ...EMPTY, images: [], variants: [], comboTiers: [] }); loadColorGroups(); };
   const openEdit = (p: P) => {
+    if (mutation.current) return;
     setSlugTouched(true);
     loadColorGroups();
     // Map old isNew/isBestSeller to badge for backwards compatibility
     const badge = p.badge || (p.isBestSeller ? "hot" : p.isNew ? "new" : "");
-    setEdit({
+    beginEditor({
       ...EMPTY, ...p, badge,
+    sku: p.sku || "", barcode: p.barcode || "", tags: p.tags || "",
+    shortDesc: p.shortDesc || "", description: p.description || "", categoryId: p.categoryId != null ? String(p.categoryId) : "",
     price: String(p.price), comparePrice: p.comparePrice != null ? String(p.comparePrice) : "",
     cost: p.cost != null ? String(p.cost) : "", stock: String(p.stock), lowStock: String(p.lowStock),
     soldCount: p.soldCount != null ? String(p.soldCount) : "",
@@ -153,49 +174,42 @@ export default function ProductsClient({ initial, categories }: { initial: P[]; 
     variants: p.variants.map((v: any) => ({ ...v, size: v.size || "", color: v.color || "", sku: v.sku || "", price: v.price != null ? String(v.price) : "", stock: String(v.stock), image: v.image || "" })),
   }); };
 
-  const genVariants = (kind: "alpha" | "numeric") => {
-    const sizes = kind === "alpha" ? ["S", "M", "L", "XL", "XXL"] : ["28", "30", "32", "34", "36", "38", "40"];
-    setEdit((e: any) => ({
-      ...e,
-      variants: sizes.map((s) => ({
-        size: s,
-        color: (e.variants || [])[0]?.color || "",
-        sku: (e.sku ? e.sku + "-" : "") + s,
-        price: (e.variants || [])[0]?.price || "",
-        stock: (e.variants || [])[0]?.stock || "10",
-      })),
-    }));
-  };
+  const openedId = useRef<number | undefined>(undefined);
+  useEffect(() => {
+    if (initialEditId && openedId.current !== initialEditId) {
+      const product = initial.find(p => p.id === initialEditId);
+      if (product) { openedId.current = initialEditId; openEdit(product); }
+    }
+  }, [initialEditId, initial]);
 
-  const upload = async (files: FileList) => {
-    setBusy(true); setMsg("Uploading " + files.length + " image(s)…");
-    const urls: string[] = [];
-    for (const file of Array.from(files)) {
-      const fd = new FormData(); fd.append("file", file);
-      const r = await afetch("/api/admin/upload", { method: "POST", body: fd });
-      const j = await r.json();
-      if (r.ok) urls.push(j.url); else alert(j.error || "Upload failed: " + file.name);
-    }
-    if (urls.length) {
-      setEdit((e: any) => ({
-        ...e,
-        images: [...e.images, ...urls],
-        // first gallery image doubles as the color swatch until admin sets/removes it
-        colorImage: e.colorImage || (e.images.length === 0 ? urls[0] : e.colorImage),
-      }));
-      setMsg(urls.length + " image added ✓"); setTimeout(() => setMsg(""), 2500);
-    }
-    setBusy(false);
+  const genVariants = (kind: "alpha" | "numeric") => setEdit((e: any) => ({ ...e, variants: appendSizePreset(e, kind) }));
+  const uploadFiles = async (files: File[], target: "gallery" | "chart" | "color" | number = "gallery") => {
+    if (!lock()) return;
+    setMsg("Uploading photos. Please keep this editor open.");
+    let added = 0;
+    const failed: string[] = [];
+    try {
+      for (const file of files) {
+        try {
+          const fd = new FormData(); fd.append("file", file); if (target === "chart") fd.append("mode", "chart");
+          const r = await afetch("/api/admin/upload", { method: "POST", body: fd });
+          const j = await r.json();
+          if (!r.ok || !j.url) throw new Error(j.error || "Upload failed");
+          setEdit((e: any) => {
+            if (!e) return e;
+            if (target === "chart") return { ...e, sizeChartImage: j.url };
+            if (target === "color") return { ...e, colorImage: j.url };
+            if (typeof target === "number") return { ...e, variants: e.variants.map((v: any, i: number) => i === target ? { ...v, image: j.url } : v) };
+            return { ...e, images: [...e.images, j.url], colorImage: e.colorImage || (e.images.length === 0 ? j.url : "") };
+          });
+          added++;
+        } catch { failed.push(file.name); }
+      }
+      setMsg(failed.length ? added + " uploaded; failed: " + failed.join(", ") + ". Select failed files to retry. Uploaded photos are kept." : added + " photo(s) uploaded. Save the product to keep these changes.");
+    } finally { unlock(); }
   };
-  const uploadChart = async (file: File) => {
-    setBusy(true); setMsg("Uploading size chart…");
-    const fd = new FormData(); fd.append("file", file); fd.append("mode", "chart");
-    const r = await afetch("/api/admin/upload", { method: "POST", body: fd });
-    const j = await r.json();
-    if (r.ok) { setEdit((e: any) => ({ ...e, sizeChartImage: j.url })); setMsg("Size chart uploaded ✓"); }
-    else setMsg(j.error || "Upload failed");
-    setBusy(false); setTimeout(() => setMsg(""), 2500);
-  };
+  const upload = (files: FileList) => uploadFiles(Array.from(files));
+  const uploadChart = (file: File) => uploadFiles([file], "chart");
 
   const moveImg = (i: number, dir: number) => setEdit((e: any) => {
     const arr = [...e.images]; const j = i + dir;
@@ -204,55 +218,54 @@ export default function ProductsClient({ initial, categories }: { initial: P[]; 
     return { ...e, images: arr };
   });
 
-  const save = async () => {
-    if (!String(edit.title || "").trim() || edit.price === "" || edit.price == null) { alert("Title and price are required"); return; }
-    setBusy(true); setMsg("");
+  const save = async (status: string) => {
+    if (mutation.current) return;
+    let payload;
     try {
-      const payload = {
-        ...edit,
-        price: Number(edit.price), comparePrice: edit.comparePrice === "" || edit.comparePrice == null ? null : Number(edit.comparePrice),
-        cost: edit.cost === "" || edit.cost == null ? null : Number(edit.cost), stock: Number(edit.stock === "" ? 0 : edit.stock), lowStock: Number(edit.lowStock === "" ? 5 : edit.lowStock),
-        soldCount: edit.soldCount === "" || edit.soldCount == null ? null : Number(edit.soldCount),
-        saleEnds: edit.saleEnds ? new Date(edit.saleEnds).toISOString() : null,
-        preorder: !!edit.preorder,
-        preorderDate: edit.preorderDate ? new Date(edit.preorderDate + "T12:00:00").toISOString() : null,
-        soldMode: edit.soldMode === "random" ? "random" : "fixed",
-        comboEligible: !!edit.comboEligible,
-        outsideDeliveryFee: edit.outsideDeliveryFee === "" || edit.outsideDeliveryFee == null ? null : Number(edit.outsideDeliveryFee),
-        comboOffers: (edit.comboTiers || []).filter((t: any) => t.qty && t.total).map((t: any) => ({ qty: Number(t.qty), total: Number(t.total) })),
-        colorGroupId: edit.colorGroupId ? Number(edit.colorGroupId) : null,
-        colorName: edit.colorName ? String(edit.colorName).trim().slice(0, 40) : null,
-        colorImage: edit.colorImage || null,
-        categoryId: edit.categoryId ? Number(edit.categoryId) : null,
-        variants: (edit.variants || []).map((v: any) => ({ ...v, price: v.price === "" || v.price == null ? null : Number(v.price), stock: Number(v.stock === "" ? 0 : v.stock) })),
-      };
+      payload = productEditorPayload(edit, status);
+      parseProductInput(payload);
+    } catch (error: any) {
+      setMsg(error.message || "Check the required fields.");
+      dialogRef.current?.querySelector<HTMLInputElement>(!String(edit.title || "").trim() ? "#product-title" : "#product-price")?.focus();
+      return;
+    }
+    const original = JSON.parse(baseline.current || "null");
+    if (status === "ACTIVE" && original?.status !== "ACTIVE" && !confirm("Publish this product? It will be visible in the store.")) return;
+    if (original?.id && original.status === "ACTIVE" && status !== "ACTIVE" && !confirm("Remove this product from the live store and save it as " + status + "?")) return;
+    if (!lock()) return;
+    setMsg("");
+    try {
       const r = await afetch(edit.id ? "/api/admin/products/" + edit.id : "/api/admin/products", {
         method: edit.id ? "PUT" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload),
       });
       const j = await r.json().catch(() => ({}));
-      if (r.ok) { setEdit(null); setMsg(edit.id ? "Product updated ✓" : "Product created ✓"); router.refresh(); }
+      if (r.ok) { setEdit(null); setMsg(status === "DRAFT" ? "Draft saved. Not visible in the store." : "Product saved successfully."); router.refresh(); }
       else setMsg(j.error || "Save failed");
     } catch {
-      setMsg("Network error — product was not saved");
+      setMsg("Could not confirm the save. Your edits are kept. Check the product list before retrying a new product.");
     } finally {
-      setBusy(false);
-      setTimeout(() => setMsg(""), 3000);
+      unlock();
     }
   };
 
   const duplicate = async (p: P) => {
-    setBusy(true);
-    const r = await afetch("/api/admin/products/" + p.id + "/duplicate", { method: "POST" });
-    const j = await r.json();
-    if (r.ok) { setMsg("✓ Product duplicated as DRAFT — edit & publish it"); router.refresh(); }
-    else setMsg(j.error || "Duplicate failed");
-    setBusy(false);
-    setTimeout(() => setMsg(""), 3000);
+    if (!confirm('Duplicate "' + p.title + '" as a draft with zero stock?')) return;
+    if (!lock()) return;
+    try {
+      const r = await afetch("/api/admin/products/" + p.id + "/duplicate", { method: "POST" });
+      const j = await r.json();
+      if (!r.ok || !j.product) { setMsg(j.error || "Duplicate failed"); return; }
+      unlock();
+      openEdit({ ...j.product, images: (j.product.images || []).sort((a: any, b: any) => a.position - b.position).map((image: any) => image.url) });
+      setMsg("Duplicated as DRAFT with zero stock. Review photos, details and variants before publishing.");
+      router.refresh();
+    } catch { setMsg("Could not confirm duplication. Check the product list before retrying."); }
+    finally { unlock(); }
   };
 
   const del = async (p: P) => {
     if (!confirm(`Delete "${p.title}"? Products used in orders will be archived to preserve order history.`)) return;
-    setBusy(true);
+    if (!lock()) return;
     try {
       const response = await afetch("/api/admin/products/" + p.id, { method: "DELETE" });
       const result = await response.json().catch(() => ({}));
@@ -262,8 +275,7 @@ export default function ProductsClient({ initial, categories }: { initial: P[]; 
     } catch {
       setMsg("Network error — product was not deleted");
     } finally {
-      setBusy(false);
-      setTimeout(() => setMsg(""), 3000);
+      unlock();
     }
   };
   const exportCsv = () => { window.location.href = withToken("/api/admin/export?type=products"); };
@@ -277,7 +289,7 @@ export default function ProductsClient({ initial, categories }: { initial: P[]; 
           <button className="abtn primary" onClick={openNew}>+ Add Product</button>
         </div>
       </div>
-      {msg && <div className="noti ok">{msg}</div>}
+      {msg && !edit && <div className="noti" role="status">{msg}</div>}
       <input className="asearch" style={{ marginBottom: 14 }} placeholder="Search products…" value={q} onChange={(e) => setQ(e.target.value)} />
 
       <div style={{ fontSize: 12.5, color: "var(--muted)", margin: "0 0 10px" }}>⠿ handle dhore drag korun — order change hole automatic save hoy ar homepage/listing-e sei order dekhabe</div>
@@ -310,8 +322,8 @@ export default function ProductsClient({ initial, categories }: { initial: P[]; 
                   <td>{p.views}</td>
                   <td style={{ whiteSpace: "nowrap" }}>
                     <button className="abtn sm" onClick={() => openEdit(p)}>Edit</button>{" "}
-                    <button className="abtn sm" title="Duplicate product" onClick={() => duplicate(p)}>📋</button>{" "}
-                    <button className="abtn sm danger" onClick={() => del(p)}>✕</button>
+                    <button className="abtn sm" title="Duplicate product" aria-label={"Duplicate " + p.title} disabled={busy} onClick={() => duplicate(p)}>📋</button>{" "}
+                    <button className="abtn sm danger" aria-label={"Delete " + p.title} disabled={busy} onClick={() => del(p)}>✕</button>
                   </td>
                 </tr>
               ))}
@@ -321,29 +333,41 @@ export default function ProductsClient({ initial, categories }: { initial: P[]; 
       </div>
 
       {edit && (
-        <div className="modal-bg" onClick={() => setEdit(null)}>
-          <div className="modal" style={{ maxWidth: 760 }} onClick={(e) => e.stopPropagation()}>
-            <button className="modal-close" onClick={() => setEdit(null)}>×</button>
-            <h3>{edit.id ? "Edit Product" : "New Product"}</h3>
+        <div className="modal-bg product-editor-bg" onClick={closeEditor}>
+          <div className="modal product-editor" ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="product-editor-title" tabIndex={-1} style={{ maxWidth: 760 }} onClick={(e) => e.stopPropagation()} onKeyDown={e => {
+            if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); closeEditor(); }
+            if (e.key === "Tab") {
+              const focusable = Array.from(e.currentTarget.querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled):not([hidden]), select:not(:disabled), textarea:not(:disabled), [tabindex="0"]')).filter(n => n.getClientRects().length);
+              const first = focusable[0], last = focusable[focusable.length - 1];
+              if (e.shiftKey && (document.activeElement === first || document.activeElement === e.currentTarget)) { e.preventDefault(); last?.focus(); }
+              else if (!e.shiftKey && (document.activeElement === last || document.activeElement === e.currentTarget)) { e.preventDefault(); first?.focus(); }
+            }
+          }}>
+            <header className="product-editor-header"><div><h3 id="product-editor-title">{edit.id ? "Edit Product" : "New Product"}</h3><p>Title and price are required. New products start as drafts.</p></div><button className="abtn" aria-label="Close product editor" disabled={busy} onClick={closeEditor}>Close</button></header>
+            <div className="product-editor-feedback" role="status" aria-live="polite">{msg || (dirty ? "Unsaved changes" : "Ready to edit")}</div>
+            <fieldset className="product-editor-fields" disabled={busy}>
+            <h4 className="product-section-title">Product basics</h4>
             <div className="form-grid">
-              <div className="af full"><label>Title *</label>
-                <input value={edit.title} onChange={(e) => { const title = e.target.value; setEdit((x: any) => ({ ...x, title, slug: slugTouched ? x.slug : slugify(title) })); }} />
+              <div className="af full"><label htmlFor="product-title">Title *</label>
+                <input id="product-title" aria-required="true" maxLength={200} value={edit.title} onChange={(e) => { const title = e.target.value; setEdit((x: any) => ({ ...x, title, slug: slugTouched ? x.slug : slugify(title) })); }} />
               </div>
               <div className="af full">
                 <label>URL / Slug (auto-generates from title)</label>
                 <div style={{ display: "flex", gap: 8 }}>
                   <input value={edit.slug} onChange={(e) => { setSlugTouched(true); setEdit({ ...edit, slug: slugify(e.target.value) }); }} placeholder="auto-generates…" />
-                  <button type="button" className="abtn" title="Auto-generate from title" onClick={() => { setSlugTouched(false); setEdit({ ...edit, slug: slugify(edit.title) }); }}>↻ Auto</button>
+                  <button type="button" className="abtn" title="Auto-generate from title" onClick={() => { setSlugTouched(false); setEdit({ ...edit, slug: slugify(edit.title) }); }}>Auto</button>
                 </div>
-                <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 4 }}>🔗 yourdomain.com/products/<b>{edit.slug || "…"}{edit.id ? "" : " (notun product save korlei live hobe)"}</b></div>
+                <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 4 }}>Store URL: /products/<b>{edit.slug || "…"}{edit.id ? "" : " (visibility follows saved status)"}</b></div>
               </div>
-              <div className="af"><label>Price (৳) *</label><input type="number" min="0" step="0.01" value={edit.price} onChange={(e) => setEdit({ ...edit, price: e.target.value })} /></div>
-              <div className="af"><label>Compare-at price (৳)</label><input type="number" min="0" step="0.01" value={edit.comparePrice} onChange={(e) => setEdit({ ...edit, comparePrice: e.target.value })} placeholder="Original price for discounts" /></div>
-              <div className="af"><label>Cost per item (৳)</label><input type="number" min="0" step="0.01" value={edit.cost} onChange={(e) => setEdit({ ...edit, cost: e.target.value })} placeholder="For profit margin" /></div>
-              <div className="af"><label>SKU</label><input value={edit.sku} onChange={(e) => setEdit({ ...edit, sku: e.target.value })} /></div>
-              <div className="af"><label>Stock</label><input type="number" min="0" step="1" value={edit.stock} onChange={(e) => setEdit({ ...edit, stock: e.target.value })} /></div>
+              <div className="af"><label htmlFor="product-price">Price (BDT) *</label><input id="product-price" aria-required="true" inputMode="decimal" type="number" min="0" step="0.01" value={edit.price} onChange={(e) => setEdit({ ...edit, price: e.target.value })} /></div>
+              <div className="af"><label>Compare-at price (BDT)</label><input type="number" min="0" step="0.01" value={edit.comparePrice} onChange={(e) => setEdit({ ...edit, comparePrice: e.target.value })} placeholder="Original price for discounts" /></div>
+              <div className="af"><label>Cost per item (BDT)</label><input type="number" min="0" step="0.01" value={edit.cost} onChange={(e) => setEdit({ ...edit, cost: e.target.value })} placeholder="For profit margin" /></div>
+              <div className="af"><label htmlFor="product-sku">SKU</label><input id="product-sku" value={edit.sku} onChange={(e) => setEdit({ ...edit, sku: e.target.value })} /></div>
+              <div className="af"><label htmlFor="product-barcode">Barcode</label><input id="product-barcode" value={edit.barcode || ""} onChange={e => setEdit({ ...edit, barcode: e.target.value })} /></div>
+              <div className="af"><label htmlFor="product-stock">Stock</label><input id="product-stock" inputMode="numeric" type="number" min="0" step="1" value={edit.stock} onChange={(e) => setEdit({ ...edit, stock: e.target.value })} /></div>
               <div className="af"><label>Low-stock alert at</label><input type="number" min="0" step="1" value={edit.lowStock} onChange={(e) => setEdit({ ...edit, lowStock: e.target.value })} /></div>
-              <div className="af"><label>Outside Dhaka delivery (৳)</label><input type="number" min="0" step="1" value={edit.outsideDeliveryFee} onChange={(e) => setEdit({ ...edit, outsideDeliveryFee: e.target.value })} placeholder="e.g. 150 — blank = default" />
+              <details className="product-editor-options af full"><summary>Offers, delivery and pre-order options</summary><div className="form-grid">
+              <div className="af"><label>Outside Dhaka delivery (BDT)</label><input type="number" min="0" step="1" value={edit.outsideDeliveryFee} onChange={(e) => setEdit({ ...edit, outsideDeliveryFee: e.target.value })} placeholder="e.g. 150 — blank = default" />
                 <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 4 }}>Per-product override: outside-Dhaka orders pay THIS fee instead of the global setting (highest in cart wins).</div>
               </div>
               <div className="af full"><label>Flash sale countdown (optional)</label>
@@ -408,14 +432,15 @@ export default function ProductsClient({ initial, categories }: { initial: P[]; 
                   </>
                 )}
               </div>
+              </div></details>
               <div className="af"><label>Category</label>
                 <select value={edit.categoryId} onChange={(e) => setEdit({ ...edit, categoryId: e.target.value })}>
                   <option value="">— None —</option>
                   {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </select>
               </div>
-              <div className="af"><label>Status</label>
-                <select value={edit.status} onChange={(e) => setEdit({ ...edit, status: e.target.value })}>
+              <div className="af"><label htmlFor="product-status">Status</label>
+                <select id="product-status" value={edit.status} onChange={(e) => setEdit({ ...edit, status: e.target.value })}>
                   <option>ACTIVE</option><option>DRAFT</option><option>ARCHIVED</option>
                 </select>
               </div>
@@ -427,45 +452,53 @@ export default function ProductsClient({ initial, categories }: { initial: P[]; 
               <div className="af full"><label>Tags (comma separated)</label><input value={edit.tags} onChange={(e) => setEdit({ ...edit, tags: e.target.value })} placeholder="linen, summer, new" /></div>
             </div>
 
-            <div style={{ margin: "16px 0 6px", fontWeight: 600, fontSize: 13.5 }}>Images</div>
+            <h4 className="product-section-title">Photos ({edit.images.length})</h4>
             <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-start" }}>
               {edit.images.map((u: string, i: number) => (
-                <div key={i} style={{ position: "relative", textAlign: "center" }}>
+                <div key={i} className="product-photo" style={{ position: "relative", textAlign: "center" }}>
                   <img src={u} alt="" style={{ width: 64, height: 80, objectFit: "cover", borderRadius: 4, border: i === 0 ? "2px solid var(--text)" : "1px solid #ddd" }} title={i === 0 ? "Main image" : "Image " + (i + 1)} />
                   {i === 0 && <span style={{ position: "absolute", top: 4, left: 4, background: "var(--text)", color: "#fff", fontSize: 9, padding: "1px 6px", borderRadius: 99 }}>MAIN</span>}
-                  <button onClick={() => setEdit({ ...edit, images: edit.images.filter((_: any, x: number) => x !== i) })} style={{ position: "absolute", top: -7, right: -7, width: 18, height: 18, borderRadius: 99, border: "none", background: "#b3392f", color: "#fff", fontSize: 11, cursor: "pointer" }}>✕</button>
+                  <button aria-label={"Remove photo " + (i + 1)} onClick={() => setEdit({ ...edit, images: edit.images.filter((_: any, x: number) => x !== i) })} style={{ position: "absolute", top: -7, right: -7, width: 18, height: 18, borderRadius: 99, border: "none", background: "#b3392f", color: "#fff", fontSize: 11, cursor: "pointer" }}>✕</button>
                   <div style={{ display: "flex", gap: 2, marginTop: 4, justifyContent: "center" }}>
-                    <button type="button" className="abtn sm" style={{ padding: "2px 8px" }} disabled={i === 0} onClick={() => moveImg(i, -1)}>←</button>
-                    <button type="button" className="abtn sm" style={{ padding: "2px 8px" }} disabled={i === edit.images.length - 1} onClick={() => moveImg(i, 1)}>→</button>
+                    <button type="button" className="abtn sm" style={{ padding: "2px 8px" }} disabled={i === 0} aria-label={"Move photo " + (i + 1) + " earlier"} onClick={() => moveImg(i, -1)}>←</button>
+                    <button type="button" className="abtn sm" style={{ padding: "2px 8px" }} disabled={i === edit.images.length - 1} aria-label={"Move photo " + (i + 1) + " later"} onClick={() => moveImg(i, 1)}>→</button>
                   </div>
                 </div>
               ))}
               <button className="abtn" onClick={() => fileRef.current?.click()} type="button">⬆ Upload images</button>
               <input ref={fileRef} type="file" accept="image/*" multiple hidden onChange={(e) => { if (e.target.files?.length) upload(e.target.files); e.target.value = ""; }} />
-              <div style={{ fontSize: 12, color: "var(--muted)", width: "100%" }}>Ek sathe multiple image select kora jay (Ctrl/Cmd+click) · first image = main product image · ←/→ diye order bodlao</div>
+              <div style={{ fontSize: 12, color: "var(--muted)", width: "100%" }}>Select multiple photos from your phone. First photo is the main image. Use arrows to reorder.</div>
             </div>
 
             <div className="var-head">
               <span>Variants (size / color / stock)</span>
               <span className="var-head-btns">
-                <button className="abtn sm" type="button" title="S M L XL XXL auto-generate" onClick={() => genVariants("alpha")}>Auto S–XXL</button>
-                <button className="abtn sm" type="button" title="28–40 numeric sizes auto-generate" onClick={() => genVariants("numeric")}>Auto 28–40</button>
+                <button className="abtn sm" type="button" title="S M L XL XXL auto-generate" onClick={() => genVariants("alpha")}>Add S-XXL</button>
+                <button className="abtn sm" type="button" title="28–40 numeric sizes auto-generate" onClick={() => genVariants("numeric")}>Add 28-40</button>
                 <button className="abtn sm" type="button" onClick={() => setEdit({ ...edit, variants: [...(edit.variants || []), { size: "", color: "", sku: "", price: "", stock: "0" }] })}>+ Add</button>
               </span>
             </div>
+            <p className="product-editor-hint">Size presets add missing sizes with zero stock. Existing variants are kept. Blank variant price uses the product price.</p>
+            {!!edit.variants.length && <div className="product-bulk-stock"><label htmlFor="variant-bulk-stock">Set all variant stock</label><input id="variant-bulk-stock" type="number" min="0" step="1" inputMode="numeric" value={bulkStock} onChange={e => setBulkStock(e.target.value)} placeholder="Quantity" /><button type="button" className="abtn" onClick={() => {
+              const value = Number(bulkStock);
+              if (!bulkStock.trim() || !Number.isSafeInteger(value) || value < 0) { setMsg("Enter a non-negative whole stock quantity."); return; }
+              if (!confirm("Set all " + edit.variants.length + " variant quantities to " + value + "? Current: " + edit.variants.map((v: any) => (v.size || v.color || "Variant") + ": " + v.stock).join(", ") + ". Changes apply when you save.")) return;
+              setEdit((e: any) => ({ ...e, variants: e.variants.map((v: any) => ({ ...v, stock: String(value) })) }));
+            }}>Apply to all</button></div>}
             {(edit.variants || []).map((v: any, i: number) => (
               <div key={i} className="var-row">
-                <input placeholder="Size" aria-label={"Variant " + (i + 1) + " size"} value={v.size} onChange={(e) => { const vs = [...edit.variants]; vs[i] = { ...v, size: e.target.value }; setEdit({ ...edit, variants: vs }); }} />
-                <input placeholder="Color" aria-label={"Variant " + (i + 1) + " color"} value={v.color} onChange={(e) => { const vs = [...edit.variants]; vs[i] = { ...v, color: e.target.value }; setEdit({ ...edit, variants: vs }); }} />
-                <input placeholder="SKU" aria-label={"Variant " + (i + 1) + " SKU"} value={v.sku} onChange={(e) => { const vs = [...edit.variants]; vs[i] = { ...v, sku: e.target.value }; setEdit({ ...edit, variants: vs }); }} />
-                <input placeholder="Price" aria-label={"Variant " + (i + 1) + " price"} type="number" inputMode="decimal" value={v.price} onChange={(e) => { const vs = [...edit.variants]; vs[i] = { ...v, price: e.target.value }; setEdit({ ...edit, variants: vs }); }} />
-                <input placeholder="Stock" aria-label={"Variant " + (i + 1) + " stock"} type="number" inputMode="numeric" value={v.stock} onChange={(e) => { const vs = [...edit.variants]; vs[i] = { ...v, stock: e.target.value }; setEdit({ ...edit, variants: vs }); }} />
+                <label className="product-variant-field"><span>Size</span><input placeholder="Size" aria-label={"Variant " + (i + 1) + " size"} value={v.size} onChange={(e) => { const vs = [...edit.variants]; vs[i] = { ...v, size: e.target.value }; setEdit({ ...edit, variants: vs }); }} /></label>
+                <label className="product-variant-field"><span>Color</span><input placeholder="Color" aria-label={"Variant " + (i + 1) + " color"} value={v.color} onChange={(e) => { const vs = [...edit.variants]; vs[i] = { ...v, color: e.target.value }; setEdit({ ...edit, variants: vs }); }} /></label>
+                <label className="product-variant-field"><span>SKU</span><input placeholder="SKU" aria-label={"Variant " + (i + 1) + " SKU"} value={v.sku} onChange={(e) => { const vs = [...edit.variants]; vs[i] = { ...v, sku: e.target.value }; setEdit({ ...edit, variants: vs }); }} /></label>
+                <label className="product-variant-field"><span>Price</span><input placeholder="Price" aria-label={"Variant " + (i + 1) + " price"} min="0" step="0.01" type="number" inputMode="decimal" value={v.price} onChange={(e) => { const vs = [...edit.variants]; vs[i] = { ...v, price: e.target.value }; setEdit({ ...edit, variants: vs }); }} /></label>
+                <label className="product-variant-field"><span>Stock</span><input placeholder="Stock" aria-label={"Variant " + (i + 1) + " stock"} min="0" step="1" type="number" inputMode="numeric" value={v.stock} onChange={(e) => { const vs = [...edit.variants]; vs[i] = { ...v, stock: e.target.value }; setEdit({ ...edit, variants: vs }); }} /></label>
                 {/* linked color image: oi color select korle PDP gallery ei image dekhabe */}
-                <VariantImgCell v={v} i={i} setEdit={setEdit} />
-                <button className="abtn sm danger var-del" type="button" aria-label={"Remove variant " + (i + 1)} onClick={() => setEdit({ ...edit, variants: edit.variants.filter((_: any, x: number) => x !== i) })}>✕</button>
+                <VariantImgCell v={v} i={i} removeImage={() => setEdit((e: any) => ({ ...e, variants: e.variants.map((row: any, index: number) => index === i ? { ...row, image: "" } : row) }))} uploadImage={(file, index) => uploadFiles([file], index)} />
+                <button className="abtn sm danger var-del" type="button" aria-label={"Remove variant " + (i + 1)} onClick={() => { if (confirm("Remove this variant? Changes apply when you save.")) setEdit({ ...edit, variants: edit.variants.filter((_: any, x: number) => x !== i) }); }}>✕</button>
               </div>
             ))}
 
+            <details className="product-editor-options"><summary>Linked colors, size chart and badge</summary>
             {/* ---- COLOR GROUP (linked color products) ---- */}
             <div className="af full" style={{ marginTop: 18, borderTop: "1px solid #e4e7ec", paddingTop: 14 }}>
               <label style={{ fontWeight: 600, fontSize: 13.5 }}>Color Group (linked color products)</label>
@@ -482,18 +515,18 @@ export default function ProductsClient({ initial, categories }: { initial: P[]; 
                     <option key={cg.id} value={String(cg.id)}>{cg.name} ({(cg.products || []).length} color{((cg.products || []).length) === 1 ? "" : "s"})</option>
                   ))}
                 </select>
-                <button type="button" className="abtn" onClick={() => {
-                  const name = prompt("Notun color group er naam din (e.g. Double Vest Khadi Shirt):");
-                  if (!name || name.trim().length < 2) return;
-                  afetch("/api/admin/color-groups", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: name.trim() }) })
-                    .then((r) => r.json())
-                    .then((j) => {
-                      if (!j.group) { alert(j.error || "Failed"); return; }
-                      setColorGroups((cur: any[]) => [{ ...j.group, products: [] }, ...(cur || [])]);
-                      setEdit((e: any) => ({ ...e, colorGroupId: String(j.group.id) }));
-                      alert("Color group created ✓ — ekhon ei group er onno product gulote same group select korun.");
-                    })
-                    .catch(() => alert("Failed"));
+                <button type="button" className="abtn" onClick={async () => {
+                  const name = prompt("New color group name:");
+                  if (!name || name.trim().length < 2 || !lock()) return;
+                  try {
+                    const r = await afetch("/api/admin/color-groups", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: name.trim() }) });
+                    const j = await r.json();
+                    if (!r.ok || !j.group) { setMsg(j.error || "Could not create color group."); return; }
+                    setColorGroups(cur => [{ ...j.group, products: [] }, ...cur]);
+                    setEdit((e: any) => ({ ...e, colorGroupId: String(j.group.id) }));
+                    setMsg("Color group created. Save the product to link it.");
+                  } catch { setMsg("Could not create color group. Your product edits are kept."); }
+                  finally { unlock(); }
                 }}>+ New group</button>
               </div>
               {edit.colorGroupId && (
@@ -516,12 +549,7 @@ export default function ProductsClient({ initial, categories }: { initial: P[]; 
                         <input type="file" accept="image/*" style={{ display: "none" }} onChange={async (e) => {
                           const f = e.target.files?.[0];
                           if (!f) return;
-                          try {
-                            const fd = new FormData(); fd.append("file", f);
-                            const r = await afetch("/api/admin/upload", { method: "POST", body: fd });
-                            const j = await r.json();
-                            if (j.url) setEdit({ ...edit, colorImage: j.url }); else alert(j.error || "Upload failed");
-                          } catch { alert("Upload failed"); }
+                          await uploadFiles([f], "color"); e.target.value = "";
                         }} />
                       </label>
                     </div>
@@ -566,9 +594,14 @@ export default function ProductsClient({ initial, categories }: { initial: P[]; 
                 </select>
               </div>
               <span style={{ flex: 1 }} />
-              <button className="abtn" onClick={() => setEdit(null)}>Cancel</button>
-              <button className="abtn primary" onClick={save} disabled={busy} aria-busy={busy || undefined}>{busy && <span className="spinner" aria-hidden="true" />} {busy ? "Saving…" : "Save Product"}</button>
             </div>
+            </details>
+            </fieldset>
+            <footer className="product-editor-savebar">
+              <div><strong>{edit.status}</strong><small>{busy ? "Working. Please wait." : dirty ? "Unsaved changes" : "No unsaved changes"}</small></div>
+              <button className="abtn" onClick={() => save("DRAFT")} disabled={busy}>Save draft</button>
+              <button className="abtn primary" onClick={() => save(edit.status === "ARCHIVED" ? "ARCHIVED" : "ACTIVE")} disabled={busy} aria-busy={busy || undefined}>{busy ? "Working..." : edit.status === "ARCHIVED" ? "Save archived" : edit.id && edit.status === "ACTIVE" && JSON.parse(baseline.current || "null")?.status === "ACTIVE" ? "Save changes" : "Publish product"}</button>
+            </footer>
           </div>
         </div>
       )}

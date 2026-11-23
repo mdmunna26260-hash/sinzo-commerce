@@ -33,11 +33,13 @@ export default function SmartImg({ src, alt, className, fallback = "/uploads/see
     // eslint-disable-next-line @next/next/no-img-element
     <img
       ref={ref}
-      src={priority ? cur : cand[0].url}
+      src={priority ? cur : (cand[0]?.url || cur)}
       srcSet={srcSet}
       sizes={sizes}
       alt={alt}
-      className={className ? className + " fade-img" + (loaded ? " loaded" : "") : "fade-img" + (loaded ? " loaded" : "")}
+      // The LCP image must be visible in server HTML, without waiting for hydration.
+      // Below-the-fold images retain the existing decode fade.
+      className={[className, "fade-img", (priority || loaded) && "loaded"].filter(Boolean).join(" ")}
       loading={priority ? "eager" : "lazy"}
       decoding="async"
       {...(priority ? { fetchPriority: "high" as const } : {})}

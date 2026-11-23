@@ -29,7 +29,7 @@ export async function POST(req: Request) {
   const g = await requirePerm("products", req);
   if ("res" in g) return g.res;
   try {
-    const { productId, qty, mode, unitCost, note } = parseStockAdjustment(await req.json().catch(() => null));
+    const { productId, qty, mode, unitCost, note, variantId, expectedStock, expectedProductStock } = parseStockAdjustment(await req.json().catch(() => null));
     const result = await db.$transaction(async (tx) => {
       // Portable row write lock: PostgreSQL serializes on this product; SQLite
       // serializes writers. Read the current stock only after obtaining the lock.
@@ -37,24 +37,37 @@ export async function POST(req: Request) {
       if (!locked.count) throw new StockAdjustmentError("Product not found", 404);
       const before = await tx.product.findUnique({ where: { id: productId }, select: { title: true, stock: true } });
       if (!before) throw new StockAdjustmentError("Product not found", 404);
-      const stock = adjustedStock(before.stock, mode, qty);
-      await tx.product.update({ where: { id: productId }, data: { stock, ...(unitCost !== null ? { cost: unitCost } : {}) } });
-      await tx.inventoryMovement.create({ data: { productId, delta: stock - before.stock, reason: mode === "set" ? "ADJUST" : qty > 0 ? "RESTOCK" : "MANUAL", ref: note || g.user.email } });
-      return { before, stock, delta: stock - before.stock };
+      const variant = variantId ? await tx.productVariant.findFirst({ where: { id: variantId, productId }, select: { stock: true, size: true, color: true } }) : null;
+      if (variantId && !variant) throw new StockAdjustmentError("Variant does not belong to this product", 404);
+      const currentStock = variant?.stock ?? before.stock;
+      if ((expectedStock !== undefined && expectedStock !== currentStock) || (expectedProductStock !== undefined && expectedProductStock !== before.stock)) {
+        throw new StockAdjustmentError("Stock changed since your preview. Refresh the counts, review the new preview and try again.", 409);
+      }
+      const stock = adjustedStock(currentStock, mode, qty);
+      const delta = stock - currentStock;
+      // Delivery updates product and variant together. Manual variant adjustments
+      // apply the same delta to the product total; never silently recompute totals.
+      const productStock = variant ? adjustedStock(before.stock, "add", delta) : stock;
+      await tx.product.update({ where: { id: productId }, data: { stock: productStock, ...(unitCost !== null ? { cost: unitCost } : {}) } });
+      if (variantId) await tx.productVariant.update({ where: { id: variantId }, data: { stock } });
+      const variantLabel = variant ? [variant.size, variant.color].filter(Boolean).join(" / ") || "Variant #" + variantId : "";
+      await tx.inventoryMovement.create({ data: { productId, delta, reason: mode === "set" ? "ADJUST" : qty > 0 ? "RESTOCK" : "MANUAL", ref: [variantId ? "variant#" + variantId + " " + variantLabel : "", note || g.user.email].filter(Boolean).join(" | ").slice(0, 240) } });
+      return { before, stock, productStock, delta, variantLabel };
+
     }, { maxWait: 10_000, timeout: 20_000 });
 
-    await logAudit(g.user.email, mode === "set" ? "STOCK_SET" : "STOCK_RESTOCK", `${result.before.title}: ${result.before.stock} → ${result.stock}${unitCost !== null ? ` @ ৳${unitCost}` : ""}${note ? " · " + note : ""}`);
+    await logAudit(g.user.email, mode === "set" ? "STOCK_SET" : "STOCK_RESTOCK", `${result.before.title}${variantId ? " [variant#" + variantId + " " + result.variantLabel + "]" : ""}: ${variantId ? result.stock - result.delta : result.before.stock} → ${result.stock}${unitCost !== null ? ` @ ৳${unitCost}` : ""}${note ? " · " + note : ""}`);
     // Notifications are post-commit: provider/configuration failures must never
     // turn a successful restock into a 500 that the admin retries accidentally.
     let waited: { candidates: number; sent: number } | null = null;
-    if (result.before.stock <= 0 && result.stock > 0) {
+    if (result.before.stock <= 0 && result.productStock > 0) {
       try {
         const { getSettings, envFallback } = await import("@/lib/settings");
         const { notifyWaitlistForProduct } = await import("@/lib/waitlist");
         waited = await notifyWaitlistForProduct(productId, envFallback(await getSettings()), 10);
       } catch { /* inventory was already committed */ }
     }
-    return NextResponse.json({ ok: true, stock: result.stock, delta: result.delta, costUpdated: unitCost !== null, waitlist: waited });
+    return NextResponse.json({ ok: true, stock: result.stock, delta: result.delta, productStock: result.productStock, variantId: variantId || null, costUpdated: unitCost !== null, waitlist: waited });
   } catch (e) {
     if (e instanceof StockAdjustmentError) return NextResponse.json({ error: e.message }, { status: e.status });
     if ((e as { code?: string })?.code === "P2034") return NextResponse.json({ error: "Stock changed concurrently. Please retry." }, { status: 409 });
