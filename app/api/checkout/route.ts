@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { getSettings, envFallback } from "@/lib/settings";
 import { assessRisk } from "@/lib/risk";
 import { sendCapi } from "@/lib/capi";
+import { sendTikTokEvent } from "@/lib/tiktok";
 import { detectSource, getClientIp } from "@/lib/ua";
 import { rateLimit } from "@/lib/auth";
 import { orderCode } from "@/lib/slug";
@@ -143,7 +144,12 @@ export async function POST(req: Request) {
         data: {
           code: "TEMP-" + crypto.randomUUID(), name, phone: cleanPhone, email: email || null,
           address, area, notes: notes || null,
-          subtotal, discount, comboDiscount: comboSavings, giftDiscount: giftSavings || 0, deliveryFee, total, couponCode: appliedCode, capiPurchaseSentAt: new Date(),
+          subtotal, discount, comboDiscount: comboSavings, giftDiscount: giftSavings || 0, deliveryFee, total, couponCode: appliedCode,
+          /* capiPurchaseSentAt is deliberately NOT set here. It is the "already sent" flag for
+             the server-side Purchase below; writing it at creation time made that guard always
+             false, so the direct CAPI/TikTok call from this route never ran (only the
+             browser-triggered /api/track/event copy went out). It is stamped right before the
+             send instead, which is the check-and-set the comment below describes. */
           paymentMethod, paymentTrxId: paymentMethod === "COD" ? null : trxId,
           paymentSenderNumber: paymentMethod === "COD" ? null : senderNumber || null,
           paymentStatus: "PENDING", status: risk.level === "HIGH" ? "ON_HOLD" : "PENDING",
@@ -182,6 +188,18 @@ export async function POST(req: Request) {
           num_items: orderItems.reduce((a, i) => a + i.qty, 0),
           content_ids: orderItems.map((i) => String(i.productId)),
           contents: orderItems.map((i) => ({ id: String(i.productId), quantity: i.qty, item_price: i.price })),
+        },
+      }).catch(() => {});
+      /* TikTok Events API — same event_id as the thank-you page's ttq.track('Purchase'),
+         so the browser and server copies of the sale collapse into one conversion. */
+      sendTikTokEvent({
+        event: "Purchase",
+        eventId: purchaseEventId || `srv_purchase_${order.id}`,
+        eventSourceUrl: req.headers.get("referer") || undefined,
+        userData: { phone: cleanPhone, email: email || undefined, externalId: cleanPhone, clientIp: ip, userAgent: req.headers.get("user-agent") || undefined },
+        properties: {
+          currency: "BDT", value: total, content_type: "product", order_id: code,
+          contents: orderItems.map((i) => ({ content_id: String(i.productId), content_type: "product", price: i.price, quantity: i.qty })),
         },
       }).catch(() => {});
     }

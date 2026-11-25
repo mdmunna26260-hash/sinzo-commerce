@@ -15,7 +15,7 @@ export function mergeSettingsValue(current: unknown, incoming: unknown): any {
 
 const SECRET_PATHS = [
   ["courier", "apiKey"], ["courier", "secretKey"],
-  ["integrations", "metaAccessToken"], ["integrations", "googleClientSecret"],
+  ["integrations", "metaAccessToken"], ["integrations", "tiktokAccessToken"], ["integrations", "googleClientSecret"],
   ["notifications", "telegramBotToken"], ["notifications", "waBridgeKey"],
   ["notifications", "smtp", "pass"], ["notifications", "sms", "apiKey"],
 ];

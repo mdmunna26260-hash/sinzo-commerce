@@ -11,7 +11,7 @@ import PushNudge from "@/components/push-nudge";
 import { getSettings, publicSettings } from "@/lib/settings";
 import { variantKey } from "@/lib/variant-key";
 import { clean } from "@/lib/search";
-import { safeCssValue, safeCssFontStack, safeCssInteger, safeCssFontSize, safeCssLineHeight, safeGoogleTagId, safeNumericId, safeAspectRatio } from "@/lib/sanitize";
+import { safeCssValue, safeCssFontStack, safeCssInteger, safeCssFontSize, safeCssLineHeight, safeGoogleTagId, safeNumericId, safeTikTokPixelId, safeAspectRatio } from "@/lib/sanitize";
 import { seoKeywords } from "@/lib/seo";
 
 export const viewport: Viewport = {
@@ -172,6 +172,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   /* Meta Pixel id is numeric — anything else (e.g. `1');evil();//`) is dropped, so the
      server-rendered base snippet below can never be broken out of. */
   const pixelId = safeNumericId(cfg?.integrations?.metaPixelId);
+  /* TikTok: same idea — the id is validated (letters/digits only) before it is placed
+     inside a quoted JS string in the snippet below. */
+  const tiktokPixelId = safeTikTokPixelId(cfg?.integrations?.tiktokPixelId);
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
@@ -216,6 +219,14 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             snippet ships the same noscript image. */}
         {pixelId ? (
           <noscript dangerouslySetInnerHTML={{ __html: `<img height="1" width="1" style="display:none" alt="" src="https://www.facebook.com/tr?id=${encodeURIComponent(pixelId)}&ev=PageView&noscript=1" />` }} />
+        ) : null}
+        {/* TikTok Pixel BASE CODE — server-rendered so the SDK request starts with the page
+            instead of after hydration. `ttq` is a queue: page()/track() calls made before the
+            SDK arrives are replayed, which is what makes the very first PageView reliable.
+            ttq.page() fires exactly one PageView per full page load; client-side route changes
+            call it again from components/store.tsx. */}
+        {tiktokPixelId ? (
+          <script id="tiktok-pixel-base" dangerouslySetInnerHTML={{ __html: `(function(w,d,t){w.TiktokAnalyticsObject=t;var q=w[t]=w[t]||[];q.methods=["page","track","identify","instances","debug","on","off","once","ready","alias","group","enableCookie","disableCookie"];q.setAndDefer=function(o,n){o[n]=function(){o.push([n].concat(Array.prototype.slice.call(arguments,0)));};};for(var i=0;i<q.methods.length;i++)q.setAndDefer(q,q.methods[i]);q.load=function(id){var s=d.createElement("script");s.id="tiktok-pixel";s.async=true;s.src="https://analytics.tiktok.com/i18n/pixel/sdk.js?sdkid="+encodeURIComponent(id);d.head.appendChild(s);};q.load("${tiktokPixelId}");q.page();})(window,document,"ttq");` }} />
         ) : null}
       </head>
       <body>

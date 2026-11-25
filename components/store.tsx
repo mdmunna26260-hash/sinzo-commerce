@@ -93,28 +93,102 @@ export function ensurePixel(): boolean {
     if (!document.getElementById("meta-pixel")) {
       const s = document.createElement("script"); s.id = "meta-pixel"; s.async = true; s.src = "https://connect.facebook.net/en_US/fbevents.js";
       document.head.appendChild(s);
+    }
+    /* init() makes fbevents fire the pixel's automatic PageView, so it must run exactly
+       once per page. The base snippet in app/layout.tsx already calls it while parsing,
+       but its own script tag is injected ~1.2s after window load — so this element check
+       alone still let init() run a second time and inflate pageviews. */
+    if (!w.__szMetaPixelInit) {
+      w.__szMetaPixelInit = true;
       const cachedPhone = getTrackingPhone();
       // advanced matching: known customer → richer event match quality
       if (cachedPhone) w.fbq("init", pixel, { ph: cachedPhone, external_id: cachedPhone, country: "bd" });
       else w.fbq("init", pixel);
-      w.fbq.loaded = true;
+    }
+    w.fbq.loaded = true;
+    return true;
+  } catch { return false; }
+}
+
+/* ---- TikTok Pixel (browser) ----
+   The base snippet is server-rendered in app/layout.tsx: it defines the `ttq` stub, loads
+   the SDK and fires the FIRST PageView. Client-side route changes do not reload the page,
+   so those call trackTikTokPageView() explicitly — one pageview per navigation, and never
+   a duplicate on first load. */
+export function ensureTikTok(): boolean {
+  if (typeof window === "undefined") return false;
+  const pixel = getCfg()?.integrations?.tiktokPixelId;
+  if (!pixel) return false;
+  try {
+    const w = window as any;
+    /* Same stub the base snippet installs, so events fired before the SDK finishes loading
+       are queued and replayed instead of lost. */
+    w.ttq = w.ttq || [];
+    if (!w.ttq.methods) {
+      w.ttq.methods = ["page", "track", "identify", "instances", "debug", "on", "off", "once", "ready", "alias", "group", "enableCookie", "disableCookie"];
+      w.ttq.setAndDefer = (o: any, n: string) => { o[n] = (...a: any[]) => { o.push([n, ...a]); }; };
+      for (const m of w.ttq.methods) w.ttq.setAndDefer(w.ttq, m);
+    }
+    if (!document.getElementById("tiktok-pixel")) {
+      const sc = document.createElement("script");
+      sc.id = "tiktok-pixel";
+      sc.async = true;
+      sc.src = "https://analytics.tiktok.com/i18n/pixel/sdk.js?sdkid=" + encodeURIComponent(pixel);
+      document.head.appendChild(sc);
+      w.ttq.load(pixel);
     }
     return true;
   } catch { return false; }
+}
+export function trackTikTokPageView(): void {
+  try {
+    if (!ensureTikTok()) return;
+    (window as any).ttq.page();
+  } catch {}
 }
 
 /* Standard PageView, fired once per client-side route change by components/pageview.tsx.
    Goes to the browser pixel AND (via /api/track/event) to the shop's own analytics. */
 export function trackPageView(path?: string, extra?: Record<string, any>): string {
   try { ensurePixel(); } catch {}
+  // TikTok's base snippet does not see client-side navigations on its own.
+  try { trackTikTokPageView(); } catch {}
   const p = path || (typeof location !== "undefined" ? location.pathname + location.search : undefined);
   return trackEvent("PageView", { ...(p ? { path: p } : {}), ...(extra || {}) });
+}
+
+/* Our events carry Meta-shaped data ({value, currency, contents:[{id, quantity, item_price}]}).
+   TikTok wants content_id / price / quantity. */
+export function tiktokProperties(data?: Record<string, any>): Record<string, any> {
+  const out: Record<string, any> = {};
+  if (!data) return out;
+  if (typeof data.value === "number") out.value = data.value;
+  if (data.currency) out.currency = data.currency;
+  if (data.content_type) out.content_type = data.content_type;
+  if (data.content_id) out.content_id = data.content_id;
+  if (data.content_name) out.content_name = data.content_name;
+  if (data.query) out.query = data.query;
+  if (Array.isArray(data.contents)) {
+    out.contents = data.contents.map((c: any) => ({
+      content_id: c?.id ?? c?.content_id,
+      content_type: c?.content_type || data.content_type || "product",
+      price: c?.item_price ?? c?.price,
+      quantity: c?.quantity ?? 1,
+    }));
+    if (!out.value) {
+      const sum = out.contents.reduce((a: number, c: any) => a + Number(c.price || 0) * Number(c.quantity || 1), 0);
+      if (sum) out.value = sum;
+    }
+  }
+  if (data.num_items) out.quantity = data.num_items;
+  return out;
 }
 
 export function trackEvent(name: string, data?: Record<string, any>, opts?: { eventId?: string }): string {
   const eventId = opts?.eventId || genEventId();
   const cfg = getCfg();
   const pixel = cfg?.integrations?.metaPixelId;
+  const tiktok = cfg?.integrations?.tiktokPixelId;
   const ga4 = cfg?.integrations?.ga4Id;
   const value = data?.value;
   const currency = data?.currency || "BDT";
@@ -138,6 +212,16 @@ export function trackEvent(name: string, data?: Record<string, any>, opts?: { ev
       }
       const gaMap: Record<string, string> = { ViewContent: "view_item", AddToCart: "add_to_cart", InitiateCheckout: "begin_checkout", Purchase: "purchase", Search: "search" };
       w.gtag("event", gaMap[name] || name.toLowerCase(), { currency, value, items: data?.contents, event_id: eventId });
+    }
+    // TikTok Pixel — PageView is sent by the base snippet / trackTikTokPageView(), so it is
+    // deliberately absent here. "Purchase" is TikTok's current name for the sale event
+    // (CompletePayment was renamed in 2025 and is only kept for legacy senders).
+    if (tiktok && name !== "PageView") {
+      if (ensureTikTok()) {
+        const ttMap: Record<string, string> = { ViewContent: "ViewContent", AddToCart: "AddToCart", InitiateCheckout: "InitiateCheckout", AddPaymentInfo: "AddPaymentInfo", Purchase: "Purchase", Search: "Search", Lead: "Lead" };
+        const ttName = ttMap[name];
+        if (ttName) w.ttq.track(ttName, tiktokProperties(data), { event_id: eventId });
+      }
     }
     // GTM dataLayer
     w.dataLayer = w.dataLayer || [];

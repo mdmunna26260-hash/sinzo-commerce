@@ -428,6 +428,14 @@ export function safeNumericId(input: unknown): string {
   return /^\d{1,25}$/.test(value) ? value : "";
 }
 
+/* TikTok Pixel ids are numeric today (e.g. 7614577081535627280) but the newer format is
+   "CF" + alphanumerics. Either way it lands inside a quoted JS string in the base snippet,
+   so only the characters that can never break out of that string are accepted. */
+export function safeTikTokPixelId(input: unknown): string {
+  const value = String(input ?? "").trim();
+  return /^[A-Za-z0-9_-]{6,40}$/.test(value) ? value : "";
+}
+
 /* Aspect ratio written as "3:4" in settings, rendered as "3 / 4" in CSS. */
 export function safeAspectRatio(input: unknown, fallback = "3 / 4"): string {
   const value = String(input ?? "").trim();

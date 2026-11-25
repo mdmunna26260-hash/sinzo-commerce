@@ -14,6 +14,9 @@ export default async function TrackingPage(props: { searchParams: Promise<any> }
     metaPixelId: s.integrations?.metaPixelId || "",
     hasMetaToken: !!s.integrations?.metaAccessToken,
     testEventCode: s.integrations?.metaTestEventCode || "",
+    tiktokPixelId: s.integrations?.tiktokPixelId || "",
+    hasTikTokToken: !!s.integrations?.tiktokAccessToken,
+    tiktokTestEventCode: s.integrations?.tiktokTestEventCode || "",
     ga4Id: s.integrations?.ga4Id || "",
     gtmId: s.integrations?.gtmId || "",
   };
