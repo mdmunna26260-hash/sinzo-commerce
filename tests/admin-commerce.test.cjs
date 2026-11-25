@@ -83,3 +83,31 @@ test('delivered, stock-deducted and courier-active orders cannot be hard-deleted
     assert.equal(calls.some(([name]) => name === 'delete'), false);
   }
 });
+
+/* ── Tier 3 fixes ────────────────────────────────────────────────────────────────────
+   The admin product form submits one input per image slot, so blank slots are normal.
+   They used to be pushed into the array as null behind a non-null assertion and Prisma
+   rejected the whole write (bare 500). Blank slots are now dropped, not asserted away. */
+test('admin product input drops blank image slots instead of turning them into nulls', () => {
+  const parsed = parseProductInput(product({ images: ['/api/media/abc', '', null, undefined, '/api/media/def'] }));
+  assert.deepEqual(parsed.images, ['/api/media/abc', '/api/media/def']);
+  assert.ok(parsed.images.every((url) => typeof url === 'string' && url.length > 0));
+});
+
+test('admin product input still rejects a non-string image that is not blank', () => {
+  assert.throws(() => parseProductInput(product({ images: [42] })), ProductInputError);
+  assert.throws(() => parseProductInput(product({ images: ['javascript:alert(1)'] })), ProductInputError);
+});
+
+/* A deleted or hand-typed category used to reach Prisma as a foreign-key violation and
+   come back as an opaque 500 from the product form. assertProductRefs reports it as input. */
+// same module instance as the error class it throws, or instanceof would not match
+const { assertProductRefs, ProductInputError: RefError } = loader()('lib/product-input.ts');
+test('assertProductRefs reports a missing category/colour group as a validation error', async () => {
+  const known = { category: new Set([1, 2]), colorGroup: new Set([7]) };
+  const exists = async (table, id) => known[table].has(id);
+  await assert.doesNotReject(() => assertProductRefs({ categoryId: 1, colorGroupId: 7 }, exists));
+  await assert.doesNotReject(() => assertProductRefs({ categoryId: null, colorGroupId: null }, exists));
+  await assert.rejects(() => assertProductRefs({ categoryId: 999, colorGroupId: null }, exists), RefError);
+  await assert.rejects(() => assertProductRefs({ categoryId: null, colorGroupId: 999 }, exists), RefError);
+});

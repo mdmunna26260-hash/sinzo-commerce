@@ -26,7 +26,7 @@ let done: Promise<void> | null = g.__szEnsure ?? null;
    skip the legacy safety net altogether in that normal development path. */
 async function sqliteSchemaIsCurrent(): Promise<boolean> {
   const requiredColumns: Record<string, string[]> = {
-    Order: ["channel", "stockDeducted", "packedAt", "packedBy", "reviewRequestedAt"],
+    Order: ["channel", "stockDeducted", "packedAt", "packedBy", "reviewRequestedAt", "paymentSenderNumber"],
     OrderItem: ["stockDeductedQty", "variantId", "preorder", "preorderDate"],
     ProductVariant: ["image"],
     Subscriber: ["unsubscribed", "unsubscribedAt"],
@@ -202,6 +202,9 @@ async function run(): Promise<void> {
   await db.$executeRawUnsafe(isPg
     ? `ALTER TABLE "Order" ADD COLUMN IF NOT EXISTS "paymentTrxId" TEXT`
     : `ALTER TABLE "Order" ADD COLUMN "paymentTrxId" TEXT`).catch(() => {});
+  await db.$executeRawUnsafe(isPg
+    ? `ALTER TABLE "Order" ADD COLUMN IF NOT EXISTS "paymentSenderNumber" TEXT`
+    : `ALTER TABLE "Order" ADD COLUMN "paymentSenderNumber" TEXT`).catch(() => {});
   await db.$executeRawUnsafe(isPg
     ? `ALTER TABLE "Product" ADD COLUMN IF NOT EXISTS "outsideDeliveryFee" DOUBLE PRECISION`
     : `ALTER TABLE "Product" ADD COLUMN "outsideDeliveryFee" REAL`).catch(() => {});

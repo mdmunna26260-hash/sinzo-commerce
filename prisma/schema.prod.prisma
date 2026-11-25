@@ -233,6 +233,7 @@ model Order {
   paymentMethod String      @default("COD") // COD | NAGAD | BKASH | BANK (manual)
   paymentStatus String      @default("PENDING") // PENDING | PAID | FAILED | REFUNDED
   paymentTrxId  String?     // manual payment transaction id (bKash/Nagad/bank) — verified by admin before PAID
+  paymentSenderNumber String? // the number the customer paid from, so admin can match the app statement
   status        String      @default("PENDING") // PENDING | CONFIRMED | PROCESSING | PACKED | SHIPPED | DELIVERED | CANCELLED | RETURNED | ON_HOLD
   riskLevel     String      @default("LOW") // LOW | MEDIUM | HIGH | CRITICAL
   riskFlags     String?

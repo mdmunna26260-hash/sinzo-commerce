@@ -151,3 +151,46 @@ test('buildCheckoutItems: free gift line priced 0, validated against threshold, 
   // gift not in pool → reject
   assert.throws(() => buildCheckoutItems([{ productId: 1, variantId: 11, qty: 1 }, { productId: 9, variantId: null, qty: 1 }, { productId: 1, variantId: 11, qty: 1, freeGift: true }], products, { gift }), /not in the offer pool/);
 });
+
+/* ── Tier 3 fix: mixed variant prices ────────────────────────────────────────────────
+   cartComboQuote used to set `g.unit = l.price` inside the line loop, so whichever variant
+   line came LAST decided the reference price for the whole product. With a ৳800 and a ৳1,200
+   variant the "2 for ৳1,600" tier was quoted against a single arbitrary variant price, and
+   the answer changed with line order. The reference is now the weighted average, which is
+   order-independent and reproduces the exact cart base. */
+test('cartComboQuote: mixed variant prices use the cart average, not the last line', () => {
+  const offers = '[{"qty":2,"total":1600}]';
+  const ascending = [
+    { productId: 1, price: 800, qty: 1, comboOffers: offers },
+    { productId: 1, price: 1200, qty: 1, comboOffers: offers },
+  ];
+  const descending = [...ascending].reverse();
+  // base = 800 + 1200 = 2000; the tier is cheaper at 1600 → saving 400
+  for (const lines of [ascending, descending]) {
+    const q = cartComboQuote(lines);
+    assert.equal(q.subtotal, 1600, 'line order must not change the subtotal');
+    assert.equal(q.savings, 400, 'line order must not change the saving');
+  }
+  // the old behaviour: last line wins → savings 800 one way and 0 the other
+  assert.notEqual(cartComboQuote(ascending).savings, 800);
+  assert.notEqual(cartComboQuote(descending).savings, 0);
+});
+
+test('cartComboQuote: equal variant prices still quote exactly like comboQuote', () => {
+  const offers = [{ qty: 2, total: 1600 }, { qty: 3, total: 2300 }];
+  const lines = [
+    { productId: 1, price: 900, qty: 1, comboOffers: offers },
+    { productId: 1, price: 900, qty: 2, comboOffers: offers },
+  ];
+  const q = cartComboQuote(lines);
+  assert.equal(q.subtotal, comboQuote(900, 3, offers).subtotal);
+  assert.equal(q.savings, comboQuote(900, 3, offers).savings);
+});
+
+test('bestBundleSavings: the "one unit" reference is the cheapest line, whatever the order', () => {
+  const bundles = [{ id: 1, price: 1500, productIds: [1, 2] }];
+  const lines = (first) => first
+    ? [{ productId: 1, price: 800, qty: 1 }, { productId: 1, price: 1200, qty: 1 }, { productId: 2, price: 900, qty: 1 }]
+    : [{ productId: 1, price: 1200, qty: 1 }, { productId: 1, price: 800, qty: 1 }, { productId: 2, price: 900, qty: 1 }];
+  assert.equal(bestBundleSavings(lines(true), bundles), bestBundleSavings(lines(false), bundles));
+});

@@ -11,7 +11,7 @@ import PushNudge from "@/components/push-nudge";
 import { getSettings, publicSettings } from "@/lib/settings";
 import { variantKey } from "@/lib/variant-key";
 import { clean } from "@/lib/search";
-import { safeCssValue, safeCssFontStack, safeCssInteger, safeGoogleTagId, safeNumericId, safeAspectRatio } from "@/lib/sanitize";
+import { safeCssValue, safeCssFontStack, safeCssInteger, safeCssFontSize, safeCssLineHeight, safeGoogleTagId, safeNumericId, safeAspectRatio } from "@/lib/sanitize";
 import { seoKeywords } from "@/lib/seo";
 
 export const viewport: Viewport = {
@@ -145,6 +145,13 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const radius = safeCssInteger(theme.radius);
   const containerWidth = safeCssInteger(theme.containerWidth);
   const imgRatio = safeAspectRatio(theme.productImageRatio);
+  /* Admin → Settings → "Description text size". One knob: every paragraph, list item and
+     sub-heading inside the PDP description is sized in `em` off this variable, so spacing
+     tightens together with the text instead of leaving big gaps behind. */
+  const descSize = safeCssFontSize(theme.descriptionSize);
+  /* Same idea for the line-to-line spacing: one unitless number, shared by paragraphs, list
+     items and sub-headings inside the description. */
+  const descLineHeight = safeCssLineHeight(theme.descriptionLineHeight);
   const cssVars = `
     :root {
       ${bg ? `--bg:${bg};` : ""}
@@ -154,6 +161,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       ${bodyFont ? `--font-body:${bodyFont};` : ""}
       ${radius ? `--radius:${radius}px;` : ""}
       --img-ratio:${imgRatio};
+      ${descSize ? `--pdp-desc-size:${descSize}px;` : ""}
+      ${descLineHeight ? `--pdp-desc-lh:${descLineHeight};` : ""}
       ${containerWidth ? `--container:${containerWidth}px;` : ""}
     }`;
   /* Google Tag Manager ids have a rigid shape (GTM-XXXXXXX). It was interpolated raw into

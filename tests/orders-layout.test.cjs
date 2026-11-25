@@ -36,7 +36,14 @@ function screen(initialTab = 'ALL', options = {}) {
   ];
   const nodes = () => {
     cursor = 0;
-    const root = module.exports.default({ initial, initialTab, initialQueue: options.initialQueue || "" });
+    const root = module.exports.default({
+      initial, initialTab, initialQueue: options.initialQueue || "",
+      page: options.page || 1,
+      pages: options.pages || 1,
+      total: options.total ?? initial.length,
+      pageSize: options.pageSize || 50,
+      counts: options.counts || { ALL: initial.length, PENDING: 0, CONFIRMED: 0, READY: 0, ACTIVE: 0, ON_HOLD: 0, PREORDER: 0, DELIVERED: 0, CLOSED: 0 },
+    });
     const out = [];
     function walk(node) {
       if (Array.isArray(node)) return node.forEach(walk);
@@ -70,14 +77,36 @@ test('search matches customer and consignment while preserving the search input 
   input().props.onChange({ target: { value: 'TRACK-222' } });
   assert.deepEqual(ui.cards(), ['Order ORD-2']);
 });
-test('status buttons and PREORDER deep links apply the expected order filters', () => {
-  const ui = screen();
+test('status tabs navigate to the server-filtered page instead of filtering in the browser', () => {
+  const ui = screen('ALL', { counts: { ALL: 2, PENDING: 7 } });
   const tabs = () => ui.nodes().filter(n => n.type === 'button' && n.props.className?.startsWith('orders-status-tab'));
+  assert.equal(tabs()[0].props['aria-pressed'], true);
+  // the badge is the server's count for the whole tab, not a count of the rows on this page
+  assert.ok(ui.nodes().some(n => n.type === 'span' && Array.isArray(n.props.children) && n.props.children[1] === 7));
   tabs()[1].props.onClick();
-  assert.deepEqual(ui.cards(), ['Order ORD-1']);
-  assert.equal(tabs()[1].props['aria-pressed'], true);
-  assert.deepEqual(screen('PREORDER').cards(), ['Order ORD-2']);
-  assert.equal(screen('INVALID').cards().length, 2);
+  assert.deepEqual(ui.pushed, ['/admin/orders?tab=PENDING&t=preview']);
+  tabs()[0].props.onClick();
+  assert.equal(ui.pushed.length, 1, 'clicking the active tab must not navigate');
+  // a deep link renders exactly the page the server filtered for that tab
+  const tabButtons = (ui) => ui.nodes().filter(n => n.type === 'button' && n.props.className?.startsWith('orders-status-tab'));
+  assert.equal(tabButtons(screen('PREORDER'))[6].props['aria-pressed'], true);
+  // an unknown tab falls back to ALL instead of rendering nothing
+  assert.equal(tabButtons(screen('INVALID'))[0].props['aria-pressed'], true);
+});
+
+test('the pager walks the whole order table and preserves the active tab', () => {
+  const ui = screen('ALL', { page: 2, pages: 5, total: 237 });
+  const buttons = ui.nodes().filter(n => n.type === 'button' && typeof n.props.children === 'string' && /Previous|Next/.test(n.props.children));
+  assert.equal(buttons.length, 2);
+  assert.equal(buttons[0].props.disabled, false);
+  assert.equal(buttons[1].props.disabled, false);
+  buttons[0].props.onClick();
+  buttons[1].props.onClick();
+  assert.deepEqual(ui.pushed, ['/admin/orders?tab=ALL&t=preview', '/admin/orders?tab=ALL&page=3&t=preview']);
+  // a single page never renders a pager
+  assert.equal(screen('ALL').nodes().some(n => n.type === 'nav'), false);
+  assert.equal(screen('ALL', { page: 1, pages: 3 }).nodes().filter(n => n.type === 'button' && n.props.children === '← Previous')[0].props.disabled, true);
+  assert.equal(screen('ALL', { page: 3, pages: 3 }).nodes().filter(n => n.type === 'button' && n.props.children === 'Next →')[0].props.disabled, true);
 });
 test('extra filters expand and payment/date filters combine without expanding the header by default', () => {
   const ui = screen();
@@ -136,7 +165,7 @@ test('courier send uses the existing endpoint only after confirmation and immedi
   assert.ok(ui.nodes().filter(n => n.props.className === 'order-mobile-consignment').some(n => n.props.children.includes('789123')));
   ui.find(n => n.props.className === 'abtn order-parcel');
 });
-test('mini status control uses the inventory-aware order update endpoint and updates status filters', async () => {
+test('mini status control uses the inventory-aware order update endpoint and shows the saved status', async () => {
   const calls = [];
   const ui = screen('PENDING', { request: async (url, opts) => {
     calls.push([url, opts.method, JSON.parse(opts.body)]);
@@ -144,7 +173,10 @@ test('mini status control uses the inventory-aware order update endpoint and upd
   } });
   await ui.find(n => n.props['aria-label'] === 'Change status for ORD-1').props.onChange({ target: { value: 'CONFIRMED' } });
   assert.deepEqual(calls, [['/api/admin/orders/1', 'PUT', { status: 'CONFIRMED' }]]);
-  assert.deepEqual(ui.cards(), []);
+  // the tab is now filtered on the server, so nothing is re-filtered here: the row the admin
+  // just changed stays on screen and shows the status that was actually saved
+  assert.deepEqual(ui.cards(), ['Order ORD-1', 'Order ORD-2']);
+  assert.ok(ui.nodes().some(n => n.props.className === 'pill CONFIRMED'));
 });
 test('cancelled confirmations never call the courier or status APIs', async () => {
   const ui = screen('ALL', { initialStatus: 'CONFIRMED', confirmResult: false });
@@ -225,11 +257,15 @@ test('booked open orders link to real parcel details and closed orders stay disa
   assert.equal(shipped.find(n => n.props.className === 'abtn order-parcel').props.href, '/admin/orders/2?t=preview');
 });
 
-test('READY tab shows only unbooked confirmed/processing/packed orders', () => {
+test('READY and PREORDER are server-filtered tabs, not browser-side filters', () => {
+  // lib/admin-workflow.orderTabWhere() builds the query; the client only marks the tab active.
   const ui = screen('READY', { initialStatus: 'CONFIRMED', secondStatus: 'PACKED' });
-  // The second fixture already has a courier consignment and must be excluded.
-  assert.deepEqual(ui.cards(), ['Order ORD-1']);
-  assert.deepEqual(screen('READY').cards(), []);
+  const tabs = ui.nodes().filter(n => n.type === 'button' && n.props.className?.startsWith('orders-status-tab'));
+  assert.equal(tabs[3].props['aria-pressed'], true);
+  assert.equal(tabs[0].props['aria-pressed'], false);
+  // whatever the server sent for the tab is rendered verbatim — no second filter pass
+  assert.deepEqual(ui.cards(), ['Order ORD-1', 'Order ORD-2']);
+  assert.equal(screen('PREORDER').cards().length, 2);
 });
 test('dashboard queue context leaves its server-filtered subset when switching tabs', () => {
   const ui = screen('READY', { initialStatus: 'CONFIRMED', initialQueue: 'ready to send' });

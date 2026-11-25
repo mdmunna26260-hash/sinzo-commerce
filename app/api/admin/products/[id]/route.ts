@@ -3,7 +3,7 @@ import { db } from "@/lib/db";
 import { requirePerm } from "@/lib/admin-guard";
 import { logAudit } from "@/lib/auth";
 import { slugify } from "@/lib/slug";
-import { parseProductInput, ProductInputError } from "@/lib/product-input";
+import { parseProductInput, ProductInputError, assertProductRefs } from "@/lib/product-input";
 
 async function syncCollection(productId: number, slug: string, want: boolean) {
   const col = await db.collection.findUnique({ where: { slug } });
@@ -46,6 +46,10 @@ export async function PUT(req: Request, props: Ctx) {
     if (!requestedSlug) throw new ProductInputError("Title or slug must contain letters or numbers");
     const clash = await db.product.findFirst({ where: { slug: requestedSlug, id: { not: id } }, select: { id: true } });
     const finalSlug = clash ? requestedSlug + "-" + Date.now().toString(36) : requestedSlug;
+    // a deleted or hand-typed category used to surface as a Prisma FK error (bare 500)
+    await assertProductRefs(input, (table, refId) => (table === "category"
+      ? db.category.findUnique({ where: { id: refId }, select: { id: true } })
+      : db.colorGroup.findUnique({ where: { id: refId }, select: { id: true } })).then((row) => !!row));
 
     const before = await db.$transaction(async (tx) => {
       const current = await tx.product.findUnique({ where: { id }, include: { images: true, variants: true } });

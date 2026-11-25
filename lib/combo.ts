@@ -63,16 +63,24 @@ export function comboQuote(unitPrice: number, qty: number, offers: unknown): Com
 }
 
 /* Cart-level quote: lines of the same product combine toward one combo (sizes/colors
-   don't break the combo — "3 ta item" means 3 units of that product). */
+   don't break the combo — "3 ta item" means 3 units of that product).
+
+   Reference unit price: the cart's WEIGHTED AVERAGE unit price for that product
+   (Σ line.price × qty ÷ Σ qty). This used to be `g.unit = l.price` inside the loop,
+   i.e. whichever variant line happened to come LAST won. A product with a ৳800 and a
+   ৳1,200 variant was therefore quoted against a single arbitrary variant price: the
+   combo could be priced off a variant the customer is not even buying. The average is
+   order-independent, always ≤ the priciest line, and reproduces the exact cart base
+   (avg × qty = Σ price × qty), so comboQuote()'s savings figure stays truthful. */
 export function cartComboQuote(lines: { productId: number; price: number; qty: number; comboOffers?: unknown; comboEligible?: boolean }[], bundles?: unknown, deptTiers?: unknown): { subtotal: number; savings: number } {
   const groups = new Map<number, { qty: number; base: number; offers: unknown; unit: number }>();
   for (const l of lines) {
     const g = groups.get(l.productId) || { qty: 0, base: 0, offers: l.comboOffers, unit: l.price };
     g.qty += l.qty || 1;
     g.base += (l.qty || 1) * l.price;
-    g.unit = l.price; // reference unit price = product base price snapshot on the line
     groups.set(l.productId, g);
   }
+  for (const g of groups.values()) g.unit = g.qty ? g.base / g.qty : 0;
   let subtotal = 0, savings = 0;
   for (const g of groups.values()) {
     const q = comboQuote(g.unit, g.qty, g.offers);
@@ -111,12 +119,15 @@ export function normalizeBundles(raw: unknown): { id: number | null; price: numb
 }
 
 /* Savings if the best applicable bundle is applied: sum of one base unit of each bundle
-   product minus the bundle price, only when positive and every product is in the cart. */
+   product minus the bundle price, only when positive and every product is in the cart.
+   The "one unit" reference is the CHEAPEST line for that product, so the claimed saving
+   is the same whatever order the cart lines arrive in (it used to take whichever line
+   came first) and can never overstate the discount. */
 export function bestBundleSavings(lines: { productId: number; price: number; qty: number }[], bundles: unknown): number {
   const inCart = new Map<number, number>();
   for (const l of lines) inCart.set(l.productId, (inCart.get(l.productId) || 0) + (l.qty || 1));
   const unit = new Map<number, number>();
-  for (const l of lines) if (!unit.has(l.productId)) unit.set(l.productId, l.price);
+  for (const l of lines) unit.set(l.productId, Math.min(unit.get(l.productId) ?? Infinity, l.price));
   let best = 0;
   for (const b of normalizeBundles(bundles)) {
     if (!b.productIds.every((id) => (inCart.get(id) || 0) >= 1)) continue;

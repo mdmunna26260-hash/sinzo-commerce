@@ -121,6 +121,18 @@ export function mapSteadfastStatus(raw?: string | null): { label: string; tone: 
 
 type StfSession = { cookie: string; at: number };
 let stfSession: StfSession | null = null;
+/* One in-flight login, shared by every caller. `stfSession` is a module-level cache, so
+   before this guard N concurrent fraud checks all saw the session as expired, all hit the
+   merchant login page at once, and each overwrote the cookie the others had just started
+   using. Await the same promise instead of racing to replace it. */
+let stfLoginInFlight: Promise<string> | null = null;
+
+async function stfLoginOnce(email: string, password: string): Promise<string> {
+  if (!stfLoginInFlight) {
+    stfLoginInFlight = stfLogin(email, password).finally(() => { stfLoginInFlight = null; });
+  }
+  return stfLoginInFlight;
+}
 
 export async function stfWebCfg() {
   const s = envFallback(await getSettings());
@@ -191,7 +203,7 @@ export async function steadfastFreeFraudCheck(phone: string): Promise<FreeFraudR
   };
   try {
     if (!stfSession || Date.now() - stfSession.at > 25 * 60 * 1000) {
-      stfSession = { cookie: await stfLogin(cfg.email, cfg.password), at: Date.now() };
+      stfSession = { cookie: await stfLoginOnce(cfg.email, cfg.password), at: Date.now() };
     }
     return await run();
   } catch (e: any) {
@@ -199,7 +211,7 @@ export async function steadfastFreeFraudCheck(phone: string): Promise<FreeFraudR
     // one retry (first attempt may have used a stale session)
     if (String(e?.message) !== "no-session") {
       try {
-        stfSession = { cookie: await stfLogin(cfg.email, cfg.password), at: Date.now() };
+        stfSession = { cookie: await stfLoginOnce(cfg.email, cfg.password), at: Date.now() };
         return await run();
       } catch (e2: any) {
         return { configured: true, ok: false, provider: "Steadfast (free)", error: String(e2?.message || e2) };

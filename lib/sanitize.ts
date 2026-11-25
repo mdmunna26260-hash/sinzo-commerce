@@ -386,6 +386,23 @@ export function safeCssInteger(input: unknown, fallback = ""): string {
   return String(Math.round(n));
 }
 
+/* A font size in px for theme settings (PDP description size). Decimals are kept because
+   13.5px is a normal thing for an admin to want; the range is clamped so a typo cannot turn
+   the storefront into 4px or 900px text. */
+export function safeCssFontSize(input: unknown, fallback = ""): string {
+  const n = Number(input);
+  if (!Number.isFinite(n) || n < 10 || n > 22) return fallback;
+  return String(Math.round(n * 10) / 10);
+}
+
+/* A unitless CSS line-height (1.0 = solid, 1.45 = comfortable body copy). Clamped to 1.0–2.0:
+   below 1.0 lines overlap and above 2.0 the description turns into a scattered list. */
+export function safeCssLineHeight(input: unknown, fallback = ""): string {
+  const n = Number(input);
+  if (!Number.isFinite(n) || n < 1 || n > 2) return fallback;
+  return String(Math.round(n * 100) / 100);
+}
+
 /* ------------------------------------------------------------------ tag ids */
 
 /* Google tag identifiers have rigid shapes. Validating them is what keeps gtmId

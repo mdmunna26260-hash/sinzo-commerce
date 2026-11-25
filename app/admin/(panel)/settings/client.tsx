@@ -423,6 +423,12 @@ export default function SettingsClient({ groups, user, userCount, hasCourier, co
               <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 4 }}>Notun upload gulo ei ratio-te automatic crop hobe. Save Theme chapun.</div>
             </div>
             <div className="af"><label>Container width (px)</label><input type="number" value={g.theme?.containerWidth ?? 1280} onChange={(e) => setG({ ...g, theme: { ...g.theme, containerWidth: Number(e.target.value) } })} /></div>
+            <div className="af"><label>Description text size (px)</label><input type="number" min={10} max={22} step={0.5} value={g.theme?.descriptionSize ?? 14} onChange={(e) => setG({ ...g, theme: { ...g.theme, descriptionSize: Number(e.target.value) } })} />
+              <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 4 }}>Product page-er Description box-er likha koto boro hobe. 10–22; paragraph-er gap ei size-er sathe automatically kom-besh hobe.</div>
+            </div>
+            <div className="af"><label>Description line gap</label><input type="number" min={1} max={2} step={0.05} value={g.theme?.descriptionLineHeight ?? 1.45} onChange={(e) => setG({ ...g, theme: { ...g.theme, descriptionLineHeight: Number(e.target.value) } })} />
+              <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 4 }}>Ekta line theke nicher line er dor (line-height). 1 = line gulo kache kache jore jabe, 2 = onek khola khola. 1.45 default.</div>
+            </div>
 
             <div className="af full"><label>Announcement bar text</label><input value={g.homepage?.announcement || ""} onChange={(e) => setG({ ...g, homepage: { ...g.homepage, announcement: e.target.value } })} /></div>
             <div className="af full"><label>Hero overlay fade (white/black gradient over banner image)</label>

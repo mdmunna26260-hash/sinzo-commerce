@@ -33,6 +33,11 @@ export async function POST(req: Request) {
     const manualCfg = (await getSettings()).checkout?.manualPayments || {};
     const MANUAL = { NAGAD: manualCfg.nagad?.enabled, BKASH: manualCfg.bkash?.enabled, BANK: manualCfg.bank?.enabled };
     const trxId = typeof body.trxId === "string" ? body.trxId.trim().slice(0, 64) : "";
+    /* Which number the customer sent the money from. Admin needs it to find the row in the
+       bKash/Nagad statement — a TrxID alone is hard to match when ten orders are pending.
+       Free-form on purpose (with a length cap): senders type "017...", "+88017..." or
+       "017... (personal)". */
+    const senderNumber = typeof body.senderNumber === "string" ? body.senderNumber.trim().slice(0, 32) : "";
     const purchaseEventId = typeof body.purchaseEventId === "string" ? body.purchaseEventId.slice(0, 128) : undefined;
     const cleanPhone = normalizeBDPhone(String(body.phone || ""));
     const errors: Record<string, string> = {};
@@ -139,7 +144,9 @@ export async function POST(req: Request) {
           code: "TEMP-" + crypto.randomUUID(), name, phone: cleanPhone, email: email || null,
           address, area, notes: notes || null,
           subtotal, discount, comboDiscount: comboSavings, giftDiscount: giftSavings || 0, deliveryFee, total, couponCode: appliedCode, capiPurchaseSentAt: new Date(),
-          paymentMethod, paymentTrxId: paymentMethod === "COD" ? null : trxId, paymentStatus: "PENDING", status: risk.level === "HIGH" ? "ON_HOLD" : "PENDING",
+          paymentMethod, paymentTrxId: paymentMethod === "COD" ? null : trxId,
+          paymentSenderNumber: paymentMethod === "COD" ? null : senderNumber || null,
+          paymentStatus: "PENDING", status: risk.level === "HIGH" ? "ON_HOLD" : "PENDING",
           riskLevel: risk.level, riskFlags: risk.flags.join(", ") || null,
           source: recovered ? "Recovered" : detectSource(attribution), attribution: Object.keys(attribution).length ? JSON.stringify(attribution) : null,
           channel: deployChannel(), ip, customerId: customer.id, items: { create: orderItems },

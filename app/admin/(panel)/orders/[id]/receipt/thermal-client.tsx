@@ -1,8 +1,9 @@
 "use client";
 import { useEffect, useState } from "react";
-import { db } from "@/lib/db";
-import { notFound } from "next/navigation";
-import { getSettings } from "@/lib/settings";
+
+/* NOTE: this is a Client Component. Never import @/lib/db or @/lib/settings here —
+   they pull @prisma/client into the browser bundle. Everything this receipt prints
+   arrives through props from the server page (app/.../receipt/page.tsx). */
 
 /* Thermal receipt — optimized for Tigo POS-5820DD (58mm, 203dpi, Bluetooth/USB).
    - Pure ESC/POS-safe monospace layout (no images, no gradients)

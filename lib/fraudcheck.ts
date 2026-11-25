@@ -33,6 +33,37 @@ export async function fraudCheckCfg() {
   return { apiUrl, apiKey, providerName, configured: !!apiKey };
 }
 
+/* Default: only the documented provider. Extra hosts can be added with a
+   comma-separated FRAUD_API_ALLOWLIST env var (host or full origin).
+   The URL is stored in Admin → Settings → Courier, so without this an admin-editable
+   field is a server-side request forgery primitive aimed at the store's own network. */
+const DEFAULT_FRAUD_HOSTS = ["fraudbd.com"];
+
+function fraudHostAllowed(hostname: string): boolean {
+  const host = String(hostname || "").toLowerCase().replace(/\.$/, "");
+  if (!host) return false;
+  const extra = String(process.env.FRAUD_API_ALLOWLIST || "").split(/[,\s]+/).filter(Boolean);
+  const allowed = [...DEFAULT_FRAUD_HOSTS, ...extra];
+  return allowed.some((entry) => {
+    let h = entry.toLowerCase();
+    try { h = new URL(h.includes("://") ? h : "https://" + h).hostname; } catch { /* keep raw */ }
+    return host === h || host.endsWith("." + h);
+  });
+}
+
+/* Returns the validated absolute URL, or null when the stored value must not be fetched. */
+export function safeFraudApiUrl(raw: string): string | null {
+  const value = String(raw || "").trim();
+  if (!value || value.length > 2048 || /[\u0000-\u001f\u007f]/.test(value)) return null;
+  let url: URL;
+  try { url = new URL(value); } catch { return null; }
+  if (url.protocol !== "https:" && url.protocol !== "http:") return null;
+  // plain http is only tolerable on loopback (a local mock during development)
+  if (url.protocol === "http:" && !["127.0.0.1", "localhost", "::1"].includes(url.hostname)) return null;
+  if (!fraudHostAllowed(url.hostname)) return null;
+  return url.toString();
+}
+
 function pct(n: number, d: number): number {
   return d > 0 ? Math.round((n / d) * 1000) / 10 : 0;
 }
@@ -40,8 +71,12 @@ function pct(n: number, d: number): number {
 export async function checkCourierFraud(phone: string): Promise<FraudCheckResult> {
   const cfg = await fraudCheckCfg();
   if (!cfg.configured) return { configured: false, ok: false, error: "Not configured — add the fraud-check API key in Admin > Settings > Courier" };
+  const apiUrl = safeFraudApiUrl(cfg.apiUrl);
+  if (!apiUrl) {
+    return { configured: true, ok: false, provider: cfg.providerName, error: "Blocked fraud-check URL: the host is not allowlisted (FRAUD_API_ALLOWLIST) or the URL is not http(s)." };
+  }
   try {
-    const res = await fetch(cfg.apiUrl, {
+    const res = await fetch(apiUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json", Accept: "application/json", api_key: cfg.apiKey },
       body: JSON.stringify({ phone_number: phone }),

@@ -36,11 +36,41 @@ export default function CheckoutPage() {
   const checkoutCfg = recoveryPricing?.checkout || cfg?.checkout;
   const codEnabled = checkoutCfg?.codEnabled !== false;
   const manual = checkoutCfg?.manualPayments || {};
+  /* Every manual channel carries the same shape so the payment card can render one
+     instructions block for all of them: what to do, which number/account to send to (and
+     copy), and what the proof-of-payment field is called. */
   const manualOptions = [
-    manual.nagad?.enabled ? { id: "NAGAD", label: "Nagad", detail: `Send to ${manual.nagad.number} (${manual.nagad.name})` } : null,
-    manual.bkash?.enabled ? { id: "BKASH", label: "bKash", detail: `Send to ${manual.bkash.number} (${manual.bkash.name})` } : null,
-    manual.bank?.enabled ? { id: "BANK", label: "Bank transfer", detail: `${manual.bank.bankName} · A/C ${manual.bank.accountNo} · ${manual.bank.accountName} · Branch ${manual.bank.branch} · Routing ${manual.bank.routing}` } : null,
-  ].filter(Boolean) as { id: string; label: string; detail: string }[];
+    manual.nagad?.enabled
+      ? {
+          id: "NAGAD", label: "Nagad", short: "Nagad", brand: "nagad",
+          accountType: "Nagad Personal (Send Money)",
+          number: manual.nagad.number || "",
+          note: manual.nagad.name ? `Account name: ${manual.nagad.name}` : "",
+          instructions: "Open Nagad → Send Money → send the exact amount to the number below, then copy the TrxID from the receipt.",
+          trxLabel: "Transaction ID (TrxID)",
+        }
+      : null,
+    manual.bkash?.enabled
+      ? {
+          id: "BKASH", label: "bKash", short: "bKash", brand: "bkash",
+          accountType: "bKash Personal (Send Money)",
+          number: manual.bkash.number || "",
+          note: manual.bkash.name ? `Account name: ${manual.bkash.name}` : "",
+          instructions: "Open bKash → Send Money → send the exact amount to the number below, then copy the TrxID from the receipt.",
+          trxLabel: "Transaction ID (TrxID)",
+        }
+      : null,
+    manual.bank?.enabled
+      ? {
+          id: "BANK", label: "Bank transfer", short: "Bank", brand: "bank",
+          accountType: manual.bank.bankName || "Bank transfer",
+          number: manual.bank.accountNo || "",
+          note: [manual.bank.accountName, manual.bank.branch ? `Branch ${manual.bank.branch}` : "", manual.bank.routing ? `Routing ${manual.bank.routing}` : ""].filter(Boolean).join(" · "),
+          instructions: "Transfer the exact amount to the account below (NPSB/BEFTN), then submit the reference number from your bank statement.",
+          trxLabel: "Reference / TrxID",
+        }
+      : null,
+  ].filter(Boolean) as { id: string; label: string; short: string; brand: string; accountType: string; number: string; note: string; instructions: string; trxLabel: string }[];
 
   const [form, setForm] = useState({ name: "", phone: "", email: "", address: "", area: "INSIDE_DHAKA", notes: "" });
   const [coupon, setCoupon] = useState("");
@@ -53,6 +83,12 @@ export default function CheckoutPage() {
   const [cbusy, setCBusy] = useState(false);
   const [payment, setPayment] = useState("COD");
   const [trxId, setTrxId] = useState("");
+  const [senderNumber, setSenderNumber] = useState("");
+  /* Online payment starts open when a manual channel is already the selected method — a
+     returning visitor must not have to click the card again to see the number to pay to. */
+  const [onlineOpen, setOnlineOpen] = useState(false);
+  const [pmError, setPmError] = useState("");
+  const [copied, setCopied] = useState(false);
 
   const [bundles, setBundles] = useState<any[]>([]);
   useEffect(() => { fetch("/api/gift-rule").then((r) => r.json()).then(setGiftRule).catch(() => {}); }, []);
@@ -249,6 +285,31 @@ export default function CheckoutPage() {
 
   const set = (k: string, v: string) => setForm((f) => ({ ...f, [k]: v }));
 
+  /* Copy the account number without the dashes, so the paste lands in the app's number
+     field as one clean string. Falls back to a hidden textarea on http (the sandbox preview
+     is not a secure context, so navigator.clipboard is undefined there). */
+  const copyAccount = async (m: { id: string; number: string }) => {
+    const value = (m.number || "").replace(/[\s-]/g, "");
+    if (!value) return;
+    let ok = false;
+    try {
+      if (navigator.clipboard?.writeText) { await navigator.clipboard.writeText(value); ok = true; }
+    } catch { ok = false; }
+    if (!ok) {
+      const ta = document.createElement("textarea");
+      ta.value = value;
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.select();
+      try { ok = document.execCommand("copy"); } catch {}
+      document.body.removeChild(ta);
+    }
+    setCopied(ok);
+    toast(ok ? `Copied ${value}` : `Number: ${value}`);
+    window.setTimeout(() => setCopied(false), 2000);
+  };
+
 
   const applyCoupon = async () => {
     if (!coupon.trim() || cbusy || busy) return;
@@ -273,7 +334,14 @@ export default function CheckoutPage() {
 
   const placeOrder = async () => {
     if (busy || cbusy || recoveryStage === "choice") return;
-    if (payment !== "COD" && trxId.trim().length < 6) { toast("Transaction ID (TrxID) din — jeta send korar por peyechen"); return; }
+    if (payment !== "COD" && trxId.trim().length < 6) {
+      // open the card so the field the customer forgot is on screen, then say it inline
+      setOnlineOpen(true);
+      const m = manualOptions.find((x) => x.id === payment);
+      setPmError(`Please enter your ${m?.label || "payment"} ${m?.trxLabel || "TrxID"} before placing the order.`);
+      toast("Transaction ID (TrxID) din — jeta send korar por peyechen");
+      return;
+    }
     if (!validate()) { window.scrollTo({ top: 0, behavior: "smooth" }); return; }
     orderInFlight.current = true; captureRequest.current?.abort(); setBusy(true);
     trackEvent("AddPaymentInfo", { value: total, currency: "BDT" });
@@ -284,7 +352,9 @@ export default function CheckoutPage() {
       const r = await fetch("/api/checkout", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          ...form, phone: normalizeBDPhone(form.phone), paymentMethod: payment, trxId: payment === "COD" ? undefined : trxId,
+          ...form, phone: normalizeBDPhone(form.phone), paymentMethod: payment,
+          trxId: payment === "COD" ? undefined : trxId,
+          senderNumber: payment === "COD" ? undefined : senderNumber.trim(),
           captureKey: getCaptureKey(), recoveryToken: recoveryStage === "restored" ? recoveryToken : undefined,
           couponCode: applied?.code || null, purchaseEventId: eventId,
           attribution: captureAttribution(),
@@ -421,40 +491,157 @@ export default function CheckoutPage() {
             />
           </details>
 
+          {/* Payment. Two parent cards, as designed: Cash on Delivery on its own, and one
+              expandable "Online payment" card that holds the Nagad / bKash / bank channels,
+              the account number with a copy button, and the TrxID field. The old version put
+              all four methods in a single flex row, where every label wrapped to 3-5 lines and
+              "send money, then submit TrxID" was printed three times. */}
           <div className="checkout-payment-row">
-            <span className="checkout-payment-heading">Payment</span>
-            {codEnabled && (
-              <label className="checkout-payment-option">
-                <input type="radio" name="payment" checked={payment === "COD"} onChange={() => setPayment("COD")} />
-                <span>Cash on delivery</span>
-              </label>
-            )}
-            {manualOptions.map((m) => (
-              <label className="checkout-payment-option" key={m.id}>
-                <input type="radio" name="payment" checked={payment === m.id} onChange={() => setPayment(m.id)} />
-                <span>{m.label} <small style={{ color: "var(--muted)" }}>— send money, then submit TrxID</small></span>
-              </label>
-            ))}
-            {!codEnabled && manualOptions.length === 0 && (
-              <span className="checkout-payment-disabled">No payment method available right now.</span>
-            )}
-          </div>
-          {payment !== "COD" && (
-            <div className="checkout-manual-pay" style={{ marginTop: 10, padding: 14, border: "1px solid var(--line)", borderRadius: 10, fontSize: 13.5 }}>
-              <div style={{ fontWeight: 650, marginBottom: 4 }}>Send ৳{Math.round(total).toLocaleString("en-IN")} to:</div>
-              <div style={{ color: "var(--muted)", lineHeight: 1.6 }}>
-                {manualOptions.find((m) => m.id === payment)?.detail}
-              </div>
-              <input
-                style={{ marginTop: 10, width: "100%" }}
-                placeholder="Transaction ID (TrxID) — e.g. 8HG5K2XN9Q"
-                value={trxId}
-                onChange={(e) => setTrxId(e.target.value)}
-                autoCapitalize="characters"
-              />
-              <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 6 }}>After sending, paste the TrxID here. We verify it and confirm your order.</div>
+            <div className="checkout-payment-head">
+              <span className="checkout-payment-heading" id="checkout-payment-label">Payment</span>
             </div>
-          )}
+
+            <div className="checkout-payment-list">
+              {codEnabled && (
+                <label className={"checkout-pm-card" + (payment === "COD" ? " selected" : "")}>
+                  <input
+                    className="checkout-area-input"
+                    type="radio"
+                    name="payment"
+                    value="COD"
+                    checked={payment === "COD"}
+                    onChange={() => { setPayment("COD"); setOnlineOpen(false); setPmError(""); }}
+                  />
+                  <span className="checkout-area-radio" aria-hidden="true" />
+                  <span className="checkout-pm-text">
+                    <span className="checkout-pm-title">Cash on delivery</span>
+                  </span>
+                </label>
+              )}
+
+              {manualOptions.length > 0 && (() => {
+                const active = manualOptions.find((m) => m.id === payment) || manualOptions[0];
+                const online = payment !== "COD";
+                return (
+                  <div className={"checkout-pm-card checkout-pm-online" + (online ? " selected" : "")}>
+                    <button
+                      type="button"
+                      className="checkout-pm-head"
+                      aria-expanded={onlineOpen}
+                      onClick={() => {
+                        if (payment === "COD") { setPayment(manualOptions[0].id); setOnlineOpen(true); }
+                        else setOnlineOpen(!onlineOpen);
+                        setPmError("");
+                      }}
+                    >
+                      <span className="checkout-area-radio" data-checked={online} aria-hidden="true" />
+                      <span className="checkout-pm-text">
+                        <span className="checkout-pm-title">Online payment</span>
+                      </span>
+                      <span className="checkout-pm-chevron" aria-hidden="true">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </span>
+                    </button>
+
+                    {onlineOpen && (
+                      <div className="checkout-pm-body">
+                        <div className="checkout-pm-channels" role="radiogroup" aria-label="Payment channel">
+                          {manualOptions.map((m) => {
+                            const on = m.id === active.id;
+                            return (
+                              <button
+                                key={m.id}
+                                type="button"
+                                className={"checkout-pm-channel" + (on ? " selected" : "")}
+                                role="radio"
+                                aria-checked={on}
+                                onClick={() => { setPayment(m.id); setOnlineOpen(true); setPmError(""); }}
+                              >
+                                <span className="checkout-pm-channel-left">
+                                  <span className="checkout-area-radio" data-checked={on} aria-hidden="true" />
+                                  <span className="checkout-pm-channel-name">{m.short}</span>
+                                </span>
+                                <span className={"checkout-pm-dot pm-brand-" + m.brand} aria-hidden="true" />
+                              </button>
+                            );
+                          })}
+                        </div>
+
+                        <div className="checkout-pm-detail">
+                          <p className="checkout-pm-instr">{active.instructions}</p>
+
+                          <div className="checkout-pm-account">
+                            <div className="checkout-pm-account-text">
+                              <span className="checkout-pm-kicker">{active.accountType}</span>
+                              <span className="checkout-pm-number">{active.number}</span>
+                            </div>
+                            <button
+                              type="button"
+                              className={"checkout-pm-copy" + (copied ? " done" : "")}
+                              onClick={() => copyAccount(active)}
+                            >
+                              {copied ? (
+                                <><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>Copied</>
+                              ) : (
+                                <><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></svg>Copy</>
+                              )}
+                            </button>
+                          </div>
+
+                          {active.note && <div className="checkout-pm-note">{active.note}</div>}
+
+                          <div className="checkout-pm-fields">
+                            <label className="checkout-pm-trx">
+                              <span className="checkout-pm-trx-label">Sender number</span>
+                              <span className="checkout-pm-input-wrap">
+                                <svg className="checkout-pm-input-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true">
+                                  <rect x="5" y="2" width="14" height="20" rx="2" /><path d="M12 18h.01" />
+                                </svg>
+                                <input
+                                  type="tel"
+                                  inputMode="tel"
+                                  value={senderNumber}
+                                  onChange={(e) => setSenderNumber(e.target.value)}
+                                  placeholder="01XXXXXXXXX"
+                                  autoComplete="tel"
+                                />
+                              </span>
+                            </label>
+                            <label className="checkout-pm-trx">
+                              <span className="checkout-pm-trx-label">
+                                {active.trxLabel} <b aria-hidden="true">*</b>
+                              </span>
+                              <input
+                                value={trxId}
+                                onChange={(e) => { setTrxId(e.target.value.toUpperCase()); setPmError(""); }}
+                                placeholder="e.g. 8HG5K2XN9Q"
+                                autoCapitalize="characters"
+                                autoComplete="off"
+                                aria-invalid={!!pmError}
+                              />
+                            </label>
+                          </div>
+
+                          <div className="checkout-pm-foot">
+                            <span>Selected: <b>{active.label}</b></span>
+                            <span>Send exact: <b>৳{Math.round(total).toLocaleString("en-IN")}</b></span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+
+              {!codEnabled && manualOptions.length === 0 && (
+                <span className="checkout-payment-disabled">No payment method available right now.</span>
+              )}
+            </div>
+
+            {pmError && <div className="err checkout-pm-error" role="alert">{pmError}</div>}
+          </div>
         </section>
 
         <aside className="checkout-summary" aria-labelledby="checkout-summary-title">
@@ -536,11 +723,24 @@ export default function CheckoutPage() {
             </div>
           )}
           {captureStatus && <p className="checkout-capture-status" aria-live="polite">{captureStatus}</p>}
-          <button className="btn btn-accent checkout-submit" onClick={placeOrder} disabled={busy || cbusy || !codEnabled || recoveryStage === "choice"} aria-busy={busy || undefined}>
-            {busy && <span className="spinner" aria-hidden="true" />}
-            <span>{busy ? "Processing order…" : `Place order · ৳${total.toLocaleString("en-IN")}`}</span>
-          </button>
         </aside>
+      </div>
+
+      {/* Floating bottom bar — full viewport width, always on screen, so the CTA is one tap
+          away from anywhere on the page. It is outside the grid on purpose: a `position:
+          fixed` child of a transformed/filtered ancestor would be positioned against that
+          ancestor instead of the viewport. */}
+      <div className="checkout-submit-bar">
+        <button className="btn btn-accent checkout-submit" onClick={placeOrder} disabled={busy || cbusy || !codEnabled || recoveryStage === "choice"} aria-busy={busy || undefined}>
+          {busy && <span className="spinner" aria-hidden="true" />}
+          <span>{busy ? "Processing order…" : "Place order"}</span>
+          {!busy && (
+            <>
+              <span className="checkout-submit-dot" aria-hidden="true">·</span>
+              <span className="checkout-submit-total">৳{total.toLocaleString("en-IN")}</span>
+            </>
+          )}
+        </button>
       </div>
     </div>
   );
