@@ -3,6 +3,10 @@ import { db } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
+/* Public and visitor-independent (the server stays authoritative at order time) — cacheable
+   at the CDN. Cart and checkout both call it on mount. */
+const PUBLIC = "public, max-age=0, s-maxage=60, stale-while-revalidate=300";
+
 /* Public, read-only list of active combo bundles so the cart/checkout can show the
    bundle savings client-side (server remains authoritative at order time). */
 export async function GET() {
@@ -14,8 +18,8 @@ export async function GET() {
     });
     return NextResponse.json({
       bundles: bundles.map((b) => ({ id: b.id, title: b.title, price: b.price, productIds: b.items.map((i) => i.productId) })),
-    }, { headers: { "Cache-Control": "private, no-store" } });
+    }, { headers: { "Cache-Control": PUBLIC } });
   } catch {
-    return NextResponse.json({ bundles: [] }, { headers: { "Cache-Control": "private, no-store" } });
+    return NextResponse.json({ bundles: [] }, { headers: { "Cache-Control": PUBLIC } });
   }
 }

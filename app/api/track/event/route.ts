@@ -16,7 +16,10 @@ export async function POST(req: Request) {
     const len = Number(req.headers.get("content-length") || 0);
     if (len > MAX_BYTES) return NextResponse.json({ error: "payload too large" }, { status: 413 });
     const ip = getClientIp(req);
-    if (!rateLimit("event:" + ip, 120, 60 * 1000)) {
+    /* 120/min per IP was fine before ads. One pageview per navigation and one event per
+       funnel step means a few dozen visitors sharing a carrier NAT IP can exhaust it — and a
+       throttled event is a conversion the ad platform never sees. Still bounded per minute. */
+    if (!rateLimit("event:" + ip, 900, 60 * 1000)) {
       // answer 200 anyway: a throttled analytics call must never surface as a console error
       return NextResponse.json({ ok: true, throttled: true });
     }

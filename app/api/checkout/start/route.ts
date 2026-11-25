@@ -14,7 +14,12 @@ const headers = { "Cache-Control": "private, no-store" };
 
 export async function POST(req: Request) {
   try {
-    if (!rateLimit("checkout-start:" + getClientIp(req), 30, 10 * 60 * 1000)) return NextResponse.json({ error: "Please wait before updating checkout again" }, { status: 429, headers });
+    /* This is the checkout autosave: it fires on (debounced) every field edit plus once on
+       pagehide, so ONE customer easily produces 10-15 calls. At 30 per 10 min per IP, two
+       customers behind the same carrier NAT (normal in BD) hit 429 and saw "Could not save
+       cart changes" in the middle of a paid checkout. It is also keyed by captureKey, which
+       is the real bound on how much a single session can write. */
+    if (!rateLimit("checkout-start:" + getClientIp(req), 240, 10 * 60 * 1000)) return NextResponse.json({ error: "Please wait before updating checkout again" }, { status: 429, headers });
     const body = await req.json().catch(() => null);
     const key = captureKeyHash(body?.captureKey);
     if (!key || !Number.isInteger(body?.revision) || body.revision < 1 || body.revision > 1_000_000_000) throw new RecoveryError("Invalid checkout session");

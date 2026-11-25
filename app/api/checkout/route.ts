@@ -53,8 +53,18 @@ export async function POST(req: Request) {
     if (body.captureKey != null && !captureHash) throw new RecoveryError("Invalid checkout session");
 
     const ip = getClientIp(req);
-    if (!rateLimit("checkout:" + ip, 10, 10 * 60 * 1000)) {
+    /* Ad traffic in Bangladesh mostly arrives through carrier-grade NAT: thousands of
+       customers can share one public IP (GP/Robi/Banglalink mobile). The old cap was 10
+       orders per 10 minutes PER IP, which is fewer orders than a single busy shop hours-
+       long ad spike produces — real customers were being told "Too many attempts" and
+       abandoning a paid click. The cap now sits well above organic + ad volume, and the
+       per-phone cap below is what actually stops an order-spam script. */
+    if (!rateLimit("checkout:" + ip, 120, 10 * 60 * 1000)) {
       return NextResponse.json({ error: "Too many attempts. Please try again in a few minutes." }, { status: 429 });
+    }
+    // one phone cannot place more than 3 orders inside 10 minutes (a real customer never does)
+    if (!rateLimit("checkout-phone:" + cleanPhone, 3, 10 * 60 * 1000)) {
+      return NextResponse.json({ error: "Too many orders from this number. Please try again later." }, { status: 429 });
     }
     const { ensureExtraTables } = await import("@/lib/db-ensure");
     await ensureExtraTables();
