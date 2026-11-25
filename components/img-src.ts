@@ -50,7 +50,8 @@ export const CARD_SIZES =
    gallery column, so the 1200 rung (69KB median, 389KB on noisy sources) only added weight.
    w1200 stays in the ladder for the social/og share image, which is fetched once by crawlers. */
 export const PDP_WIDTHS = [400, 600, 800, 1000];
-export const PDP_SIZES = `(max-width: 899px) 100vw, calc(52vw - 120px)`;
+// Editorial PDP: 1200px shell, 48px horizontal padding + 24px column gap; gallery is 1.1 / 2.1.
+export const PDP_SIZES = `(max-width: 899px) 100vw, calc((min(100vw, 1200px) - 72px) * 0.52381)`;
 
 /* The hero of one PDP is rendered by THREE places, and they have to agree candidate-for-candidate
    or the browser downloads one file for the preload and a *different* one for the <img> (which is
