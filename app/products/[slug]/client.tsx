@@ -167,8 +167,8 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
     const rail = thumbsRef.current;
     const el = rail?.children[img] as HTMLElement | undefined;
     if (!rail || !el) return;
-    if (rail.scrollHeight <= rail.clientHeight + 4) return; // nothing to scroll
-    rail.scrollTo({ top: el.offsetTop - rail.clientHeight / 2 + el.clientHeight / 2, behavior: "smooth" });
+    if (rail.scrollWidth <= rail.clientWidth + 4) return;
+    rail.scrollTo({ left: el.offsetLeft - rail.clientWidth / 2 + el.clientWidth / 2, behavior: "smooth" });
   }, [img]);
   const next = () => goTo(img + 1);
   const prev = () => goTo(img - 1);
@@ -203,6 +203,61 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
   const [chart, setChart] = useState(false);
   const [buying, setBuying] = useState(false);
   const [adding, setAdding] = useState(false);
+  const actionsRef = useRef<HTMLDivElement>(null);
+  const [showQuickBar, setShowQuickBar] = useState(false);
+  const sizeDialogRef = useRef<HTMLDivElement>(null);
+  const imageDialogRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const dialog = chart ? sizeDialogRef.current : lightbox ? imageDialogRef.current : null;
+    if (!dialog) return;
+    const previous = document.activeElement as HTMLElement | null;
+    const overflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const controls = () => Array.from(dialog.querySelectorAll<HTMLElement>('button:not(:disabled), a[href], [tabindex="0"]')).filter(el => el.getClientRects().length);
+    controls()[0]?.focus();
+    const keydown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") { setChart(false); setLightbox(false); }
+      if (event.key !== "Tab") return;
+      const items = controls();
+      const first = items[0], last = items[items.length - 1];
+      if (!first) { event.preventDefault(); return; }
+      if (event.shiftKey && (document.activeElement === first || !dialog.contains(document.activeElement))) {
+        event.preventDefault(); last.focus();
+      } else if (!event.shiftKey && (document.activeElement === last || !dialog.contains(document.activeElement))) {
+        event.preventDefault(); first.focus();
+      }
+    };
+    document.addEventListener("keydown", keydown);
+    return () => {
+      document.removeEventListener("keydown", keydown);
+      document.body.style.overflow = overflow;
+      if (previous?.isConnected) previous.focus({ preventScroll: true });
+    };
+  }, [chart, lightbox]);
+
+  useEffect(() => {
+    const actions = actionsRef.current;
+    if (!actions) return;
+    let frame: number | undefined;
+    // Also handle fast scroll/anchor jumps that skip the actions entirely;
+    // IntersectionObserver alone can miss a non-intersecting -> non-intersecting jump.
+    const update = () => {
+      if (frame !== undefined) return;
+      frame = requestAnimationFrame(() => {
+        frame = undefined;
+        setShowQuickBar(actions.getBoundingClientRect().bottom <= 80);
+      });
+    };
+    update();
+    window.addEventListener("scroll", update, { passive: true });
+    window.addEventListener("resize", update);
+    return () => {
+      window.removeEventListener("scroll", update);
+      window.removeEventListener("resize", update);
+      if (frame !== undefined) cancelAnimationFrame(frame);
+    };
+  }, [product.id]);
 
   // size sequence maintained: numbers ascending first (28, 30, …40), then letter sizes (S→XL)
   const sizes = Array.from(new Set(product.variants.map((v) => v.size).filter(Boolean))) as string[];
@@ -340,7 +395,7 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
 
   return (
     <>
-      <div className="pdp">
+      <div className="pdp pdp-editorial">
         {/* ---------------- GALLERY ---------------- */}
         <div className="pdp-gallery">
           {/* MOBILE: swipeable gallery — all deployments (Vercel + VPS) */}
@@ -382,11 +437,16 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
             ) : (
               <div className="noimg noimg-desktop"><div className="noimg-in"><span className="noimg-mark" aria-hidden>S</span><span>No photo yet</span></div></div>
             )}
+            <span className="pdp-gallery-count" aria-live="polite">{N ? img + 1 : 0} / {N}</span>
+            {N > 1 && <div className="pdp-gallery-arrows">
+              <button type="button" onClick={prev} aria-label="Previous product image">&#8249;</button>
+              <button type="button" onClick={next} aria-label="Next product image">&#8250;</button>
+            </div>}
             {/* zoom — top right corner */}
-            <button className="gal-zoom" title="Zoom" aria-label="Zoom image"
+            {mainSrc && <button className="gal-zoom" title="Zoom" aria-label="Zoom image"
               onClick={() => { setLbIdx(img); setLbZoom(false); setLightbox(true); }}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3M11 8v6M8 11h6"/></svg>
-            </button>
+            </button>}
             {avail <= 0 && !preorder && <div className="soldout-overlay"><span>Sold Out</span></div>}
           </div>
 
@@ -404,7 +464,7 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
             <div className="thumbs" ref={thumbsRef}>
               {product.images.map((im, i) => (
                 <button key={i} className={i === img ? "active" : ""} onClick={() => goTo(i)} aria-label={"Image " + (i + 1)}>
-                  <img src={imgSrc(im.url, 200) || im.url} srcSet={imgSrcSet(im.url, THUMB_WIDTHS)} sizes="72px"
+                  <img src={imgSrc(im.url, 200) || im.url} srcSet={imgSrcSet(im.url, THUMB_WIDTHS)} sizes="120px"
                        alt={im.alt} loading="lazy" decoding="async" width={72} height={96} />
                 </button>
               ))}
@@ -415,6 +475,13 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
 
         {/* ---------------- INFO ---------------- */}
         <div className="pdp-info">
+          <div className="pdp-title-block">
+            <div className="pdp-heading-meta">
+              <span className={"pdp-availability" + (!preorder && avail <= 0 ? " is-unavailable" : "")}>
+                <i aria-hidden="true" />{preorder ? "Pre-order" : avail > 0 ? (avail <= 5 ? `Only ${avail} left` : "In stock") : "Sold out"}
+              </span>
+              {product.sku && <span className="pdp-sku">SKU: {product.sku}</span>}
+            </div>
           <h1>{product.title}</h1>
           {preorder && (
             <div className="pdp-preorder">
@@ -428,6 +495,7 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
           <div className="pdp-price">
             <b>৳{price.toLocaleString("en-IN")}</b>
             {product.comparePrice && product.comparePrice > price && (<><s>৳{product.comparePrice.toLocaleString("en-IN")}</s><span className="off">{off}% OFF</span></>)}
+          </div>
           </div>
           {/* Quantity combo offers: "2 ta ৳1,600 (save ৳200)" — tiers from product.comboOffers */}
           {comboTiers.length > 0 && (
@@ -495,12 +563,12 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
 
           {sizes.length > 0 && (
             <>
-              <div className="opt-label">Size {(sizeChartHtml || sizeChartImage) && <button className="sizechart-link" onClick={() => setChart(true)}>📏 Size chart</button>}</div>
+              <div className="opt-label pdp-size-label"><span>Size: <b>{size || "Select"}</b></span>{(sizeChartHtml || sizeChartImage) && <button className="sizechart-link" onClick={() => setChart(true)}>Size guide</button>}</div>
               <div className="sizes">
                 {sizes.map((s) => {
                   const stock = sizeStock[s] || 0;
                   return (
-                    <button key={s} className={"size-btn" + (size === s ? " active" : "")} disabled={stock <= 0 && !preorder}
+                    <button key={s} aria-pressed={size === s} className={"size-btn" + (size === s ? " active" : "")} disabled={stock <= 0 && !preorder}
                       onClick={() => { setSize(s); setQty(1); }}>{s}</button>
                   );
                 })}
@@ -520,19 +588,11 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
             </>
           )}
 
-          <div style={{ marginTop: 10 }}>
-            {preorder ? (
-              <span className="stock-note">Pre-order — ships by {preDateStr}</span>
-            ) : avail > 0 ? (
-              <span className="stock-note">{avail <= 5 ? `Only ${avail} left — order soon` : "In stock"}</span>
-            ) : <span className="stock-note low">Sold out</span>}
-          </div>
-
           {!preorder && avail <= 0 && (
             <PdpWaitlist productId={product.id} variantId={activeVariant?.id ?? null} title={product.title} />
           )}
 
-          <div className="pdp-actions">
+          <div className="pdp-actions" ref={actionsRef}>
             <div className="pdp-buy-row">
               <div className="qty" role="group" aria-label="Quantity">
                 <button type="button" onClick={() => setQty(Math.max(1, qty - 1))} aria-label="Decrease quantity">−</button>
@@ -541,64 +601,71 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
               </div>
               <button className="btn pdp-add" disabled={(avail <= 0 && !preorder) || adding} aria-busy={adding || undefined} onClick={addLine}>
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M3.6 7.6h11L13.7 18.6a1.7 1.7 0 0 1-1.7 1.5H6.3a1.7 1.7 0 0 1-1.7-1.5z"/><path d="M6.7 7.6V6.1a3.6 3.6 0 0 1 7.2 0v1.5"/><path d="M19.7 2.8v4.4M17.5 5h4.4"/></svg>
-                {adding && <span className="spinner" aria-hidden="true" />}<span style={adding ? { marginLeft: 8 } : undefined}>{adding ? "Adding…" : preorder ? "Pre-order" : "Add to cart"}</span>
+                {adding && <span className="spinner" aria-hidden="true" />}<span style={adding ? { marginLeft: 8 } : undefined}>{adding ? "Adding…" : preorder ? "Pre-order" : "Add to bag"}</span>
               </button>
             </div>
             <button className="btn pdp-buy" disabled={(avail <= 0 && !preorder) || buying} aria-busy={buying || undefined} onClick={buyNow}>
-              {buying && <span className="spinner" aria-hidden="true" />}<span style={buying ? { marginLeft: 8 } : undefined}>{buying ? "Processing…" : "Buy it now"}</span>
+              {buying && <span className="spinner" aria-hidden="true" />}<span style={buying ? { marginLeft: 8 } : undefined}>{buying ? "Processing..." : "Order now - Cash on Delivery"}</span>
             </button>
           </div>
 
-          <div className="pdp-meta">
-            <div><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M1 3h15v13H1zM16 8h4l3 3v5h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>Cash on Delivery available all over Bangladesh</div>
-            <div><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>Inside Dhaka 1–2 days · Outside Dhaka 2–4 days</div>
-            <div><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M3 12a9 9 0 1 0 9-9 9 9 0 0 0-7.6 4.2M3 3v5h5"/></svg>Check on delivery &amp; exchange within 2 days</div>
-            {product.sku && <div style={{ fontSize: 12 }}>SKU: {product.sku}</div>}
+          <div className="pdp-trust-grid" aria-label="Shopping benefits">
+            <div><b>Pay on delivery</b><span>All Bangladesh</span></div>
+            <div><b>Check on delivery</b><span>Before rider leaves</span></div>
+            <div><b>Easy exchange</b><span>Within 2 days</span></div>
           </div>
+
+          {/* ---- expandable rows (the reference: label left, + right, thin rules) ----
+              native <details>/<summary> on purpose: no state, no JS round-trip, keyboard + screen-reader
+              semantics for free, and — important — the full text ships inside the server HTML, so collapsing
+              it visually does not hide it from Google or from the SSR render. */}
+          <section className="pdp-details" aria-label="Product details and policies">
+            <div className="acc">
+              {(product.description || product.shortDesc) && (
+                <details className="acc-item pdp-description" open aria-labelledby="pdp-description-heading">
+                  <summary id="pdp-description-heading" className="pdp-description-heading"><span>Description</span><i className="acc-ico" aria-hidden="true" /></summary>
+                  <div className="acc-body">
+                    {product.description ? <FormattedDescription text={product.description} /> : <p>{product.shortDesc}</p>}
+                  </div>
+                </details>
+              )}
+
+              <details className="acc-item">
+                <summary><span>Return &amp; care</span><i className="acc-ico" aria-hidden="true" /></summary>
+                <div className="acc-body">
+                  <h4>Return &amp; exchange</h4>
+                  <p>Please check your product in the presence of the delivery agent. If you need to return it, please do so at the time of delivery, before the agent leaves.</p>
+                  <p>Exchanges are available within 2 days of delivery. The product must be undamaged, with all original tags intact. Damaged products or items without their original tags cannot be accepted for return or exchange.</p>
+                  <h4>Caring for it</h4>
+                  <p>Follow the care label inside the garment first, it is written for that exact fabric. As a rule: cold wash cotton and linen separately or inside out, no tumble dry, reshape while damp and iron on the reverse. Fold knitwear, hang shirting, and keep suede and wool away from damp.</p>
+                </div>
+              </details>
+
+              <details className="acc-item">
+                <summary><span>Need urgent delivery at Dhaka?</span><i className="acc-ico" aria-hidden="true" /></summary>
+                <div className="acc-body">
+                  <p>If your delivery address is within Dhaka, we can arrange delivery via Pathao within 4 hours.</p>
+                  <p>For urgent delivery, message us on WhatsApp at <a href="https://wa.me/8801576450711" target="_blank" rel="noopener noreferrer" style={{ textDecoration: "underline", textUnderlineOffset: 3 }}>01576450711</a>.</p>
+                </div>
+              </details>
+            </div>
+          </section>
         </div>
       </div>
 
-      {/* ---- expandable rows (the reference: label left, + right, thin rules) ----
-          native <details>/<summary> on purpose: no state, no JS round-trip, keyboard + screen-reader
-          semantics for free, and — important — the full text ships inside the server HTML, so collapsing
-          it visually does not hide it from Google or from the SSR render. */}
-      <section className="section" style={{ padding: "10px 0 46px" }}>
-        <div className="section-head"><div><div className="eyebrow">The details</div><h2>About this product</h2></div></div>
-        <div className="acc">
-          {(product.description || product.shortDesc) && (
-            <details className="acc-item">
-              <summary><span>Description</span><i className="acc-ico" aria-hidden="true" /></summary>
-              <div className="acc-body">
-                {product.description ? <FormattedDescription text={product.description} /> : <p>{product.shortDesc}</p>}
-              </div>
-            </details>
-          )}
-
-          <details className="acc-item">
-            <summary><span>Return &amp; care</span><i className="acc-ico" aria-hidden="true" /></summary>
-            <div className="acc-body">
-              <h4>Return &amp; exchange</h4>
-              <p>Please check your product in the presence of the delivery agent. If you need to return it, please do so at the time of delivery, before the agent leaves.</p>
-              <p>Exchanges are available within 2 days of delivery. The product must be undamaged, with all original tags intact. Damaged products or items without their original tags cannot be accepted for return or exchange.</p>
-              <h4>Caring for it</h4>
-              <p>Follow the care label inside the garment first, it is written for that exact fabric. As a rule: cold wash cotton and linen separately or inside out, no tumble dry, reshape while damp and iron on the reverse. Fold knitwear, hang shirting, and keep suede and wool away from damp.</p>
-            </div>
-          </details>
-
-          <details className="acc-item">
-            <summary><span>Need urgent delivery at Dhaka?</span><i className="acc-ico" aria-hidden="true" /></summary>
-            <div className="acc-body">
-              <p>If your delivery address is within Dhaka, we can arrange delivery via Pathao within 4 hours.</p>
-              <p>For urgent delivery, message us on WhatsApp at <a href="https://wa.me/8801576450711" target="_blank" rel="noopener noreferrer" style={{ textDecoration: "underline", textUnderlineOffset: 3 }}>01576450711</a>.</p>
-            </div>
-          </details>
+      {showQuickBar && !chart && !lightbox && (
+        <div className="pdp-quickbar">
+          <div><b>{product.title}</b><span>{"\u09f3"}{price.toLocaleString("en-IN")}{size ? ` / Size ${size}` : ""}</span></div>
+          <button type="button" className="btn pdp-buy" disabled={(avail <= 0 && !preorder) || buying || adding} onClick={buyNow}>
+            {buying ? "Processing..." : preorder ? "Pre-order" : "Order COD"}
+          </button>
         </div>
-      </section>
+      )}
 
       {/* size chart modal */}
       {chart && (sizeChartImage || sizeChartHtml) && (
         <div className="modal-bg sizechart-bg" onClick={() => setChart(false)}>
-          <div className="modal sizechart-modal" onClick={(e) => e.stopPropagation()}>
+          <div className="modal sizechart-modal" ref={sizeDialogRef} role="dialog" aria-modal="true" aria-label="Size guide" onClick={(e) => e.stopPropagation()}>
             <button className="modal-close" onClick={() => setChart(false)} aria-label="Close">×</button>
             <h3>Size Chart</h3>
             {sizeChartImage && <img src={sizeChartImage} alt="Size chart" className="sizechart-img" />}
@@ -613,7 +680,7 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
 
       {/* ---------- LIGHTBOX (zoom) ---------- */}
       {lightbox && (
-        <div className="lightbox" onClick={() => setLightbox(false)}>
+        <div className="lightbox" ref={imageDialogRef} role="dialog" aria-modal="true" aria-label="Product images" onClick={() => setLightbox(false)}>
           <div className="lb-top" onClick={(e) => e.stopPropagation()}>
             <button title={lbZoom ? "Zoom out" : "Zoom in"} onClick={() => setLbZoom(!lbZoom)} aria-label="Toggle zoom">
               {lbZoom ? (
@@ -677,10 +744,10 @@ function FormattedDescription({ text }: { text: string }) {
   };
   text.split("\n").forEach((raw, i) => {
     const line = raw.trimEnd();
-    if (/^##\s+/.test(line)) { flush(); blocks.push(<h3 key={i} style={{ fontSize: 20, margin: "22px 0 6px", fontFamily: "var(--font-head)" }}>{line.replace(/^##\s+/, "")}</h3>); }
+    if (/^##\s+/.test(line)) { flush(); blocks.push(<h3 key={i} style={{ fontSize: 20, margin: "12px 0 4px", fontFamily: "var(--font-head)" }}>{line.replace(/^##\s+/, "")}</h3>); }
     else if (/^[•✓]\s+/.test(line)) { list.push({ icon: line[0], text: line.replace(/^[•✓]\s+/, "") }); }
     else if (line.trim() === "") { flush(); }
-    else { flush(); blocks.push(<p key={i} style={{ marginBottom: 10, color: "var(--muted)", fontSize: 15.5, lineHeight: 1.7 }} dangerouslySetInnerHTML={{ __html: inline(line) }} />); }
+    else { flush(); blocks.push(<p key={i} style={{ marginBottom: 6, color: "var(--muted)", fontSize: 14, lineHeight: 1.6 }} dangerouslySetInnerHTML={{ __html: inline(line) }} />); }
   });
   flush();
   return <div style={{ maxWidth: 720 }}>{blocks}</div>;

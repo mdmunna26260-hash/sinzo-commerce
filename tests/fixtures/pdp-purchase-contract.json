@@ -1,0 +1,6 @@
+{
+  "viewContentEffect": "useEffect(() => {\n    trackEvent(\"ViewContent\", {\n      value: price, currency: \"BDT\", content_name: product.title,\n      content_ids: [String(product.id)], content_type: \"product\",\n      contents: [{ id: String(product.id), quantity: 1, item_price: price }],\n    }, { eventId: \"vc_\" + product.id + \"_\" + Date.now().toString(36) });\n    // eslint-disable-next-line react-hooks/exhaustive-deps\n  }, [product.id])",
+  "line": "raw.trimEnd()",
+  "addLine": "() => {\n    if (adding || buying) return; // no duplicate adds\n    setAdding(true);\n    add(line(), qty);\n    cartToast({ title: product.title, image: product.images[0]?.url, size: size || undefined, color: color || undefined, qty });\n    setTimeout(() => setAdding(false), 450); // brief confirmation state\n  }",
+  "buyNow": "() => {\n    if (buying || adding) return;\n    setBuying(true);\n    add(line(), qty);\n    router.push(\"/checkout\");\n  }"
+}

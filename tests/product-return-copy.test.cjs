@@ -15,7 +15,7 @@ test('PDP exchange copy uses two days and requires undamaged products with origi
   assert.match(copy, /Exchanges are available within 2 days of delivery/);
   assert.match(copy, /undamaged, with all original tags intact/);
   assert.match(copy, /Damaged products or items without their original tags cannot be accepted for return or exchange/);
-  assert.match(source, /Check on delivery &amp; exchange within 2 days/);
+  assert.match(source, /<b>Easy exchange<\/b><span>Within 2 days<\/span>/);
   assert.doesNotMatch(source, /7-day easy return|7-day return &amp; exchange|returns are free, we arrange the courier pickup/);
 });
 

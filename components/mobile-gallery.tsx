@@ -165,6 +165,7 @@ export default function MobileGallery({ images, title, active, onIndexChange, on
                 alt={im.alt || `${title} — image ${i + 1}`}
                 draggable={false}
                 loading={i === 0 ? "eager" : "lazy"}
+                fetchPriority={i === 0 ? "high" : undefined}
                 decoding={i === active ? "sync" : "async"}
                 onLoad={() => setLoaded((l) => (l[i] ? l : { ...l, [i]: true }))}
                 /* cached images can be complete before React attaches onLoad → still mark
@@ -176,6 +177,7 @@ export default function MobileGallery({ images, title, active, onIndexChange, on
             </div>
           ))}
         </div>
+        <span className="pdp-gallery-count" aria-live="polite">{active + 1} / {N}</span>
         {/* "View original image" — same full-size photo the PC gallery/lightbox shows */}
         {onOpenOriginal && (
           <button
@@ -215,7 +217,7 @@ export default function MobileGallery({ images, title, active, onIndexChange, on
               <img
                 src={imgSrc(im.url, 200) || im.url}
                 srcSet={imgSrcSet(im.url, THUMB_WIDTHS)}
-                sizes="56px"
+                sizes="calc((100vw - 62px) / 4)"
                 alt=""
                 loading={Math.abs(i - active) <= 1 ? "eager" : "lazy"}
                 decoding="async"

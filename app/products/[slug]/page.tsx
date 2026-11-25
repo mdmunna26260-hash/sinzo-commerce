@@ -1,3 +1,4 @@
+import "./pdp.css";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { clean } from "@/lib/search";
@@ -291,12 +292,11 @@ export default async function PDP(props: { params: Promise<{ slug: string }>; se
       )}
       <Announcement text={s.homepage?.announcement} />
       <Header storeName={cfg.store?.name || "Store"} categories={navCats(cats)} />
-      <div className="container">
-        <div style={{ padding: "22px 0 0", fontSize: 12.5, color: "var(--muted)" }}>
-          <Link href="/">Home</Link> / <Link href="/products">Shop</Link> {(p as any).category && String((p as any).category.name || "").trim().toLowerCase() !== String(p.title || "").trim().toLowerCase() && <>/ <Link href={"/products?category=" + (p as any).category.slug}>{(p as any).category.name}</Link></>} / <span style={{ color: "var(--text)" }}>{p.title}</span>
-        </div>
-        {/* The Delivery row reads the same admin shipping fields the checkout uses (with the same
-            fallback strings), so the PDP can never contradict what the buyer pays or waits for. */}
+      <main className="container pdp-shell">
+        <nav className="pdp-breadcrumb" aria-label="Breadcrumb">
+          <Link href="/">Home</Link> / <Link href="/products">Shop</Link> {(p as any).category && String((p as any).category.name || "").trim().toLowerCase() !== String(p.title || "").trim().toLowerCase() && <>/ <Link href={"/products?category=" + (p as any).category.slug}>{(p as any).category.name}</Link></>} / <span aria-current="page">{p.title}</span>
+        </nav>
+        {/* Product data and purchase handlers remain connected to the existing store. */}
         <ProductPageClient
           policies={{ inside: s.shipping?.estimateInside, outside: s.shipping?.estimateOutside, freeAt: s.shipping?.freeShippingThreshold || 0 }}
           sizeChartImage={p.sizeChartImage || null}
@@ -386,13 +386,13 @@ export default async function PDP(props: { params: Promise<{ slug: string }>; se
         </section>
 
         {/* Related */}
-        <section className="section" style={{ paddingTop: 20 }}>
+        <section className="section pdp-related">
           <div className="section-head"><div><div className="eyebrow">Keep browsing</div><h2>You may also like</h2></div></div>
           <RelatedStrip items={related.map((r) => ({
             id: r.id, title: r.title, slug: r.slug, price: r.price, image: r.images?.[0]?.url,
           }))} />
         </section>
-      </div>
+      </main>
       <RecentlyViewedServer currentId={p.id} />
 
       <Footer cfg={{ ...cfg, _nav: { categories: navCats(cats) } }} />
