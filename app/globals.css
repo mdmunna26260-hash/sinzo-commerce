@@ -3571,7 +3571,15 @@ html.theme-transition *::after {
 .checkout-pm-card:hover { border-color: color-mix(in srgb, var(--text) 28%, var(--line)); }
 .checkout-pm-card.selected { border-color: var(--text); box-shadow: inset 0 0 0 1px var(--text); }
 .checkout-pm-text { display: grid; gap: 2px; min-width: 0; }
-.checkout-pm-title { display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 550; line-height: 1.3; }
+.checkout-pm-title {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap; /* pills drop to a second line on narrow phones instead of overflowing */
+  gap: 6px 8px;
+  font-size: 15px;
+  font-weight: 550;
+  line-height: 1.3;
+}
 
 /* the online card is a block whose header is the toggle */
 .checkout-pm-online { display: block; padding: 0; cursor: default; }
@@ -3592,6 +3600,24 @@ html.theme-transition *::after {
 .pm-brand-nagad { --brand: #F6921E; }
 .pm-brand-bkash { --brand: #E2136E; }
 .pm-brand-bank { --brand: #2f81f7; }
+
+/* channel names on the collapsed "Online payment" header */
+.checkout-pm-label { flex: none; } /* the pills wrap, never the label */
+.checkout-pm-pills { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+.checkout-pm-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 7px;
+  border-radius: 6px;
+  border: 1px solid color-mix(in srgb, var(--brand) 38%, transparent);
+  background: color-mix(in srgb, var(--brand) 15%, transparent);
+  color: var(--brand);
+  font-size: 10.5px;
+  font-weight: 600;
+  line-height: 1.5;
+  letter-spacing: .01em;
+  white-space: nowrap;
+}
 .checkout-pm-chevron { display: grid; place-items: center; color: var(--muted); transition: transform .2s ease; }
 .checkout-pm-head[aria-expanded="true"] .checkout-pm-chevron { transform: rotate(180deg); }
 
@@ -3780,6 +3806,7 @@ html.theme-transition *::after {
 .checkout-submit-total { font-variant-numeric: tabular-nums; }
 /* phones: the bar is the only safe tap target, so give it more room */
 @media (max-width: 640px) {
+  .checkout-pm-pill { padding: 2px 6px; font-size: 10px; }
   .checkout-submit-bar { padding: 8px 12px calc(8px + env(safe-area-inset-bottom)); }
   .checkout-submit-bar .checkout-submit.btn { min-height: 52px; border-radius: 14px; }
   .checkout-page { padding-bottom: 100px; }

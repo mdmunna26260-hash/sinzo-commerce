@@ -536,7 +536,16 @@ export default function CheckoutPage() {
                     >
                       <span className="checkout-area-radio" data-checked={online} aria-hidden="true" />
                       <span className="checkout-pm-text">
-                        <span className="checkout-pm-title">Online payment</span>
+                        <span className="checkout-pm-title">
+                          <span className="checkout-pm-label">Online payment</span>
+                          {/* the accepted channel names sit on the header itself, so the customer
+                              can see bKash/Nagad/Bank before opening the card */}
+                          <span className="checkout-pm-pills">
+                            {manualOptions.map((m) => (
+                              <span key={m.id} className={"checkout-pm-pill pm-brand-" + m.brand}>{m.short}</span>
+                            ))}
+                          </span>
+                        </span>
                       </span>
                       <span className="checkout-pm-chevron" aria-hidden="true">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
