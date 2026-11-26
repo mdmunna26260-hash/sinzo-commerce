@@ -33,7 +33,18 @@ export async function GET(req: Request) {
     where.OR = [{ code: { contains: qq } }, { phone: { contains: qq } }, { name: { contains: qq } }, { courierConsignmentId: { contains: qq } }];
   }
   const PAGE = 50;
-  const ids = await db.order.findMany({ where, select: { id: true }, orderBy: { id: "desc" }, take: 200 });
+  /* `page` / `limit` are optional so existing callers keep the exact old shape. Without
+     `page` the default is still one window of the newest 200; with it, the pager can walk
+     the whole table. `total` / `pages` are always returned so a client knows when it has
+     hit the end. */
+  const rawPage = Number(sp.get("page") || "1");
+  const page = Number.isSafeInteger(rawPage) && rawPage > 0 ? rawPage : 1;
+  const rawLimit = Number(sp.get("limit") || "200");
+  const limit = Number.isSafeInteger(rawLimit) && rawLimit > 0 ? Math.min(rawLimit, 200) : 200;
+  const [total, ids] = await Promise.all([
+    db.order.count({ where }),
+    db.order.findMany({ where, select: { id: true }, orderBy: { id: "desc" }, skip: (page - 1) * limit, take: limit }),
+  ]);
   const orders: any[] = [];
   let skipped = 0;
   for (let i = 0; i < ids.length; i += PAGE) {
@@ -54,5 +65,5 @@ export async function GET(req: Request) {
       }
     }
   }
-  return NextResponse.json({ orders, skipped });
+  return NextResponse.json({ orders, skipped, total, page, pages: Math.max(1, Math.ceil(total / limit)), limit });
 }

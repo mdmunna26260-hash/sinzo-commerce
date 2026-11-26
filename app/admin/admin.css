@@ -540,6 +540,9 @@ body:has(.admin-body) .to-top { bottom: calc(104px + env(safe-area-inset-bottom)
 .dashboard-work a:focus-visible { outline: 2px solid var(--ad-accent); outline-offset: 3px; }
 .orders-queue-context { font-size: 11px; color: var(--ad-sub); padding: 9px 11px; margin-bottom: 12px; border: 1px solid var(--ad-line); background: var(--ad-card); border-radius: 9px; }
 .orders-queue-context a { color: var(--ad-accent); text-decoration: underline; text-underline-offset: 3px; }
+/* pager under the order list — the list used to stop dead at 200 rows */
+.orders-pager { display: flex; align-items: center; justify-content: center; gap: 14px; margin: 14px 0 4px; font-size: 12px; color: var(--ad-sub); }
+.orders-pager .abtn[disabled] { opacity: .45; cursor: not-allowed; }
 @media (max-width: 900px) {
   .dashboard-work-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 }

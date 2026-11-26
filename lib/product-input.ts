@@ -89,6 +89,23 @@ function mediaUrl(value: unknown, field: string): string | null {
 
 export type ParsedProductInput = ReturnType<typeof parseProductInput>;
 
+/* Referential checks for the two optional relations on Product. categoryId and colorGroupId
+   are only validated for SHAPE in parseProductInput() — a deleted category, or one typed
+   by hand, used to reach Prisma as a foreign-key violation and come back as a bare 500
+   from the product form. The route injects the lookup so this module stays free of
+   @prisma/client (it is imported by unit tests). */
+export async function assertProductRefs(
+  input: { categoryId: number | null; colorGroupId: number | null },
+  exists: (table: "category" | "colorGroup", id: number) => Promise<boolean>,
+): Promise<void> {
+  if (input.categoryId != null && !(await exists("category", input.categoryId))) {
+    throw new ProductInputError("Category not found — pick a category or clear the field");
+  }
+  if (input.colorGroupId != null && !(await exists("colorGroup", input.colorGroupId))) {
+    throw new ProductInputError("Color group not found — pick a colour group or clear the field");
+  }
+}
+
 export function parseProductInput(value: unknown) {
   const body = objectBody(value);
   const title = text(body.title, "Title", 200, true)!;
@@ -99,7 +116,14 @@ export function parseProductInput(value: unknown) {
 
   if (!Array.isArray(body.images || [])) throw new ProductInputError("Images must be a list");
   if ((body.images || []).length > 30) throw new ProductInputError("A product can have at most 30 images");
-  const images = (body.images || []).map((url: unknown, index: number) => mediaUrl(url, `Image ${index + 1}`)!);
+  /* mediaUrl() returns null for a blank entry ("" / null / undefined). The admin form
+     submits one input per image slot, so empty slots are normal — but they used to be
+     pushed into the array as null behind a non-null assertion, and Prisma then rejected
+     the whole write because ProductImage.url is NOT NULL. The admin saw a bare 500 for a
+     product that looked completely fine. Drop the empty slots instead. */
+  const images = (body.images || [])
+    .map((url: unknown, index: number) => mediaUrl(url, `Image ${index + 1}`))
+    .filter((url): url is string => url !== null);
   if (new Set(images).size !== images.length) throw new ProductInputError("Duplicate product images are not allowed");
 
   if (!Array.isArray(body.variants || [])) throw new ProductInputError("Variants must be a list");

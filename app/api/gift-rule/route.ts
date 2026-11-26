@@ -5,6 +5,11 @@ import { normalizeGiftRule } from "@/lib/gift";
 
 export const dynamic = "force-dynamic";
 
+/* Public, identical for every visitor (the server re-validates the rule at order time), so
+   it can live at the CDN for a minute. Cart, checkout and every product page request it —
+   under a paid campaign that was one settings read + one product query per visitor. */
+const PUBLIC = "public, max-age=0, s-maxage=60, stale-while-revalidate=300";
+
 /* Public free-gift rule + eligible gift pool for the cart/checkout picker.
    Server re-validates everything at order time — this is display/UX only. */
 export async function GET() {
@@ -12,7 +17,7 @@ export async function GET() {
     const s = await getSettings(true);
     const rule = normalizeGiftRule(s.gift);
     if (!rule.enabled || !rule.tiers.length || !rule.productIds.length) {
-      return NextResponse.json({ enabled: false, tiers: [], pool: [], excludeProductIds: [] }, { headers: { "Cache-Control": "private, no-store" } });
+      return NextResponse.json({ enabled: false, tiers: [], pool: [], excludeProductIds: [] }, { headers: { "Cache-Control": PUBLIC } });
     }
     const pool = await db.product.findMany({
       where: { id: { in: rule.productIds }, status: "ACTIVE" },
@@ -30,8 +35,8 @@ export async function GET() {
         id: p.id, title: p.title, slug: p.slug, price: p.price, image: p.images[0]?.url || null,
         variants: p.variants.map((v) => ({ id: v.id, size: v.size, color: v.color, stock: v.stock, price: v.price })),
       })),
-    }, { headers: { "Cache-Control": "private, no-store" } });
+    }, { headers: { "Cache-Control": PUBLIC } });
   } catch {
-    return NextResponse.json({ enabled: false, tiers: [], pool: [], excludeProductIds: [] }, { headers: { "Cache-Control": "private, no-store" } });
+    return NextResponse.json({ enabled: false, tiers: [], pool: [], excludeProductIds: [] }, { headers: { "Cache-Control": PUBLIC } });
   }
 }

@@ -8,6 +8,11 @@ export const metadata = { title: "Advanced Analytics" };
 const money = (n: number) => "৳" + Math.round(n || 0).toLocaleString("en-IN");
 const pct = (n: number) => (n * 100).toFixed(1) + "%";
 
+/* Tracking events are the one table a traffic spike can grow without limit, and this page
+   used to pull every event in the range into memory. The funnel is a count, so a cap only
+   costs accuracy on a very large window — which is surfaced in the UI rather than hidden. */
+const MAX_EVENTS = 200_000;
+
 type SP = { preset?: string; from?: string; to?: string; t?: string; sort?: string };
 
 function resolveRange(sp: SP): { start: Date; end: Date; label: string } {
@@ -35,13 +40,34 @@ export default async function AnalyticsPage(props: { searchParams: Promise<SP> }
   const { start, end, label } = resolveRange(searchParams);
 
   const rangeQ = { createdAt: { gte: start, lte: end } };
-  const [ordersAll, priorPhones, events, products, orderItems] = await Promise.all([
-    db.order.findMany({ where: rangeQ, orderBy: { id: "asc" } }),
-    db.order.findMany({ where: { createdAt: { lt: start } }, select: { phone: true }, distinct: ["phone"] }),
-    db.trackingEvent.findMany({ where: { ...rangeQ, name: { in: ["PageView", "ViewContent", "AddToCart", "InitiateCheckout"] } }, select: { name: true, payload: true } }),
+  /* `orders` used to be `findMany({ where: rangeQ })` with no select: every column of every
+     order in range, including notes, adminNote, riskFlags, courierTracking and attribution
+     JSON — none of which this page reads except `attribution`. Selecting the nine fields
+     actually used keeps a 90-day window a megabyte-scale read instead of tens of megabytes.
+     The distinct-phone scan was worse: it walked ALL history (`createdAt < start`) just to
+     decide which of this period's customers were new. It is now restricted to the phones
+     that actually appear in the period. */
+  const [ordersAll, events, products, orderItems] = await Promise.all([
+    db.order.findMany({
+      where: rangeQ,
+      orderBy: { id: "asc" },
+      select: { id: true, code: true, status: true, total: true, phone: true, name: true, source: true, attribution: true, createdAt: true },
+    }),
+    db.trackingEvent.findMany({
+      where: { ...rangeQ, name: { in: ["PageView", "ViewContent", "AddToCart", "InitiateCheckout"] } },
+      select: { name: true, payload: true },
+      orderBy: { id: "asc" },
+      take: MAX_EVENTS,
+    }),
     db.product.findMany({ select: { id: true, title: true, slug: true, views: true, stock: true, images: true } }),
     db.orderItem.findMany({ where: { order: { ...rangeQ, status: { notIn: ["CANCELLED"] } } }, select: { productId: true, title: true, qty: true, price: true, image: true } }),
   ]);
+
+  const periodPhones = [...new Set(ordersAll.map((o) => o.phone).filter(Boolean))];
+  const priorRows = periodPhones.length
+    ? await db.order.findMany({ where: { createdAt: { lt: start }, phone: { in: periodPhones } }, select: { phone: true }, distinct: ["phone"] })
+    : [];
+  const eventsTruncated = events.length >= MAX_EVENTS;
 
   const valid = ordersAll.filter((o) => o.status !== "CANCELLED");
   const revenue = valid.reduce((a, o) => a + o.total, 0);
@@ -118,7 +144,7 @@ export default async function AnalyticsPage(props: { searchParams: Promise<SP> }
   }).sort((x, y) => (sortKey === "units" ? y.units - x.units : sortKey === "views" ? y.views - x.views : sortKey === "conv" ? y.conv - x.conv : y.revenue - x.revenue)).slice(0, 10);
 
   // ---- customers ----
-  const priorSet = new Set(priorPhones.map((p) => p.phone));
+  const priorSet = new Set(priorRows.map((p) => p.phone));
   const byPhone = new Map<string, { name: string; orders: number; spent: number }>();
   for (const o of valid) {
     const c = byPhone.get(o.phone) || { name: o.name, orders: 0, spent: 0 };
@@ -173,6 +199,12 @@ export default async function AnalyticsPage(props: { searchParams: Promise<SP> }
       {/* FUNNEL */}
       <div className="acard" style={{ marginBottom: 16 }}>
         <div className="acard-h"><h3>Conversion Funnel</h3><span style={{ fontSize: 12, color: "var(--muted)" }}>session → order</span></div>
+        {eventsTruncated && (
+          <div className="cfg-note" style={{ margin: "0 0 12px" }}>
+            ⚠ This window has more than {MAX_EVENTS.toLocaleString("en-IN")} tracking events, so the funnel below is
+            computed from the first {MAX_EVENTS.toLocaleString("en-IN")} only. Narrow the date range for exact counts.
+          </div>
+        )}
         <div className="acard-b" style={{ display: "grid", gap: 10 }}>
           {funnel.map((f, i) => (
             <div key={f.label}>

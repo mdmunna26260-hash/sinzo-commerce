@@ -78,6 +78,8 @@ export async function PUT(req: Request) {
   const merged = mergeSettingsValue(current[group], value);
   if (group === "checkout") delete merged.giftWrapFee;
   if (group === "integrations" && (value.metaTestEventCode === "" || value.metaTestEventCode === "-" || value.metaTestEventCode === null)) delete merged.metaTestEventCode;
+  // same for TikTok: an empty test code must not be persisted as "" and then sent as one
+  if (group === "integrations" && (value.tiktokTestEventCode === "" || value.tiktokTestEventCode === "-" || value.tiktokTestEventCode === null)) delete merged.tiktokTestEventCode;
   await saveGroup(group, merged);
   // homeSections/homepage changes must show on "/" immediately — the homepage is ISR-cached
   // (revalidate 60), so without this the admin toggles "don't work" until the cache expires

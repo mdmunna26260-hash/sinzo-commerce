@@ -7,14 +7,28 @@ import { useRouter } from "next/navigation";
 export default function TrackingClient({ cfg, events, counts, lastEvent }: any) {
   const router = useRouter();
   const [msg, setMsg] = useState("");
-  const [form, setForm] = useState({ metaPixelId: cfg.metaPixelId, metaAccessToken: cfg.hasMetaToken ? "••••••••" : "", metaTestEventCode: cfg.testEventCode, ga4Id: cfg.ga4Id, gtmId: cfg.gtmId });
+  const [form, setForm] = useState({
+    metaPixelId: cfg.metaPixelId, metaAccessToken: cfg.hasMetaToken ? "••••••••" : "", metaTestEventCode: cfg.testEventCode,
+    tiktokPixelId: cfg.tiktokPixelId, tiktokAccessToken: cfg.hasTikTokToken ? "••••••••" : "", tiktokTestEventCode: cfg.tiktokTestEventCode,
+    ga4Id: cfg.ga4Id, gtmId: cfg.gtmId,
+  });
   const metaReady = cfg.metaPixelId && cfg.hasMetaToken;
+  const tiktokReady = cfg.tiktokPixelId && cfg.hasTikTokToken;
 
   const save = async () => {
     const r = await afetch("/api/admin/settings", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ group: "integrations", value: form }) });
     const j = await r.json();
     setMsg(r.ok ? "Saved ✓ Reload to see status." : j.error || "Failed");
     setTimeout(() => { setMsg(""); if (r.ok) router.refresh(); }, 1200);
+  };
+  const testTikTok = async () => {
+    setMsg("Sending test Purchase via TikTok Events API…");
+    const r = await afetch("/api/admin/tracking/test", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ platform: "tiktok" }) });
+    const j = await r.json();
+    if (r.ok) setMsg("✓ Test event sent to TikTok — check Events Manager → Test Events.");
+    else if (j.configured === false) setMsg("⚠ NOT CONFIGURED — save TikTok Pixel ID + Access Token first.");
+    else setMsg("✗ TikTok rejected the test event: " + (j.error || "unknown"));
+    setTimeout(() => setMsg(""), 6000);
   };
   const testCapi = async () => {
     setMsg("Sending test Purchase via CAPI…");
@@ -53,6 +67,21 @@ export default function TrackingClient({ cfg, events, counts, lastEvent }: any) 
             <div className="af"><label>GTM Container ID</label><input value={form.gtmId} onChange={(e) => setForm({ ...form, gtmId: e.target.value })} placeholder="GTM-XXXXXXX" /></div>
             <div className="full"><button className="abtn primary" onClick={save}>Save</button></div>
           </div>
+          <div className="acard-h" style={{ borderTop: "1px solid #e4e7ec" }}><h3>TikTok Pixel + Events API</h3>
+            <span className={"risk-badge " + (tiktokReady ? "risk-LOW" : "risk-HIGH")}>{tiktokReady ? "CONFIGURED" : "NOT CONFIGURED"}</span>
+          </div>
+          <div className="acard-b form-grid">
+            <div className="af full"><label>TikTok Pixel ID</label><input value={form.tiktokPixelId} onChange={(e) => setForm({ ...form, tiktokPixelId: e.target.value })} placeholder="e.g. 7614577081535627280" autoCapitalize="none" /></div>
+            <div className="af full"><label>Access Token (Events API)</label><input value={form.tiktokAccessToken} onChange={(e) => setForm({ ...form, tiktokAccessToken: e.target.value })} placeholder="Events Manager → Events API → Generate Access Token" autoCapitalize="none" /></div>
+            <div className="af full"><label>Test Event Code (shudhu testing-er somoy)</label><input value={form.tiktokTestEventCode} onChange={(e) => setForm({ ...form, tiktokTestEventCode: e.target.value })} placeholder="khaali = production mode" autoCapitalize="none" /></div>
+            <div className="full" style={{ fontSize: 12.5, color: "var(--muted)" }}>
+              Browser pixel ar server Events API ekhono ek-i <code>event_id</code> use kore, tai TikTok duplicate gulo auto-collapse kore. Events: PageView, ViewContent, AddToCart, InitiateCheckout, AddPaymentInfo, Purchase, Search, Lead.
+            </div>
+            <div className="full" style={{ display: "flex", gap: 8 }}>
+              <button className="abtn primary" onClick={save}>Save</button>
+              <button className="abtn" onClick={testTikTok}>Send Test Event</button>
+            </div>
+          </div>
         </div>
         <div>
           <div className="acard" style={{ marginBottom: 16 }}>
@@ -62,6 +91,8 @@ export default function TrackingClient({ cfg, events, counts, lastEvent }: any) 
               <div>Meta CAPI: <b style={{ color: cfg.hasMetaToken ? "#2e6b4f" : "#b3392f" }}>{cfg.hasMetaToken ? "Active" : "Not set"}</b></div>
               <div>GA4: <b style={{ color: cfg.ga4Id ? "#2e6b4f" : "#b3392f" }}>{cfg.ga4Id ? cfg.ga4Id : "Not set"}</b></div>
               <div>GTM: <b style={{ color: cfg.gtmId ? "#2e6b4f" : "#b3392f" }}>{cfg.gtmId ? cfg.gtmId : "Not set"}</b></div>
+              <div>TikTok Pixel: <b style={{ color: cfg.tiktokPixelId ? "#2e6b4f" : "#b3392f" }}>{cfg.tiktokPixelId ? "Active" : "Not set"}</b></div>
+              <div>TikTok Events API: <b style={{ color: cfg.hasTikTokToken ? "#2e6b4f" : "#b3392f" }}>{cfg.hasTikTokToken ? "Active" : "Not set"}</b></div>
               <div style={{ gridColumn: "1/-1" }}>Last event: {lastEvent ? <>{lastEvent.name} · {new Date(lastEvent.at).toLocaleString("en-GB")} {lastEvent.ok ? "✓" : "✗"}</> : "—"}</div>
               <div style={{ gridColumn: "1/-1" }}>Product catalog feed (Meta Advantage+ / Dynamic Ads): <a href="/feed.xml" target="_blank" rel="noreferrer" style={{ color: "var(--accent)", fontWeight: 600 }}>{typeof location !== "undefined" ? location.origin : ""}/feed.xml</a> — Meta Commerce Manager-e ei URL data source hishebe add korun.</div>
             </div>

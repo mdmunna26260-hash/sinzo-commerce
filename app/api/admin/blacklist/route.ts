@@ -21,6 +21,10 @@ export async function DELETE(req: Request) {
   const g = await requirePerm("settings", req);
   if ("res" in g) return g.res;
   const id = Number(new URL(req.url).searchParams.get("id"));
-  await db.blacklist.delete({ where: { id } }).catch(() => {});
+  if (!Number.isSafeInteger(id) || id <= 0) return NextResponse.json({ error: "Invalid entry" }, { status: 400 });
+  // the old `.catch(() => {})` answered ok even when the row was never removed
+  const deleted = await db.blacklist.deleteMany({ where: { id } }).catch(() => null);
+  if (!deleted) return NextResponse.json({ error: "Could not remove the entry" }, { status: 500 });
+  if (!deleted.count) return NextResponse.json({ error: "Entry not found" }, { status: 404 });
   return NextResponse.json({ ok: true });
 }

@@ -60,7 +60,9 @@ async function findOrder(code: string) {
 
 export async function GET(req: Request) {
   const ip = getClientIp(req);
-  if (!rateLimit("track:" + ip, 15, 60 * 1000)) {
+  /* 15/min per IP is fine for one person but not for a carrier-NAT block during a campaign
+     (order tracking spikes right after an ad promises "track your order"). */
+  if (!rateLimit("track:" + ip, 60, 60 * 1000)) {
     return NextResponse.json({ error: "Too many lookups. Please wait a minute." }, { status: 429 });
   }
   const u = new URL(req.url);

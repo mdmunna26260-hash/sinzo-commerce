@@ -1,5 +1,4 @@
 "use client";
-import { isReadyToSend, READY_TO_SEND_STATUSES } from "@/lib/admin-workflow";
 import { escapeHtml } from "@/lib/escape-html";
 import { orderWhatsAppMessage } from "@/lib/order-whatsapp";
 import { telLink, waLink } from "@/lib/phone";
@@ -16,17 +15,29 @@ type O = {
   courierStatus?: string | null; createdAt: string; items: { title: string; qty: number; image?: string | null; variant?: string | null; preorder?: boolean }[];
 };
 const STATUSES = ["PENDING", "CONFIRMED", "PROCESSING", "PACKED", "SHIPPED", "DELIVERED", "CANCELLED", "RETURNED", "ON_HOLD"];
-const TAB_GROUPS: Record<string, string[]> = {
-  ALL: [], PENDING: ["PENDING"], CONFIRMED: ["CONFIRMED"], READY: READY_TO_SEND_STATUSES,
-  ACTIVE: ["PROCESSING", "PACKED", "SHIPPED"], ON_HOLD: ["ON_HOLD"],
-  DELIVERED: ["DELIVERED"], CLOSED: ["CANCELLED", "RETURNED"],
-};
+/* Labels only — the matching itself lives in lib/admin-workflow.ts (orderTabWhere) and runs
+   in the query, so a tab reaches every order instead of just the loaded page. */
 const TABS: [string, string][] = [["ALL", "All"], ["PENDING", "Pending"], ["CONFIRMED", "Confirmed"], ["READY", "Ready to send"], ["ACTIVE", "Active"], ["ON_HOLD", "On Hold"], ["PREORDER", "Pre-order"], ["DELIVERED", "Delivered"], ["CLOSED", "Cancelled/Returned"]];
+/* The ?queue= value behind each tab, for links that must preserve the linked-queue view. */
+const TAB_QUEUE: Record<string, string> = { READY: "ready", PENDING: "pending", ON_HOLD: "hold" };
 
-export default function OrdersClient({ initial, initialTab = "ALL", initialQueue = "" }: { initial: O[]; initialTab?: string; initialQueue?: string }) {
+type Props = {
+  initial: O[];
+  initialTab?: string;
+  initialQueue?: string;
+  page: number;
+  pages: number;
+  total: number;
+  counts: Record<string, number>;
+  pageSize: number;
+};
+
+export default function OrdersClient({ initial, initialTab = "ALL", initialQueue = "", page, pages, total, counts, pageSize }: Props) {
   const router = useRouter();
   const [q, setQ] = useState("");
-  const [tab, setTab] = useState(TABS.some(([key]) => key === initialTab) ? initialTab : "ALL");
+  /* The tab is owned by the URL (the server filters on it), so this mirrors the prop rather
+     than being editable — there is no local-only tab state left to drift out of sync. */
+  const tab = TABS.some(([key]) => key === initialTab) ? initialTab : "ALL";
   const [payment, setPayment] = useState("");
   const [dateFilter, setDateFilter] = useState("");
   const [zone, setZone] = useState("");
@@ -78,10 +89,10 @@ export default function OrdersClient({ initial, initialTab = "ALL", initialQueue
   const filterCount = Number(!!payment) + Number(!!dateFilter) + Number(!!zone);
   const resetFilters = () => { setPayment(""); setDateFilter(""); setZone(""); };
 
+  /* Tab filtering happens in the query (lib/admin-workflow.ts orderTabWhere), so this only
+     narrows the CURRENT PAGE by the secondary filters. That is deliberate: search, payment,
+     date and zone stay instant, and the summary line says how many rows on this page match. */
   const list = useMemo(() => orders.filter((o) => {
-    if (tab === "READY" && !isReadyToSend(o)) return false;
-    if (tab === "PREORDER") { if (!(o.items || []).some((i) => i.preorder)) return false; }
-    else { const g = TAB_GROUPS[tab] || []; if (g.length && !g.includes(o.status)) return false; }
     if (payment && o.paymentStatus !== payment) return false;
     if (zone && o.area !== zone) return false;
     if (q.trim() && ![o.code, o.name, o.phone, o.courierConsignmentId || "", ...o.items.map((item) => item.title + " " + (item.variant || ""))].join(" ").toLowerCase().includes(q.trim().toLowerCase())) return false;
@@ -100,7 +111,16 @@ export default function OrdersClient({ initial, initialTab = "ALL", initialQueue
       }
     }
     return true;
-  }), [orders, q, tab, payment, dateFilter, zone]);
+  }), [orders, q, payment, dateFilter, zone]);
+
+  const hrefFor = (nextTab: string, nextPage = 1) => {
+    const params = new URLSearchParams();
+    params.set("tab", nextTab);
+    // keep a linked-queue view linked; never introduce ?queue= into the plain list
+    if (initialQueue && TAB_QUEUE[nextTab]) params.set("queue", TAB_QUEUE[nextTab]);
+    if (nextPage > 1) params.set("page", String(nextPage));
+    return withToken("/admin/orders?" + params.toString());
+  };
 
   const openOrder = (id: number) => router.push(withToken("/admin/orders/" + id));
 
@@ -179,7 +199,7 @@ export default function OrdersClient({ initial, initialTab = "ALL", initialQueue
   return (
     <section className="orders-page" aria-label="Orders management">
       <div className="admin-top orders-heading">
-        <h1>Orders <span className="orders-count">{initial.length}</span></h1>
+        <h1>Orders <span className="orders-count">{total}</span></h1>
         <div className="admin-actions">
           <button className="abtn orders-export" onClick={exportCsv}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="M12 3v12m-5-5 5 5 5-5M4 16v5h16v-5" /></svg>
@@ -187,7 +207,16 @@ export default function OrdersClient({ initial, initialTab = "ALL", initialQueue
           </button>
         </div>
       </div>
-      {initialQueue && <p className="orders-queue-context">Showing the latest {initial.length} {initialQueue} orders (up to 200). Tab counts reflect this loaded queue. <Link href={withToken("/admin/orders")}>View all orders</Link></p>}
+      <p className="orders-queue-context">
+        {total === 0
+          ? <>No orders in this tab yet.</>
+          : <>Showing {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, total)} of {total} orders
+            {tab !== "ALL" && <> in this tab</>}
+            {pages > 1 && <> · page {page} of {pages}</>}
+            {initialQueue && <> · {initialQueue} queue</>}
+            . Payment, date and zone filters apply to this page only — narrow the tab, or use the sidebar search, to reach an older order.</>}
+        {initialQueue && <> <Link href={withToken("/admin/orders")}>View all orders</Link></>}
+      </p>
       {sel.size > 0 && <fieldset className="orders-bulk" disabled={busy || rowBusy !== null}>
             <legend>{sel.size} selected</legend>
             <select className="abtn" defaultValue="" onChange={(e) => e.target.value && bulk("status", e.target.value)}>
@@ -248,12 +277,14 @@ export default function OrdersClient({ initial, initialTab = "ALL", initialQueue
         </div>
         <div className="orders-status-tabs" role="group" aria-label="Filter orders by status">
           {TABS.map(([key, label]) => {
-            const n = key === "ALL" ? initial.length : orders.filter((o) => key === "PREORDER" ? (o.items || []).some((i) => i.preorder) : key === "READY" ? isReadyToSend(o) : TAB_GROUPS[key].includes(o.status)).length;
+            // counts come from the server for the whole tab, not from the rows on this page
+            const n = counts[key] || 0;
             const active = tab === key;
-            return <button key={key} className={"orders-status-tab" + (active ? " is-active" : "")} aria-pressed={active} onClick={() => { if ((initialQueue || key === "READY") && key !== tab) {
-              const queue = key === "READY" ? "ready" : key === "PENDING" ? "pending" : key === "ON_HOLD" ? "hold" : "";
-              router.push(withToken("/admin/orders?tab=" + key + (queue ? "&queue=" + queue : "")));
-            } else setTab(key); }}>{label} <span style={{ opacity: 0.65 }}>({n})</span></button>;
+            return <button key={key} className={"orders-status-tab" + (active ? " is-active" : "")} aria-pressed={active} onClick={() => {
+              if (key === tab) return;
+              // every tab is a real page now, so always navigate (and go back to page 1)
+              router.push(hrefFor(key, 1));
+            }}>{label} <span style={{ opacity: 0.65 }}>({n})</span></button>;
           })}
         </div>
         <div id="orders-extra-filters" className="orders-extra-filters" hidden={!filtersOpen}>
@@ -282,7 +313,7 @@ export default function OrdersClient({ initial, initialTab = "ALL", initialQueue
         <span role="status">{list.length} {list.length === 1 ? "order" : "orders"}{sel.size > 0 ? ` / ${sel.size} selected` : ""}</span>
       </div>
       <div className="orders-mobile-list" aria-label="Order cards">
-        {list.length === 0 && <div className="orders-empty"><b>No orders found</b><p>Try another search or change your filters.</p><button className="abtn" onClick={() => { resetFilters(); setQ(""); setTab("ALL"); }}>Reset all filters</button></div>}
+        {list.length === 0 && <div className="orders-empty"><b>No orders found</b><p>{total === 0 ? "There are no orders in this tab yet." : "None of the orders on this page match the current filters."}</p><button className="abtn" onClick={() => { resetFilters(); setQ(""); router.push(withToken("/admin/orders")); }}>Reset all filters</button></div>}
         {list.map((o) => (
           <article className={"order-mobile-card" + (sel.has(o.id) ? " is-selected" : "")} key={o.id} aria-label={"Order " + o.code}>
             <div className="order-mobile-head">
@@ -382,6 +413,13 @@ export default function OrdersClient({ initial, initialTab = "ALL", initialQueue
           </table>
         </div>
       </div>
+      {pages > 1 && (
+        <nav className="orders-pager" aria-label="Order pages">
+          <button type="button" className="abtn" disabled={page <= 1} onClick={() => router.push(hrefFor(tab, page - 1))}>&larr; Previous</button>
+          <span aria-live="polite">Page {page} of {pages}</span>
+          <button type="button" className="abtn" disabled={page >= pages} onClick={() => router.push(hrefFor(tab, page + 1))}>Next &rarr;</button>
+        </nav>
+      )}
       {busy && <div className="toast">Working…</div>}
     </section>
   );

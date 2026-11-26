@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { getSettings, envFallback } from "@/lib/settings";
 import { assessRisk } from "@/lib/risk";
 import { sendCapi } from "@/lib/capi";
+import { sendTikTokEvent } from "@/lib/tiktok";
 import { detectSource, getClientIp } from "@/lib/ua";
 import { rateLimit } from "@/lib/auth";
 import { orderCode } from "@/lib/slug";
@@ -33,6 +34,11 @@ export async function POST(req: Request) {
     const manualCfg = (await getSettings()).checkout?.manualPayments || {};
     const MANUAL = { NAGAD: manualCfg.nagad?.enabled, BKASH: manualCfg.bkash?.enabled, BANK: manualCfg.bank?.enabled };
     const trxId = typeof body.trxId === "string" ? body.trxId.trim().slice(0, 64) : "";
+    /* Which number the customer sent the money from. Admin needs it to find the row in the
+       bKash/Nagad statement — a TrxID alone is hard to match when ten orders are pending.
+       Free-form on purpose (with a length cap): senders type "017...", "+88017..." or
+       "017... (personal)". */
+    const senderNumber = typeof body.senderNumber === "string" ? body.senderNumber.trim().slice(0, 32) : "";
     const purchaseEventId = typeof body.purchaseEventId === "string" ? body.purchaseEventId.slice(0, 128) : undefined;
     const cleanPhone = normalizeBDPhone(String(body.phone || ""));
     const errors: Record<string, string> = {};
@@ -47,8 +53,18 @@ export async function POST(req: Request) {
     if (body.captureKey != null && !captureHash) throw new RecoveryError("Invalid checkout session");
 
     const ip = getClientIp(req);
-    if (!rateLimit("checkout:" + ip, 10, 10 * 60 * 1000)) {
+    /* Ad traffic in Bangladesh mostly arrives through carrier-grade NAT: thousands of
+       customers can share one public IP (GP/Robi/Banglalink mobile). The old cap was 10
+       orders per 10 minutes PER IP, which is fewer orders than a single busy shop hours-
+       long ad spike produces — real customers were being told "Too many attempts" and
+       abandoning a paid click. The cap now sits well above organic + ad volume, and the
+       per-phone cap below is what actually stops an order-spam script. */
+    if (!rateLimit("checkout:" + ip, 120, 10 * 60 * 1000)) {
       return NextResponse.json({ error: "Too many attempts. Please try again in a few minutes." }, { status: 429 });
+    }
+    // one phone cannot place more than 3 orders inside 10 minutes (a real customer never does)
+    if (!rateLimit("checkout-phone:" + cleanPhone, 3, 10 * 60 * 1000)) {
+      return NextResponse.json({ error: "Too many orders from this number. Please try again later." }, { status: 429 });
     }
     const { ensureExtraTables } = await import("@/lib/db-ensure");
     await ensureExtraTables();
@@ -138,8 +154,15 @@ export async function POST(req: Request) {
         data: {
           code: "TEMP-" + crypto.randomUUID(), name, phone: cleanPhone, email: email || null,
           address, area, notes: notes || null,
-          subtotal, discount, comboDiscount: comboSavings, giftDiscount: giftSavings || 0, deliveryFee, total, couponCode: appliedCode, capiPurchaseSentAt: new Date(),
-          paymentMethod, paymentTrxId: paymentMethod === "COD" ? null : trxId, paymentStatus: "PENDING", status: risk.level === "HIGH" ? "ON_HOLD" : "PENDING",
+          subtotal, discount, comboDiscount: comboSavings, giftDiscount: giftSavings || 0, deliveryFee, total, couponCode: appliedCode,
+          /* capiPurchaseSentAt is deliberately NOT set here. It is the "already sent" flag for
+             the server-side Purchase below; writing it at creation time made that guard always
+             false, so the direct CAPI/TikTok call from this route never ran (only the
+             browser-triggered /api/track/event copy went out). It is stamped right before the
+             send instead, which is the check-and-set the comment below describes. */
+          paymentMethod, paymentTrxId: paymentMethod === "COD" ? null : trxId,
+          paymentSenderNumber: paymentMethod === "COD" ? null : senderNumber || null,
+          paymentStatus: "PENDING", status: risk.level === "HIGH" ? "ON_HOLD" : "PENDING",
           riskLevel: risk.level, riskFlags: risk.flags.join(", ") || null,
           source: recovered ? "Recovered" : detectSource(attribution), attribution: Object.keys(attribution).length ? JSON.stringify(attribution) : null,
           channel: deployChannel(), ip, customerId: customer.id, items: { create: orderItems },
@@ -175,6 +198,18 @@ export async function POST(req: Request) {
           num_items: orderItems.reduce((a, i) => a + i.qty, 0),
           content_ids: orderItems.map((i) => String(i.productId)),
           contents: orderItems.map((i) => ({ id: String(i.productId), quantity: i.qty, item_price: i.price })),
+        },
+      }).catch(() => {});
+      /* TikTok Events API — same event_id as the thank-you page's ttq.track('Purchase'),
+         so the browser and server copies of the sale collapse into one conversion. */
+      sendTikTokEvent({
+        event: "Purchase",
+        eventId: purchaseEventId || `srv_purchase_${order.id}`,
+        eventSourceUrl: req.headers.get("referer") || undefined,
+        userData: { phone: cleanPhone, email: email || undefined, externalId: cleanPhone, clientIp: ip, userAgent: req.headers.get("user-agent") || undefined },
+        properties: {
+          currency: "BDT", value: total, content_type: "product", order_id: code,
+          contents: orderItems.map((i) => ({ content_id: String(i.productId), content_type: "product", price: i.price, quantity: i.qty })),
         },
       }).catch(() => {});
     }

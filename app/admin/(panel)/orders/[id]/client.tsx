@@ -569,6 +569,9 @@ export default function OrderDetailClient({ initial, nav }: { initial: Order; na
                 {(o as any).paymentTrxId && (
                   <div style={{ marginTop: 6, fontSize: 12.5, color: "var(--muted)" }}>TrxID: <b style={{ color: "var(--ad-text)" }}>{(o as any).paymentTrxId}</b> <span style={{ fontSize: 11 }}>(verify, then mark PAID)</span></div>
                 )}
+                {(o as any).paymentSenderNumber && (
+                  <div style={{ marginTop: 4, fontSize: 12.5, color: "var(--muted)" }}>Paid from: <b style={{ color: "var(--ad-text)" }}>{(o as any).paymentSenderNumber}</b> <span style={{ fontSize: 11 }}>(match against the app statement)</span></div>
+                )}
               </div>
               <div className="af">
                 <label>Admin Note</label>

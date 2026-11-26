@@ -11,7 +11,7 @@ const assert = require('node:assert/strict');
 const { loader } = require('./load-ts.cjs');
 
 const {
-  sanitizeHtml, safeCssValue, safeCssFontStack, safeCssInteger,
+  sanitizeHtml, safeCssValue, safeCssFontStack, safeCssInteger, safeCssFontSize, safeCssLineHeight,
   safeGoogleTagId, safeAspectRatio,
 } = loader()('lib/sanitize.ts');
 
@@ -208,6 +208,20 @@ test('integer and ratio settings are coerced or dropped', () => {
   assert.equal(safeCssInteger('12px}</style>', ''), '');
   assert.equal(safeCssInteger(-5), '');
   assert.equal(safeCssInteger(NaN), '');
+  // PDP description size: decimals kept, out-of-range dropped (fallback, never clamped)
+  assert.equal(safeCssFontSize(14), '14');
+  assert.equal(safeCssFontSize('13.5'), '13.5');
+  assert.equal(safeCssFontSize(9), '');
+  assert.equal(safeCssFontSize(40), '');
+  assert.equal(safeCssFontSize('14px}</style>', '14'), '14');
+  assert.equal(safeCssFontSize(NaN, '14'), '14');
+  // line-height: unitless, 1.0-2.0, two decimals
+  assert.equal(safeCssLineHeight(1.45), '1.45');
+  assert.equal(safeCssLineHeight('1.2'), '1.2');
+  assert.equal(safeCssLineHeight(0.8), '');
+  assert.equal(safeCssLineHeight(3), '');
+  assert.equal(safeCssLineHeight('1.5;}</style>', '1.45'), '1.45');
+  assert.equal(safeCssLineHeight(NaN, '1.45'), '1.45');
   assert.equal(safeAspectRatio('3:4'), '3 / 4');
   assert.equal(safeAspectRatio('16/9'), '16 / 9');
   assert.equal(safeAspectRatio('1x1'), '1 / 1');

@@ -549,11 +549,13 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
             </button>
           </div>
 
-          <div className="pdp-meta">
-            <div><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M1 3h15v13H1zM16 8h4l3 3v5h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>Cash on Delivery available all over Bangladesh</div>
-            <div><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>Inside Dhaka 1–2 days · Outside Dhaka 2–4 days</div>
-            <div><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M3 12a9 9 0 1 0 9-9 9 9 0 0 0-7.6 4.2M3 3v5h5"/></svg>Check on delivery &amp; exchange within 2 days</div>
-            {product.sku && <div style={{ fontSize: 12 }}>SKU: {product.sku}</div>}
+          {/* Trust row — three bordered cards, as in the reference design. The old version was
+              a muted fine-print list that read as a footnote; cards are scannable at a glance
+              and answer the three questions a COD shopper actually has before tapping Buy. */}
+          <div className="pdp-trust" aria-label="Delivery and payment promises">
+            <div className="pdp-trust-card"><b>Easy return</b><span>Before the rider leaves</span></div>
+            <div className="pdp-trust-card"><b>Check on delivery</b><span>Export quality product</span></div>
+            <div className="pdp-trust-card"><b>Easy exchange</b><span>Within 2 days</span></div>
           </div>
         </div>
       </div>
@@ -562,11 +564,17 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
           native <details>/<summary> on purpose: no state, no JS round-trip, keyboard + screen-reader
           semantics for free, and — important — the full text ships inside the server HTML, so collapsing
           it visually does not hide it from Google or from the SSR render. */}
-      <section className="section" style={{ padding: "10px 0 46px" }}>
-        <div className="section-head"><div><div className="eyebrow">The details</div><h2>About this product</h2></div></div>
+      {/* No "About this product" heading: the three rows are self-explanatory and a section
+          title here only pushed the description further below the fold. */}
+      <section className="section" style={{ padding: "16px 0 0" }}>
         <div className="acc">
+          {/* Description starts OPEN — it is the reason most visitors are on this page, and
+              the reference design shows it expanded with a − on the right. It is still a
+              normal <details>, so the − collapses it and the + brings it back. `open` only
+              seeds the attribute: React will not re-apply it on a re-render, so a visitor who
+              closes it is not forced back open. */}
           {(product.description || product.shortDesc) && (
-            <details className="acc-item">
+            <details className="acc-item" open>
               <summary><span>Description</span><i className="acc-ico" aria-hidden="true" /></summary>
               <div className="acc-body">
                 {product.description ? <FormattedDescription text={product.description} /> : <p>{product.shortDesc}</p>}
@@ -651,7 +659,12 @@ export default function ProductPageClient({ product, sizeChartHtml, sizeChartIma
 
 
 /* Lightweight markdown-ish renderer for admin-formatted descriptions:
-   ## heading · **bold** · _italic_ · ~~small~~ · • / ✓ list items */
+   ## heading · **bold** · _italic_ · ~~small~~ · • / ✓ list items
+
+   Font size, line height and the gaps between blocks are all `em` off --pdp-desc-size (Admin →
+   Settings → Theme → "Description text size"), so changing that one number shrinks the text and
+   pulls the spacing in with it instead of leaving the old gaps behind. Default is 14px, a notch
+   below the 15.5px body copy, because the description is long-form and usually has no images. */
 function FormattedDescription({ text }: { text: string }) {
   const inline = (s: string) =>
     s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
@@ -663,10 +676,10 @@ function FormattedDescription({ text }: { text: string }) {
   const flush = () => {
     if (list.length) {
       blocks.push(
-        <ul key={"l" + blocks.length} style={{ margin: "8px 0", paddingLeft: 6, listStyle: "none", display: "grid", gap: 6 }}>
+        <ul key={"l" + blocks.length} className="pdp-desc-list">
           {list.map((li, i) => (
-            <li key={i} style={{ display: "flex", gap: 10, alignItems: "flex-start", color: "var(--text)", fontSize: 15 }}>
-              <span style={{ color: "var(--accent)", fontWeight: 700, flex: "none" }}>{li.icon}</span>
+            <li key={i} className="pdp-desc-li">
+              <span className="pdp-desc-bullet">{li.icon}</span>
               <span dangerouslySetInnerHTML={{ __html: inline(li.text) }} />
             </li>
           ))}
@@ -677,11 +690,11 @@ function FormattedDescription({ text }: { text: string }) {
   };
   text.split("\n").forEach((raw, i) => {
     const line = raw.trimEnd();
-    if (/^##\s+/.test(line)) { flush(); blocks.push(<h3 key={i} style={{ fontSize: 20, margin: "22px 0 6px", fontFamily: "var(--font-head)" }}>{line.replace(/^##\s+/, "")}</h3>); }
+    if (/^##\s+/.test(line)) { flush(); blocks.push(<h3 key={i} className="pdp-desc-h">{line.replace(/^##\s+/, "")}</h3>); }
     else if (/^[•✓]\s+/.test(line)) { list.push({ icon: line[0], text: line.replace(/^[•✓]\s+/, "") }); }
     else if (line.trim() === "") { flush(); }
-    else { flush(); blocks.push(<p key={i} style={{ marginBottom: 10, color: "var(--muted)", fontSize: 15.5, lineHeight: 1.7 }} dangerouslySetInnerHTML={{ __html: inline(line) }} />); }
+    else { flush(); blocks.push(<p key={i} className="pdp-desc-p" dangerouslySetInnerHTML={{ __html: inline(line) }} />); }
   });
   flush();
-  return <div style={{ maxWidth: 720 }}>{blocks}</div>;
+  return <div className="pdp-desc-body">{blocks}</div>;
 }

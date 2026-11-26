@@ -4,7 +4,7 @@ import { requirePerm } from "@/lib/admin-guard";
 import { slugify } from "@/lib/slug";
 import { logAudit } from "@/lib/auth";
 import { productSearchWhere } from "@/lib/search";
-import { parseProductInput, ProductInputError } from "@/lib/product-input";
+import { parseProductInput, ProductInputError, assertProductRefs } from "@/lib/product-input";
 
 async function syncCollection(productId: number, slug: string, want: boolean) {
   const col = await db.collection.findUnique({ where: { slug } });
@@ -41,6 +41,10 @@ export async function POST(req: Request) {
     if (!slug) throw new ProductInputError("Title or slug must contain letters or numbers");
     const exists = await db.product.findUnique({ where: { slug } });
     const finalSlug = exists ? slug + "-" + Date.now().toString(36) : slug;
+    // a deleted or hand-typed category used to surface as a Prisma FK error (bare 500)
+    await assertProductRefs(input, (table, refId) => (table === "category"
+      ? db.category.findUnique({ where: { id: refId }, select: { id: true } })
+      : db.colorGroup.findUnique({ where: { id: refId }, select: { id: true } })).then((row) => !!row));
     const product = await db.product.create({
       data: {
         title: input.title,
@@ -85,7 +89,10 @@ export async function POST(req: Request) {
       },
       include: { images: true, variants: true },
     });
-    await syncCollection(product.id, "new-arrivals", true);
+    // POST used to always add the product to "new-arrivals" regardless of the
+    // isNew checkbox (only PUT respected it) — every new product landed in the
+    // New Arrivals collection, including ones explicitly left unticked.
+    await syncCollection(product.id, "new-arrivals", input.isNew);
     await syncCollection(product.id, "best-sellers", input.isBestSeller);
     await logAudit(g.user.email, "PRODUCT_CREATED", `${product.title} (#${product.id})`);
     return NextResponse.json({ ok: true, product });

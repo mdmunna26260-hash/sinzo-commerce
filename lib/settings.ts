@@ -42,6 +42,8 @@ export function publicSettings(s: SettingsMap) {
     combo: s.combo ? { enabled: s.combo.enabled !== false, deptTiers: s.combo.deptTiers || [] } : { enabled: true, deptTiers: [] },
     integrations: {
       metaPixelId: s.integrations?.metaPixelId || process.env.META_PIXEL_ID || "",
+      // TikTok Pixel id is public (it is in the base snippet); the token is server-only
+      tiktokPixelId: s.integrations?.tiktokPixelId || process.env.TIKTOK_PIXEL_ID || "",
       ga4Id: s.integrations?.ga4Id || process.env.GA4_MEASUREMENT_ID || "",
       gtmId: s.integrations?.gtmId || process.env.GTM_ID || "",
       // Google (Gmail) login — public id only, the secret never leaves the server
@@ -66,5 +68,8 @@ export function envFallback(s: SettingsMap): SettingsMap {
   out.integrations.metaAccessToken = out.integrations.metaAccessToken || process.env.META_ACCESS_TOKEN || "";
   out.integrations.metaPixelId = out.integrations.metaPixelId || process.env.META_PIXEL_ID || "";
   out.integrations.metaTestEventCode = out.integrations.metaTestEventCode || process.env.META_TEST_EVENT_CODE || "";
+  out.integrations.tiktokPixelId = out.integrations.tiktokPixelId || process.env.TIKTOK_PIXEL_ID || "";
+  out.integrations.tiktokAccessToken = out.integrations.tiktokAccessToken || process.env.TIKTOK_ACCESS_TOKEN || "";
+  out.integrations.tiktokTestEventCode = out.integrations.tiktokTestEventCode || process.env.TIKTOK_TEST_EVENT_CODE || "";
   return out;
 }

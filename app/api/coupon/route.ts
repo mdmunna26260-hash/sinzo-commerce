@@ -14,7 +14,11 @@ export const dynamic = "force-dynamic";
    ceiling. A real shopper applies a coupon a handful of times per session. */
 const BURST_MAX = 8;
 const BURST_WINDOW = 60 * 1000;
-const HOURLY_MAX = 40;
+/* 40/hour per IP is a per-person number, but the key is an IP — and in Bangladesh a
+   carrier NAT puts hundreds of shoppers behind one. During a paid campaign that meant
+   "Too many coupon attempts" for customers who typed one code. Brute force stays
+   impractical: 200/hour is still ~0.00001% of the code space per day. */
+const HOURLY_MAX = 200;
 const HOURLY_WINDOW = 60 * 60 * 1000;
 
 /* Codes are created by the admin panel as uppercase alphanumerics and dashes. Anything

@@ -56,6 +56,11 @@ export async function DELETE(req: Request, props: Ctx) {
   if ("res" in g) return g.res;
   // children are re-homed to main (FK ON DELETE SET NULL); products lose the link
   // (Product.category is an optional relation → SetNull). Never deletes products.
-  await db.category.delete({ where: { id: Number(params.id) } }).catch(() => {});
+  const id = Number(params.id);
+  if (!Number.isSafeInteger(id) || id <= 0) return NextResponse.json({ error: "Invalid category" }, { status: 400 });
+  const deleted = await db.category.deleteMany({ where: { id } }).catch(() => null);
+  if (!deleted) return NextResponse.json({ error: "Could not delete the category" }, { status: 500 });
+  // a swallowed failure used to report ok for a category that is still live
+  if (!deleted.count) return NextResponse.json({ error: "Category not found" }, { status: 404 });
   return NextResponse.json({ ok: true });
 }
